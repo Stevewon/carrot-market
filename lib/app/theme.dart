@@ -72,7 +72,7 @@ final ThemeData eggplantTheme = ThemeData(
     ),
     hintStyle: const TextStyle(color: EggplantColors.textTertiary),
   ),
-  cardTheme: CardTheme(
+  cardTheme: CardThemeData(
     elevation: 0,
     color: Colors.white,
     shape: RoundedRectangleBorder(
