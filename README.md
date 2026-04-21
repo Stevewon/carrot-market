@@ -6,7 +6,29 @@
 [![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)]()
 
-> 💡 **APK 자동 빌드 설정이 필요해요!** → [`_github_setup/README.md`](./_github_setup/README.md) 참고
+## 📱 APK 다운로드 (모바일 바로 설치)
+
+> 🔧 **첫 설정 필요**: [`_github_setup/README.md`](./_github_setup/README.md) 가이드대로 **한 번만** 워크플로우 파일을 추가하세요. (봇이 직접 `.github/workflows/` 를 만들 수 없는 GitHub 정책 때문)
+
+그 뒤에는 이렇게 됩니다:
+
+👉 **[최신 APK 다운로드 (Releases 페이지)](https://github.com/Stevewon/carrot-market/releases/latest)** ⭐
+
+모바일 브라우저에서 위 링크 → `eggplant-universal-*.apk` 탭 → 설치하면 끝! 📥
+
+<details>
+<summary>📖 설치/빌드 상세 안내</summary>
+
+- **실물 Android 폰**: `eggplant-universal-*.apk` 다운로드 (모든 기기 호환)
+- **최신폰 (2019년↑)**: `eggplant-arm64-*.apk` (용량 30% 작음)
+- **에뮬레이터 (x86)**: `eggplant-x86_64-*.apk`
+- **자동 빌드 트리거**: `main` 브랜치에 푸시할 때마다 GitHub Actions가 자동 빌드
+- **수동 빌드 실행**: Actions 탭 → 🍆 Build Android APK → Run workflow
+- **서버 주소 변경**: Settings → Variables → `API_BASE` / `SOCKET_URL` 에 PC의 LAN IP (예: `http://192.168.0.15:3001`) 입력 후 재빌드
+
+> ⚠️ 처음 설치 시 Android에서 "알 수 없는 출처 앱 허용"이 필요합니다.
+
+</details>
 
 ---
 
