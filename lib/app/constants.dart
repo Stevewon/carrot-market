@@ -1,14 +1,26 @@
 /// App-wide constants
 class AppConfig {
   /// Backend server URL. Override with --dart-define=API_BASE=...
+  ///
+  /// Default: `http://localhost:3001`
+  /// This works with `adb reverse tcp:3001 tcp:3001` which forwards the
+  /// emulator's localhost to the host PC's localhost. Bypasses all
+  /// Windows firewall / 10.0.2.2 routing issues.
+  ///
+  /// If you prefer the classic Android emulator approach without adb
+  /// reverse, run:
+  ///   flutter run --dart-define=API_BASE=http://10.0.2.2:3001 \
+  ///              --dart-define=SOCKET_URL=http://10.0.2.2:3001
+  /// Or for a real phone on the same Wi-Fi, use your PC's LAN IP:
+  ///   flutter run --dart-define=API_BASE=http://192.168.x.x:3001 ...
   static const String apiBase = String.fromEnvironment(
     'API_BASE',
-    defaultValue: 'http://10.0.2.2:3001', // Android emulator -> host localhost
+    defaultValue: 'http://localhost:3001',
   );
 
   static const String socketUrl = String.fromEnvironment(
     'SOCKET_URL',
-    defaultValue: 'http://10.0.2.2:3001',
+    defaultValue: 'http://localhost:3001',
   );
 }
 
