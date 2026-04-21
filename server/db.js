@@ -174,6 +174,14 @@ const handlers = [
     },
   },
   {
+    match: /^UPDATE products SET chat_count = chat_count \+ 1 WHERE id = \?$/i,
+    run: (id) => {
+      const p = store.products.find((x) => x.id === id);
+      if (p) { p.chat_count = (p.chat_count || 0) + 1; scheduleSave(); return { changes: 1 }; }
+      return { changes: 0 };
+    },
+  },
+  {
     match: /^DELETE FROM products WHERE id = \?$/i,
     run: (id) => {
       const before = store.products.length;
