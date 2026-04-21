@@ -3,9 +3,10 @@
 > **QR 기반 완전 익명 중고거래 마켓**
 > 전화번호도, 이메일도, 실명도 필요 없어요. QR 코드 하나면 충분합니다.
 
-[![Build APK](https://github.com/Stevewon/carrot-market/actions/workflows/build-apk.yml/badge.svg)](https://github.com/Stevewon/carrot-market/actions/workflows/build-apk.yml)
 [![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)]()
+
+> 💡 **APK 자동 빌드 설정이 필요해요!** → [`_github_setup/README.md`](./_github_setup/README.md) 참고
 
 ---
 
