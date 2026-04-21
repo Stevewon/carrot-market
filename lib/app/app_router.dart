@@ -1,0 +1,70 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import '../services/auth_service.dart';
+import '../screens/splash_screen.dart';
+import '../screens/onboarding_screen.dart';
+import '../screens/login_screen.dart';
+import '../screens/home_shell.dart';
+import '../screens/product_detail_screen.dart';
+import '../screens/product_create_screen.dart';
+import '../screens/qr_screen.dart';
+import '../screens/qr_scan_screen.dart';
+import '../screens/chat_screen.dart';
+import '../screens/region_select_screen.dart';
+
+GoRouter createRouter(AuthService auth) {
+  return GoRouter(
+    initialLocation: '/splash',
+    refreshListenable: auth,
+    redirect: (context, state) {
+      final loggedIn = auth.isLoggedIn;
+      final path = state.matchedLocation;
+      final onAuthPages = path == '/login' || path == '/onboarding';
+      final onSplash = path == '/splash';
+
+      if (onSplash) return null;
+      if (!loggedIn && !onAuthPages) return '/onboarding';
+      if (loggedIn && onAuthPages) return '/';
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
+      GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
+      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(
+        path: '/',
+        builder: (_, state) => HomeShell(
+          initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '0') ?? 0,
+        ),
+      ),
+      GoRoute(
+        path: '/product/new',
+        builder: (_, __) => const ProductCreateScreen(),
+      ),
+      GoRoute(
+        path: '/product/:id',
+        builder: (_, state) => ProductDetailScreen(
+          productId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(path: '/qr', builder: (_, __) => const QrScreen()),
+      GoRoute(path: '/qr/scan', builder: (_, __) => const QrScanScreen()),
+      GoRoute(
+        path: '/chat/:roomId',
+        builder: (_, state) => ChatScreen(
+          roomId: state.pathParameters['roomId']!,
+          peerNickname: state.uri.queryParameters['peer'] ?? '익명',
+          productTitle: state.uri.queryParameters['product'],
+        ),
+      ),
+      GoRoute(
+        path: '/region',
+        builder: (_, __) => const RegionSelectScreen(),
+      ),
+    ],
+    errorBuilder: (context, state) => Scaffold(
+      body: Center(child: Text('페이지를 찾을 수 없어요: ${state.error}')),
+    ),
+  );
+}

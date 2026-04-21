@@ -1,0 +1,65 @@
+name: eggplant
+description: "Eggplant - QR 기반 익명 중고거래 마켓 🍆"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+  # Routing
+  go_router: ^14.2.7
+
+  # State Management
+  provider: ^6.1.2
+
+  # Network
+  http: ^1.2.2
+  dio: ^5.7.0
+  socket_io_client: ^2.0.3+1
+
+  # Local Storage (for settings only, not chat)
+  shared_preferences: ^2.3.2
+  flutter_secure_storage: ^9.2.2
+
+  # QR Code
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^5.2.3
+
+  # Image
+  image_picker: ^1.1.2
+  cached_network_image: ^3.4.1
+
+  # UUID for anonymous device ID
+  uuid: ^4.5.0
+
+  # Utils
+  intl: ^0.19.0
+  jwt_decoder: ^2.0.1
+
+  # Screen security (prevent screenshots in chat)
+  flutter_windowmanager: ^0.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/eggplant-mascot.png"
+  adaptive_icon_background: "#faf5ff"
+  adaptive_icon_foreground: "assets/images/eggplant-mascot.png"
