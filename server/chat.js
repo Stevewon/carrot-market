@@ -27,9 +27,12 @@ export function attachChat(httpServer) {
 
   // Map<roomId, Set<socketId>>
   const rooms = new Map();
+  // Map<userId, socketId> - for direct user addressing (calls)
+  const userSockets = new Map();
 
   io.on('connection', (socket) => {
     console.log(`[chat] + ${socket.nickname} (${socket.userId}) connected`);
+    userSockets.set(socket.userId, socket.id);
 
     socket.on('join_room', ({ room_id, peer_nickname, product_id }) => {
       if (!room_id) return;
@@ -75,8 +78,90 @@ export function attachChat(httpServer) {
       io.to(room_id).emit('message', msg);
     });
 
+    // ========================================================
+    // 📞 VOICE CALL SIGNALING (WebRTC)
+    // - Server only relays SDP offers/answers and ICE candidates.
+    // - No audio data passes through the server (pure P2P).
+    // - Caller sends 'call_invite' → server forwards to callee
+    //   via their userId → callee's app shows incoming call UI.
+    // ========================================================
+
+    /** Incoming call request: caller → server → callee */
+    socket.on('call_invite', ({ to_user_id, call_id, caller_nickname }) => {
+      const targetSocketId = userSockets.get(to_user_id);
+      if (!targetSocketId) {
+        // Callee offline
+        socket.emit('call_failed', {
+          call_id,
+          reason: 'offline',
+          message: '상대방이 접속 중이 아니에요',
+        });
+        return;
+      }
+      io.to(targetSocketId).emit('call_incoming', {
+        call_id,
+        from_user_id: socket.userId,
+        caller_nickname: caller_nickname || socket.nickname,
+      });
+    });
+
+    /** Callee answers (accept/reject) */
+    socket.on('call_response', ({ to_user_id, call_id, accepted }) => {
+      const targetSocketId = userSockets.get(to_user_id);
+      if (!targetSocketId) return;
+      io.to(targetSocketId).emit('call_response', {
+        call_id,
+        accepted,
+        from_user_id: socket.userId,
+      });
+    });
+
+    /** WebRTC offer (from caller to callee) */
+    socket.on('webrtc_offer', ({ to_user_id, call_id, sdp }) => {
+      const targetSocketId = userSockets.get(to_user_id);
+      if (!targetSocketId) return;
+      io.to(targetSocketId).emit('webrtc_offer', {
+        call_id,
+        from_user_id: socket.userId,
+        sdp,
+      });
+    });
+
+    /** WebRTC answer (from callee to caller) */
+    socket.on('webrtc_answer', ({ to_user_id, call_id, sdp }) => {
+      const targetSocketId = userSockets.get(to_user_id);
+      if (!targetSocketId) return;
+      io.to(targetSocketId).emit('webrtc_answer', {
+        call_id,
+        from_user_id: socket.userId,
+        sdp,
+      });
+    });
+
+    /** ICE candidate exchange */
+    socket.on('webrtc_ice', ({ to_user_id, call_id, candidate }) => {
+      const targetSocketId = userSockets.get(to_user_id);
+      if (!targetSocketId) return;
+      io.to(targetSocketId).emit('webrtc_ice', {
+        call_id,
+        from_user_id: socket.userId,
+        candidate,
+      });
+    });
+
+    /** Either side ends the call */
+    socket.on('call_end', ({ to_user_id, call_id }) => {
+      const targetSocketId = userSockets.get(to_user_id);
+      if (!targetSocketId) return;
+      io.to(targetSocketId).emit('call_end', {
+        call_id,
+        from_user_id: socket.userId,
+      });
+    });
+
     socket.on('disconnect', () => {
       console.log(`[chat] - ${socket.nickname} disconnected`);
+      userSockets.delete(socket.userId);
       // Cleanup rosters
       for (const [roomId, set] of rooms) {
         if (set.delete(socket.id)) {

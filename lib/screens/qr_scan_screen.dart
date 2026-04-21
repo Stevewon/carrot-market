@@ -62,7 +62,10 @@ class _QrScanScreenState extends State<QrScanScreen> {
 
     final roomId = ChatService.roomIdFor(auth.user!.id, peerUserId);
     if (!mounted) return;
-    context.go('/chat/$roomId?peer=${Uri.encodeComponent(peerNickname)}');
+    context.go(
+      '/chat/$roomId?peer=${Uri.encodeComponent(peerNickname)}'
+      '&peerId=${Uri.encodeComponent(peerUserId)}',
+    );
   }
 
   void _showError(String msg) {

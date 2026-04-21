@@ -13,12 +13,14 @@ class ChatScreen extends StatefulWidget {
   final String roomId;
   final String peerNickname;
   final String? productTitle;
+  final String? peerUserId;
 
   const ChatScreen({
     super.key,
     required this.roomId,
     required this.peerNickname,
     this.productTitle,
+    this.peerUserId,
   });
 
   @override
@@ -114,6 +116,11 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         actions: [
           IconButton(
+            tooltip: '익명 음성통화',
+            icon: const Icon(Icons.call, color: EggplantColors.primary),
+            onPressed: () => _startVoiceCall(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.more_vert),
             onPressed: () => _showOptions(context),
           ),
@@ -138,6 +145,38 @@ class _ChatScreenState extends State<ChatScreen> {
           _InputBar(controller: _ctl, onSend: _send, connected: chat.connected),
         ],
       ),
+    );
+  }
+
+  /// Derive the peer's userId from the deterministic room ID.
+  /// roomId format: "userA_userB" or "userA_userB_productId"
+  /// where userA < userB (sorted).
+  String? _derivePeerUserId(String? myUserId) {
+    if (myUserId == null) return null;
+    if (widget.peerUserId != null && widget.peerUserId!.isNotEmpty) {
+      return widget.peerUserId;
+    }
+    // Typical UUID has 36 chars including 4 hyphens
+    final parts = widget.roomId.split('_');
+    for (final p in parts) {
+      if (p != myUserId && p.length >= 20) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  void _startVoiceCall(BuildContext context) {
+    final auth = context.read<AuthService>();
+    final peerId = _derivePeerUserId(auth.user?.id);
+    if (peerId == null || peerId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('상대방 정보를 찾을 수 없어요')),
+      );
+      return;
+    }
+    context.push(
+      '/call?peerId=$peerId&peer=${Uri.encodeComponent(widget.peerNickname)}',
     );
   }
 

@@ -22,6 +22,10 @@ class ChatService extends ChangeNotifier {
   bool get connected => _socket?.connected ?? false;
   List<ChatMessage> messagesFor(String roomId) => _roomMessages[roomId] ?? [];
 
+  /// Expose the underlying socket so CallService can share the same
+  /// signaling channel (no second connection needed).
+  IO.Socket? get socketForCalls => _socket;
+
   /// Start QR-based chat room.
   /// Generates a room ID from two user IDs (deterministic).
   static String roomIdFor(String userA, String userB, {String? productId}) {

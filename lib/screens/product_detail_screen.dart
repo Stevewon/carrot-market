@@ -60,7 +60,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     final roomId = ChatService.roomIdFor(user.id, p.sellerId, productId: p.id);
     context.push(
-      '/chat/$roomId?peer=${Uri.encodeComponent(p.sellerNickname)}&product=${Uri.encodeComponent(p.title)}',
+      '/chat/$roomId?peer=${Uri.encodeComponent(p.sellerNickname)}'
+      '&product=${Uri.encodeComponent(p.title)}'
+      '&peerId=${Uri.encodeComponent(p.sellerId)}',
     );
   }
 

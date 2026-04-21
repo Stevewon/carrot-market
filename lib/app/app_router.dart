@@ -11,6 +11,7 @@ import '../screens/product_create_screen.dart';
 import '../screens/qr_screen.dart';
 import '../screens/qr_scan_screen.dart';
 import '../screens/chat_screen.dart';
+import '../screens/call_screen.dart';
 import '../screens/region_select_screen.dart';
 
 GoRouter createRouter(AuthService auth) {
@@ -56,11 +57,20 @@ GoRouter createRouter(AuthService auth) {
           roomId: state.pathParameters['roomId']!,
           peerNickname: state.uri.queryParameters['peer'] ?? '익명',
           productTitle: state.uri.queryParameters['product'],
+          peerUserId: state.uri.queryParameters['peerId'],
         ),
       ),
       GoRoute(
         path: '/region',
         builder: (_, __) => const RegionSelectScreen(),
+      ),
+      GoRoute(
+        path: '/call',
+        builder: (_, state) => CallScreen(
+          peerUserId: state.uri.queryParameters['peerId'] ?? '',
+          peerNickname: state.uri.queryParameters['peer'] ?? '익명',
+          startImmediately: state.uri.queryParameters['incoming'] != '1',
+        ),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
