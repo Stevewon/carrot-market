@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +7,7 @@ import '../app/theme.dart';
 import '../models/chat_message.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
+import '../services/secure_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String roomId;
@@ -42,18 +41,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _secureScreen() async {
-    try {
-      // Prevent screenshots on Android for extra privacy
-      await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
-    } catch (_) {
-      // Not available on all platforms
-    }
+    // Prevent screenshots on Android for extra privacy
+    await SecureScreen.enable();
   }
 
   Future<void> _unsecureScreen() async {
-    try {
-      await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
-    } catch (_) {}
+    await SecureScreen.disable();
   }
 
   @override

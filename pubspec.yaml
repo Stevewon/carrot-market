@@ -42,8 +42,10 @@ dependencies:
   intl: ^0.19.0
   jwt_decoder: ^2.0.1
 
-  # Screen security (prevent screenshots in chat)
-  flutter_windowmanager: ^0.2.0
+  # Note: Screen security (FLAG_SECURE) is implemented natively in
+  # MainActivity.kt via MethodChannel (lib/services/secure_screen.dart).
+  # This avoids the flutter_windowmanager plugin which has AGP namespace
+  # compatibility issues.
 
 dev_dependencies:
   flutter_test:
