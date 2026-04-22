@@ -1,7 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../app/constants.dart';
 import '../app/theme.dart';
@@ -138,6 +141,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       height: 1.7,
                     ),
                   ),
+                  if (p.hasVideo) ...[
+                    const SizedBox(height: 20),
+                    const Text(
+                      '영상',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: EggplantColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _ProductVideo(product: p),
+                  ],
                   const SizedBox(height: 24),
                   Row(
                     children: [
@@ -270,7 +286,8 @@ class _ImageCarouselState extends State<_ImageCarousel> {
             );
           },
         ),
-        if (widget.images.length > 1)
+        if (widget.images.length > 1) ...[
+          // Page dots (bottom center)
           Positioned(
             bottom: 16,
             left: 0,
@@ -279,20 +296,43 @@ class _ImageCarouselState extends State<_ImageCarousel> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
                 widget.images.length,
-                (i) => Container(
+                (i) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
                   margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: 7,
+                  width: i == _index ? 18 : 7,
                   height: 7,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(4),
                     color: i == _index
                         ? Colors.white
-                        : Colors.white.withOpacity(0.4),
+                        : Colors.white.withOpacity(0.5),
                   ),
                 ),
               ),
             ),
           ),
+          // Page counter (top right) "1 / 5"
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.55),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${_index + 1} / ${widget.images.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -348,6 +388,144 @@ class _SellerRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ==================== Product Video (YouTube or MP4) ====================
+
+class _ProductVideo extends StatefulWidget {
+  final Product product;
+  const _ProductVideo({required this.product});
+
+  @override
+  State<_ProductVideo> createState() => _ProductVideoState();
+}
+
+class _ProductVideoState extends State<_ProductVideo> {
+  YoutubePlayerController? _ytCtl;
+  VideoPlayerController? _vpCtl;
+  ChewieController? _chewieCtl;
+  bool _initError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _setup();
+  }
+
+  Future<void> _setup() async {
+    try {
+      if (widget.product.isYouTubeVideo) {
+        final id = widget.product.youTubeId;
+        if (id.isEmpty) {
+          setState(() => _initError = true);
+          return;
+        }
+        _ytCtl = YoutubePlayerController(
+          initialVideoId: id,
+          flags: const YoutubePlayerFlags(
+            autoPlay: false,
+            mute: false,
+            enableCaption: true,
+          ),
+        );
+        if (mounted) setState(() {});
+      } else {
+        final raw = widget.product.videoUrl;
+        final url = raw.startsWith('http')
+            ? raw
+            : '${AppConfig.apiBase}${raw.startsWith('/') ? '' : '/'}$raw';
+        _vpCtl = VideoPlayerController.networkUrl(Uri.parse(url));
+        await _vpCtl!.initialize();
+        _chewieCtl = ChewieController(
+          videoPlayerController: _vpCtl!,
+          autoPlay: false,
+          looping: false,
+          aspectRatio: _vpCtl!.value.aspectRatio == 0
+              ? 16 / 9
+              : _vpCtl!.value.aspectRatio,
+          materialProgressColors: ChewieProgressColors(
+            playedColor: EggplantColors.primary,
+            handleColor: EggplantColors.primary,
+            backgroundColor: Colors.grey.shade300,
+            bufferedColor: Colors.grey.shade400,
+          ),
+          placeholder: Container(color: Colors.black),
+        );
+        if (mounted) setState(() {});
+      }
+    } catch (e) {
+      debugPrint('video setup error: $e');
+      if (mounted) setState(() => _initError = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ytCtl?.dispose();
+    _chewieCtl?.dispose();
+    _vpCtl?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_initError) {
+      return Container(
+        height: 180,
+        decoration: BoxDecoration(
+          color: EggplantColors.background,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text(
+            '영상을 불러올 수 없어요',
+            style: TextStyle(color: EggplantColors.textSecondary),
+          ),
+        ),
+      );
+    }
+
+    if (widget.product.isYouTubeVideo) {
+      if (_ytCtl == null) {
+        return const SizedBox(
+          height: 180,
+          child: Center(
+              child: CircularProgressIndicator(color: EggplantColors.primary)),
+        );
+      }
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: YoutubePlayer(
+          controller: _ytCtl!,
+          showVideoProgressIndicator: true,
+          progressIndicatorColor: EggplantColors.primary,
+          progressColors: const ProgressBarColors(
+            playedColor: EggplantColors.primary,
+            handleColor: EggplantColors.primary,
+          ),
+        ),
+      );
+    }
+
+    if (_chewieCtl == null ||
+        _vpCtl == null ||
+        !_vpCtl!.value.isInitialized) {
+      return const SizedBox(
+        height: 180,
+        child: Center(
+            child: CircularProgressIndicator(color: EggplantColors.primary)),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: AspectRatio(
+        aspectRatio: _vpCtl!.value.aspectRatio == 0
+            ? 16 / 9
+            : _vpCtl!.value.aspectRatio,
+        child: Chewie(controller: _chewieCtl!),
+      ),
     );
   }
 }

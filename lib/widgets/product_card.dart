@@ -24,7 +24,11 @@ class ProductCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Thumbnail(url: imageUrl, status: product.status),
+            _Thumbnail(
+              url: imageUrl,
+              status: product.status,
+              hasVideo: product.hasVideo,
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -122,8 +126,13 @@ class ProductCard extends StatelessWidget {
 class _Thumbnail extends StatelessWidget {
   final String? url;
   final String status;
+  final bool hasVideo;
 
-  const _Thumbnail({required this.url, required this.status});
+  const _Thumbnail({
+    required this.url,
+    required this.status,
+    this.hasVideo = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -167,6 +176,32 @@ class _Thumbnail extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+            ),
+          ),
+        if (hasVideo && status != 'sold')
+          Positioned(
+            left: 4,
+            bottom: 4,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.65),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.play_arrow_rounded,
+                      color: Colors.white, size: 14),
+                  SizedBox(width: 2),
+                  Text('영상',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700)),
+                ],
               ),
             ),
           ),

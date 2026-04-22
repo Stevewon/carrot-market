@@ -7,10 +7,11 @@
     <!-- Camera for QR scan / product photos -->
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- Image picker -->
+    <!-- Image & Video picker -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
                      android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 
     <!-- Voice call (WebRTC) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />

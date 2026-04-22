@@ -37,6 +37,7 @@ export interface ProductRow {
   category: string;
   region: string;
   images: string; // comma-separated
+  video_url: string | null; // YouTube URL OR /uploads/<key>.mp4 path
   status: 'sale' | 'reserved' | 'sold';
   view_count: number;
   like_count: number;
@@ -50,6 +51,7 @@ export interface ProductRow {
  */
 export interface ProductResponse extends Omit<ProductRow, 'images'> {
   images: string[];
+  video_url: string;
   seller_nickname: string;
   seller_manner_score: number;
   is_liked: boolean;

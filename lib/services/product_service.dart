@@ -61,20 +61,49 @@ class ProductService extends ChangeNotifier {
     required String category,
     required String region,
     required List<File> imageFiles,
+    String youtubeUrl = '',
+    File? videoFile,
   }) async {
     try {
-      final form = FormData.fromMap({
+      final fields = <String, dynamic>{
         'title': title,
         'description': description,
         'price': price,
         'category': category,
         'region': region,
-        for (var i = 0; i < imageFiles.length; i++)
-          'images': await MultipartFile.fromFile(imageFiles[i].path,
-              filename: 'image_$i.jpg'),
-      });
+      };
+      if (youtubeUrl.trim().isNotEmpty) {
+        fields['youtube_url'] = youtubeUrl.trim();
+      }
 
-      final res = await auth.api.dio.post('/api/products', data: form);
+      final form = FormData.fromMap(fields);
+      for (var i = 0; i < imageFiles.length; i++) {
+        form.files.add(MapEntry(
+          'images',
+          await MultipartFile.fromFile(
+            imageFiles[i].path,
+            filename: 'image_$i.jpg',
+          ),
+        ));
+      }
+      // Only send uploaded video if YouTube URL not provided (server ignores otherwise)
+      if (youtubeUrl.trim().isEmpty && videoFile != null) {
+        final name = videoFile.path.split('/').last;
+        form.files.add(MapEntry(
+          'video',
+          await MultipartFile.fromFile(videoFile.path, filename: name),
+        ));
+      }
+
+      final res = await auth.api.dio.post(
+        '/api/products',
+        data: form,
+        options: Options(
+          // Uploading video can take a while on slow networks
+          sendTimeout: const Duration(minutes: 5),
+          receiveTimeout: const Duration(minutes: 5),
+        ),
+      );
       if (res.statusCode == 200 || res.statusCode == 201) {
         return null; // success
       }
@@ -101,6 +130,7 @@ class ProductService extends ChangeNotifier {
           category: p.category,
           region: p.region,
           images: p.images,
+          videoUrl: p.videoUrl,
           sellerId: p.sellerId,
           sellerNickname: p.sellerNickname,
           sellerMannerScore: p.sellerMannerScore,

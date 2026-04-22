@@ -4,8 +4,25 @@ import { authMiddleware, optionalAuth } from '../jwt';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-const MAX_IMAGES = 5;
+const MAX_IMAGES = 10;
 const MAX_IMAGE_SIZE = 8 * 1024 * 1024; // 8 MB
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
+const ALLOWED_VIDEO_EXT = /^(mp4|mov|m4v|webm)$/;
+
+/** Normalize a user-provided YouTube URL into a plain https://youtu.be/<id> form (or youtube.com/watch?v=). */
+function normalizeYouTubeUrl(raw: string): string | null {
+  const url = raw.trim();
+  if (!url) return null;
+  // Accept youtube.com/watch?v=, youtu.be/, youtube.com/shorts/, youtube.com/embed/
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{6,20})/,
+  ];
+  for (const re of patterns) {
+    const m = url.match(re);
+    if (m && m[1]) return `https://youtu.be/${m[1]}`;
+  }
+  return null;
+}
 
 /** Hydrate a product row with seller info + like status. */
 async function hydrate(
@@ -32,6 +49,7 @@ async function hydrate(
   return {
     ...row,
     images: row.images ? row.images.split(',').filter(Boolean) : [],
+    video_url: row.video_url || '',
     seller_nickname: seller?.nickname || '익명가지',
     seller_manner_score: seller?.manner_score ?? 36,
     is_liked: isLiked,
@@ -143,6 +161,7 @@ app.post('/', authMiddleware, async (c) => {
   const contentType = c.req.header('content-type') || '';
 
   let title = '', description = '', price = '0', category = '', region = '';
+  let videoUrl = ''; // final stored value — either https://youtu.be/<id> or /uploads/<key>.mp4
   const imageKeys: string[] = [];
 
   if (contentType.includes('multipart/form-data')) {
@@ -171,8 +190,36 @@ app.post('/', authMiddleware, async (c) => {
       });
       imageKeys.push(`/uploads/${key}`);
     }
+
+    // Optional YouTube link (priority if both are present)
+    const ytRaw = String(form.get('youtube_url') || '').trim();
+    if (ytRaw) {
+      const normalized = normalizeYouTubeUrl(ytRaw);
+      if (!normalized) {
+        return c.json({ error: '유튜브 링크 형식이 올바르지 않아요' }, 400);
+      }
+      videoUrl = normalized;
+    }
+
+    // Optional uploaded video file (only if no YouTube link)
+    if (!videoUrl) {
+      const vFile = form.get('video');
+      if (vFile instanceof File && vFile.size > 0) {
+        if (vFile.size > MAX_VIDEO_SIZE) {
+          return c.json({ error: '영상 크기는 50MB 이하여야 해요' }, 400);
+        }
+        const ext = vFile.name.split('.').pop()?.toLowerCase() || 'mp4';
+        const safeExt = ALLOWED_VIDEO_EXT.test(ext) ? ext : 'mp4';
+        const key = `${crypto.randomUUID()}.${safeExt}`;
+        const body = await vFile.arrayBuffer();
+        await c.env.UPLOADS.put(key, body, {
+          httpMetadata: { contentType: vFile.type || `video/${safeExt}` },
+        });
+        videoUrl = `/uploads/${key}`;
+      }
+    }
   } else {
-    // JSON fallback (no images)
+    // JSON fallback (no images/video file, but YouTube URL can be passed)
     try {
       const body = (await c.req.json()) as Record<string, string | number>;
       title = String(body.title || '').trim();
@@ -180,6 +227,14 @@ app.post('/', authMiddleware, async (c) => {
       price = String(body.price ?? '0');
       category = String(body.category || '').trim();
       region = String(body.region || '').trim();
+      const ytRaw = String(body.youtube_url || '').trim();
+      if (ytRaw) {
+        const normalized = normalizeYouTubeUrl(ytRaw);
+        if (!normalized) {
+          return c.json({ error: '유튜브 링크 형식이 올바르지 않아요' }, 400);
+        }
+        videoUrl = normalized;
+      }
     } catch {
       return c.json({ error: '잘못된 요청' }, 400);
     }
@@ -195,10 +250,10 @@ app.post('/', authMiddleware, async (c) => {
 
   await c.env.DB
     .prepare(`
-      INSERT INTO products (id, seller_id, title, description, price, category, region, images)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (id, seller_id, title, description, price, category, region, images, video_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-    .bind(id, user.id, title, description, priceInt, category, region, images)
+    .bind(id, user.id, title, description, priceInt, category, region, images, videoUrl)
     .run();
 
   const row = await c.env.DB

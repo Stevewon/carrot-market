@@ -6,6 +6,7 @@ class Product {
   final String category;
   final String region;
   final List<String> images;
+  final String videoUrl; // '' | https://youtu.be/<id> | /uploads/<key>.mp4
   final String sellerId;
   final String sellerNickname;
   final int sellerMannerScore;
@@ -24,6 +25,7 @@ class Product {
     required this.category,
     required this.region,
     required this.images,
+    this.videoUrl = '',
     required this.sellerId,
     required this.sellerNickname,
     this.sellerMannerScore = 36,
@@ -34,6 +36,22 @@ class Product {
     this.isLiked = false,
     required this.createdAt,
   });
+
+  /// True if [videoUrl] points to a YouTube video (not an uploaded file).
+  bool get isYouTubeVideo =>
+      videoUrl.contains('youtu.be/') || videoUrl.contains('youtube.com/');
+
+  /// Extract YouTube video id from [videoUrl] (returns '' if not a YT url).
+  String get youTubeId {
+    if (!isYouTubeVideo) return '';
+    final re = RegExp(
+      r'(?:youtu\.be/|youtube\.com/(?:watch\?v=|shorts/|embed/))([A-Za-z0-9_-]{6,20})',
+    );
+    final m = re.firstMatch(videoUrl);
+    return m?.group(1) ?? '';
+  }
+
+  bool get hasVideo => videoUrl.isNotEmpty;
 
   factory Product.fromJson(Map<String, dynamic> json) {
     List<String> parsedImages = [];
@@ -55,6 +73,7 @@ class Product {
       category: json['category'] ?? 'etc',
       region: json['region'] ?? '',
       images: parsedImages,
+      videoUrl: (json['video_url'] ?? '').toString(),
       sellerId: json['seller_id']?.toString() ?? '',
       sellerNickname: json['seller_nickname'] ?? '익명가지',
       sellerMannerScore: (json['seller_manner_score'] ?? 36) is int
