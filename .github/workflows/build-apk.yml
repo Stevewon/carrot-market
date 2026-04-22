@@ -1,0 +1,150 @@
+name: 🍆 Build Android APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'server/**'
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: 'Release name (optional)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+          cache: true
+
+      - name: 📋 Flutter doctor
+        run: flutter doctor -v
+
+      - name: 📦 Install dependencies
+        run: flutter pub get
+
+      - name: 🔧 Generate build number
+        id: build_info
+        run: |
+          BUILD_NUMBER=${{ github.run_number }}
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          DATE=$(date +'%Y%m%d-%H%M')
+          echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "date=${DATE}" >> $GITHUB_OUTPUT
+          echo "tag=v0.1.0-build.${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+
+      - name: 🏗️ Build APK (release, split per ABI)
+        run: |
+          flutter build apk --release --split-per-abi \
+            --build-number=${{ steps.build_info.outputs.build_number }} \
+            --dart-define=API_BASE=${{ vars.API_BASE || 'http://10.0.2.2:3001' }} \
+            --dart-define=SOCKET_URL=${{ vars.SOCKET_URL || 'http://10.0.2.2:3001' }}
+
+      - name: 🏗️ Build universal APK (fallback, works on all devices)
+        run: |
+          flutter build apk --release \
+            --build-number=${{ steps.build_info.outputs.build_number }} \
+            --dart-define=API_BASE=${{ vars.API_BASE || 'http://10.0.2.2:3001' }} \
+            --dart-define=SOCKET_URL=${{ vars.SOCKET_URL || 'http://10.0.2.2:3001' }}
+
+      - name: 📝 Rename APK files
+        run: |
+          cd build/app/outputs/flutter-apk
+          ls -la
+          DATE="${{ steps.build_info.outputs.date }}"
+          SHA="${{ steps.build_info.outputs.short_sha }}"
+          mv app-release.apk "eggplant-universal-${DATE}-${SHA}.apk" 2>/dev/null || true
+          mv app-arm64-v8a-release.apk "eggplant-arm64-${DATE}-${SHA}.apk" 2>/dev/null || true
+          mv app-armeabi-v7a-release.apk "eggplant-arm32-${DATE}-${SHA}.apk" 2>/dev/null || true
+          mv app-x86_64-release.apk "eggplant-x86_64-${DATE}-${SHA}.apk" 2>/dev/null || true
+          ls -la
+
+      - name: 📤 Upload APK artifacts (available for 90 days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: eggplant-apk-${{ steps.build_info.outputs.short_sha }}
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 90
+
+      - name: 🚀 Create GitHub Release (for easy mobile download)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.build_info.outputs.tag }}
+          name: 🍆 Eggplant v0.1.0 Build ${{ steps.build_info.outputs.build_number }}
+          body: |
+            ## 🍆 Eggplant - QR 기반 익명 중고거래 마켓
+
+            ### 📥 APK 다운로드 (모바일에서 바로 설치)
+
+            **대부분 Android 기기**: `eggplant-universal-*.apk` 다운로드 ⭐ (추천)
+
+            **기기 CPU별 최적화 버전** (파일 크기 약 30% 작음):
+            - 최신 폰 (2019년 이후): `eggplant-arm64-*.apk`
+            - 구형 폰 (2018년 이전): `eggplant-arm32-*.apk`
+            - Android 에뮬레이터 (x86): `eggplant-x86_64-*.apk`
+
+            ### 📱 설치 방법
+            1. 모바일 브라우저에서 APK 파일 링크를 탭
+            2. "알 수 없는 출처 앱 설치 허용" 설정 (처음 한 번만)
+            3. 다운로드 완료 후 APK 파일 탭 → 설치
+
+            ### ⚙️ 빌드 정보
+            - **Commit**: `${{ steps.build_info.outputs.short_sha }}`
+            - **Build #**: ${{ steps.build_info.outputs.build_number }}
+            - **Built at**: ${{ steps.build_info.outputs.date }}
+            - **Branch**: ${{ github.ref_name }}
+
+            ### 🔗 서버 연결
+            앱은 기본적으로 `http://10.0.2.2:3001` 을 가리키며 이는 **Android 에뮬레이터 전용** 주소입니다.
+            실제 기기에서 사용하려면 같은 Wi‑Fi에서 PC의 IP 주소(예: `192.168.0.15:3001`)로 서버 주소를 빌드 시 변경해야 합니다.
+            > GitHub 리포지토리 Settings → Secrets and variables → Actions → Variables 에서 `API_BASE`, `SOCKET_URL` 값을 지정하면 자동 반영됩니다.
+
+            ### ✨ 주요 기능
+            - QR 코드 기반 1:1 익명 채팅
+            - WebRTC P2P 음성 통화
+            - 사진 포함 중고 상품 등록/열람
+            - 지역별 상품 필터링
+            - 휘발성 메시지 (앱 재시작 시 삭제)
+          files: |
+            build/app/outputs/flutter-apk/*.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ✅ Summary
+        run: |
+          echo "## 🍆 빌드 성공!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📥 다운로드" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release 페이지** (모바일에서 바로 다운로드): https://github.com/${{ github.repository }}/releases/tag/${{ steps.build_info.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifacts** (GitHub 로그인 필요, 90일 유지): 이 페이지 하단 \"eggplant-apk-*\" 클릭" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 추천 파일" >> $GITHUB_STEP_SUMMARY
+          echo "대부분의 실물 기기는 **eggplant-universal-*.apk** 를 다운로드하세요!" >> $GITHUB_STEP_SUMMARY
