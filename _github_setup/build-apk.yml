@@ -51,30 +51,46 @@ jobs:
           echo "date=${DATE}" >> $GITHUB_OUTPUT
           echo "tag=v0.1.0-build.${BUILD_NUMBER}" >> $GITHUB_OUTPUT
 
-      - name: 🏗️ Build universal APK (single file, works on ALL Android devices)
+      - name: 🏗️ Build SINGLE universal APK
         run: |
-          flutter build apk --release \
+          # --no-split-per-abi forces Flutter to produce ONE universal APK only
+          # (no arm32/arm64/x86_64 per-ABI files)
+          flutter build apk --release --no-split-per-abi \
             --build-number=${{ steps.build_info.outputs.build_number }} \
             --dart-define=API_BASE=${{ vars.API_BASE || 'https://api.eggplant.life' }} \
             --dart-define=SOCKET_URL=${{ vars.SOCKET_URL || 'wss://api.eggplant.life/socket' }}
 
-      - name: 📝 Rename APK
+      - name: 📝 Rename APK + delete any per-ABI stragglers
         run: |
           cd build/app/outputs/flutter-apk
+          echo "=== Files before cleanup ==="
           ls -la
           DATE="${{ steps.build_info.outputs.date }}"
           SHA="${{ steps.build_info.outputs.short_sha }}"
+          # Defensive: remove any per-ABI APKs if they exist
+          rm -f app-armeabi-v7a-release.apk
+          rm -f app-arm64-v8a-release.apk
+          rm -f app-x86_64-release.apk
+          rm -f app-*-release.apk
+          # Rename the single universal APK
           mv app-release.apk "eggplant-${DATE}-${SHA}.apk"
+          echo "=== Files after cleanup (MUST be exactly ONE apk) ==="
           ls -la
+          # Safety check: fail the build if more than 1 apk
+          COUNT=$(ls -1 *.apk | wc -l)
+          if [ "$COUNT" -ne "1" ]; then
+            echo "❌ Expected exactly 1 APK, found $COUNT"
+            exit 1
+          fi
 
-      - name: 📤 Upload APK artifact
+      - name: 📤 Upload APK artifact (single universal APK)
         uses: actions/upload-artifact@v4
         with:
           name: eggplant-apk-${{ steps.build_info.outputs.short_sha }}
-          path: build/app/outputs/flutter-apk/*.apk
+          path: build/app/outputs/flutter-apk/eggplant-*.apk
           retention-days: 90
 
-      - name: 🚀 Create GitHub Release
+      - name: 🚀 Create GitHub Release (single universal APK)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.build_info.outputs.tag }}
@@ -84,7 +100,7 @@ jobs:
 
             ### 📥 APK 다운로드 (모바일에서 바로 설치)
 
-            아래 **`eggplant-*.apk`** 하나만 다운로드하면 끝! 모든 Android 기기에서 작동합니다.
+            아래 **`eggplant-*.apk`** 하나만 받으세요. 모든 Android 기기에서 작동합니다.
 
             ### 📱 설치 방법
             1. 모바일 브라우저에서 APK 파일 탭
@@ -100,7 +116,7 @@ jobs:
             이 빌드는 **${{ vars.API_BASE || 'https://api.eggplant.life' }}** 을 사용합니다.
             Cloudflare Workers 기반 공개 서버라서 **Wi-Fi 제약 없이 3G/5G 어디서든 동작**합니다 🌍
           files: |
-            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/flutter-apk/eggplant-*.apk
           draft: false
           prerelease: false
         env:
