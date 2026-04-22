@@ -63,18 +63,24 @@
 | **mobile_scanner** | QR 스캐너 |
 | **qr_flutter** | QR 생성 |
 | **dio** | HTTP 클라이언트 |
-| **socket_io_client** | 실시간 채팅 |
+| **web_socket_channel** | 실시간 채팅 (raw WebSocket) |
+| **flutter_webrtc** | P2P 음성 통화 |
 | **flutter_windowmanager** | 스크린샷 방지 |
 
-### 🖥️ 백엔드 (Node.js)
+### ☁️ 백엔드 (Cloudflare Workers — production)
 | 기술 | 용도 |
 |------|------|
-| **Node.js 20+** | 런타임 |
-| **Express** | REST API |
-| **Socket.io** | 휘발성 채팅 릴레이 |
-| **better-sqlite3** | 로컬 DB (상품만 저장, 채팅 X) |
-| **JWT** | 익명 인증 |
-| **Multer** | 이미지 업로드 |
+| **Cloudflare Workers** | 서버리스 런타임 |
+| **Hono** | REST API 라우터 |
+| **D1** | SQLite (users / products / likes) |
+| **R2** | 상품 이미지 저장소 |
+| **Durable Objects** | WebSocket 채팅 + WebRTC 시그널링 |
+| **JWT (HS256)** | 익명 인증 |
+
+### 🖥️ 로컬 개발용 (Node.js — 레거시)
+| 기술 | 용도 |
+|------|------|
+| **Node.js 20+ / Express / Socket.io** | 로컬 실험 전용 (Cloudflare 로 이전 완료) |
 
 ---
 
@@ -96,15 +102,21 @@ eggplant/
 │   ├── screens/                # 화면
 │   └── widgets/                # 공통 위젯
 │
-├── server/                     # Node.js 백엔드
+├── workers-server/             # ☁️ Cloudflare Workers 백엔드 (production)
+│   ├── src/
+│   │   ├── index.ts            # Hono 라우터 + WS 업그레이드
+│   │   ├── chat-hub.ts         # Durable Object (채팅/WebRTC 시그널링)
+│   │   ├── jwt.ts              # JWT 서명/검증 미들웨어
+│   │   ├── types.ts
+│   │   └── routes/             # auth / users / products
+│   ├── migrations/0001_init.sql
+│   └── wrangler.toml
+│
+├── server/                     # Node.js 백엔드 (레거시, 로컬 전용)
 │   ├── index.js
 │   ├── db.js                   # SQLite 스키마
-│   ├── auth.js                 # JWT
-│   ├── chat.js                 # Socket.io 휘발성 릴레이
+│   ├── chat.js                 # Socket.io (Cloudflare 이전 후 미사용)
 │   └── routes/
-│       ├── auth.js
-│       ├── users.js
-│       └── products.js
 │
 ├── android/                    # Android 네이티브 설정
 ├── assets/images/              # 마스코트 등 에셋
@@ -164,9 +176,13 @@ flutter pub get
 # Android 에뮬레이터에서 실행 (기본 API: http://10.0.2.2:3001)
 flutter run
 
-# 실제 기기에서 실행 (내 PC IP로 교체)
-flutter run --dart-define=API_BASE=http://192.168.0.100:3001 \
-            --dart-define=SOCKET_URL=http://192.168.0.100:3001
+# 로컬 Workers dev 서버 (wrangler dev, 기본 포트 8787)
+flutter run --dart-define=API_BASE=http://10.0.2.2:8787 \
+            --dart-define=SOCKET_URL=ws://10.0.2.2:8787/socket
+
+# 또는 실 기기에서 프로덕션 서버로 바로 붙이기 (기본값이라 생략 가능)
+flutter run --dart-define=API_BASE=https://api.eggplant.life \
+            --dart-define=SOCKET_URL=wss://api.eggplant.life/socket
 ```
 
 ### 3️⃣ APK 빌드

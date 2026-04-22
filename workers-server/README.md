@@ -1,161 +1,144 @@
-# Eggplant 🍆 Backend — Cloudflare Workers
+# 🍆 Eggplant API — Cloudflare Workers
 
-Serverless backend running on Cloudflare's edge network.
+The backend for the Eggplant marketplace, running entirely on Cloudflare:
 
-- **API**         : Hono (Express-compatible router)
-- **Database**    : D1 (serverless SQLite)
-- **Storage**     : R2 (S3-compatible object storage, product images)
-- **Realtime**    : Durable Objects + native WebSockets
-  (ephemeral chat + WebRTC call signaling)
-- **Auth**        : JWT (HS256) via `@tsndr/cloudflare-worker-jwt`
-- **Custom domain**: `https://api.eggplant.life`
+| Concern | Service |
+| --- | --- |
+| HTTP API | Cloudflare Workers (Hono router) |
+| Database | D1 (SQLite) |
+| File storage | R2 (product images) |
+| Realtime | Durable Objects + WebSocket (chat + WebRTC signaling) |
+| Domain | `api.eggplant.life` (Cloudflare DNS + Worker route) |
 
-```
-Android app ─► https://api.eggplant.life (Cloudflare proxied)
-                    │
-              ┌─────┴─────────────────────────────┐
-              ▼                                    ▼
-  REST  /api/auth/*        WebSocket  /socket?token=<jwt>
-        /api/users/*                  (Durable Object "ChatHub")
-        /api/products/*
-        /uploads/<key>  ── ►  R2 bucket (eggplant-uploads)
-                 │
-                 └────────►  D1 (eggplant-db)
-```
+**Cost: $0/month** (well within free tier).
 
 ---
 
-## 0. One-time prerequisites (do this on your PC)
+## 1. Prerequisites
 
 ```bash
-# Node.js 20+ is required.
-node --version
+# One-time tools
+npm install -g wrangler        # Cloudflare CLI
 
-# Install Wrangler (Cloudflare CLI). One-shot via npx is fine too.
-npm install -g wrangler
-
-# Install this project's dependencies
-cd workers-server
-npm install
-
-# Sign in with your Cloudflare account (opens browser).
+# Log in once (opens browser)
 wrangler login
 ```
 
----
-
-## 1. Create D1 database
+Install project dependencies:
 
 ```bash
 cd workers-server
-npx wrangler d1 create eggplant-db
+npm install
 ```
 
-Wrangler prints something like:
+---
+
+## 2. First-time Cloudflare setup
+
+> Run each command from `workers-server/`. Copy the IDs that Wrangler prints
+> into `wrangler.toml` where indicated.
+
+### 2.1 Create the D1 database
+
+```bash
+npm run db:create
+```
+
+Wrangler will print something like:
 
 ```
-[[d1_databases]]
-binding = "DB"
 database_name = "eggplant-db"
-database_id = "abcd-1234-..."
+database_id   = "abcd1234-5678-90ef-ghij-klmnopqrstuv"
 ```
 
-**Copy the `database_id`** and paste it into `wrangler.toml` (replace
-`REPLACE_WITH_YOUR_D1_ID`).
+Open `wrangler.toml` and replace `REPLACE_WITH_YOUR_D1_ID` with the printed
+`database_id`.
 
-Apply the schema:
+Apply the schema to the remote database:
 
 ```bash
-npx wrangler d1 migrations apply eggplant-db --remote
+npm run db:migrate:remote
+```
+
+(For local development use `npm run db:migrate:local`.)
+
+### 2.2 Create the R2 bucket
+
+```bash
+npm run r2:create
+```
+
+Optional but recommended — enable public access so image URLs are served
+from Cloudflare's CDN:
+
+1. Dashboard → R2 → `eggplant-uploads` → Settings → **Public access** → Allow.
+2. Copy the public URL (e.g. `https://pub-xxxxxxxx.r2.dev`).
+3. Paste it into `wrangler.toml` under `PUBLIC_UPLOAD_URL`.
+
+If you skip this, images are still served through the Worker at
+`/uploads/<key>` (works fine, just slightly costlier).
+
+### 2.3 Set the JWT secret
+
+```bash
+npm run secret:jwt
+# Paste a long random string at the prompt, e.g.:
+#   openssl rand -hex 32
+```
+
+This secret is used to sign the JSON Web Tokens issued by `/api/auth/*`.
+**Never commit it.**
+
+---
+
+## 3. Deploy
+
+```bash
+npm run deploy
+```
+
+Wrangler uploads the Worker and its Durable Object, then prints the default
+URL, something like:
+
+```
+https://eggplant-api.<your-account>.workers.dev
+```
+
+Quick smoke test:
+
+```bash
+curl https://eggplant-api.<your-account>.workers.dev/api/health
+# -> {"ok":true,"name":"eggplant-api", ... }
 ```
 
 ---
 
-## 2. Create R2 bucket (product images)
+## 4. Point `api.eggplant.life` at the Worker
 
-```bash
-npx wrangler r2 bucket create eggplant-uploads
-```
-
-(Optional, recommended) enable public access for faster image delivery:
-
-1. Open the Cloudflare dashboard → **R2** → `eggplant-uploads` → **Settings**.
-2. Click **Allow access** → Cloudflare R2 will give you a public URL like
-   `https://pub-abcd1234.r2.dev`.
-3. Paste it into `wrangler.toml` as `PUBLIC_UPLOAD_URL`:
-
-```toml
-[vars]
-ENVIRONMENT = "production"
-PUBLIC_UPLOAD_URL = "https://pub-abcd1234.r2.dev"
-```
-
-This makes `/uploads/<key>` return a 302 redirect to R2's CDN — free
-bandwidth, much faster than going through the Worker.
-
----
-
-## 3. Set the JWT secret
-
-```bash
-# Generate a long random secret (or invent one)
-openssl rand -hex 32
-
-# Store it as a Worker secret
-npx wrangler secret put JWT_SECRET
-# Paste the hex string when prompted
-```
-
----
-
-## 4. Deploy
-
-```bash
-npx wrangler deploy
-```
-
-On success Wrangler prints the Worker URL, for example:
-
-```
-https://eggplant-api.<your-subdomain>.workers.dev
-```
+1. **Add the zone to Cloudflare** (if not already done):
+   - Dashboard → *Add a site* → `eggplant.life` → Free plan.
+   - Cloudflare gives you two nameservers (e.g. `amy.ns.cloudflare.com`).
+   - In Gabia, replace the current nameservers with these two. DNS propagation
+     typically takes 1–2 hours (up to 24 h).
+2. **Add a DNS record** for the API subdomain:
+   - Cloudflare → DNS → *Add record*:
+     `Type = AAAA, Name = api, IPv4 = 100::` (placeholder), **Proxied (orange cloud)**.
+     *(Workers custom domains don't need a real origin — the placeholder is
+     ignored once the Worker route is bound.)*
+3. **Attach the Worker to the domain**:
+   - Open `wrangler.toml` and **uncomment** the `routes` block:
+     ```toml
+     routes = [
+       { pattern = "api.eggplant.life", custom_domain = true }
+     ]
+     ```
+   - Redeploy:
+     ```bash
+     npm run deploy
+     ```
+   - Cloudflare provisions the TLS certificate automatically (~30 s).
 
 Verify:
-
-```bash
-curl https://eggplant-api.<your-subdomain>.workers.dev/api/health
-# {"ok":true,"name":"eggplant-api","runtime":"cloudflare-workers",...}
-```
-
----
-
-## 5. Connect the domain `api.eggplant.life`
-
-### 5.1. Add `eggplant.life` to Cloudflare (first time only)
-
-1. Cloudflare dashboard → **Add a site** → `eggplant.life` → **Free plan**.
-2. Cloudflare gives you 2 nameservers (e.g. `amy.ns.cloudflare.com`, `bob.ns.cloudflare.com`).
-3. Log into **가비아 (Gabia)** → DNS 관리 → change the nameservers to the
-   two Cloudflare ones. Propagation: usually 1–2 h, max 24 h.
-4. Back on Cloudflare, wait for the zone to become **Active** (green check).
-
-### 5.2. Bind the Worker to `api.eggplant.life`
-
-Open `wrangler.toml` and uncomment the `routes` block:
-
-```toml
-routes = [
-  { pattern = "api.eggplant.life", custom_domain = true }
-]
-```
-
-Redeploy:
-
-```bash
-npx wrangler deploy
-```
-
-Cloudflare auto-provisions an HTTPS certificate. Verify:
 
 ```bash
 curl https://api.eggplant.life/api/health
@@ -163,89 +146,98 @@ curl https://api.eggplant.life/api/health
 
 ---
 
-## 6. Point the Flutter app at the new server
+## 5. Update the Flutter app
 
-The APK build workflow (`_github_setup/build-apk.yml`) already defaults to:
+The app now targets `https://api.eggplant.life` and `wss://api.eggplant.life/socket`
+by default (see `lib/app/constants.dart`). No code change is needed once the
+domain is live — just rebuild the APK:
 
-```
-API_BASE   = https://api.eggplant.life
-SOCKET_URL = wss://api.eggplant.life/socket
-```
+- GitHub Actions → *🍆 Build Android APK* → *Run workflow*.
+- When the build finishes, download the universal APK from the latest release.
 
-If you previously set GitHub repository **Variables** `API_BASE` and
-`SOCKET_URL` to a LAN IP (e.g. `http://192.168.3.41:3001`), **delete them**
-(or update them) so the new defaults apply:
-
-> GitHub → Settings → Secrets and variables → Actions → **Variables** tab
-> → delete `API_BASE` and `SOCKET_URL`, or change them to the Cloudflare URLs.
-
-Then run the workflow again from the **Actions** tab; the new APK will
-connect directly to `https://api.eggplant.life` over the internet.
-
----
-
-## Local development
-
-```bash
-cd workers-server
-npm install
-
-# First time: apply schema to a local D1 copy
-npx wrangler d1 migrations apply eggplant-db --local
-
-# Start Wrangler's local dev server on http://127.0.0.1:8787
-npm run dev
-```
-
-Run the Flutter app against the local worker:
+If you want to override the URLs for a local dev build:
 
 ```bash
 flutter run \
-  --dart-define=API_BASE=http://127.0.0.1:8787 \
-  --dart-define=SOCKET_URL=ws://127.0.0.1:8787/socket
-```
-
-(On Android emulator, replace `127.0.0.1` with `10.0.2.2`.)
-
----
-
-## File layout
-
-```
-workers-server/
-├── package.json
-├── wrangler.toml            Bindings: DB (D1), UPLOADS (R2), CHAT_HUB (DO)
-├── tsconfig.json
-├── migrations/
-│   └── 0001_init.sql        users, products, product_likes
-└── src/
-    ├── index.ts             Hono app, routing, R2 passthrough, WS upgrade
-    ├── types.ts             Env, ProductRow, UserRow, AuthPayload
-    ├── jwt.ts               signToken / verifyToken / middleware
-    ├── chat-hub.ts          Durable Object: WebSocket chat + WebRTC signaling
-    └── routes/
-        ├── auth.ts          POST /register, /login | GET /me
-        ├── users.ts         PUT /me
-        └── products.ts      CRUD + /like toggle + /status
+  --dart-define=API_BASE=http://10.0.2.2:8787 \
+  --dart-define=SOCKET_URL=ws://10.0.2.2:8787/socket
 ```
 
 ---
 
-## Troubleshooting
+## 6. Local development
 
-| Symptom                                          | Fix                                                                 |
-| ------------------------------------------------ | ------------------------------------------------------------------- |
-| `Error: D1_ERROR: no such table: users`          | Run `npx wrangler d1 migrations apply eggplant-db --remote`.        |
-| `401 Missing token` on WebSocket                 | Client must append `?token=<jwt>` to `/socket`. This is automatic in `ChatService`. |
-| Images 404 on `/uploads/<key>`                   | Either the R2 bucket is empty, or `PUBLIC_UPLOAD_URL` is wrong. Check R2 object list in dashboard. |
-| `nameserver not found` when creating the zone    | Domain not yet transferred to Cloudflare nameservers — wait and retry. |
-| Workers deploy fails with `class_name mismatch`  | Don't remove the `new_sqlite_classes = ["ChatHub"]` migration — DO classes need exactly one create migration. |
+```bash
+npm run dev
+# Worker runs at http://127.0.0.1:8787
+```
+
+The first run initialises a local D1 SQLite file. Apply migrations once:
+
+```bash
+npm run db:migrate:local
+```
+
+Set a dev JWT secret in `.dev.vars` (gitignored):
+
+```dotenv
+JWT_SECRET=dev-insecure-secret
+```
+
+Seed a user:
+
+```bash
+curl -X POST http://127.0.0.1:8787/api/auth/register \
+  -H 'content-type: application/json' \
+  -d '{"nickname":"tester","device_uuid":"dev-1"}'
+```
 
 ---
 
-## Free-tier limits (more than enough for a personal app)
+## 7. Logs & observability
 
-- Workers: 100k requests/day
-- D1      : 5 GB storage, 25M reads/day, 50k writes/day
-- R2      : 10 GB storage, 1M Class A ops/month, 10M Class B ops/month, **zero egress fees**
-- Durable Objects: 400k requests/day, 1 GB storage
+```bash
+npm run tail           # live stream of production logs
+```
+
+Dashboard → Workers & Pages → `eggplant-api` → *Logs* and *Metrics*.
+
+---
+
+## 8. API surface
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET  | `/api/health`        | —  | Health check |
+| POST | `/api/auth/register` | —  | Create or upsert anonymous user |
+| POST | `/api/auth/login`    | —  | Login by `device_uuid` |
+| GET  | `/api/auth/me`       | ✅ | Current user profile |
+| PUT  | `/api/users/me`      | ✅ | Update nickname / region |
+| GET  | `/api/products`      | opt | List with filters |
+| POST | `/api/products`      | ✅ | Create (multipart images → R2) |
+| GET  | `/api/products/:id`  | opt | Detail (bumps `view_count`) |
+| POST | `/api/products/:id/like`   | ✅ | Toggle like |
+| PUT  | `/api/products/:id/status` | ✅ | `sale` / `reserved` / `sold` |
+| DELETE | `/api/products/:id`      | ✅ | Delete (also removes R2 images) |
+| GET  | `/api/products/my/likes`   | ✅ | My liked products |
+| GET  | `/api/products/my/selling` | ✅ | My listings |
+| GET  | `/uploads/:key`      | —  | Image passthrough from R2 |
+| WS   | `/socket?token=<jwt>` | ✅ | Chat + WebRTC signaling |
+
+See `src/chat-hub.ts` for the WebSocket message protocol.
+
+---
+
+## 9. Troubleshooting
+
+- **`database_id` missing** — run `npm run db:create` and paste the ID into
+  `wrangler.toml`.
+- **`401 Invalid token` on WS** — the JWT must be the same one you got from
+  `/api/auth/register`; make sure the Flutter app is rebuilt against
+  `api.eggplant.life` (not an older build pointing at `192.168.x.x:3001`).
+- **R2 uploads return 200 but images don't render** — either enable R2 public
+  access and set `PUBLIC_UPLOAD_URL`, or keep the default Worker passthrough
+  (no config needed; just slower).
+- **Durable Object migration error on deploy** — this only happens the *very
+  first time*; Wrangler creates the class automatically. Subsequent deploys
+  re-use it.
