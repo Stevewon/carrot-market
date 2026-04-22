@@ -50,7 +50,9 @@ class_name = "ChatHub"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["ChatHub"]
+# Use SQLite-backed Durable Objects so this works on the Workers FREE plan.
+# (Classic `new_classes` requires the Workers Paid plan — $5/month.)
+new_sqlite_classes = ["ChatHub"]
 
 # --------------------------------------------------------------------
 # Environment variables (set via `wrangler secret put JWT_SECRET`)
