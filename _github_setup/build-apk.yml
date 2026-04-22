@@ -54,8 +54,8 @@ jobs:
         run: |
           flutter build apk --release \
             --build-number=${{ steps.build_info.outputs.build_number }} \
-            --dart-define=API_BASE=${{ vars.API_BASE || 'http://10.0.2.2:3001' }} \
-            --dart-define=SOCKET_URL=${{ vars.SOCKET_URL || 'http://10.0.2.2:3001' }}
+            --dart-define=API_BASE=${{ vars.API_BASE || 'https://api.eggplant.life' }} \
+            --dart-define=SOCKET_URL=${{ vars.SOCKET_URL || 'wss://api.eggplant.life/socket' }}
 
       - name: 📝 Rename APK
         run: |
@@ -96,7 +96,7 @@ jobs:
             - **Built at**: ${{ steps.build_info.outputs.date }}
 
             ### 🔗 서버 주소
-            이 빌드는 **${{ vars.API_BASE || 'http://10.0.2.2:3001' }}** 을 사용합니다.
+            이 빌드는 **${{ vars.API_BASE || 'https://api.eggplant.life' }}** 을 사용합니다.
             실물 폰 테스트 시 PC와 같은 Wi-Fi에 있어야 하고, 서버가 켜져 있어야 합니다.
           files: |
             build/app/outputs/flutter-apk/*.apk

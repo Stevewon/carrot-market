@@ -1,0 +1,27 @@
+{
+  "name": "eggplant-api",
+  "version": "0.1.0",
+  "description": "Eggplant 🍆 backend on Cloudflare Workers (D1 + R2 + Durable Objects)",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create eggplant-db",
+    "db:migrate:local": "wrangler d1 migrations apply eggplant-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply eggplant-db --remote",
+    "r2:create": "wrangler r2 bucket create eggplant-uploads",
+    "secret:jwt": "wrangler secret put JWT_SECRET",
+    "tail": "wrangler tail",
+    "types": "wrangler types"
+  },
+  "dependencies": {
+    "hono": "^4.6.14",
+    "@tsndr/cloudflare-worker-jwt": "^3.1.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "typescript": "^5.7.2",
+    "wrangler": "^3.99.0"
+  }
+}

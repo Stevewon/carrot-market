@@ -21,7 +21,8 @@ dependencies:
   # Network
   http: ^1.2.2
   dio: ^5.7.0
-  socket_io_client: ^2.0.3+1
+  # Raw WebSocket client (replaces socket_io_client after Cloudflare Workers migration)
+  web_socket_channel: ^3.0.1
 
   # Local Storage (for settings only, not chat)
   shared_preferences: ^2.3.2

@@ -1,7 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:uuid/uuid.dart';
 
 import 'auth_service.dart';
@@ -17,12 +18,14 @@ enum CallState {
 }
 
 /// Manages anonymous P2P voice calls over WebRTC.
-/// - Signaling uses the existing Socket.io connection (in ChatService).
+/// - Signaling rides on ChatService's WebSocket (single connection).
 /// - Audio flows directly peer-to-peer. Server never hears it.
 /// - No call history is stored anywhere.
 class CallService extends ChangeNotifier {
   final AuthService auth;
   final ChatService chat;
+
+  final List<StreamSubscription> _subs = [];
 
   CallService({required this.auth, required this.chat}) {
     _attachListeners();
@@ -80,26 +83,12 @@ class CallService extends ChangeNotifier {
     'optional': [],
   };
 
-  /// Attach socket listeners for call signaling.
-  /// Safe to call multiple times; re-wires on reconnect.
+  /// Attach WebSocket event listeners via the ChatService event bus.
   void _attachListeners() {
-    // Wait until chat.connect() has been called and socket exists.
-    chat.addListener(_rewireSocket);
-    _rewireSocket();
-  }
-
-  IO.Socket? _wiredSocket;
-  void _rewireSocket() {
-    final socket = _socket;
-    if (socket == null) return;
-    if (identical(socket, _wiredSocket)) return;
-    _wiredSocket = socket;
-
-    socket.on('call_incoming', (data) {
-      if (data is! Map) return;
+    _subs.add(chat.on('call_incoming', (data) {
       if (_state != CallState.idle) {
-        // Already busy - auto-reject
-        socket.emit('call_response', {
+        // Already busy - auto-reject.
+        chat.emit('call_response', {
           'to_user_id': data['from_user_id'],
           'call_id': data['call_id'],
           'accepted': false,
@@ -112,10 +101,9 @@ class CallService extends ChangeNotifier {
       _isCaller = false;
       _state = CallState.incoming;
       notifyListeners();
-    });
+    }));
 
-    socket.on('call_response', (data) async {
-      if (data is! Map) return;
+    _subs.add(chat.on('call_response', (data) async {
       if (data['call_id'] != _activeCallId) return;
       final accepted = data['accepted'] == true;
       if (!accepted) {
@@ -123,66 +111,54 @@ class CallService extends ChangeNotifier {
         await _teardown(stateAfter: CallState.ended);
         return;
       }
-      // Caller: create offer now that callee accepted
       if (_isCaller) {
         _state = CallState.connecting;
         notifyListeners();
         await _createAndSendOffer();
       }
-    });
+    }));
 
-    socket.on('webrtc_offer', (data) async {
-      if (data is! Map) return;
+    _subs.add(chat.on('webrtc_offer', (data) async {
       if (data['call_id'] != _activeCallId) return;
-      await _handleRemoteOffer(data['sdp'] as Map);
-    });
+      final sdp = data['sdp'];
+      if (sdp is Map) await _handleRemoteOffer(sdp);
+    }));
 
-    socket.on('webrtc_answer', (data) async {
-      if (data is! Map) return;
+    _subs.add(chat.on('webrtc_answer', (data) async {
       if (data['call_id'] != _activeCallId) return;
-      await _handleRemoteAnswer(data['sdp'] as Map);
-    });
+      final sdp = data['sdp'];
+      if (sdp is Map) await _handleRemoteAnswer(sdp);
+    }));
 
-    socket.on('webrtc_ice', (data) async {
-      if (data is! Map) return;
+    _subs.add(chat.on('webrtc_ice', (data) async {
       if (data['call_id'] != _activeCallId) return;
-      final c = data['candidate'];
-      if (c is Map) {
+      final cand = data['candidate'];
+      if (cand is Map) {
         try {
           await _pc?.addCandidate(RTCIceCandidate(
-            c['candidate']?.toString(),
-            c['sdpMid']?.toString(),
-            (c['sdpMLineIndex'] is int)
-                ? c['sdpMLineIndex'] as int
-                : int.tryParse(c['sdpMLineIndex']?.toString() ?? ''),
+            cand['candidate']?.toString(),
+            cand['sdpMid']?.toString(),
+            (cand['sdpMLineIndex'] is int)
+                ? cand['sdpMLineIndex'] as int
+                : int.tryParse(cand['sdpMLineIndex']?.toString() ?? ''),
           ));
         } catch (e) {
           debugPrint('[call] addCandidate failed: $e');
         }
       }
-    });
+    }));
 
-    socket.on('call_end', (data) async {
-      if (data is! Map) return;
+    _subs.add(chat.on('call_end', (data) async {
       if (data['call_id'] != _activeCallId) return;
       await _teardown(stateAfter: CallState.ended);
-    });
+    }));
 
-    socket.on('call_failed', (data) async {
-      if (data is! Map) return;
+    _subs.add(chat.on('call_failed', (data) async {
       if (data['call_id'] != _activeCallId) return;
       final reason = data['message']?.toString() ?? '통화 실패';
       _setError(reason);
       await _teardown(stateAfter: CallState.ended);
-    });
-  }
-
-  IO.Socket? get _socket {
-    // ChatService holds the socket privately; we trigger a connect
-    // through the ChatService and then reuse the same underlying socket
-    // via a dart MethodChannel-style reflection would be overkill.
-    // Instead, ChatService exposes what we need via public helpers below.
-    return chat.socketForCalls;
+    }));
   }
 
   // --- Public API -------------------------------------------------------
@@ -200,12 +176,10 @@ class CallService extends ChangeNotifier {
       throw '마이크 권한이 필요해요';
     }
     chat.connect();
-    final socket = _socket;
-    if (socket == null || !socket.connected) {
-      // Wait up to 3 seconds for connection
+    if (!chat.connected) {
       await _waitForSocket();
     }
-    if (_socket == null || !_socket!.connected) {
+    if (!chat.connected) {
       throw '서버에 연결되지 않았어요';
     }
 
@@ -220,7 +194,7 @@ class CallService extends ChangeNotifier {
     await _setupPeerConnection();
     await _addLocalAudio();
 
-    _socket!.emit('call_invite', {
+    chat.emit('call_invite', {
       'to_user_id': peerUserId,
       'call_id': _activeCallId,
       'caller_nickname': auth.user?.nickname ?? '익명',
@@ -241,18 +215,17 @@ class CallService extends ChangeNotifier {
     await _setupPeerConnection();
     await _addLocalAudio();
 
-    _socket?.emit('call_response', {
+    chat.emit('call_response', {
       'to_user_id': _peerUserId,
       'call_id': _activeCallId,
       'accepted': true,
     });
-    // Now wait for offer from caller...
   }
 
   /// Callee rejects the incoming call.
   Future<void> rejectCall({String? reason}) async {
     if (_activeCallId == null) return;
-    _socket?.emit('call_response', {
+    chat.emit('call_response', {
       'to_user_id': _peerUserId,
       'call_id': _activeCallId,
       'accepted': false,
@@ -264,7 +237,7 @@ class CallService extends ChangeNotifier {
   /// End the active/outgoing call.
   Future<void> endCall() async {
     if (_activeCallId == null) return;
-    _socket?.emit('call_end', {
+    chat.emit('call_end', {
       'to_user_id': _peerUserId,
       'call_id': _activeCallId,
     });
@@ -314,7 +287,7 @@ class CallService extends ChangeNotifier {
   Future<void> _waitForSocket({int timeoutMs = 3000}) async {
     final start = DateTime.now();
     while (DateTime.now().difference(start).inMilliseconds < timeoutMs) {
-      if (_socket?.connected == true) return;
+      if (chat.connected) return;
       await Future.delayed(const Duration(milliseconds: 100));
     }
   }
@@ -324,7 +297,7 @@ class CallService extends ChangeNotifier {
 
     _pc!.onIceCandidate = (candidate) {
       if (candidate.candidate == null) return;
-      _socket?.emit('webrtc_ice', {
+      chat.emit('webrtc_ice', {
         'to_user_id': _peerUserId,
         'call_id': _activeCallId,
         'candidate': {
@@ -376,7 +349,7 @@ class CallService extends ChangeNotifier {
     if (_pc == null) return;
     final offer = await _pc!.createOffer(_offerConstraints);
     await _pc!.setLocalDescription(offer);
-    _socket?.emit('webrtc_offer', {
+    chat.emit('webrtc_offer', {
       'to_user_id': _peerUserId,
       'call_id': _activeCallId,
       'sdp': {'sdp': offer.sdp, 'type': offer.type},
@@ -393,7 +366,7 @@ class CallService extends ChangeNotifier {
     );
     final answer = await _pc!.createAnswer(_offerConstraints);
     await _pc!.setLocalDescription(answer);
-    _socket?.emit('webrtc_answer', {
+    chat.emit('webrtc_answer', {
       'to_user_id': _peerUserId,
       'call_id': _activeCallId,
       'sdp': {'sdp': answer.sdp, 'type': answer.type},
@@ -432,7 +405,6 @@ class CallService extends ChangeNotifier {
     }
     notifyListeners();
 
-    // Auto-clear "ended" state after a few seconds
     if (stateAfter == CallState.ended) {
       Future.delayed(const Duration(seconds: 3), clearEnded);
     }
@@ -444,7 +416,10 @@ class CallService extends ChangeNotifier {
 
   @override
   void dispose() {
-    chat.removeListener(_rewireSocket);
+    for (final s in _subs) {
+      s.cancel();
+    }
+    _subs.clear();
     _teardown(stateAfter: CallState.idle);
     super.dispose();
   }

@@ -116,7 +116,30 @@ eggplant/
 
 ## 🚀 빠른 시작
 
-### 1️⃣ 백엔드 서버 실행
+### 🌐 프로덕션 백엔드 (Cloudflare Workers)
+
+APK 빌드는 기본적으로 **`https://api.eggplant.life`** (Cloudflare Workers + D1 + R2 + Durable Objects) 에 연결됩니다.
+
+서버를 처음 배포하거나 커스텀 도메인(`eggplant.life`)을 연결할 때는 [`workers-server/README.md`](./workers-server/README.md) 의 단계별 가이드를 따르세요.
+
+배포 요약:
+
+```bash
+cd workers-server
+npm install
+npx wrangler login
+npx wrangler d1 create eggplant-db           # DB 생성 → wrangler.toml 에 database_id 붙여넣기
+npx wrangler d1 migrations apply eggplant-db --remote
+npx wrangler r2 bucket create eggplant-uploads
+npx wrangler secret put JWT_SECRET           # 임의 문자열 입력
+npx wrangler deploy
+```
+
+도메인 연결은 Cloudflare 대시보드에서 `eggplant.life` 을 추가 → 가비아 네임서버 교체 → `wrangler.toml` 의 `routes` 블록 주석 해제 → 재배포.
+
+### 1️⃣ (레거시) Node.js 서버 로컬 실행
+
+> ⚠️ Cloudflare 로 이전 완료. 로컬 실험용으로만 사용.
 
 ```bash
 cd server

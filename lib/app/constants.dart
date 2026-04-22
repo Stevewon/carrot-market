@@ -1,26 +1,23 @@
 /// App-wide constants
 class AppConfig {
-  /// Backend server URL. Override with --dart-define=API_BASE=...
+  /// Backend REST base URL. Override with --dart-define=API_BASE=...
   ///
-  /// Default: `http://localhost:3001`
-  /// This works with `adb reverse tcp:3001 tcp:3001` which forwards the
-  /// emulator's localhost to the host PC's localhost. Bypasses all
-  /// Windows firewall / 10.0.2.2 routing issues.
-  ///
-  /// If you prefer the classic Android emulator approach without adb
-  /// reverse, run:
+  /// Production default: `https://api.eggplant.life` (Cloudflare Workers).
+  /// For local development against the Node server, run:
   ///   flutter run --dart-define=API_BASE=http://10.0.2.2:3001 \
-  ///              --dart-define=SOCKET_URL=http://10.0.2.2:3001
-  /// Or for a real phone on the same Wi-Fi, use your PC's LAN IP:
-  ///   flutter run --dart-define=API_BASE=http://192.168.x.x:3001 ...
+  ///              --dart-define=SOCKET_URL=ws://10.0.2.2:3001/socket
   static const String apiBase = String.fromEnvironment(
     'API_BASE',
-    defaultValue: 'http://localhost:3001',
+    defaultValue: 'https://api.eggplant.life',
   );
 
+  /// WebSocket URL (raw WS, not Socket.IO). The JWT is appended as ?token=...
+  /// by ChatService/CallService at connect time.
+  ///
+  /// Production default: `wss://api.eggplant.life/socket`
   static const String socketUrl = String.fromEnvironment(
     'SOCKET_URL',
-    defaultValue: 'http://localhost:3001',
+    defaultValue: 'wss://api.eggplant.life/socket',
   );
 }
 

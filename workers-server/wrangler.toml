@@ -1,0 +1,69 @@
+# ====================================================================
+# Eggplant 🍆 Backend - Cloudflare Workers
+# ====================================================================
+# Deploys to: https://api.eggplant.life
+# Stack:
+#   - Hono (web framework)
+#   - D1 (SQLite)           : users, products, product_likes
+#   - R2 (object storage)   : product images
+#   - Durable Objects       : WebSocket chat + WebRTC call signaling
+# ====================================================================
+
+name = "eggplant-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+# --------------------------------------------------------------------
+# Custom Domain Routing (api.eggplant.life -> this Worker)
+# --------------------------------------------------------------------
+# Uncomment after adding eggplant.life to Cloudflare + DNS "api" CNAME
+# routes = [
+#   { pattern = "api.eggplant.life", custom_domain = true }
+# ]
+
+# --------------------------------------------------------------------
+# D1 Database binding
+# --------------------------------------------------------------------
+# Create via: npx wrangler d1 create eggplant-db
+# Replace database_id below with the one Wrangler prints.
+[[d1_databases]]
+binding = "DB"
+database_name = "eggplant-db"
+database_id = "REPLACE_WITH_YOUR_D1_ID"
+migrations_dir = "migrations"
+
+# --------------------------------------------------------------------
+# R2 Bucket binding (product images)
+# --------------------------------------------------------------------
+# Create via: npx wrangler r2 bucket create eggplant-uploads
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "eggplant-uploads"
+
+# --------------------------------------------------------------------
+# Durable Object binding (WebSocket chat rooms)
+# --------------------------------------------------------------------
+[[durable_objects.bindings]]
+name = "CHAT_HUB"
+class_name = "ChatHub"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["ChatHub"]
+
+# --------------------------------------------------------------------
+# Environment variables (set via `wrangler secret put JWT_SECRET`)
+# --------------------------------------------------------------------
+[vars]
+ENVIRONMENT = "production"
+# Public URL prefix for image CDN (rewrites /uploads/* to R2 public bucket)
+# After creating R2 bucket, enable Public URL and paste it here, e.g.:
+# PUBLIC_UPLOAD_URL = "https://pub-xxxxxxxx.r2.dev"
+PUBLIC_UPLOAD_URL = ""
+
+# --------------------------------------------------------------------
+# Observability
+# --------------------------------------------------------------------
+[observability]
+enabled = true
