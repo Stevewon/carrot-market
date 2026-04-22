@@ -42,13 +42,30 @@ class _HomeShellState extends State<HomeShell> {
               onPressed: () => context.push('/product/new'),
               backgroundColor: EggplantColors.primary,
               foregroundColor: Colors.white,
-              icon: const Icon(Icons.add),
-              label: const Text('글쓰기', style: TextStyle(fontWeight: FontWeight.w700)),
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              label: const Text(
+                '글쓰기',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              ),
             )
           : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
+        selectedItemColor: EggplantColors.primary,
+        unselectedItemColor: EggplantColors.textTertiary,
+        selectedFontSize: 12,
+        unselectedFontSize: 12,
+        iconSize: 24,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
+        type: BottomNavigationBarType.fixed,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.storefront_outlined),
@@ -68,7 +85,7 @@ class _HomeShellState extends State<HomeShell> {
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             activeIcon: Icon(Icons.person),
-            label: '나의 Eggplant',
+            label: '내 정보',
           ),
         ],
       ),
