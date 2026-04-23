@@ -53,9 +53,11 @@ jobs:
 
       - name: 🏗️ Build SINGLE universal APK
         run: |
-          # --no-split-per-abi forces Flutter to produce ONE universal APK only
-          # (no arm32/arm64/x86_64 per-ABI files)
-          flutter build apk --release --no-split-per-abi \
+          # `flutter build apk` (no split flags) produces exactly ONE
+          # universal APK at build/app/outputs/flutter-apk/app-release.apk.
+          # Do NOT pass --no-split-per-abi; the Flutter CLI rejects negated
+          # forms of non-default flags (exit 64).
+          flutter build apk --release \
             --build-number=${{ steps.build_info.outputs.build_number }} \
             --dart-define=API_BASE=${{ vars.API_BASE || 'https://api.eggplant.life' }} \
             --dart-define=SOCKET_URL=${{ vars.SOCKET_URL || 'wss://api.eggplant.life/socket' }}
