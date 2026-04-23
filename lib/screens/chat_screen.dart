@@ -7,7 +7,6 @@ import '../app/theme.dart';
 import '../models/chat_message.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
-import '../services/secure_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String roomId;
@@ -34,27 +33,27 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _secureScreen();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final chat = context.read<ChatService>();
       chat.connect();
       chat.joinRoom(widget.roomId, peerNickname: widget.peerNickname);
+      // After history loads, scroll to bottom.
+      Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
     });
   }
 
-  Future<void> _secureScreen() async {
-    // Prevent screenshots on Android for extra privacy
-    await SecureScreen.enable();
-  }
-
-  Future<void> _unsecureScreen() async {
-    await SecureScreen.disable();
+  void _scrollToBottom() {
+    if (!_scrollCtl.hasClients) return;
+    _scrollCtl.animateTo(
+      _scrollCtl.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
   void dispose() {
     context.read<ChatService>().leaveRoom(widget.roomId);
-    _unsecureScreen();
     _ctl.dispose();
     _scrollCtl.dispose();
     super.dispose();
@@ -109,7 +108,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
             ),
             const Text(
-              '💨 대화는 저장되지 않아요',
+              '🔒 나가면 양쪽 모두 완전 삭제돼요',
               style: TextStyle(fontSize: 11, color: EggplantColors.primary),
             ),
           ],
@@ -181,6 +180,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showOptions(BuildContext context) {
+    final rootContext = context;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -191,40 +191,87 @@ class _ChatScreenState extends State<ChatScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: EggplantColors.error),
-              title: const Text('채팅 나가기', style: TextStyle(color: EggplantColors.error)),
-              subtitle: const Text('나가면 대화 내용이 모두 사라져요'),
-              onTap: () {
+              leading: const Icon(Icons.cleaning_services_outlined),
+              title: const Text('대화 내용 삭제'),
+              subtitle: const Text('이 방의 메시지만 비워요 (방은 유지)'),
+              onTap: () async {
                 Navigator.pop(context);
-                context.pop();
+                await _confirmClearMessages(rootContext);
               },
             ),
+            const Divider(height: 1),
             ListTile(
-              leading: const Icon(Icons.shield_outlined),
-              title: const Text('개인정보 보호 안내'),
-              onTap: () {
+              leading: const Icon(Icons.exit_to_app, color: EggplantColors.error),
+              title: const Text('채팅방 나가기',
+                  style: TextStyle(color: EggplantColors.error, fontWeight: FontWeight.w700)),
+              subtitle: const Text('양쪽 모두 대화 + 방을 완전 삭제해요 (복구 불가)'),
+              onTap: () async {
                 Navigator.pop(context);
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('🔐 완전 익명 채팅'),
-                    content: const Text(
-                      '• 메시지는 서버에 저장되지 않아요\n'
-                      '• 기기 로컬에도 저장되지 않아요\n'
-                      '• 스크린샷 방지 활성화됨\n'
-                      '• 화면 나가면 대화 증발 💨',
-                      style: TextStyle(height: 1.6),
-                    ),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('확인')),
-                    ],
-                  ),
-                );
+                await _confirmDeleteRoom(rootContext);
               },
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _confirmDeleteRoom(BuildContext ctx) async {
+    final ok = await showDialog<bool>(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        title: const Text('채팅방 나가기'),
+        content: Text(
+          '${widget.peerNickname}님과의 대화를 완전히 삭제할까요?\n\n'
+          '• 메시지 전부 영구 삭제\n'
+          '• 상대방 화면에서도 즉시 사라짐\n'
+          '• 복구 불가',
+          style: const TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(_, false), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(_, true),
+            style: TextButton.styleFrom(foregroundColor: EggplantColors.error),
+            child: const Text('완전히 삭제'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (!ctx.mounted) return;
+    final success = await ctx.read<ChatService>().deleteRoom(widget.roomId);
+    if (!ctx.mounted) return;
+    if (success) {
+      ctx.pop();
+    } else {
+      ScaffoldMessenger.of(ctx)
+          .showSnackBar(const SnackBar(content: Text('삭제 실패. 잠시 후 다시 시도해주세요')));
+    }
+  }
+
+  Future<void> _confirmClearMessages(BuildContext ctx) async {
+    final ok = await showDialog<bool>(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        title: const Text('대화 내용 삭제'),
+        content: const Text('이 방의 모든 메시지를 지울까요?\n방은 유지되며 상대방 화면의 메시지도 같이 지워져요.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(_, false), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(_, true),
+            style: TextButton.styleFrom(foregroundColor: EggplantColors.error),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (!ctx.mounted) return;
+    final success = await ctx.read<ChatService>().clearMessages(widget.roomId);
+    if (!ctx.mounted) return;
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(content: Text(success ? '대화 내용을 비웠어요' : '삭제 실패')),
     );
   }
 }

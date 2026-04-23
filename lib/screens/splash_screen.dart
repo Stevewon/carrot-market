@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../app/theme.dart';
 import '../services/auth_service.dart';
+import '../services/permission_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -23,6 +24,14 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(milliseconds: 800));
     if (!mounted) return;
     final auth = context.read<AuthService>();
+
+    // Upgrade path: existing users who installed before the bulk-permission
+    // flow never saw the explainer. Prompt them once, right after splash.
+    if (auth.isLoggedIn && !await PermissionService.hasAskedBefore()) {
+      await PermissionService.requestAll();
+    }
+
+    if (!mounted) return;
     if (auth.isLoggedIn) {
       context.go('/');
     } else {

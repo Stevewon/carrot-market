@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import 'auth_service.dart';
 import 'chat_service.dart';
+import 'permission_service.dart';
 
 enum CallState {
   idle,       // No call
@@ -280,8 +281,14 @@ class CallService extends ChangeNotifier {
   // --- Internals --------------------------------------------------------
 
   Future<bool> _ensureMicPermission() async {
-    final status = await Permission.microphone.request();
-    return status.isGranted;
+    // Onboarding already granted this. If already granted, don't re-prompt.
+    if (await Permission.microphone.isGranted) return true;
+    // Fallback: only ask if onboarding was somehow skipped.
+    if (!await PermissionService.hasAskedBefore()) {
+      final status = await Permission.microphone.request();
+      return status.isGranted;
+    }
+    return false;
   }
 
   Future<void> _waitForSocket({int timeoutMs = 3000}) async {

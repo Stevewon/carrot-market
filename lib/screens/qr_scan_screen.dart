@@ -60,10 +60,17 @@ class _QrScanScreenState extends State<QrScanScreen> {
       return;
     }
 
-    final roomId = ChatService.roomIdFor(auth.user!.id, peerUserId);
+    final chat = context.read<ChatService>();
+    final room = await chat.openRoomWithPeer(
+      peerUserId: peerUserId,
+    );
     if (!mounted) return;
+    if (room == null) {
+      _showError('채팅방을 열지 못했어요');
+      return;
+    }
     context.go(
-      '/chat/$roomId?peer=${Uri.encodeComponent(peerNickname)}'
+      '/chat/${room.id}?peer=${Uri.encodeComponent(peerNickname)}'
       '&peerId=${Uri.encodeComponent(peerUserId)}',
     );
   }

@@ -1,23 +1,28 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as ws_status;
 
 import '../app/constants.dart';
 import '../models/chat_message.dart';
+import '../models/chat_room.dart';
 import 'auth_service.dart';
 
-/// Ephemeral chat service over raw WebSocket (Cloudflare Workers + Durable Object).
+/// Persistent chat service (당근 style).
 ///
-/// - Messages are NOT persisted locally or on the server.
-/// - Server acts as a pure relay.
-/// - Messages live only in memory while the screen is open.
-/// - Leaving the chat screen = messages gone forever.
+/// - Messages are stored server-side in D1 and loaded on demand.
+/// - Leaving a room (DELETE /rooms/:id) wipes the room AND all messages for
+///   both users via CASCADE. The server then broadcasts `room_deleted` so the
+///   peer's UI drops the room immediately.
+/// - Clearing messages (DELETE /rooms/:id/messages) keeps the room but erases
+///   all history, broadcasting `messages_cleared`.
 ///
-/// Protocol: JSON text frames. See workers-server/src/chat-hub.ts.
+/// Transport:
+///   REST : AuthService.api (Bearer token) for CRUD.
+///   WS   : raw WebSocket against /socket?token=... for realtime push.
 class ChatService extends ChangeNotifier {
   final AuthService auth;
 
@@ -30,23 +35,24 @@ class ChatService extends ChangeNotifier {
   int _reconnectAttempts = 0;
 
   /// Event bus for other services (e.g., CallService) to subscribe to.
-  /// Events are decoded JSON maps with a `type` field.
   final StreamController<Map<String, dynamic>> _eventBus =
       StreamController<Map<String, dynamic>>.broadcast();
 
+  /// In-memory rooms + messages caches.
+  List<ChatRoom> _rooms = [];
+  bool _roomsLoading = false;
   final Map<String, List<ChatMessage>> _roomMessages = {};
   String? _activeRoomId;
 
   ChatService(this.auth);
 
   bool get connected => _connected;
-  List<ChatMessage> messagesFor(String roomId) => _roomMessages[roomId] ?? [];
+  List<ChatRoom> get rooms => _rooms;
+  bool get roomsLoading => _roomsLoading;
+  List<ChatMessage> messagesFor(String roomId) => _roomMessages[roomId] ?? const [];
 
-  /// Stream of all server events. Consumers filter by event `type`.
   Stream<Map<String, dynamic>> get events => _eventBus.stream;
 
-  /// Subscribe to a specific event type. Returns a subscription that must be
-  /// cancelled by the caller.
   StreamSubscription<Map<String, dynamic>> on(
     String type,
     void Function(Map<String, dynamic>) handler,
@@ -54,7 +60,6 @@ class ChatService extends ChangeNotifier {
     return _eventBus.stream.where((e) => e['type'] == type).listen(handler);
   }
 
-  /// Send a raw JSON message to the server. No-op if not connected.
   void emit(String type, [Map<String, dynamic>? data]) {
     if (_channel == null || !_connected) return;
     final payload = <String, dynamic>{'type': type, ...?data};
@@ -65,36 +70,139 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  /// Generates a deterministic room ID for two users (+ optional product).
-  static String roomIdFor(String userA, String userB, {String? productId}) {
-    final sorted = [userA, userB]..sort();
-    final base = '${sorted[0]}_${sorted[1]}';
-    return productId != null ? '${base}_$productId' : base;
-  }
+  // ------------------------------------------------------------------
+  // REST: rooms list / create / messages / delete
+  // ------------------------------------------------------------------
 
-  Future<String> startRoomFromQR(String qrPayload, {String? productId}) async {
-    // QR payload format: "eggplant://user/<userId>/<nickname>"
-    final uri = Uri.tryParse(qrPayload);
-    if (uri == null || uri.scheme != 'eggplant') {
-      throw '유효하지 않은 QR 코드예요';
+  Future<void> fetchRooms({bool silent = false}) async {
+    if (!silent) {
+      _roomsLoading = true;
+      notifyListeners();
     }
-    final parts = uri.pathSegments;
-    if (parts.length < 2) throw '잘못된 QR 형식이에요';
-    final peerUserId = parts[0];
-
-    if (auth.user == null) throw '로그인이 필요해요';
-    return roomIdFor(auth.user!.id, peerUserId, productId: productId);
+    try {
+      final res = await auth.api.get('/api/chat/rooms');
+      final data = res.data as Map<String, dynamic>;
+      final list = (data['rooms'] as List? ?? [])
+          .map((e) => ChatRoom.fromJson(e as Map<String, dynamic>))
+          .toList();
+      _rooms = list;
+    } catch (e) {
+      debugPrint('[chat] fetchRooms failed: $e');
+    } finally {
+      _roomsLoading = false;
+      notifyListeners();
+    }
   }
 
-  /// Open the WebSocket if not already open.
+  /// Create or retrieve a room with a peer.
+  /// Returns the room id, or null on failure.
+  Future<ChatRoom?> openRoomWithPeer({
+    required String peerUserId,
+    String? productId,
+    String? productTitle,
+    String? productThumb,
+  }) async {
+    try {
+      final res = await auth.api.post('/api/chat/rooms', data: {
+        'peer_user_id': peerUserId,
+        if (productId != null) 'product_id': productId,
+        if (productTitle != null) 'product_title': productTitle,
+        if (productThumb != null) 'product_thumb': productThumb,
+      });
+      final data = res.data as Map<String, dynamic>;
+      final room = ChatRoom.fromJson({
+        ...data['room'] as Map<String, dynamic>,
+        'last_message_at': DateTime.now().toIso8601String(),
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      // Merge into local cache.
+      final existing = _rooms.indexWhere((r) => r.id == room.id);
+      if (existing >= 0) {
+        _rooms[existing] = room;
+      } else {
+        _rooms.insert(0, room);
+      }
+      notifyListeners();
+      return room;
+    } on DioException catch (e) {
+      debugPrint('[chat] openRoomWithPeer failed: ${e.response?.data ?? e.message}');
+      return null;
+    } catch (e) {
+      debugPrint('[chat] openRoomWithPeer failed: $e');
+      return null;
+    }
+  }
+
+  /// Load persisted history for a room.
+  Future<void> loadHistory(String roomId) async {
+    try {
+      final res = await auth.api.get('/api/chat/rooms/$roomId/messages');
+      final data = res.data as Map<String, dynamic>;
+      final msgs = (data['messages'] as List? ?? []).map((e) {
+        final m = e as Map<String, dynamic>;
+        return ChatMessage.fromJson({
+          'id': m['id'],
+          'room_id': m['room_id'],
+          'sender_id': m['sender_id'],
+          'sender_nickname': '', // not stored per-msg; UI uses isMine vs peer
+          'text': m['text'],
+          'type': m['msg_type'] ?? 'text',
+          'sent_at': m['sent_at'],
+        }, currentUserId: auth.user?.id);
+      }).toList();
+      _roomMessages[roomId] = msgs;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[chat] loadHistory failed: $e');
+    }
+  }
+
+  /// Permanently delete a room (and all messages) for BOTH users.
+  Future<bool> deleteRoom(String roomId) async {
+    try {
+      await auth.api.delete('/api/chat/rooms/$roomId');
+      _rooms.removeWhere((r) => r.id == roomId);
+      _roomMessages.remove(roomId);
+      if (_activeRoomId == roomId) _activeRoomId = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('[chat] deleteRoom failed: $e');
+      return false;
+    }
+  }
+
+  /// Clear all messages in a room (room itself stays).
+  Future<bool> clearMessages(String roomId) async {
+    try {
+      await auth.api.delete('/api/chat/rooms/$roomId/messages');
+      _roomMessages[roomId] = [];
+      final idx = _rooms.indexWhere((r) => r.id == roomId);
+      if (idx >= 0) {
+        _rooms[idx] = _rooms[idx].copyWith(
+          lastMessage: '',
+          lastSenderId: null,
+          lastMessageAt: DateTime.now(),
+        );
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('[chat] clearMessages failed: $e');
+      return false;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // WebSocket
+  // ------------------------------------------------------------------
+
   void connect() {
     if (_connected || _connecting) return;
     final token = auth.token;
     if (token == null) return;
     _connecting = true;
 
-    // Ensure the URL is a ws:// or wss:// scheme. If users configured an http
-    // URL from an older build, upgrade it transparently.
     var url = AppConfig.socketUrl;
     if (url.startsWith('http://')) {
       url = 'ws://${url.substring(7)}';
@@ -102,12 +210,10 @@ class ChatService extends ChangeNotifier {
       url = 'wss://${url.substring(8)}';
     }
 
-    // Append /socket if the user supplied a bare host (legacy convenience).
     final parsed = Uri.tryParse(url);
     if (parsed != null && (parsed.path.isEmpty || parsed.path == '/')) {
       url = '${url.replaceAll(RegExp(r'/+$'), '')}/socket';
     }
-    // Attach token as query param (WS upgrade headers can't be set on mobile).
     final sep = url.contains('?') ? '&' : '?';
     final full = '$url${sep}token=${Uri.encodeComponent(token)}';
 
@@ -137,15 +243,12 @@ class ChatService extends ChangeNotifier {
       cancelOnError: false,
     );
 
-    // Optimistically mark connected; the server's "connected" event will
-    // confirm. This lets the UI update without a round-trip.
     _connected = true;
     _connecting = false;
     _reconnectAttempts = 0;
     _startPing();
     notifyListeners();
 
-    // Re-join active room after reconnect.
     if (_activeRoomId != null) {
       emit('join_room', {'room_id': _activeRoomId});
     }
@@ -164,35 +267,96 @@ class ChatService extends ChangeNotifier {
     if (msg == null) return;
 
     final type = msg['type']?.toString() ?? '';
-    // Forward EVERY message to the event bus first so CallService sees it.
     _eventBus.add(msg);
 
     switch (type) {
       case 'connected':
-        // Server greeting - nothing else to do.
-        break;
       case 'pong':
-        // Keep-alive reply.
         break;
-      case 'message':
+
+      case 'message': {
         final chatMsg = ChatMessage.fromJson(msg, currentUserId: auth.user?.id);
         _roomMessages.putIfAbsent(chatMsg.roomId, () => []);
         _roomMessages[chatMsg.roomId]!.add(chatMsg);
+
+        // Bump local room preview.
+        final idx = _rooms.indexWhere((r) => r.id == chatMsg.roomId);
+        if (idx >= 0) {
+          _rooms[idx] = _rooms[idx].copyWith(
+            lastMessage: chatMsg.text,
+            lastSenderId: chatMsg.senderId,
+            lastMessageAt: chatMsg.sentAt,
+          );
+          // Re-sort desc by last_message_at.
+          _rooms.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
+        } else {
+          // Room showed up via WS before we fetched rooms list — refresh.
+          fetchRooms(silent: true);
+        }
         notifyListeners();
         break;
+      }
+
+      case 'room_updated': {
+        final roomId = msg['room_id']?.toString();
+        if (roomId == null) break;
+        final idx = _rooms.indexWhere((r) => r.id == roomId);
+        if (idx >= 0) {
+          _rooms[idx] = _rooms[idx].copyWith(
+            lastMessage: msg['last_message']?.toString() ?? '',
+            lastSenderId: msg['last_sender_id']?.toString(),
+            lastMessageAt:
+                DateTime.tryParse(msg['last_message_at']?.toString() ?? '') ?? DateTime.now(),
+          );
+          _rooms.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
+          notifyListeners();
+        } else {
+          fetchRooms(silent: true);
+        }
+        break;
+      }
+
+      case 'room_deleted': {
+        final roomId = msg['room_id']?.toString();
+        if (roomId == null) break;
+        _rooms.removeWhere((r) => r.id == roomId);
+        _roomMessages.remove(roomId);
+        if (_activeRoomId == roomId) _activeRoomId = null;
+        notifyListeners();
+        break;
+      }
+
+      case 'messages_cleared': {
+        final roomId = msg['room_id']?.toString();
+        if (roomId == null) break;
+        _roomMessages[roomId] = [];
+        final idx = _rooms.indexWhere((r) => r.id == roomId);
+        if (idx >= 0) {
+          _rooms[idx] = _rooms[idx].copyWith(
+            lastMessage: '',
+            lastSenderId: null,
+            lastMessageAt: DateTime.now(),
+          );
+        }
+        notifyListeners();
+        break;
+      }
+
       case 'system':
-        if (_activeRoomId != null) {
+        // In-room system text (e.g., "X joined"). Render in the room log only.
+        final roomId = _activeRoomId;
+        if (roomId != null) {
           final sys = ChatMessage(
-            id: const Uuid().v4(),
-            roomId: _activeRoomId!,
+            id: '${DateTime.now().microsecondsSinceEpoch}',
+            roomId: roomId,
             senderId: 'system',
             senderNickname: 'system',
             text: msg['text']?.toString() ?? '',
             type: 'system',
             sentAt: DateTime.now(),
           );
-          _roomMessages.putIfAbsent(sys.roomId, () => []);
-          _roomMessages[sys.roomId]!.add(sys);
+          _roomMessages.putIfAbsent(roomId, () => []);
+          _roomMessages[roomId]!.add(sys);
           notifyListeners();
         }
         break;
@@ -201,9 +365,7 @@ class ChatService extends ChangeNotifier {
 
   void _startPing() {
     _stopPing();
-    _pingTimer = Timer.periodic(const Duration(seconds: 25), (_) {
-      emit('ping');
-    });
+    _pingTimer = Timer.periodic(const Duration(seconds: 25), (_) => emit('ping'));
   }
 
   void _stopPing() {
@@ -215,7 +377,7 @@ class ChatService extends ChangeNotifier {
     if (auth.token == null) return;
     _reconnectTimer?.cancel();
     _reconnectAttempts = (_reconnectAttempts + 1).clamp(1, 6);
-    final delay = Duration(seconds: 1 << (_reconnectAttempts - 1)); // 1,2,4,8,16,32
+    final delay = Duration(seconds: 1 << (_reconnectAttempts - 1));
     debugPrint('[chat] reconnect in ${delay.inSeconds}s');
     _reconnectTimer = Timer(delay, () {
       if (!_connected) connect();
@@ -224,23 +386,21 @@ class ChatService extends ChangeNotifier {
 
   void joinRoom(String roomId, {String? peerNickname, String? productId}) {
     _activeRoomId = roomId;
-    // Ephemeral: clear in-memory log every time a room is (re)entered.
-    _roomMessages[roomId] = [];
-
-    if (!_connected) {
-      connect();
-    }
+    if (!_connected) connect();
     emit('join_room', {
       'room_id': roomId,
       if (peerNickname != null) 'peer_nickname': peerNickname,
       if (productId != null) 'product_id': productId,
     });
+    // Load persisted history in parallel.
+    loadHistory(roomId);
     notifyListeners();
   }
 
   void leaveRoom(String roomId) {
+    // NOTE: this only tells the WS we're off the room view. It does NOT delete
+    // anything. To wipe the room permanently, call deleteRoom().
     emit('leave_room', {'room_id': roomId});
-    _roomMessages.remove(roomId);
     if (_activeRoomId == roomId) _activeRoomId = null;
     notifyListeners();
   }
@@ -272,6 +432,7 @@ class ChatService extends ChangeNotifier {
     _connected = false;
     _connecting = false;
     _reconnectAttempts = 0;
+    _rooms = [];
     _roomMessages.clear();
     _activeRoomId = null;
     notifyListeners();

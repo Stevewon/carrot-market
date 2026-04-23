@@ -49,7 +49,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (ok && mounted) setState(() => _liked = !_liked);
   }
 
-  void _startChat() {
+  Future<void> _startChat() async {
     final p = _product;
     final user = context.read<AuthService>().user;
     if (p == null || user == null) return;
@@ -61,9 +61,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       return;
     }
 
-    final roomId = ChatService.roomIdFor(user.id, p.sellerId, productId: p.id);
+    final chat = context.read<ChatService>();
+    final room = await chat.openRoomWithPeer(
+      peerUserId: p.sellerId,
+      productId: p.id,
+      productTitle: p.title,
+      productThumb: p.images.isNotEmpty ? p.images.first : null,
+    );
+    if (!mounted) return;
+    if (room == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('채팅방을 열지 못했어요. 잠시 후 다시 시도해주세요')),
+      );
+      return;
+    }
+
     context.push(
-      '/chat/$roomId?peer=${Uri.encodeComponent(p.sellerNickname)}'
+      '/chat/${room.id}?peer=${Uri.encodeComponent(p.sellerNickname)}'
       '&product=${Uri.encodeComponent(p.title)}'
       '&peerId=${Uri.encodeComponent(p.sellerId)}',
     );

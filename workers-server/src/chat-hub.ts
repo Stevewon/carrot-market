@@ -53,9 +53,34 @@ export class ChatHub {
     this.env = env;
   }
 
-  /** Entry point: handle upgrade + REST from worker. */
+  /** Entry point: handle upgrade + internal REST from worker. */
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+
+    // ---- Internal REST (called by the main worker, not by clients) ----
+    if (url.pathname === '/internal/room-deleted' && request.method === 'POST') {
+      const body = (await request.json().catch(() => ({}))) as {
+        room_id?: string;
+        deleted_by?: string;
+        peer_user_id?: string;
+      };
+      if (body.room_id && body.peer_user_id) {
+        this.broadcastRoomDeleted(body.room_id, body.deleted_by || '', body.peer_user_id);
+      }
+      return new Response('ok');
+    }
+
+    if (url.pathname === '/internal/messages-cleared' && request.method === 'POST') {
+      const body = (await request.json().catch(() => ({}))) as {
+        room_id?: string;
+        cleared_by?: string;
+        peer_user_id?: string;
+      };
+      if (body.room_id && body.peer_user_id) {
+        this.broadcastMessagesCleared(body.room_id, body.cleared_by || '', body.peer_user_id);
+      }
+      return new Response('ok');
+    }
 
     if (request.headers.get('Upgrade') !== 'websocket') {
       return new Response('Expected WebSocket upgrade', { status: 426 });
@@ -166,19 +191,71 @@ export class ChatHub {
         const room_id = String(msg.room_id || '');
         const text = String(msg.text || '').slice(0, 2000);
         if (!room_id || !text.trim()) return;
+
+        // Confirm the sender is a member of this room (prevents spoofing).
+        const isMember = await this.env.DB.prepare(
+          'SELECT 1 FROM chat_rooms WHERE id = ? AND (user_a_id = ? OR user_b_id = ?) LIMIT 1'
+        )
+          .bind(room_id, meta.userId, meta.userId)
+          .first();
+        if (!isMember) {
+          this.sendSafe(ws, { type: 'error', message: '채팅방에 참여하지 않았어요' });
+          return;
+        }
+
+        const msgId = crypto.randomUUID();
+        const sentAt = new Date().toISOString();
+
+        // Persist message + bump room last_message (single batch).
+        try {
+          await this.env.DB.batch([
+            this.env.DB
+              .prepare(
+                'INSERT INTO chat_messages (id, room_id, sender_id, text, msg_type, sent_at) VALUES (?, ?, ?, ?, ?, ?)'
+              )
+              .bind(msgId, room_id, meta.userId, text, 'text', sentAt),
+            this.env.DB
+              .prepare(
+                'UPDATE chat_rooms SET last_message = ?, last_sender_id = ?, last_message_at = ? WHERE id = ?'
+              )
+              .bind(text, meta.userId, sentAt, room_id),
+          ]);
+        } catch (e) {
+          console.error('[chat] persist failed', e);
+          this.sendSafe(ws, { type: 'error', message: '메시지 저장 실패' });
+          return;
+        }
+
         const payload = {
           type: 'message',
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          id: msgId,
           room_id,
           sender_id: meta.userId,
           sender_nickname:
             (msg.sender_nickname as string | undefined) || meta.nickname || '익명',
           text,
           msg_type: 'text',
-          sent_at: new Date().toISOString(),
+          sent_at: sentAt,
         };
         // Send to ALL in room including sender (so UI shows own message consistently)
         this.broadcastToRoom(room_id, null, payload);
+
+        // Also notify the peer — even if they're not currently in the room view —
+        // so their chat-list tab can bump unread/preview.
+        const peerRow = await this.env.DB.prepare(
+          'SELECT CASE WHEN user_a_id = ? THEN user_b_id ELSE user_a_id END AS peer FROM chat_rooms WHERE id = ?'
+        )
+          .bind(meta.userId, room_id)
+          .first<{ peer: string }>();
+        if (peerRow?.peer) {
+          this.sendToUser(peerRow.peer, {
+            type: 'room_updated',
+            room_id,
+            last_message: text,
+            last_sender_id: meta.userId,
+            last_message_at: sentAt,
+          });
+        }
         return;
       }
 
@@ -286,6 +363,42 @@ export class ChatHub {
       }
     }
     return delivered;
+  }
+
+  /** Tell all sockets (caller + peer) that a room has been permanently deleted. */
+  private broadcastRoomDeleted(roomId: string, deletedBy: string, peerUserId: string): void {
+    const payload = JSON.stringify({
+      type: 'room_deleted',
+      room_id: roomId,
+      deleted_by: deletedBy,
+    });
+    for (const ws of this.state.getWebSockets()) {
+      const meta = ws.deserializeAttachment() as AttachedMeta | null;
+      if (!meta) continue;
+      // Notify both parties (the peer for sure, and the deleter's other devices).
+      if (meta.userId === peerUserId || meta.userId === deletedBy) {
+        try { ws.send(payload); } catch { /* ignore */ }
+        // Also drop the room from their attachment so future broadcasts skip them.
+        meta.rooms = meta.rooms.filter((r) => r !== roomId);
+        try { ws.serializeAttachment(meta); } catch { /* ignore */ }
+      }
+    }
+  }
+
+  /** Tell the peer that messages were cleared but the room stays. */
+  private broadcastMessagesCleared(roomId: string, clearedBy: string, peerUserId: string): void {
+    const payload = JSON.stringify({
+      type: 'messages_cleared',
+      room_id: roomId,
+      cleared_by: clearedBy,
+    });
+    for (const ws of this.state.getWebSockets()) {
+      const meta = ws.deserializeAttachment() as AttachedMeta | null;
+      if (!meta) continue;
+      if (meta.userId === peerUserId || meta.userId === clearedBy) {
+        try { ws.send(payload); } catch { /* ignore */ }
+      }
+    }
   }
 
   /** Generic relay of signaling messages to target user. */
