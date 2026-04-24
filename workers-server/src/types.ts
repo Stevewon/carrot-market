@@ -14,6 +14,12 @@ export interface AuthPayload {
   id: string;
   nickname: string;
   device_uuid: string;
+  /**
+   * Bumped when the user changes password or logs in on a new device.
+   * If `token_version` in a JWT doesn't match the user row, the token is
+   * rejected — this is how we kick out a previously-logged-in device.
+   */
+  tv: number;
   iat?: number;
   exp?: number;
 }
@@ -22,6 +28,22 @@ export interface UserRow {
   id: string;
   nickname: string;
   device_uuid: string;
+  wallet_address: string | null;
+  password_hash: string | null;
+  password_salt: string | null; // legacy / unused (we store salt inside password_hash now)
+  token_version: number;
+  region: string | null;
+  manner_score: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Shape returned to the client (never expose password_hash). */
+export interface UserPublic {
+  id: string;
+  nickname: string;
+  device_uuid: string;
+  wallet_address: string | null;
   region: string | null;
   manner_score: number;
   created_at: string;

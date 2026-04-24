@@ -14,13 +14,13 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   bool _requesting = false;
 
-  Future<void> _startFlow() async {
+  Future<void> _startFlow({required String target}) async {
     if (_requesting) return;
 
-    // If we've already bulk-asked on this device, skip straight to login.
+    // If we've already bulk-asked on this device, skip straight to target.
     if (await PermissionService.hasAskedBefore()) {
       if (!mounted) return;
-      context.push('/login');
+      context.push(target);
       return;
     }
 
@@ -37,7 +37,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
 
     if (!mounted) return;
-    context.push('/login');
+    context.push(target);
   }
 
   Future<bool?> _showPermissionExplainer() {
@@ -195,7 +195,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _requesting ? null : _startFlow,
+                  onPressed:
+                      _requesting ? null : () => _startFlow(target: '/register'),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: _requesting
@@ -207,13 +208,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('시작하기', style: TextStyle(fontSize: 17)),
+                        : const Text('회원가입',
+                            style: TextStyle(fontSize: 17)),
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed:
+                      _requesting ? null : () => _startFlow(target: '/login'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: EggplantColors.primary,
+                    side: const BorderSide(color: EggplantColors.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('이미 계정이 있어요 · 로그인',
+                      style: TextStyle(fontSize: 15)),
+                ),
+              ),
+              const SizedBox(height: 14),
               const Text(
-                '가입 시 개인정보 수집 없음',
+                '퀀타리움 지갑주소로 가입해요 🍆',
                 style: TextStyle(
                   fontSize: 12,
                   color: EggplantColors.textTertiary,

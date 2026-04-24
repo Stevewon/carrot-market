@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -11,6 +12,11 @@ class MyTab extends StatefulWidget {
 
   @override
   State<MyTab> createState() => _MyTabState();
+}
+
+String _shortenWallet(String w) {
+  if (w.length <= 12) return w;
+  return '${w.substring(0, 6)}...${w.substring(w.length - 4)}';
 }
 
 class _MyTabState extends State<MyTab> {
@@ -135,6 +141,20 @@ class _MyTabState extends State<MyTab> {
               trailing: user.region ?? '설정 필요',
               onTap: () => context.push('/region'),
             ),
+            if (user.walletAddress != null && user.walletAddress!.isNotEmpty)
+              _MenuTile(
+                icon: Icons.account_balance_wallet_outlined,
+                title: '지갑주소',
+                subtitle: _shortenWallet(user.walletAddress!),
+                onTap: () async {
+                  await Clipboard.setData(
+                      ClipboardData(text: user.walletAddress!));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('지갑주소를 복사했어요')),
+                  );
+                },
+              ),
             _MenuTile(
               icon: Icons.qr_code_2,
               title: '내 QR 코드',

@@ -199,11 +199,23 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
                 onSelected: (v) {
                   if (v == 'status') {
                     _changeStatus(p);
+                  } else if (v == 'edit') {
+                    context.push('/product/${p.id}/edit');
                   } else if (v == 'delete') {
                     _confirmDelete(p);
                   }
                 },
                 itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 20),
+                        SizedBox(width: 8),
+                        Text('수정'),
+                      ],
+                    ),
+                  ),
                   PopupMenuItem(
                     value: 'status',
                     child: Row(

@@ -154,6 +154,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             const Divider(height: 1),
             ListTile(
+              leading: const Icon(Icons.edit_outlined,
+                  color: EggplantColors.primary),
+              title: const Text('상품 수정',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await context.push('/product/${p.id}/edit');
+                // Reload after returning so UI shows latest values.
+                if (mounted) _load();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.delete_outline, color: EggplantColors.error),
               title: const Text('상품 삭제',
                   style: TextStyle(color: EggplantColors.error, fontWeight: FontWeight.w700)),

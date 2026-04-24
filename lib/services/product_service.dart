@@ -231,6 +231,61 @@ class ProductService extends ChangeNotifier {
     return _mySelling;
   }
 
+  /// Edit an existing product. Only the owner can call this (server enforces).
+  /// Any field left null is left untouched on the server.
+  /// Returns null on success, error string on failure.
+  Future<String?> updateProduct(
+    String productId, {
+    String? title,
+    String? description,
+    int? price,
+    String? category,
+    String? youtubeUrl,
+  }) async {
+    try {
+      final data = <String, dynamic>{};
+      if (title != null) data['title'] = title;
+      if (description != null) data['description'] = description;
+      if (price != null) data['price'] = price;
+      if (category != null) data['category'] = category;
+      // Empty string means "clear YouTube URL" (server understands this).
+      if (youtubeUrl != null) data['youtube_url'] = youtubeUrl;
+
+      if (data.isEmpty) return '수정할 내용이 없어요';
+
+      final res = await auth.api.dio.patch(
+        '/api/products/$productId',
+        data: data,
+      );
+      if (res.statusCode == 200) {
+        // Replace the updated product in every local cache.
+        final map = (res.data is Map) ? res.data['product'] : null;
+        if (map is Map<String, dynamic>) {
+          final updated = Product.fromJson(map);
+          final fIdx = _products.indexWhere((p) => p.id == productId);
+          if (fIdx >= 0) _products[fIdx] = updated;
+          final sIdx = _mySelling.indexWhere((p) => p.id == productId);
+          if (sIdx >= 0) _mySelling[sIdx] = updated;
+          final lIdx = _myLikes.indexWhere((p) => p.id == productId);
+          if (lIdx >= 0) _myLikes[lIdx] = updated;
+          notifyListeners();
+        }
+        return null;
+      }
+      return (res.data is Map)
+          ? (res.data['error']?.toString() ?? '수정 실패')
+          : '수정 실패';
+    } on DioException catch (e) {
+      debugPrint('updateProduct error: ${e.response?.data ?? e.message}');
+      return (e.response?.data is Map)
+          ? (e.response!.data['error']?.toString() ?? '수정 실패')
+          : '수정 실패';
+    } catch (e) {
+      debugPrint('updateProduct error: $e');
+      return '수정 실패';
+    }
+  }
+
   /// Change product status: 'sale' | 'reserved' | 'sold'.
   /// Returns null on success, error string on failure.
   Future<String?> updateStatus(String productId, String status) async {

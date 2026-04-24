@@ -5,8 +5,11 @@ import '../services/auth_service.dart';
 import '../screens/splash_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/login_screen.dart';
+import '../screens/auth/register_screen.dart';
+import '../screens/auth/find_account_screen.dart';
 import '../screens/home_shell.dart';
 import '../screens/my_products_screen.dart';
+import '../screens/product_edit_screen.dart';
 import '../screens/product_detail_screen.dart';
 import '../screens/product_create_screen.dart';
 import '../screens/qr_screen.dart';
@@ -22,7 +25,10 @@ GoRouter createRouter(AuthService auth) {
     redirect: (context, state) {
       final loggedIn = auth.isLoggedIn;
       final path = state.matchedLocation;
-      final onAuthPages = path == '/login' || path == '/onboarding';
+      final onAuthPages = path == '/login' ||
+          path == '/onboarding' ||
+          path == '/register' ||
+          path == '/find';
       final onSplash = path == '/splash';
 
       if (onSplash) return null;
@@ -34,6 +40,8 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      GoRoute(path: '/find', builder: (_, __) => const FindAccountScreen()),
       GoRoute(
         path: '/',
         builder: (_, state) => HomeShell(
@@ -47,6 +55,12 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(
         path: '/product/:id',
         builder: (_, state) => ProductDetailScreen(
+          productId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/product/:id/edit',
+        builder: (_, state) => ProductEditScreen(
           productId: state.pathParameters['id']!,
         ),
       ),

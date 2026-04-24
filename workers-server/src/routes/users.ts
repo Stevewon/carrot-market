@@ -1,8 +1,21 @@
 import { Hono } from 'hono';
-import type { Env, UserRow, Variables } from '../types';
+import type { Env, UserRow, UserPublic, Variables } from '../types';
 import { authMiddleware } from '../jwt';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+function sanitize(u: UserRow): UserPublic {
+  return {
+    id: u.id,
+    nickname: u.nickname,
+    device_uuid: u.device_uuid,
+    wallet_address: u.wallet_address,
+    region: u.region,
+    manner_score: u.manner_score,
+    created_at: u.created_at,
+    updated_at: u.updated_at,
+  };
+}
 
 /** PUT /api/users/me - update region / nickname */
 app.put('/me', authMiddleware, async (c) => {
@@ -23,9 +36,22 @@ app.put('/me', authMiddleware, async (c) => {
     updates.push('region = ?');
     values.push(body.region);
   }
-  if (body.nickname !== undefined && body.nickname.trim().length >= 2) {
+
+  if (body.nickname !== undefined) {
+    const nick = body.nickname.trim();
+    if (nick.length < 2 || nick.length > 12) {
+      return c.json({ error: '닉네임은 2~12자여야 해요' }, 400);
+    }
+    // Block nickname collisions (excluding ourselves).
+    const collision = await c.env.DB
+      .prepare('SELECT id FROM users WHERE nickname = ? COLLATE NOCASE AND id != ?')
+      .bind(nick, authUser.id)
+      .first<{ id: string }>();
+    if (collision) {
+      return c.json({ error: '이미 사용 중인 닉네임이에요' }, 409);
+    }
     updates.push('nickname = ?');
-    values.push(body.nickname.trim().slice(0, 12));
+    values.push(nick);
   }
 
   if (updates.length === 0) return c.json({ ok: true });
@@ -42,8 +68,9 @@ app.put('/me', authMiddleware, async (c) => {
     .prepare('SELECT * FROM users WHERE id = ?')
     .bind(authUser.id)
     .first<UserRow>();
+  if (!user) return c.json({ error: 'User not found' }, 404);
 
-  return c.json({ user });
+  return c.json({ user: sanitize(user) });
 });
 
 export default app;

@@ -9,6 +9,7 @@ export async function signToken(user: UserRow, secret: string): Promise<string> 
     id: user.id,
     nickname: user.nickname,
     device_uuid: user.device_uuid,
+    tv: user.token_version ?? 1,
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + JWT_EXPIRY_SECONDS,
   };
@@ -26,7 +27,16 @@ export async function verifyToken(token: string, secret: string): Promise<AuthPa
   }
 }
 
-/** Required auth middleware. Rejects if no valid Bearer token. */
+/**
+ * Required auth middleware.
+ *
+ * Two layers of validation:
+ *   1. JWT signature + expiry via verifyToken.
+ *   2. `tv` (token_version) + `device_uuid` must match the row in D1.
+ *      This means when a password is reset, or another device logs in with
+ *      the same wallet, the previous device's token gets 401 on the very
+ *      next request — "someone else logging in" no longer sticks.
+ */
 export const authMiddleware: MiddlewareHandler<{
   Bindings: Env;
   Variables: Variables;
@@ -37,6 +47,23 @@ export const authMiddleware: MiddlewareHandler<{
 
   const payload = await verifyToken(token, c.env.JWT_SECRET);
   if (!payload) return c.json({ error: 'Invalid token' }, 401);
+
+  // Re-validate against DB.
+  const row = await c.env.DB
+    .prepare('SELECT token_version, device_uuid FROM users WHERE id = ?')
+    .bind(payload.id)
+    .first<{ token_version: number; device_uuid: string }>();
+
+  if (!row) return c.json({ error: 'Account not found' }, 401);
+
+  const currentTv = row.token_version ?? 1;
+  const tokenTv = payload.tv ?? 1;
+  if (currentTv !== tokenTv) {
+    return c.json({ error: 'Session expired', code: 'token_revoked' }, 401);
+  }
+  if (payload.device_uuid && row.device_uuid && payload.device_uuid !== row.device_uuid) {
+    return c.json({ error: 'Session moved to another device', code: 'device_mismatch' }, 401);
+  }
 
   c.set('user', payload);
   await next();
@@ -51,7 +78,17 @@ export const optionalAuth: MiddlewareHandler<{
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (token) {
     const payload = await verifyToken(token, c.env.JWT_SECRET);
-    if (payload) c.set('user', payload);
+    if (payload) {
+      // Same DB-backed check as authMiddleware, but silently ignore on failure.
+      const row = await c.env.DB
+        .prepare('SELECT token_version, device_uuid FROM users WHERE id = ?')
+        .bind(payload.id)
+        .first<{ token_version: number; device_uuid: string }>();
+      if (row && (row.token_version ?? 1) === (payload.tv ?? 1) &&
+          (!payload.device_uuid || row.device_uuid === payload.device_uuid)) {
+        c.set('user', payload);
+      }
+    }
   }
   await next();
 };

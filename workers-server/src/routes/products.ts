@@ -298,6 +298,97 @@ app.post('/:id/like', authMiddleware, async (c) => {
   return c.json({ liked: true });
 });
 
+/**
+ * PATCH /api/products/:id
+ * Body (JSON, all fields optional):
+ *   { title?, description?, price?, category?, youtube_url? }
+ *
+ * Only the owner can edit. Images / uploaded videos are kept (edit ≠ re-upload);
+ * to change images the user can delete the product and upload again.
+ * We DO allow changing the YouTube URL (or clearing it via empty string).
+ */
+app.patch('/:id', authMiddleware, async (c) => {
+  const user = c.get('user')!;
+  const id = c.req.param('id');
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: '잘못된 요청' }, 400);
+  }
+
+  const row = await c.env.DB
+    .prepare('SELECT * FROM products WHERE id = ?')
+    .bind(id)
+    .first<ProductRow>();
+  if (!row) return c.json({ error: 'Not found' }, 404);
+  if (row.seller_id !== user.id) return c.json({ error: 'Forbidden' }, 403);
+
+  const updates: string[] = [];
+  const params: (string | number)[] = [];
+
+  if (typeof body.title === 'string') {
+    const t = (body.title as string).trim();
+    if (!t) return c.json({ error: '제목을 입력해주세요' }, 400);
+    if (t.length > 80) return c.json({ error: '제목이 너무 길어요' }, 400);
+    updates.push('title = ?');
+    params.push(t);
+  }
+  if (typeof body.description === 'string') {
+    const d = (body.description as string).trim();
+    if (d.length < 10) return c.json({ error: '설명은 10자 이상 입력해주세요' }, 400);
+    updates.push('description = ?');
+    params.push(d);
+  }
+  if (body.price !== undefined) {
+    const p = parseInt(String(body.price), 10);
+    if (!Number.isFinite(p) || p < 0) {
+      return c.json({ error: '가격이 올바르지 않아요' }, 400);
+    }
+    updates.push('price = ?');
+    params.push(p);
+  }
+  if (typeof body.category === 'string' && (body.category as string).trim()) {
+    updates.push('category = ?');
+    params.push((body.category as string).trim());
+  }
+  if (typeof body.youtube_url === 'string') {
+    const raw = (body.youtube_url as string).trim();
+    if (raw === '') {
+      // Clear video only if the current one is a YouTube URL; uploaded videos stay.
+      if ((row.video_url || '').startsWith('http')) {
+        updates.push('video_url = ?');
+        params.push('');
+      }
+    } else {
+      const normalized = normalizeYouTubeUrl(raw);
+      if (!normalized) return c.json({ error: '유튜브 링크 형식이 올바르지 않아요' }, 400);
+      updates.push('video_url = ?');
+      params.push(normalized);
+    }
+  }
+
+  if (updates.length === 0) {
+    return c.json({ error: '수정할 내용이 없어요' }, 400);
+  }
+
+  updates.push("updated_at = datetime('now')");
+  params.push(id);
+
+  await c.env.DB
+    .prepare(`UPDATE products SET ${updates.join(', ')} WHERE id = ?`)
+    .bind(...params)
+    .run();
+
+  const updated = await c.env.DB
+    .prepare('SELECT * FROM products WHERE id = ?')
+    .bind(id)
+    .first<ProductRow>();
+  const product = await hydrate(c.env, updated, user.id);
+  return c.json({ product });
+});
+
 /** PUT /api/products/:id/status */
 app.put('/:id/status', authMiddleware, async (c) => {
   const user = c.get('user')!;
