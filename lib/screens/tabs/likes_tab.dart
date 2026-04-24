@@ -7,6 +7,11 @@ import '../../models/product.dart';
 import '../../services/product_service.dart';
 import '../../widgets/product_card.dart';
 
+/// "찜" tab — backed by [ProductService.myLikes].
+///
+/// Because the service is a [ChangeNotifier] and every like/unlike/delete
+/// updates the cache, this screen is automatically in sync with the rest of
+/// the app. No manual re-fetch needed on tab switches.
 class LikesTab extends StatefulWidget {
   const LikesTab({super.key});
 
@@ -15,77 +20,92 @@ class LikesTab extends StatefulWidget {
 }
 
 class _LikesTabState extends State<LikesTab> {
-  List<Product> _items = [];
-  bool _loading = true;
-
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final items = await context.read<ProductService>().fetchMyLikes();
-    if (!mounted) return;
-    setState(() {
-      _items = items;
-      _loading = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final svc = context.read<ProductService>();
+      svc.fetchMyLikes(silent: svc.myLikesLoaded);
     });
   }
 
+  Future<void> _refresh() =>
+      context.read<ProductService>().fetchMyLikes(silent: true);
+
   @override
   Widget build(BuildContext context) {
+    final svc = context.watch<ProductService>();
+    final items = svc.myLikes;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('찜한 상품')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: EggplantColors.primary))
-          : _items.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('💜', style: TextStyle(fontSize: 56)),
-                      SizedBox(height: 12),
-                      Text(
-                        '찜한 상품이 없어요',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: EggplantColors.textPrimary,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        '관심있는 상품에 하트를 눌러보세요',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: EggplantColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  color: EggplantColors.primary,
-                  onRefresh: _load,
-                  child: ListView.separated(
-                    itemCount: _items.length,
-                    separatorBuilder: (_, __) => const Divider(
-                      height: 1,
-                      color: EggplantColors.border,
-                      indent: 16,
-                      endIndent: 16,
-                    ),
-                    itemBuilder: (_, i) {
-                      final p = _items[i];
-                      return ProductCard(
-                        product: p,
-                        onTap: () => context.push('/product/${p.id}'),
-                      );
-                    },
+      appBar: AppBar(
+        title: Text(
+          items.isEmpty ? '찜한 상품' : '찜한 상품 ${items.length}',
+        ),
+      ),
+      body: RefreshIndicator(
+        color: EggplantColors.primary,
+        onRefresh: _refresh,
+        child: _body(svc, items),
+      ),
+    );
+  }
+
+  Widget _body(ProductService svc, List<Product> items) {
+    if (svc.myLikesLoading && items.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: EggplantColors.primary),
+      );
+    }
+    if (items.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
+          SizedBox(height: 120),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('💜', style: TextStyle(fontSize: 56)),
+                SizedBox(height: 12),
+                Text(
+                  '찜한 상품이 없어요',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: EggplantColors.textPrimary,
                   ),
                 ),
+                SizedBox(height: 4),
+                Text(
+                  '관심있는 상품에 하트를 눌러보세요',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: EggplantColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.separated(
+      itemCount: items.length,
+      separatorBuilder: (_, __) => const Divider(
+        height: 1,
+        color: EggplantColors.border,
+        indent: 16,
+        endIndent: 16,
+      ),
+      itemBuilder: (_, i) {
+        final p = items[i];
+        return ProductCard(
+          product: p,
+          onTap: () => context.push('/product/${p.id}'),
+        );
+      },
     );
   }
 }

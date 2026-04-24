@@ -49,6 +49,125 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (ok && mounted) setState(() => _liked = !_liked);
   }
 
+  bool get _isMine {
+    final p = _product;
+    final u = context.read<AuthService>().user;
+    return p != null && u != null && p.sellerId == u.id;
+  }
+
+  Future<void> _changeStatus(String status) async {
+    final p = _product;
+    if (p == null) return;
+    final err = await context.read<ProductService>().updateStatus(p.id, status);
+    if (!mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      return;
+    }
+    // Refresh detail so UI shows new status.
+    await _load();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('상태를 ${_statusLabel(status)}(으)로 변경했어요')),
+    );
+  }
+
+  String _statusLabel(String s) =>
+      s == 'sale' ? '판매중' : s == 'reserved' ? '예약중' : '거래완료';
+
+  Future<void> _confirmDelete() async {
+    final p = _product;
+    if (p == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('상품 삭제'),
+        content: Text('${p.title}을(를) 정말 삭제할까요?\n\n'
+            '• 상품과 사진/영상이 영구 삭제돼요\n'
+            '• 복구할 수 없어요'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: EggplantColors.error),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final err = await context.read<ProductService>().deleteProduct(p.id);
+    if (!mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('상품을 삭제했어요')),
+    );
+    // Refresh feed + pop.
+    context.read<ProductService>().fetchProducts(
+          category: context.read<ProductService>().currentCategory,
+          region: context.read<AuthService>().user?.region,
+        );
+    context.pop();
+  }
+
+  void _showOwnerMenu() {
+    final p = _product;
+    if (p == null) return;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _StatusTile(
+              label: '판매중',
+              icon: Icons.sell_outlined,
+              selected: p.status == 'sale',
+              onTap: () {
+                Navigator.pop(ctx);
+                _changeStatus('sale');
+              },
+            ),
+            _StatusTile(
+              label: '예약중',
+              icon: Icons.schedule_outlined,
+              selected: p.status == 'reserved',
+              onTap: () {
+                Navigator.pop(ctx);
+                _changeStatus('reserved');
+              },
+            ),
+            _StatusTile(
+              label: '거래완료',
+              icon: Icons.check_circle_outline,
+              selected: p.status == 'sold',
+              onTap: () {
+                Navigator.pop(ctx);
+                _changeStatus('sold');
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: EggplantColors.error),
+              title: const Text('상품 삭제',
+                  style: TextStyle(color: EggplantColors.error, fontWeight: FontWeight.w700)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDelete();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _startChat() async {
     final p = _product;
     final user = context.read<AuthService>().user;
@@ -117,6 +236,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 onPressed: () => context.pop(),
               ),
             ),
+            actions: [
+              if (_isMine)
+                Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.4),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.more_vert, color: Colors.white),
+                    tooltip: '상태 변경 / 삭제',
+                    onPressed: _showOwnerMenu,
+                  ),
+                ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: _ImageCarousel(images: p.images),
             ),
@@ -218,7 +352,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           top: 12,
           bottom: 12 + MediaQuery.of(context).padding.bottom,
         ),
-        child: Row(
+        child: _isMine ? _OwnerBottomBar(product: p, onMenu: _showOwnerMenu)
+            : Row(
           children: [
             IconButton(
               icon: Icon(
@@ -540,6 +675,108 @@ class _ProductVideoState extends State<_ProductVideo> {
             : _vpCtl!.value.aspectRatio,
         child: Chewie(controller: _chewieCtl!),
       ),
+    );
+  }
+}
+
+class _OwnerBottomBar extends StatelessWidget {
+  final Product product;
+  final VoidCallback onMenu;
+  const _OwnerBottomBar({required this.product, required this.onMenu});
+
+  @override
+  Widget build(BuildContext context) {
+    Color badgeColor;
+    String badgeText;
+    IconData badgeIcon;
+    switch (product.status) {
+      case 'reserved':
+        badgeColor = EggplantColors.warning;
+        badgeText = '예약중';
+        badgeIcon = Icons.schedule;
+        break;
+      case 'sold':
+        badgeColor = EggplantColors.textSecondary;
+        badgeText = '거래완료';
+        badgeIcon = Icons.check_circle;
+        break;
+      default:
+        badgeColor = EggplantColors.success;
+        badgeText = '판매중';
+        badgeIcon = Icons.sell;
+    }
+
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: badgeColor.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(badgeIcon, size: 14, color: badgeColor),
+              const SizedBox(width: 4),
+              Text(
+                badgeText,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: badgeColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            product.priceFormatted,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: onMenu,
+          icon: const Icon(Icons.edit_note, size: 20),
+          label: const Text('상태/삭제', style: TextStyle(fontSize: 14)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: EggplantColors.primary,
+            side: const BorderSide(color: EggplantColors.primary),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusTile extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  const _StatusTile({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon,
+          color: selected ? EggplantColors.primary : EggplantColors.textSecondary),
+      title: Text(label,
+          style: TextStyle(
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            color: selected ? EggplantColors.primary : EggplantColors.textPrimary,
+          )),
+      trailing: selected
+          ? const Icon(Icons.check, color: EggplantColors.primary)
+          : null,
+      onTap: onTap,
     );
   }
 }

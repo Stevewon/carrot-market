@@ -6,6 +6,7 @@ import '../screens/splash_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/home_shell.dart';
+import '../screens/my_products_screen.dart';
 import '../screens/product_detail_screen.dart';
 import '../screens/product_create_screen.dart';
 import '../screens/qr_screen.dart';
@@ -48,6 +49,10 @@ GoRouter createRouter(AuthService auth) {
         builder: (_, state) => ProductDetailScreen(
           productId: state.pathParameters['id']!,
         ),
+      ),
+      GoRoute(
+        path: '/my/products',
+        builder: (_, __) => const MyProductsScreen(),
       ),
       GoRoute(path: '/qr', builder: (_, __) => const QrScreen()),
       GoRoute(path: '/qr/scan', builder: (_, __) => const QrScanScreen()),

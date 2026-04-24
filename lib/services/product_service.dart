@@ -13,11 +13,29 @@ class ProductService extends ChangeNotifier {
   String _currentCategory = 'all';
   String _searchQuery = '';
 
+  // Cached "my page" lists — kept here so all screens that watch the service
+  // stay in sync (like/unlike, upload, status change, delete all reflect instantly).
+  List<Product> _myLikes = [];
+  bool _myLikesLoading = false;
+  bool _myLikesLoaded = false;
+
+  List<Product> _mySelling = [];
+  bool _mySellingLoading = false;
+  bool _mySellingLoaded = false;
+
   ProductService(this.auth);
 
   List<Product> get products => _products;
   bool get loading => _loading;
   String get currentCategory => _currentCategory;
+
+  List<Product> get myLikes => _myLikes;
+  bool get myLikesLoading => _myLikesLoading;
+  bool get myLikesLoaded => _myLikesLoaded;
+
+  List<Product> get mySelling => _mySelling;
+  bool get mySellingLoading => _mySellingLoading;
+  bool get mySellingLoaded => _mySellingLoaded;
 
   Future<void> fetchProducts({String category = 'all', String? region, String? search}) async {
     _loading = true;
@@ -105,6 +123,15 @@ class ProductService extends ChangeNotifier {
         ),
       );
       if (res.statusCode == 200 || res.statusCode == 201) {
+        // Refresh caches so new product shows up on the feed and on
+        // "내가 판매중인 상품" immediately.
+        // Fire-and-forget; UI has already navigated away.
+        fetchProducts(
+          category: _currentCategory,
+          region: region,
+          search: _searchQuery.isEmpty ? null : _searchQuery,
+        );
+        fetchMyProducts(silent: true);
         return null; // success
       }
       return res.data?['error']?.toString() ?? '등록 실패';
@@ -117,30 +144,39 @@ class ProductService extends ChangeNotifier {
   Future<bool> toggleLike(String productId) async {
     try {
       final res = await auth.api.post('/api/products/$productId/like');
-      // Update local state
-      final idx = _products.indexWhere((p) => p.id == productId);
-      if (idx != -1) {
-        final p = _products[idx];
-        final newLiked = !p.isLiked;
-        _products[idx] = Product(
-          id: p.id,
-          title: p.title,
-          description: p.description,
-          price: p.price,
-          category: p.category,
-          region: p.region,
-          images: p.images,
-          videoUrl: p.videoUrl,
-          sellerId: p.sellerId,
-          sellerNickname: p.sellerNickname,
-          sellerMannerScore: p.sellerMannerScore,
-          status: p.status,
-          viewCount: p.viewCount,
-          likeCount: newLiked ? p.likeCount + 1 : (p.likeCount - 1).clamp(0, 999999),
-          chatCount: p.chatCount,
-          isLiked: newLiked,
-          createdAt: p.createdAt,
-        );
+
+      // Determine new like state from the feed copy if present; otherwise from
+      // the myLikes cache.
+      bool? prevLiked;
+      Product? base;
+      final feedIdx = _products.indexWhere((p) => p.id == productId);
+      if (feedIdx != -1) {
+        prevLiked = _products[feedIdx].isLiked;
+        base = _products[feedIdx];
+      } else {
+        final likeIdx = _myLikes.indexWhere((p) => p.id == productId);
+        if (likeIdx != -1) {
+          prevLiked = _myLikes[likeIdx].isLiked;
+          base = _myLikes[likeIdx];
+        }
+      }
+
+      if (base != null && prevLiked != null) {
+        final newLiked = !prevLiked;
+        final updated = _withLiked(base, newLiked);
+        if (feedIdx != -1) _products[feedIdx] = updated;
+
+        // Keep the "찜" tab in sync with no extra round trip.
+        final likeIdx = _myLikes.indexWhere((p) => p.id == productId);
+        if (newLiked) {
+          if (likeIdx == -1) {
+            _myLikes.insert(0, updated);
+          } else {
+            _myLikes[likeIdx] = updated;
+          }
+        } else {
+          if (likeIdx != -1) _myLikes.removeAt(likeIdx);
+        }
         notifyListeners();
       }
       return res.statusCode == 200;
@@ -150,25 +186,164 @@ class ProductService extends ChangeNotifier {
     }
   }
 
-  Future<List<Product>> fetchMyLikes() async {
+  /// Reload the user's liked products into the cache.
+  /// Returns the list for convenience.
+  Future<List<Product>> fetchMyLikes({bool silent = false}) async {
+    if (!silent) {
+      _myLikesLoading = true;
+      notifyListeners();
+    }
     try {
       final res = await auth.api.get('/api/products/my/likes');
-      return (res.data['products'] as List? ?? [])
+      _myLikes = (res.data['products'] as List? ?? [])
           .map((e) => Product.fromJson(e as Map<String, dynamic>))
           .toList();
+      _myLikesLoaded = true;
     } catch (e) {
-      return [];
+      debugPrint('fetchMyLikes error: $e');
+      _myLikes = [];
+    } finally {
+      _myLikesLoading = false;
+      notifyListeners();
+    }
+    return _myLikes;
+  }
+
+  /// Reload the user's own uploaded products into the cache.
+  Future<List<Product>> fetchMyProducts({bool silent = false}) async {
+    if (!silent) {
+      _mySellingLoading = true;
+      notifyListeners();
+    }
+    try {
+      final res = await auth.api.get('/api/products/my/selling');
+      _mySelling = (res.data['products'] as List? ?? [])
+          .map((e) => Product.fromJson(e as Map<String, dynamic>))
+          .toList();
+      _mySellingLoaded = true;
+    } catch (e) {
+      debugPrint('fetchMyProducts error: $e');
+      _mySelling = [];
+    } finally {
+      _mySellingLoading = false;
+      notifyListeners();
+    }
+    return _mySelling;
+  }
+
+  /// Change product status: 'sale' | 'reserved' | 'sold'.
+  /// Returns null on success, error string on failure.
+  Future<String?> updateStatus(String productId, String status) async {
+    try {
+      final res = await auth.api.put(
+        '/api/products/$productId/status',
+        data: {'status': status},
+      );
+      if (res.statusCode == 200) {
+        // Update local caches so every tab reflects the new status immediately.
+        final feedIdx = _products.indexWhere((p) => p.id == productId);
+        if (feedIdx >= 0) {
+          _products[feedIdx] = _withStatus(_products[feedIdx], status);
+        }
+        final sellIdx = _mySelling.indexWhere((p) => p.id == productId);
+        if (sellIdx >= 0) {
+          _mySelling[sellIdx] = _withStatus(_mySelling[sellIdx], status);
+        }
+        final likeIdx = _myLikes.indexWhere((p) => p.id == productId);
+        if (likeIdx >= 0) {
+          _myLikes[likeIdx] = _withStatus(_myLikes[likeIdx], status);
+        }
+        notifyListeners();
+        return null;
+      }
+      return (res.data is Map) ? (res.data['error']?.toString() ?? '변경 실패') : '변경 실패';
+    } on DioException catch (e) {
+      debugPrint('updateStatus error: ${e.response?.data ?? e.message}');
+      return (e.response?.data is Map)
+          ? (e.response!.data['error']?.toString() ?? '변경 실패')
+          : '변경 실패';
+    } catch (e) {
+      debugPrint('updateStatus error: $e');
+      return '변경 실패';
     }
   }
 
-  Future<List<Product>> fetchMyProducts() async {
+  /// Permanently delete a product (+ its R2 images).
+  Future<String?> deleteProduct(String productId) async {
     try {
-      final res = await auth.api.get('/api/products/my/selling');
-      return (res.data['products'] as List? ?? [])
-          .map((e) => Product.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final res = await auth.api.delete('/api/products/$productId');
+      if (res.statusCode == 200) {
+        _products.removeWhere((p) => p.id == productId);
+        _mySelling.removeWhere((p) => p.id == productId);
+        _myLikes.removeWhere((p) => p.id == productId);
+        notifyListeners();
+        return null;
+      }
+      return (res.data is Map) ? (res.data['error']?.toString() ?? '삭제 실패') : '삭제 실패';
+    } on DioException catch (e) {
+      debugPrint('deleteProduct error: ${e.response?.data ?? e.message}');
+      return (e.response?.data is Map)
+          ? (e.response!.data['error']?.toString() ?? '삭제 실패')
+          : '삭제 실패';
     } catch (e) {
-      return [];
+      debugPrint('deleteProduct error: $e');
+      return '삭제 실패';
     }
+  }
+
+  Product _withStatus(Product p, String status) {
+    return Product(
+      id: p.id,
+      title: p.title,
+      description: p.description,
+      price: p.price,
+      category: p.category,
+      region: p.region,
+      images: p.images,
+      videoUrl: p.videoUrl,
+      sellerId: p.sellerId,
+      sellerNickname: p.sellerNickname,
+      sellerMannerScore: p.sellerMannerScore,
+      status: status,
+      viewCount: p.viewCount,
+      likeCount: p.likeCount,
+      chatCount: p.chatCount,
+      isLiked: p.isLiked,
+      createdAt: p.createdAt,
+    );
+  }
+
+  Product _withLiked(Product p, bool liked) {
+    return Product(
+      id: p.id,
+      title: p.title,
+      description: p.description,
+      price: p.price,
+      category: p.category,
+      region: p.region,
+      images: p.images,
+      videoUrl: p.videoUrl,
+      sellerId: p.sellerId,
+      sellerNickname: p.sellerNickname,
+      sellerMannerScore: p.sellerMannerScore,
+      status: p.status,
+      viewCount: p.viewCount,
+      likeCount: liked
+          ? p.likeCount + 1
+          : (p.likeCount - 1).clamp(0, 999999),
+      chatCount: p.chatCount,
+      isLiked: liked,
+      createdAt: p.createdAt,
+    );
+  }
+
+  /// Drop all cached data (used on logout).
+  void clearCaches() {
+    _products = [];
+    _myLikes = [];
+    _myLikesLoaded = false;
+    _mySelling = [];
+    _mySellingLoaded = false;
+    notifyListeners();
   }
 }
