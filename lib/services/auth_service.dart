@@ -127,15 +127,15 @@ class AuthService extends ChangeNotifier {
   }
 
   // ================================================================
-  // Log in
+  // Log in (nickname + password)
   // ================================================================
   Future<String?> login({
-    required String walletAddress,
+    required String nickname,
     required String password,
   }) async {
     try {
       final res = await api.post('/api/auth/login', data: {
-        'wallet_address': walletAddress.trim(),
+        'nickname': nickname.trim(),
         'password': password,
         'device_uuid': deviceUuid,
       });

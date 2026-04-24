@@ -129,23 +129,27 @@ app.post('/register', async (c) => {
 
 // ================================================================
 // POST /api/auth/login
-// Body: { wallet_address, password, device_uuid }
+// Body: { nickname, password, device_uuid }
+//
+// Nickname is the display name AND the login ID (unique, COLLATE NOCASE).
+// Wallet address is only used for signup and for recovery (finding
+// nickname / resetting password).
 //
 // On success:
 //  - If the new device_uuid differs from the one on file, we *replace* it
 //    and bump token_version. This invalidates the previous device's JWT.
 // ================================================================
 app.post('/login', async (c) => {
-  let body: { wallet_address?: string; password?: string; device_uuid?: string } = {};
+  let body: { nickname?: string; password?: string; device_uuid?: string } = {};
   try {
     body = await c.req.json();
   } catch {
     return c.json({ error: '잘못된 요청' }, 400);
   }
 
-  const { wallet_address, password, device_uuid } = body;
-  if (!wallet_address || !isValidWallet(wallet_address)) {
-    return c.json({ error: '지갑주소 형식을 확인해주세요 (0x + 40자리)' }, 400);
+  const { nickname, password, device_uuid } = body;
+  if (!nickname || typeof nickname !== 'string' || !nickname.trim()) {
+    return c.json({ error: '닉네임을 입력해주세요' }, 400);
   }
   if (!password || typeof password !== 'string') {
     return c.json({ error: '비밀번호를 입력해주세요' }, 400);
@@ -154,19 +158,19 @@ app.post('/login', async (c) => {
     return c.json({ error: '기기 정보가 올바르지 않아요' }, 400);
   }
 
-  const walletNorm = normalizeWallet(wallet_address);
+  const nickTrim = nickname.trim();
   const user = await c.env.DB
-    .prepare('SELECT * FROM users WHERE wallet_address = ? COLLATE NOCASE')
-    .bind(walletNorm)
+    .prepare('SELECT * FROM users WHERE nickname = ? COLLATE NOCASE')
+    .bind(nickTrim)
     .first<UserRow>();
 
   // Intentionally same error for "not found" vs "wrong password" to avoid
-  // leaking which wallets are registered.
+  // leaking which nicknames are registered.
   const ok = user && user.password_hash
     ? await verifyPassword(password, user.password_hash)
     : false;
   if (!user || !ok) {
-    return c.json({ error: '지갑주소 또는 비밀번호가 올바르지 않아요' }, 401);
+    return c.json({ error: '닉네임 또는 비밀번호가 올바르지 않아요' }, 401);
   }
 
   // If logging in from a new device, kick the old device out.

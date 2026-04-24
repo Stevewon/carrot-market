@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -7,7 +6,9 @@ import '../app/theme.dart';
 import '../services/auth_service.dart';
 import 'auth/_auth_shared.dart';
 
-/// Wallet + password login screen.
+/// Nickname + password login screen.
+///
+/// Wallet address is only used for signup / recovery, not here.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -16,7 +17,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _walletCtl = TextEditingController();
+  final _nicknameCtl = TextEditingController();
   final _passwordCtl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
@@ -26,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _walletCtl.dispose();
+    _nicknameCtl.dispose();
     _passwordCtl.dispose();
     super.dispose();
   }
@@ -39,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     final err = await context.read<AuthService>().login(
-          walletAddress: _walletCtl.text,
+          nickname: _nicknameCtl.text,
           password: _passwordCtl.text,
         );
 
@@ -51,13 +52,6 @@ class _LoginScreenState extends State<LoginScreen> {
     } else {
       context.go('/');
     }
-  }
-
-  Future<void> _pasteWallet() async {
-    final data = await Clipboard.getData('text/plain');
-    final s = data?.text?.trim() ?? '';
-    if (s.isEmpty) return;
-    setState(() => _walletCtl.text = s);
   }
 
   @override
@@ -89,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  '퀀타리움 지갑주소와 비밀번호로 로그인하세요.',
+                  '닉네임과 비밀번호로 로그인하세요.',
                   style: TextStyle(
                     fontSize: 14,
                     color: EggplantColors.textSecondary,
@@ -98,24 +92,26 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                const FieldLabel('퀀타리움 지갑주소'),
+                const FieldLabel('닉네임'),
                 TextFormField(
-                  controller: _walletCtl,
+                  controller: _nicknameCtl,
                   autocorrect: false,
                   enableSuggestions: false,
-                  decoration: InputDecoration(
-                    hintText: '0x...',
-                    prefixIcon: const Icon(
-                      Icons.account_balance_wallet_outlined,
+                  maxLength: 12,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    hintText: '가입할 때 설정한 닉네임',
+                    prefixIcon: Icon(
+                      Icons.person_outline,
                       color: EggplantColors.primary,
                     ),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.content_paste_rounded, size: 20),
-                      tooltip: '붙여넣기',
-                      onPressed: _pasteWallet,
-                    ),
+                    counterText: '',
                   ),
-                  validator: validateWalletAddress,
+                  validator: (v) {
+                    final s = (v ?? '').trim();
+                    if (s.isEmpty) return '닉네임을 입력해주세요';
+                    return null;
+                  },
                 ),
 
                 const SizedBox(height: 20),
@@ -126,6 +122,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   obscureText: _obscure,
                   autocorrect: false,
                   enableSuggestions: false,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _submit(),
                   decoration: InputDecoration(
                     hintText: '8자 이상',
                     prefixIcon: const Icon(Icons.lock_outline,
@@ -211,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '같은 지갑으로 다른 기기에서 로그인하면 '
+                          '다른 기기에서 같은 계정으로 로그인하면 '
                           '이전 기기의 세션은 즉시 종료돼요.',
                           style: TextStyle(
                             fontSize: 12,
