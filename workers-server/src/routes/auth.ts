@@ -108,14 +108,53 @@ app.post('/register', async (c) => {
   const hash = await hashPassword(password!);
   const id = crypto.randomUUID();
 
-  await c.env.DB
-    .prepare(`
-      INSERT INTO users
-        (id, nickname, device_uuid, wallet_address, password_hash, region, token_version)
-      VALUES (?, ?, ?, ?, ?, ?, 1)
-    `)
-    .bind(id, cleanNick, device_uuid, walletNorm, hash, region || null)
-    .run();
+  // Safety net: if migration 0005 hasn't been applied yet and this device_uuid
+  // was previously bound to some other wallet, free it up by nulling the old
+  // binding and bumping that user's token_version so their session dies on the
+  // next request. (Post-0005 this is a no-op because the column isn't UNIQUE.)
+  try {
+    await c.env.DB
+      .prepare(`
+        UPDATE users
+           SET device_uuid = 'released:' || id,
+               token_version = token_version + 1,
+               updated_at = datetime('now')
+         WHERE device_uuid = ? AND id != ?
+      `)
+      .bind(device_uuid, id)
+      .run();
+  } catch (e) {
+    // Ignore — this is best-effort cleanup.
+    console.error('[auth/register] device_uuid cleanup:', e);
+  }
+
+  try {
+    await c.env.DB
+      .prepare(`
+        INSERT INTO users
+          (id, nickname, device_uuid, wallet_address, password_hash, region, token_version)
+        VALUES (?, ?, ?, ?, ?, ?, 1)
+      `)
+      .bind(id, cleanNick, device_uuid, walletNorm, hash, region || null)
+      .run();
+  } catch (e) {
+    const msg = String((e as Error)?.message || e);
+    console.error('[auth/register] INSERT failed:', msg);
+    // Surface the common schema-level failures with friendly Korean messages.
+    if (/UNIQUE constraint failed: users\.wallet_address/i.test(msg)) {
+      return c.json({ error: '이미 가입된 지갑주소예요' }, 409);
+    }
+    if (/UNIQUE constraint failed: users\.nickname/i.test(msg)) {
+      return c.json({ error: '이미 사용 중인 닉네임이에요' }, 409);
+    }
+    if (/UNIQUE constraint failed: users\.device_uuid/i.test(msg)) {
+      return c.json(
+        { error: '이 기기에 다른 계정이 남아있어요. 앱을 재설치하거나 관리자에게 문의해주세요.' },
+        409,
+      );
+    }
+    return c.json({ error: '가입 중 오류가 발생했어요' }, 500);
+  }
 
   const user = await c.env.DB
     .prepare('SELECT * FROM users WHERE id = ?')

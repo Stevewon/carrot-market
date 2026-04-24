@@ -441,6 +441,18 @@ app.delete('/:id', authMiddleware, async (c) => {
     }
   }
 
+  // Delete uploaded video from R2 (only for non-YouTube videos — YouTube URLs
+  // start with http, uploaded files live under /uploads/<key>.<ext>).
+  // Without this the R2 bucket accumulates orphaned video blobs whenever a
+  // seller deletes a listing that had a self-hosted clip.
+  const video = row.video_url || '';
+  if (video && video.startsWith('/uploads/')) {
+    const vkey = video.replace(/^\/uploads\//, '');
+    if (vkey) {
+      try { await c.env.UPLOADS.delete(vkey); } catch {}
+    }
+  }
+
   await c.env.DB
     .prepare('DELETE FROM products WHERE id = ?')
     .bind(id)

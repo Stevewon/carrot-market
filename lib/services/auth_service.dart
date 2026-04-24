@@ -71,6 +71,11 @@ class AuthService extends ChangeNotifier {
     return uuid;
   }
 
+  /// Hydrate session from SharedPreferences, then silently re-validate the
+  /// token against the server. If the server bumped `token_version` (e.g. the
+  /// same wallet logged in from another device, or the password was reset),
+  /// this call forces a local logout so the app snaps to the login screen
+  /// instead of pretending to be signed-in until the user hits an API.
   Future<void> loadFromStorage() async {
     _token = prefs.getString(_kToken);
     final userId = prefs.getString(_kUserId);
@@ -88,8 +93,55 @@ class AuthService extends ChangeNotifier {
         createdAt: DateTime.now(),
       );
       api.setToken(_token);
+      notifyListeners();
+
+      // Re-validate with the server. If the error interceptor already fires on
+      // 401 with code=token_revoked/device_mismatch, it will call _localLogout
+      // for us. We still handle other 401s (e.g. raw "Unauthorized") here.
+      //
+      // Short per-call timeout so a slow network never delays app cold-start
+      // by more than ~5s — if the call times out we just keep the cached
+      // session and move on; the next real API request will re-check.
+      try {
+        final res = await api.dio.get(
+          '/api/auth/me',
+          options: Options(
+            sendTimeout: const Duration(seconds: 5),
+            receiveTimeout: const Duration(seconds: 5),
+          ),
+        );
+        if (res.statusCode == 200) {
+          final data = res.data as Map<String, dynamic>;
+          final u = data['user'] as Map<String, dynamic>?;
+          if (u != null) {
+            _user = User.fromJson(u);
+            // Persist any server-side updates (region, manner_score, etc.).
+            await prefs.setString(_kNickname, _user!.nickname);
+            if (_user!.walletAddress != null) {
+              await prefs.setString(_kWallet, _user!.walletAddress!);
+            }
+            if (_user!.region != null) {
+              await prefs.setString(_kRegion, _user!.region!);
+            }
+            await prefs.setInt(_kMannerScore, _user!.mannerScore);
+            notifyListeners();
+          }
+        }
+      } on DioException catch (e) {
+        // 401 with a known revoke code is handled by the interceptor.
+        // For anything else we stay logged-in locally so a flaky network
+        // doesn't log users out every cold start.
+        if (e.response?.statusCode == 401) {
+          await _localLogout();
+        } else {
+          debugPrint('[auth] loadFromStorage: /me failed (keeping session): $e');
+        }
+      } catch (e) {
+        debugPrint('[auth] loadFromStorage: /me error (keeping session): $e');
+      }
+    } else {
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   // ================================================================
