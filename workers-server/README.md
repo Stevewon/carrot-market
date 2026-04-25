@@ -241,3 +241,5 @@ See `src/chat-hub.ts` for the WebSocket message protocol.
 - **Durable Object migration error on deploy** — this only happens the *very
   first time*; Wrangler creates the class automatically. Subsequent deploys
   re-use it.
+
+<!-- Deploy trigger: friend referral (+200 QTA) and account deletion (immediate clawback) features (2026-04-25) -->
