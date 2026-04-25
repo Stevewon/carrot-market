@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
+import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
 
@@ -186,7 +187,12 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('내 동네 설정')),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+            child: Column(
         children: [
           _buildVerifiedBanner(auth),
           Padding(
@@ -260,6 +266,9 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
             ),
           ),
         ],
+            ),
+          ),
+        ),
       ),
     );
   }

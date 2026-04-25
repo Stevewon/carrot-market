@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../app/constants.dart';
+import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
 import '../services/product_service.dart';
@@ -308,11 +309,16 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
+      body: SafeArea(
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Responsive.maxContentWidth),
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
             _buildImageStrip(),
             const SizedBox(height: 16),
             _buildVideoStrip(),
@@ -382,6 +388,9 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
             ),
             const SizedBox(height: 32),
           ],
+              ),
+            ),
+          ),
         ),
       ),
     );

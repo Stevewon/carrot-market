@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../services/auth_service.dart';
 import '_auth_shared.dart';
@@ -104,7 +105,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         title: const Text('회원가입'),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Responsive.maxContentWidth),
+            child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Form(
             key: _formKey,
@@ -340,6 +344,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 24),
               ],
+            ),
+          ),
             ),
           ),
         ),

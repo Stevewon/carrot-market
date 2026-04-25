@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../app/constants.dart';
+import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/product.dart';
 import '../services/product_service.dart';
@@ -169,11 +170,16 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
+      body: SafeArea(
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Responsive.maxContentWidth),
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
             _Banner(product: _original!),
             const SizedBox(height: 20),
 
@@ -306,6 +312,9 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
 
             const SizedBox(height: 40),
           ],
+              ),
+            ),
+          ),
         ),
       ),
     );

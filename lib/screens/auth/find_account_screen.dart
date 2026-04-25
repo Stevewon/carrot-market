@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../services/auth_service.dart';
 import '_auth_shared.dart';
@@ -116,9 +117,14 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
         title: const Text('계정 찾기'),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: _foundNickname == null ? _buildStep1() : _buildStep2(),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Responsive.maxContentWidth),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: _foundNickname == null ? _buildStep1() : _buildStep2(),
+            ),
+          ),
         ),
       ),
     );

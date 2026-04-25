@@ -151,7 +151,9 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
       appBar: AppBar(
         title: const Text('QTA 출금'),
       ),
-      body: RefreshIndicator(
+      body: SafeArea(
+        top: false,
+        child: RefreshIndicator(
         onRefresh: () async {
           await qta.load(force: true);
           await qta.loadWithdrawals(force: true);
@@ -325,6 +327,7 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
             const SizedBox(height: 24),
           ],
         ),
+      ),
       ),
     );
   }

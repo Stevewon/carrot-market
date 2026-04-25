@@ -68,7 +68,9 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
       appBar: AppBar(
         title: const Text('친구 초대'),
       ),
-      body: RefreshIndicator(
+      body: SafeArea(
+        top: false,
+        child: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -287,6 +289,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
             const SizedBox(height: 40),
           ],
         ),
+      ),
       ),
     );
   }

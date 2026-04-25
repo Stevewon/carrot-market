@@ -136,24 +136,31 @@ class _QrScanScreenState extends State<QrScanScreen> {
               ),
             ),
           ),
-          const Positioned(
-            bottom: 80,
+          Positioned(
+            bottom: 0,
             left: 0,
             right: 0,
-            child: Column(
-              children: [
-                Icon(Icons.qr_code_scanner, color: Colors.white, size: 32),
-                SizedBox(height: 8),
-                Text(
-                  'Eggplant QR을 프레임 안에 맞춰주세요',
-                  style: TextStyle(color: Colors.white, fontSize: 14),
+            // 제스처바 영역만큼 띄워서 텍스트가 가리지 않게.
+            child: SafeArea(
+              top: false,
+              child: const Padding(
+                padding: EdgeInsets.only(bottom: 60),
+                child: Column(
+                  children: [
+                    Icon(Icons.qr_code_scanner, color: Colors.white, size: 32),
+                    SizedBox(height: 8),
+                    Text(
+                      'Eggplant QR을 프레임 안에 맞춰주세요',
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      '스캔 즉시 익명 채팅이 시작돼요',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 4),
-                Text(
-                  '스캔 즉시 익명 채팅이 시작돼요',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
+              ),
             ),
           ),
         ],

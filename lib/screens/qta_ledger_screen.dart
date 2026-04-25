@@ -48,7 +48,9 @@ class _QtaLedgerScreenState extends State<QtaLedgerScreen> {
           const SizedBox(width: 4),
         ],
       ),
-      body: RefreshIndicator(
+      body: SafeArea(
+        top: false, // AppBar 가 이미 status bar 영역을 차지함
+        child: RefreshIndicator(
         color: EggplantColors.primary,
         onRefresh: () => qta.load(limit: 100, force: true).then((_) {}),
         child: ListView(
@@ -187,6 +189,7 @@ class _QtaLedgerScreenState extends State<QtaLedgerScreen> {
               }),
           ],
         ),
+      ),
       ),
     );
   }

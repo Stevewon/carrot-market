@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app_router.dart';
+import 'app/responsive.dart';
 import 'app/theme.dart';
 import 'services/auth_service.dart';
 import 'services/product_service.dart';
@@ -76,10 +77,18 @@ class EggplantApp extends StatelessWidget {
             theme: eggplantTheme,
             routerConfig: router,
             builder: (context, child) {
-              // Global incoming-call overlay
-              return _IncomingCallOverlay(
-                router: router,
-                child: child ?? const SizedBox(),
+              // Global wrappers (apply in nesting order, from outside-in):
+              //   1. TextScaleClamper - 시스템 글자 크기를 1.3배까지만 허용
+              //                         (접근성 모드에서 UI 깨짐 방지)
+              //   2. KeyboardDismissOnTap - 빈 영역 탭하면 키보드 닫기 (모든 입력 화면 자동 적용)
+              //   3. _IncomingCallOverlay - 어떤 화면에서든 통화 수신을 가로채기
+              return TextScaleClamper(
+                child: KeyboardDismissOnTap(
+                  child: _IncomingCallOverlay(
+                    router: router,
+                    child: child ?? const SizedBox(),
+                  ),
+                ),
               );
             },
           );

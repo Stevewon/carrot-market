@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
@@ -122,11 +123,14 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('계정 영구 삭제')),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Responsive.maxContentWidth),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
               // 경고 박스
               Container(
                 padding: const EdgeInsets.all(16),
@@ -283,6 +287,8 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
                 ),
               ),
             ],
+              ),
+            ),
           ),
         ),
       ),
