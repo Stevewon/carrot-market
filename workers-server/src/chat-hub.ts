@@ -103,6 +103,25 @@ export class ChatHub {
       return new Response('ok');
     }
 
+    // 키워드 알림 fanout: products.ts 가 새 상품 등록 직후 호출.
+    // body: { user_ids: string[], payload: object }
+    // 알림 이력은 DB 에 남기지 않는다 — 사생활 보호.
+    if (url.pathname === '/internal/fanout-users' && request.method === 'POST') {
+      const body = (await request.json().catch(() => ({}))) as {
+        user_ids?: string[];
+        payload?: Record<string, unknown>;
+      };
+      const users = Array.isArray(body.user_ids) ? body.user_ids : [];
+      if (users.length && body.payload) {
+        for (const uid of users) {
+          if (typeof uid === 'string' && uid) {
+            this.sendToUser(uid, body.payload);
+          }
+        }
+      }
+      return new Response('ok');
+    }
+
     // Generic broadcast to everyone joined to a room AND a direct push to a
     // peer who may not be in the room view. Used by REST routes that mutate
     // chat state (e.g. price offers) so both clients can update in realtime.

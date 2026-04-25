@@ -15,6 +15,8 @@ import 'services/call_service.dart';
 import 'services/moderation_service.dart';
 import 'services/notification_service.dart';
 import 'services/search_history_service.dart';
+import 'services/keyword_alert_service.dart';
+import 'services/hidden_products_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +54,8 @@ class EggplantApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => SearchHistoryService(authService.prefs),
         ),
+        ChangeNotifierProvider(create: (_) => KeywordAlertService(authService)),
+        ChangeNotifierProvider(create: (_) => HiddenProductsService(authService)),
         ChangeNotifierProxyProvider<ChatService, CallService>(
           create: (ctx) => CallService(
             auth: authService,
@@ -103,11 +107,21 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
   @override
   void initState() {
     super.initState();
-    // When a chat notification is tapped, deep-link into the room.
-    _notifTapSub = NotificationService.instance.onTap.listen((roomId) {
-      if (roomId.isEmpty) return;
+    // When a chat / keyword notification is tapped, deep-link to the right screen.
+    // payload 형식:
+    //   - 채팅 메시지   → roomId 그대로
+    //   - 키워드 알림   → 'product:<productId>'
+    _notifTapSub = NotificationService.instance.onTap.listen((payload) {
+      if (payload.isEmpty) return;
       try {
-        widget.router.push('/chat/$roomId');
+        if (payload.startsWith('product:')) {
+          final productId = payload.substring('product:'.length);
+          if (productId.isNotEmpty) {
+            widget.router.push('/product/$productId');
+          }
+        } else {
+          widget.router.push('/chat/$payload');
+        }
       } catch (e) {
         debugPrint('[notif] router push failed: $e');
       }

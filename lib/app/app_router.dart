@@ -18,6 +18,8 @@ import '../screens/chat_screen.dart';
 import '../screens/call_screen.dart';
 import '../screens/region_select_screen.dart';
 import '../screens/user_profile_screen.dart';
+import '../screens/keyword_alerts_screen.dart';
+import '../screens/hidden_products_screen.dart';
 
 GoRouter createRouter(AuthService auth) {
   return GoRouter(
@@ -98,6 +100,14 @@ GoRouter createRouter(AuthService auth) {
           peerNickname: state.uri.queryParameters['peer'] ?? '익명',
           startImmediately: state.uri.queryParameters['incoming'] != '1',
         ),
+      ),
+      GoRoute(
+        path: '/alerts/keywords',
+        builder: (_, __) => const KeywordAlertsScreen(),
+      ),
+      GoRoute(
+        path: '/hidden',
+        builder: (_, __) => const HiddenProductsScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

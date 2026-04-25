@@ -64,6 +64,53 @@ class NotificationService {
           importance: Importance.high,
         ),
       );
+      // 키워드 알림 채널 — 매너온도/사운드를 채팅과 분리해서 사용자가 채널별로 끌 수 있게.
+      await android?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'keyword_alerts',
+          '키워드 알림',
+          description: '관심 키워드와 일치하는 새 상품 알림',
+          importance: Importance.high,
+        ),
+      );
+    }
+  }
+
+  /// 키워드 알림. 탭하면 product detail 로 deep-link 되도록 productId 를 payload 로 실어 보낸다.
+  /// payload 형식: 'product:<productId>' — onTap stream 측에서 prefix 로 분기.
+  Future<void> showKeywordAlert({
+    required String productId,
+    required String title,
+    required String region,
+  }) async {
+    if (!_initialized) {
+      await init();
+    }
+    try {
+      await _plugin.show(
+        ('kw_$productId').hashCode,
+        '🔔 새 매물 알림',
+        '$region · $title',
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'keyword_alerts',
+            '키워드 알림',
+            channelDescription: '관심 키워드와 일치하는 새 상품 알림',
+            importance: Importance.high,
+            priority: Priority.high,
+            ticker: '새 매물',
+            category: AndroidNotificationCategory.recommendation,
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: false,
+            presentSound: true,
+          ),
+        ),
+        payload: 'product:$productId',
+      );
+    } catch (e) {
+      debugPrint('[notif] keyword alert failed: $e');
     }
   }
 

@@ -12,6 +12,8 @@ import '../models/product.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
 import '../services/product_service.dart';
+import '../services/moderation_service.dart';
+import '../services/hidden_products_service.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final String productId;
@@ -503,6 +505,201 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  /// 본인이 아닌 게시물에 뜨는 더보기 메뉴 (당근식): 가리기 / 신고 / 차단.
+  void _showViewerMenu() {
+    final p = _product;
+    if (p == null) return;
+    final hidden = context.read<HiddenProductsService>();
+    final isHidden = hidden.isHidden(p.id);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(
+                isHidden
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+              ),
+              title: Text(isHidden ? '숨김 해제하기' : '이 게시물 가리기'),
+              subtitle: Text(
+                isHidden ? '피드에 다시 보일 거예요' : '내 피드와 검색에서 사라져요',
+                style: const TextStyle(fontSize: 12),
+              ),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final ok = isHidden
+                    ? await hidden.unhide(p.id)
+                    : await hidden.hide(p.id);
+                if (!mounted) return;
+                if (ok) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(isHidden ? '숨김을 해제했어요' : '게시물을 가렸어요'),
+                    ),
+                  );
+                  if (!isHidden) context.pop();
+                }
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.flag_outlined, color: Colors.orange),
+              title: const Text('신고하기'),
+              subtitle: const Text(
+                '부적절한 게시물·사기 등',
+                style: TextStyle(fontSize: 12),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showReportSheet();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.block, color: Colors.red),
+              title: const Text('이 사용자 차단하기'),
+              subtitle: const Text(
+                '차단한 사용자의 모든 게시물·메시지가 안 보여요',
+                style: TextStyle(fontSize: 12),
+              ),
+              onTap: () async {
+                Navigator.pop(ctx);
+                _confirmBlock();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showReportSheet() async {
+    final p = _product;
+    if (p == null) return;
+    String? selected;
+    final reasons = const {
+      'spam': '스팸/광고',
+      'fraud': '사기/허위매물',
+      'abuse': '욕설/괴롭힘',
+      'inappropriate': '부적절한 콘텐츠',
+      'fake': '가짜 계정',
+      'other': '기타',
+    };
+    final ctl = TextEditingController();
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '신고 사유를 선택해주세요',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              ...reasons.entries.map(
+                (e) => RadioListTile<String>(
+                  value: e.key,
+                  groupValue: selected,
+                  title: Text(e.value),
+                  onChanged: (v) => setS(() => selected = v),
+                  dense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: ctl,
+                maxLines: 2,
+                maxLength: 200,
+                decoration: const InputDecoration(
+                  hintText: '상세 사유 (선택)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: selected == null
+                      ? null
+                      : () => Navigator.pop(ctx, true),
+                  child: const Text('신고하기'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (ok != true || selected == null || !mounted) return;
+    final mod = context.read<ModerationService>();
+    final err = await mod.reportUser(
+      userId: p.sellerId,
+      reason: selected!,
+      productId: p.id,
+      detail: ctl.text.trim(),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(err ?? '신고가 접수됐어요. 검토 후 조치할게요')),
+    );
+  }
+
+  Future<void> _confirmBlock() async {
+    final p = _product;
+    if (p == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('이 사용자를 차단할까요?'),
+        content: Text(
+          '${p.sellerNickname}님의 모든 게시물·메시지가 더 이상 보이지 않아요.\n언제든 마이페이지에서 해제할 수 있어요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('차단'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final err =
+        await context.read<ModerationService>().blockUser(p.sellerId);
+    if (!mounted) return;
+    if (err == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('차단했어요')),
+      );
+      context.pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+    }
+  }
+
   Future<void> _startChat() async {
     final p = _product;
     final user = context.read<AuthService>().user;
@@ -574,19 +771,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
             actions: [
-              if (_isMine)
-                Container(
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.4),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.more_vert, color: Colors.white),
-                    tooltip: '상태 변경 / 삭제',
-                    onPressed: _showOwnerMenu,
-                  ),
+              Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  shape: BoxShape.circle,
                 ),
+                child: IconButton(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  tooltip: _isMine ? '상태 변경 / 삭제' : '더보기',
+                  onPressed: _isMine ? _showOwnerMenu : _showViewerMenu,
+                ),
+              ),
             ],
             flexibleSpace: FlexibleSpaceBar(
               background: _ImageCarousel(images: p.images),

@@ -482,6 +482,23 @@ class ChatService extends ChangeNotifier {
         break;
       }
 
+      case 'keyword_alert': {
+        // 새 상품이 등록 키워드와 매칭됨. NotificationService 로 로컬 푸시.
+        // 사생활 보호: 알림 이력은 어디에도 저장하지 않는다.
+        final productId = msg['product_id']?.toString() ?? '';
+        final title = msg['title']?.toString() ?? '';
+        final region = msg['region']?.toString() ?? '';
+        if (productId.isNotEmpty) {
+          // ignore: discarded_futures
+          NotificationService.instance.showKeywordAlert(
+            productId: productId,
+            title: title,
+            region: region,
+          );
+        }
+        break;
+      }
+
       case 'system':
         // In-room system text (e.g., "X joined"). Render in the room log only.
         final roomId = _activeRoomId;

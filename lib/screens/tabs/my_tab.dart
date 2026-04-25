@@ -8,6 +8,8 @@ import '../../services/auth_service.dart';
 import '../../services/moderation_service.dart';
 import '../../services/product_service.dart';
 import '../../services/search_history_service.dart';
+import '../../services/keyword_alert_service.dart';
+import '../../services/hidden_products_service.dart';
 
 class MyTab extends StatefulWidget {
   const MyTab({super.key});
@@ -165,9 +167,22 @@ class _MyTabState extends State<MyTab> {
             ),
             const Divider(height: 1),
             _MenuTile(
+              icon: Icons.notifications_active_outlined,
+              title: '키워드 알림',
+              subtitle: '관심 키워드 등록하고 새 매물 알림 받기',
+              onTap: () => context.push('/alerts/keywords'),
+            ),
+            _MenuTile(
+              icon: Icons.visibility_off_outlined,
+              title: '숨긴 게시물',
+              subtitle: '내가 가린 게시물 다시 보기',
+              onTap: () => context.push('/hidden'),
+            ),
+            const Divider(height: 1),
+            _MenuTile(
               icon: Icons.shield_outlined,
               title: '개인정보 보호',
-              subtitle: '전화/이메일 수집 X · 언제든 대화 완전 삭제',
+              subtitle: '채팅·통화 절대 저장 안 함 · 한 번 흘러간 메시지는 영구 소실',
               onTap: () {
                 showDialog(
                   context: context,
@@ -175,13 +190,13 @@ class _MyTabState extends State<MyTab> {
                     title: const Text('🔐 개인정보 보호'),
                     content: const Text(
                       'Eggplant는 다음을 수집하지 않아요:\n\n'
-                      '• 전화번호\n'
-                      '• 이메일\n'
-                      '• 실명\n'
-                      '• 위치 좌표\n\n'
-                      '채팅은 편의를 위해 서버에 저장되지만, '
-                      '채팅방에서 "나가기"를 누르면 서버에서도 양쪽 모두 즉시 완전 삭제돼요. '
-                      '대화 내용만 비우고 싶다면 "대화 내용 삭제"를 사용하세요 💨',
+                      '• 전화번호 · 이메일 · 실명\n'
+                      '• 정확한 GPS (동네 인증 시 즉시 폐기)\n'
+                      '• 채팅 내용 (DB 저장 0)\n'
+                      '• 통화 내용 (P2P, 서버 미경유)\n\n'
+                      '채팅은 휘발성이에요. 한 번 흘러간 메시지는 양쪽 기기 어디에도 '
+                      '복원되지 않아요. 앱을 종료하거나 다른 기기로 로그인하면 '
+                      '모든 대화가 빈 상태에서 시작돼요 💨',
                       style: TextStyle(height: 1.6),
                     ),
                     actions: [
@@ -216,6 +231,8 @@ class _MyTabState extends State<MyTab> {
                 // Wipe cached lists so next user starts fresh.
                 context.read<ProductService>().clearCaches();
                 context.read<ModerationService>().clear();
+                context.read<KeywordAlertService>().clear();
+                context.read<HiddenProductsService>().clear();
                 // ignore: unawaited_futures
                 context.read<SearchHistoryService>().clear();
                 await context.read<AuthService>().logout();

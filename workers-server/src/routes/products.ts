@@ -119,6 +119,11 @@ app.get('/', optionalAuth, async (c) => {
       'seller_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)'
     );
     params.push(user.id);
+    // Also hide individual products the user explicitly hid (당근 "이 게시물 가리기").
+    conditions.push(
+      'id NOT IN (SELECT product_id FROM hidden_products WHERE user_id = ?)'
+    );
+    params.push(user.id);
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -337,8 +342,127 @@ app.post('/', authMiddleware, async (c) => {
     .first<ProductRow>();
 
   const product = await hydrate(c.env, row, user.id);
+
+  // ── 키워드 알림 fanout (당근식 "키워드 알림") ────────────────────────────
+  // 본문/제목/카테고리에 등록 키워드가 포함된 사용자를 찾아 WS push.
+  // 거리 기반 — 작성자(=상품 위치)에서 KEYWORD_ALERT_RADIUS_KM 이내의 사용자만.
+  // 발송 이력은 절대 DB 에 남기지 않는다 (사생활 보호).
+  c.executionCtx.waitUntil(
+    fanoutKeywordAlerts(c.env, {
+      product_id: id,
+      seller_id: user.id,
+      title,
+      description,
+      category,
+      region,
+      lat: seller?.lat ?? null,
+      lng: seller?.lng ?? null,
+      thumb: imageKeys[0]
+        ? (c.env.PUBLIC_UPLOAD_URL
+            ? `${c.env.PUBLIC_UPLOAD_URL.replace(/\/$/, '')}/${imageKeys[0]}`
+            : `/uploads/${imageKeys[0]}`)
+        : null,
+    }).catch((e) => console.error('[alerts] fanout error', e))
+  );
+
   return c.json({ product }, 201);
 });
+
+/** 새 상품 → 매칭 키워드 사용자 fanout. 거리 + 차단 + 본인제외 적용. */
+async function fanoutKeywordAlerts(
+  env: Env,
+  p: {
+    product_id: string;
+    seller_id: string;
+    title: string;
+    description: string;
+    category: string;
+    region: string;
+    lat: number | null;
+    lng: number | null;
+    thumb: string | null;
+  }
+) {
+  const KEYWORD_ALERT_RADIUS_KM = 6;
+  const haystack = `${p.title} ${p.description} ${p.category}`.toLowerCase();
+
+  // 모든 키워드를 다 끌어오는 게 아니라 — 일단 짧은 LIKE 매치로 후보 user_id 만 추린다.
+  // (D1 은 GROUP BY 효율이 그렇게 좋지 않으므로 keyword 기준으로 간단히 SCAN)
+  const rs = await env.DB
+    .prepare(
+      `SELECT ka.user_id, ka.keyword, u.lat as u_lat, u.lng as u_lng
+         FROM keyword_alerts ka
+         JOIN users u ON u.id = ka.user_id
+        WHERE ka.user_id != ?`
+    )
+    .bind(p.seller_id)
+    .all<{ user_id: string; keyword: string; u_lat: number | null; u_lng: number | null }>();
+
+  const matchedUsers = new Set<string>();
+  for (const r of rs.results || []) {
+    if (matchedUsers.has(r.user_id)) continue;
+    const kw = (r.keyword || '').toLowerCase();
+    if (!kw || !haystack.includes(kw)) continue;
+
+    // 거리 필터 — 양쪽 다 좌표가 있을 때만.
+    if (p.lat != null && p.lng != null && r.u_lat != null && r.u_lng != null) {
+      const dist = haversine(p.lat, p.lng, r.u_lat, r.u_lng);
+      if (dist > KEYWORD_ALERT_RADIUS_KM) continue;
+    }
+    matchedUsers.add(r.user_id);
+  }
+
+  if (matchedUsers.size === 0) return;
+
+  // 차단/숨김 사용자는 알림에서 제외 (양방향).
+  // - blocker가 seller 를 차단했어도 새 상품 자체가 GET 에서 안 보이게 되어 있으니
+  //   알림도 같이 보내지 않는다.
+  const userList = Array.from(matchedUsers);
+  const placeholders = userList.map(() => '?').join(',');
+  const blockedRs = await env.DB
+    .prepare(
+      `SELECT blocker_id FROM user_blocks
+         WHERE blocked_id = ? AND blocker_id IN (${placeholders})`
+    )
+    .bind(p.seller_id, ...userList)
+    .all<{ blocker_id: string }>();
+  const blocked = new Set((blockedRs.results || []).map((r) => r.blocker_id));
+
+  const finalUsers = userList.filter((u) => !blocked.has(u));
+  if (finalUsers.length === 0) return;
+
+  const payload = {
+    type: 'keyword_alert',
+    product_id: p.product_id,
+    title: p.title,
+    region: p.region,
+    category: p.category,
+    thumb: p.thumb,
+    sent_at: new Date().toISOString(),
+  };
+
+  try {
+    const id = env.CHAT_HUB.idFromName('global');
+    const stub = env.CHAT_HUB.get(id);
+    await stub.fetch('https://do/internal/fanout-users', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ user_ids: finalUsers, payload }),
+    });
+  } catch (e) {
+    console.error('[alerts] fanout DO call failed', e);
+  }
+}
+
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const h = Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLng / 2) ** 2 * Math.cos(toRad(lat1)) * Math.cos(toRad(lat2));
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
 
 /** POST /api/products/:id/like - toggle */
 app.post('/:id/like', authMiddleware, async (c) => {
