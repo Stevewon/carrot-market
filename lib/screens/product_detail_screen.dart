@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../app/constants.dart';
+import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/product.dart';
 import '../services/auth_service.dart';
@@ -789,85 +790,94 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ),
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SellerRow(product: p),
-                  const Divider(height: 32),
-                  Text(
-                    p.title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: EggplantColors.textPrimary,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${Categories.find(p.category).label} · ${p.timeAgo}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: EggplantColors.textTertiary,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    p.description,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: EggplantColors.textPrimary,
-                      height: 1.7,
-                    ),
-                  ),
-                  if (p.hasVideo) ...[
-                    const SizedBox(height: 20),
-                    const Text(
-                      '영상',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: EggplantColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _ProductVideo(product: p),
-                  ],
-                  const SizedBox(height: 24),
-                  Row(
+            // 태블릿/폴드 펼침에서 텍스트 본문이 너무 길게 늘어나지 않도록
+            // 600dp 로 max-width 제한하고 가운데 정렬.
+            // (이미지/영상 영역은 풀와이드 유지 — 위쪽 SliverAppBar 가 담당)
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.visibility_outlined,
-                          size: 14, color: EggplantColors.textTertiary),
-                      const SizedBox(width: 4),
-                      Text('조회 ${p.viewCount}',
-                          style: const TextStyle(
-                              fontSize: 12, color: EggplantColors.textTertiary)),
-                      const SizedBox(width: 12),
-                      const Icon(Icons.favorite_border,
-                          size: 14, color: EggplantColors.textTertiary),
-                      const SizedBox(width: 4),
-                      Text('관심 ${p.likeCount}',
-                          style: const TextStyle(
-                              fontSize: 12, color: EggplantColors.textTertiary)),
-                      const SizedBox(width: 12),
-                      const Icon(Icons.chat_bubble_outline,
-                          size: 14, color: EggplantColors.textTertiary),
-                      const SizedBox(width: 4),
-                      Text('채팅 ${p.chatCount}',
-                          style: const TextStyle(
-                              fontSize: 12, color: EggplantColors.textTertiary)),
+                      _SellerRow(product: p),
+                      const Divider(height: 32),
+                      Text(
+                        p.title,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: EggplantColors.textPrimary,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${Categories.find(p.category).label} · ${p.timeAgo}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: EggplantColors.textTertiary,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        p.description,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          color: EggplantColors.textPrimary,
+                          height: 1.7,
+                        ),
+                      ),
+                      if (p.hasVideo) ...[
+                        const SizedBox(height: 20),
+                        const Text(
+                          '영상',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: EggplantColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _ProductVideo(product: p),
+                      ],
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          const Icon(Icons.visibility_outlined,
+                              size: 14, color: EggplantColors.textTertiary),
+                          const SizedBox(width: 4),
+                          Text('조회 ${p.viewCount}',
+                              style: const TextStyle(
+                                  fontSize: 12, color: EggplantColors.textTertiary)),
+                          const SizedBox(width: 12),
+                          const Icon(Icons.favorite_border,
+                              size: 14, color: EggplantColors.textTertiary),
+                          const SizedBox(width: 4),
+                          Text('관심 ${p.likeCount}',
+                              style: const TextStyle(
+                                  fontSize: 12, color: EggplantColors.textTertiary)),
+                          const SizedBox(width: 12),
+                          const Icon(Icons.chat_bubble_outline,
+                              size: 14, color: EggplantColors.textTertiary),
+                          const SizedBox(width: 4),
+                          Text('채팅 ${p.chatCount}',
+                              style: const TextStyle(
+                                  fontSize: 12, color: EggplantColors.textTertiary)),
+                        ],
+                      ),
+                      const SizedBox(height: 100),
                     ],
                   ),
-                  const SizedBox(height: 100),
-                ],
+                ),
               ),
             ),
           ),
         ],
       ),
       bottomSheet: Container(
+        // 외부 흰색 배경/테두리/그림자는 풀와이드 유지 (자연스러운 하단 분리감).
         decoration: BoxDecoration(
           color: Colors.white,
           border: const Border(top: BorderSide(color: EggplantColors.border)),
@@ -880,44 +890,51 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ],
         ),
         padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: 12,
-          bottom: 12 + MediaQuery.of(context).padding.bottom,
+          // 제스처바 영역만큼 bottom 추가.
+          bottom: MediaQuery.of(context).padding.bottom,
         ),
-        child: _isMine ? _OwnerBottomBar(product: p, onMenu: _showOwnerMenu)
-            : Row(
-          children: [
-            IconButton(
-              icon: Icon(
-                _liked ? Icons.favorite : Icons.favorite_border,
-                color: _liked ? EggplantColors.primary : EggplantColors.textSecondary,
-                size: 28,
-              ),
-              onPressed: _toggleLike,
-            ),
-            Container(height: 32, width: 1, color: EggplantColors.border),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+        // 내부 액션 영역만 600dp 가운데 정렬 — 태블릿/폴드 대응.
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: _isMine ? _OwnerBottomBar(product: p, onMenu: _showOwnerMenu)
+                  : Row(
                 children: [
-                  Text(p.priceFormatted,
-                      style: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.w800)),
-                  const Text('가격 제안 가능',
-                      style: TextStyle(
-                          fontSize: 12, color: EggplantColors.primary)),
+                  IconButton(
+                    icon: Icon(
+                      _liked ? Icons.favorite : Icons.favorite_border,
+                      color: _liked ? EggplantColors.primary : EggplantColors.textSecondary,
+                      size: 28,
+                    ),
+                    onPressed: _toggleLike,
+                  ),
+                  Container(height: 32, width: 1, color: EggplantColors.border),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(p.priceFormatted,
+                            style: const TextStyle(
+                                fontSize: 17, fontWeight: FontWeight.w800)),
+                        const Text('가격 제안 가능',
+                            style: TextStyle(
+                                fontSize: 12, color: EggplantColors.primary)),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _startChat,
+                    icon: const Icon(Icons.chat_bubble, color: Colors.white, size: 18),
+                    label: const Text('채팅하기', style: TextStyle(fontSize: 15)),
+                  ),
                 ],
               ),
             ),
-            ElevatedButton.icon(
-              onPressed: _startChat,
-              icon: const Icon(Icons.chat_bubble, color: Colors.white, size: 18),
-              label: const Text('채팅하기', style: TextStyle(fontSize: 15)),
-            ),
-          ],
+          ),
         ),
       ),
     );
