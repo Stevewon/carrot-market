@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -28,7 +29,25 @@ class _QtaLedgerScreenState extends State<QtaLedgerScreen> {
     final df = DateFormat('M월 d일 HH:mm');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('QTA 내역')),
+      appBar: AppBar(
+        title: const Text('QTA 내역'),
+        actions: [
+          TextButton.icon(
+            onPressed: () => context.push('/qta/withdraw'),
+            icon: const Icon(Icons.send_rounded,
+                size: 16, color: EggplantColors.primary),
+            label: const Text(
+              '출금',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: EggplantColors.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: RefreshIndicator(
         color: EggplantColors.primary,
         onRefresh: () => qta.load(limit: 100, force: true).then((_) {}),
@@ -208,6 +227,14 @@ class _ReasonIcon extends StatelessWidget {
         icon = Icons.shopping_bag_outlined;
         color = Colors.green;
         break;
+      case 'withdrawal':
+        icon = Icons.send_rounded;
+        color = Colors.deepPurple;
+        break;
+      case 'withdrawal_refund':
+        icon = Icons.undo_rounded;
+        color = Colors.teal;
+        break;
       default:
         icon = Icons.account_balance_wallet_outlined;
         color = Colors.grey;
@@ -257,6 +284,8 @@ class _RuleBox extends StatelessWidget {
           _RuleLine(emoji: '📅', text: '로그인할 때마다 +10 QTA · 하루 3번까지'),
           SizedBox(height: 4),
           _RuleLine(emoji: '🤝', text: '거래완료 시 판매자·구매자 각각 +10 QTA'),
+          SizedBox(height: 4),
+          _RuleLine(emoji: '💸', text: '5,000 QTA 부터 5,000 단위로 지갑 출금 가능'),
         ],
       ),
     );

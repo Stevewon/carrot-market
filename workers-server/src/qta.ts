@@ -15,6 +15,10 @@ export const QTA_LOGIN_BONUS = 10;
 export const QTA_LOGIN_DAILY_MAX = 3;
 export const QTA_TRADE_BONUS = 10;
 
+// ── 출금 정책 ──
+export const QTA_WITHDRAWAL_MIN = 5000;   // 최소 신청액
+export const QTA_WITHDRAWAL_UNIT = 5000;  // 5,000 단위만
+
 /** 'YYYY-MM-DD' (UTC). */
 function ymdUtc(d = new Date()): string {
   const y = d.getUTCFullYear();
@@ -189,3 +193,219 @@ export async function grantTradeBonus(
   );
   return { seller_credited: sellerOk, buyer_credited: buyerOk };
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// 출금 신청 / 환불
+// ────────────────────────────────────────────────────────────────────────
+
+export interface WithdrawalRow {
+  id: string;
+  user_id: string;
+  wallet_address: string;
+  amount: number;
+  status: 'requested' | 'processing' | 'completed' | 'rejected';
+  requested_at: string;
+  processed_at: string | null;
+  tx_hash: string | null;
+  reject_reason: string | null;
+  ledger_id: string;
+  refund_ledger_id: string | null;
+}
+
+/**
+ * 출금 신청을 생성한다 (잔액 차감 + 신청행 생성을 atomic batch).
+ *
+ * 검증:
+ *   - amount >= QTA_WITHDRAWAL_MIN
+ *   - amount % QTA_WITHDRAWAL_UNIT === 0
+ *   - 사용자에 wallet_address 가 등록되어 있어야 함
+ *   - 잔액 >= amount
+ *   - 진행 중(requested/processing) 출금이 없어야 함
+ *
+ * 반환:
+ *   { ok: true, withdrawal }  성공
+ *   { ok: false, error }       사용자에게 보여줄 에러 메시지
+ */
+export async function requestWithdrawal(
+  env: Env,
+  user_id: string,
+  amount: number,
+): Promise<{ ok: true; withdrawal: WithdrawalRow } | { ok: false; error: string; status?: number }> {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    return { ok: false, error: '출금 금액이 올바르지 않아요', status: 400 };
+  }
+  if (amount < QTA_WITHDRAWAL_MIN) {
+    return {
+      ok: false,
+      error: `최소 출금 금액은 ${QTA_WITHDRAWAL_MIN.toLocaleString('ko-KR')} QTA 예요`,
+      status: 400,
+    };
+  }
+  if (amount % QTA_WITHDRAWAL_UNIT !== 0) {
+    return {
+      ok: false,
+      error: `${QTA_WITHDRAWAL_UNIT.toLocaleString('ko-KR')} QTA 단위로만 신청할 수 있어요`,
+      status: 400,
+    };
+  }
+
+  // 사용자 잔액·지갑 조회.
+  const u = await env.DB
+    .prepare('SELECT wallet_address, qta_balance FROM users WHERE id = ?')
+    .bind(user_id)
+    .first<{ wallet_address: string | null; qta_balance: number }>();
+  if (!u) return { ok: false, error: '사용자를 찾을 수 없어요', status: 404 };
+  if (!u.wallet_address) {
+    return { ok: false, error: '지갑 주소가 등록되지 않았어요', status: 400 };
+  }
+  if ((u.qta_balance ?? 0) < amount) {
+    return { ok: false, error: 'QTA 잔액이 부족해요', status: 400 };
+  }
+
+  // 진행중 신청 존재 여부.
+  const pending = await env.DB
+    .prepare(
+      `SELECT id FROM qta_withdrawals
+         WHERE user_id = ? AND status IN ('requested','processing')
+         LIMIT 1`,
+    )
+    .bind(user_id)
+    .first<{ id: string }>();
+  if (pending) {
+    return {
+      ok: false,
+      error: '진행 중인 출금 신청이 이미 있어요. 처리된 후 다시 신청해주세요.',
+      status: 409,
+    };
+  }
+
+  const wid = crypto.randomUUID();
+  const ledgerId = crypto.randomUUID();
+  const idem = `withdrawal:${wid}`;
+
+  // batch: ledger -N + users.qta_balance -= N + qta_withdrawals INSERT
+  // 동시 신청 시 부분 UNIQUE 인덱스가 두 번째 INSERT 를 막아 batch 전체 롤백.
+  try {
+    await env.DB.batch([
+      env.DB
+        .prepare(
+          `INSERT INTO qta_ledger (id, user_id, amount, reason, idem_key, meta)
+             VALUES (?, ?, ?, 'withdrawal', ?, ?)`,
+        )
+        .bind(
+          ledgerId,
+          user_id,
+          -amount,
+          idem,
+          JSON.stringify({ withdrawal_id: wid, wallet: u.wallet_address }),
+        ),
+      env.DB
+        .prepare(
+          `UPDATE users SET qta_balance = qta_balance - ?, updated_at = datetime('now')
+             WHERE id = ? AND qta_balance >= ?`,
+        )
+        .bind(amount, user_id, amount),
+      env.DB
+        .prepare(
+          `INSERT INTO qta_withdrawals
+             (id, user_id, wallet_address, amount, status, ledger_id)
+             VALUES (?, ?, ?, ?, 'requested', ?)`,
+        )
+        .bind(wid, user_id, u.wallet_address, amount, ledgerId),
+    ]);
+  } catch (e) {
+    const msg = String((e as Error)?.message || e);
+    if (/UNIQUE.*one_pending_per_user/i.test(msg)) {
+      return {
+        ok: false,
+        error: '진행 중인 출금 신청이 이미 있어요',
+        status: 409,
+      };
+    }
+    console.error('[qta] withdrawal request failed', msg);
+    return { ok: false, error: '출금 신청 처리 중 오류가 발생했어요', status: 500 };
+  }
+
+  // 잔액이 race condition 으로 음수 되었으면 롤백 (가드).
+  const after = await env.DB
+    .prepare('SELECT qta_balance FROM users WHERE id = ?')
+    .bind(user_id)
+    .first<{ qta_balance: number }>();
+  if (!after || after.qta_balance < 0) {
+    // 비정상 — 환불.
+    await refundWithdrawal(env, wid, '잔액 검증 실패').catch(() => {});
+    return { ok: false, error: 'QTA 잔액이 부족해요', status: 400 };
+  }
+
+  const row = await env.DB
+    .prepare('SELECT * FROM qta_withdrawals WHERE id = ?')
+    .bind(wid)
+    .first<WithdrawalRow>();
+  return { ok: true, withdrawal: row! };
+}
+
+/**
+ * 출금 신청을 거부 처리하고 자동 환불 (운영자 또는 시스템 호출).
+ * - 'requested' / 'processing' 상태에서만 가능.
+ * - ledger 에 reason='withdrawal_refund' 로 +amount 환불 + qta_balance 복구.
+ */
+export async function refundWithdrawal(
+  env: Env,
+  withdrawal_id: string,
+  reason: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const w = await env.DB
+    .prepare('SELECT * FROM qta_withdrawals WHERE id = ?')
+    .bind(withdrawal_id)
+    .first<WithdrawalRow>();
+  if (!w) return { ok: false, error: 'not found' };
+  if (w.status !== 'requested' && w.status !== 'processing') {
+    return { ok: false, error: `이미 처리된 신청이에요 (${w.status})` };
+  }
+
+  const refundLedgerId = crypto.randomUUID();
+  const idem = `withdrawal_refund:${withdrawal_id}`;
+
+  try {
+    await env.DB.batch([
+      env.DB
+        .prepare(
+          `INSERT INTO qta_ledger (id, user_id, amount, reason, idem_key, meta)
+             VALUES (?, ?, ?, 'withdrawal_refund', ?, ?)`,
+        )
+        .bind(
+          refundLedgerId,
+          w.user_id,
+          w.amount,
+          idem,
+          JSON.stringify({ withdrawal_id, refund_reason: reason }),
+        ),
+      env.DB
+        .prepare(
+          `UPDATE users SET qta_balance = qta_balance + ?, updated_at = datetime('now')
+             WHERE id = ?`,
+        )
+        .bind(w.amount, w.user_id),
+      env.DB
+        .prepare(
+          `UPDATE qta_withdrawals
+             SET status = 'rejected',
+                 processed_at = datetime('now'),
+                 reject_reason = ?,
+                 refund_ledger_id = ?
+             WHERE id = ?`,
+        )
+        .bind(reason, refundLedgerId, withdrawal_id),
+    ]);
+    return { ok: true };
+  } catch (e) {
+    const msg = String((e as Error)?.message || e);
+    if (/UNIQUE/i.test(msg)) {
+      // 이미 환불됨 — 정상.
+      return { ok: true };
+    }
+    console.error('[qta] refund failed', msg);
+    return { ok: false, error: msg };
+  }
+}
+

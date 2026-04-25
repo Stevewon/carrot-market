@@ -26,6 +26,7 @@ import chatRoutes from './routes/chat';
 import moderationRoutes from './routes/moderation';
 import alertsRoutes from './routes/alerts';
 import hiddenRoutes from './routes/hidden';
+import withdrawalsRoutes from './routes/withdrawals';
 
 // Re-export the Durable Object class so Wrangler can bind it
 export { ChatHub } from './chat-hub';
@@ -65,6 +66,7 @@ app.route('/api/chat', chatRoutes);
 app.route('/api/moderation', moderationRoutes);
 app.route('/api/alerts', alertsRoutes);
 app.route('/api/hidden', hiddenRoutes);
+app.route('/api/withdrawals', withdrawalsRoutes);
 
 // ---------- R2 uploads passthrough ----------
 // Serves /uploads/<key> from the R2 bucket with basic caching.

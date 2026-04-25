@@ -552,9 +552,38 @@ class _QtaWalletCardState extends State<_QtaWalletCard> {
                 ],
               ),
             ),
+            const SizedBox(height: 10),
+            // 출금 신청 버튼 (5,000 QTA 이상)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.white.withOpacity(0.15),
+                  side: BorderSide(color: Colors.white.withOpacity(0.4)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () => context.push('/qta/withdraw'),
+                icon: const Icon(Icons.send_rounded, size: 18),
+                label: Text(
+                  balance >= 5000
+                      ? '지갑으로 출금 신청'
+                      : '출금하려면 5,000 QTA 이상 필요해요',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 8),
             const Text(
-              '닉네임·비밀번호 분실 시 이 지갑주소로 복구할 수 있어요.',
+              '닉네임·비밀번호 분실 시 이 지갑주소로 복구할 수 있어요.\n'
+              '5,000 QTA 부터 5,000 단위로 본인 지갑으로 출금할 수 있어요.',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 11.5,
