@@ -155,6 +155,12 @@ class _MyTabState extends State<MyTab> {
             ),
             const Divider(height: 1),
             _MenuTile(
+              icon: Icons.card_giftcard_outlined,
+              title: '친구 초대 (+200 QTA)',
+              subtitle: '친구가 가입할 때 내 닉네임을 입력하면 +200 QTA · 무제한',
+              onTap: () => context.push('/referrals'),
+            ),
+            _MenuTile(
               icon: Icons.notifications_active_outlined,
               title: '키워드 알림',
               subtitle: '관심 키워드 등록하고 새 매물 알림 받기',
@@ -226,6 +232,13 @@ class _MyTabState extends State<MyTab> {
                 await context.read<AuthService>().logout();
                 if (context.mounted) context.go('/onboarding');
               },
+            ),
+            _MenuTile(
+              icon: Icons.delete_forever_outlined,
+              title: '계정 영구 삭제 (탈퇴)',
+              subtitle: '한 번 사라지면 복구되지 않아요 · 잔여 QTA·추천 보너스 즉시 회수',
+              titleColor: EggplantColors.error,
+              onTap: () => context.push('/account/delete'),
             ),
             const SizedBox(height: 40),
           ],

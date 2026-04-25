@@ -10,7 +10,10 @@ import {
 import {
   grantSignupBonus,
   grantLoginDailyBonus,
+  grantReferralBonus,
+  clawbackReferralsOnDelete,
   QTA_LOGIN_DAILY_MAX,
+  QTA_REFERRAL_BONUS,
 } from '../qta';
 
 
@@ -66,6 +69,7 @@ app.post('/register', async (c) => {
     password_confirm?: string;
     device_uuid?: string;
     region?: string;
+    referrer_nickname?: string; // 친구 초대 — 추천인 닉네임 (선택)
   } = {};
   try {
     body = await c.req.json();
@@ -73,7 +77,7 @@ app.post('/register', async (c) => {
     return c.json({ error: '잘못된 요청' }, 400);
   }
 
-  const { wallet_address, nickname, password, password_confirm, device_uuid, region } = body;
+  const { wallet_address, nickname, password, password_confirm, device_uuid, region, referrer_nickname } = body;
 
   // --- Validate ---
   if (!wallet_address || !isValidWallet(wallet_address)) {
@@ -173,6 +177,31 @@ app.post('/register', async (c) => {
     // 보너스 실패해도 가입 자체는 성공으로 본다 (사용자 입장에서 재시도 어려움).
   }
 
+  // ── 친구 초대 보너스 (추천인에게 +200 QTA, 무제한, best-effort) ──
+  let referralResult: { credited: boolean; inviter_nickname?: string; reason?: string } | null = null;
+  if (referrer_nickname && typeof referrer_nickname === 'string' && referrer_nickname.trim()) {
+    const refTrim = referrer_nickname.trim();
+    if (refTrim.toLowerCase() === cleanNick.toLowerCase()) {
+      referralResult = { credited: false, reason: 'self_referral' };
+    } else {
+      try {
+        const inviter = await c.env.DB
+          .prepare('SELECT id, nickname FROM users WHERE nickname = ? COLLATE NOCASE')
+          .bind(refTrim)
+          .first<{ id: string; nickname: string }>();
+        if (!inviter) {
+          referralResult = { credited: false, reason: 'inviter_not_found' };
+        } else {
+          const r = await grantReferralBonus(c.env, inviter.id, id);
+          referralResult = { credited: r.credited, inviter_nickname: inviter.nickname, reason: r.reason };
+        }
+      } catch (e) {
+        console.error('[auth/register] referral grant failed', e);
+        referralResult = { credited: false, reason: 'error' };
+      }
+    }
+  }
+
   const user = await c.env.DB
     .prepare('SELECT * FROM users WHERE id = ?')
     .bind(id)
@@ -184,6 +213,14 @@ app.post('/register', async (c) => {
     token,
     user: sanitize(user),
     qta_bonus: { reason: 'signup', amount: 500 },
+    referral: referralResult
+      ? {
+          credited: referralResult.credited,
+          inviter_nickname: referralResult.inviter_nickname ?? null,
+          inviter_bonus: referralResult.credited ? QTA_REFERRAL_BONUS : 0,
+          reason: referralResult.reason ?? null,
+        }
+      : null,
   }, 201);
 });
 
@@ -391,6 +428,99 @@ app.get('/me', authMiddleware, async (c) => {
     .first<UserRow>();
   if (!user) return c.json({ error: 'User not found' }, 404);
   return c.json({ user: sanitize(user) });
+});
+
+// ================================================================
+// GET /api/auth/check-nickname?nickname=...
+// 추천인 닉네임 입력 시 존재 여부 확인 (회원가입 전 사용)
+// ================================================================
+app.get('/check-nickname', async (c) => {
+  const nick = (c.req.query('nickname') || '').trim();
+  if (!nick) return c.json({ exists: false });
+  const row = await c.env.DB
+    .prepare('SELECT nickname FROM users WHERE nickname = ? COLLATE NOCASE')
+    .bind(nick)
+    .first<{ nickname: string }>();
+  return c.json({ exists: !!row, nickname: row?.nickname ?? null });
+});
+
+// ================================================================
+// DELETE /api/auth/me
+// 본인 계정 탈퇴 — "한 번 사라진 건 영구 보관 X"
+// Body: { password } (재인증)
+//
+// 처리 흐름:
+//   1) 비밀번호 재확인 (실수 방지)
+//   2) 친구 초대 보너스 즉시 회수 (clawbackReferralsOnDelete)
+//      - 탈퇴자가 inviter 였으면 탈퇴자 본인에게서 -200 each (어차피 행 삭제되지만 ledger 일관성)
+//      - 탈퇴자가 referee 였으면 추천인에게서 -200 회수
+//   3) users 행 DELETE → ON DELETE CASCADE 로
+//      qta_ledger / qta_daily_login / referrals / hidden_products /
+//      keyword_alerts / user_blocks(따로 정리) 등이 자동 정리됨
+//   4) 탈퇴자 데이터는 서버에 흔적 없음 (개인정보·잔여 QTA 모두 사라짐)
+// ================================================================
+app.delete('/me', authMiddleware, async (c) => {
+  const authUser = c.get('user')!;
+  let body: { password?: string } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    // 비밀번호 없이도 시도 가능하지만 권장 X — 기본 차단.
+    return c.json({ error: '비밀번호를 입력해주세요' }, 400);
+  }
+
+  const { password } = body;
+  if (!password || typeof password !== 'string') {
+    return c.json({ error: '비밀번호를 입력해주세요' }, 400);
+  }
+
+  const user = await c.env.DB
+    .prepare('SELECT * FROM users WHERE id = ?')
+    .bind(authUser.id)
+    .first<UserRow>();
+  if (!user) return c.json({ error: '계정을 찾을 수 없어요' }, 404);
+
+  const ok = user.password_hash
+    ? await verifyPassword(password, user.password_hash)
+    : false;
+  if (!ok) {
+    return c.json({ error: '비밀번호가 올바르지 않아요' }, 401);
+  }
+
+  // 1) referral 보너스 즉시 회수
+  let clawback = { inviter_clawbacks: 0, referee_clawbacks: 0 };
+  try {
+    clawback = await clawbackReferralsOnDelete(c.env, user.id);
+  } catch (e) {
+    console.error('[auth/delete] clawback failed', e);
+  }
+
+  // 2) 사용자 컨텐츠 best-effort 정리 (CASCADE 가 없는 테이블 대비)
+  //    - products 의 lat/lng 는 무관하지만 본인 게시물은 즉시 삭제
+  //    - user_blocks (양방향) 정리
+  try {
+    await c.env.DB.batch([
+      c.env.DB.prepare('DELETE FROM products WHERE seller_id = ?').bind(user.id),
+      c.env.DB.prepare('DELETE FROM user_blocks WHERE blocker_id = ? OR blocked_id = ?')
+        .bind(user.id, user.id),
+    ]);
+  } catch (e) {
+    console.error('[auth/delete] cleanup non-cascade tables failed', e);
+  }
+
+  // 3) users 행 DELETE → ON DELETE CASCADE 가 ledger 등을 즉시 청소
+  try {
+    await c.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id).run();
+  } catch (e) {
+    console.error('[auth/delete] DELETE users failed', e);
+    return c.json({ error: '탈퇴 처리 중 오류가 발생했어요' }, 500);
+  }
+
+  return c.json({
+    ok: true,
+    message: '계정이 영구 삭제되었어요. 모든 흔적이 즉시 사라졌습니다.',
+    referral_clawback: clawback,
+  });
 });
 
 export default app;

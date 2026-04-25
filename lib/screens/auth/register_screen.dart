@@ -21,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nicknameCtl = TextEditingController();
   final _pwCtl = TextEditingController();
   final _pwConfirmCtl = TextEditingController();
+  final _referrerCtl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   bool _loading = false;
@@ -34,6 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _nicknameCtl.dispose();
     _pwCtl.dispose();
     _pwConfirmCtl.dispose();
+    _referrerCtl.dispose();
     super.dispose();
   }
 
@@ -51,21 +53,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _error = null;
     });
 
-    final err = await context.read<AuthService>().register(
+    final result = await context.read<AuthService>().register(
           walletAddress: _walletCtl.text,
           nickname: _nicknameCtl.text,
           password: _pwCtl.text,
           passwordConfirm: _pwConfirmCtl.text,
+          referrerNickname: _referrerCtl.text.trim().isEmpty
+              ? null
+              : _referrerCtl.text.trim(),
         );
 
     if (!mounted) return;
     setState(() => _loading = false);
 
-    if (err != null) {
-      setState(() => _error = err);
+    if (result.error != null) {
+      setState(() => _error = result.error);
     } else {
+      // 친구 초대 결과 토스트 (성공/실패 모두 친절하게)
+      final ref = result.referral;
+      if (ref != null) {
+        if (ref.credited) {
+          _showSnack('🎉 추천인 ${ref.inviterNickname ?? ""}님께 +200 QTA 지급 완료!');
+        } else if (ref.reason == 'inviter_not_found') {
+          _showSnack('추천인 닉네임을 찾을 수 없어 초대 보너스가 적용되지 않았어요.');
+        } else if (ref.reason == 'self_referral') {
+          _showSnack('자기 자신은 추천인으로 입력할 수 없어요.');
+        } else if (ref.reason == 'already_processed') {
+          _showSnack('이미 처리된 초대예요.');
+        }
+      }
       context.go('/');
     }
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
+    );
   }
 
   @override
@@ -198,6 +223,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
 
+                const SizedBox(height: 18),
+
+                // Referrer (선택)
+                const FieldLabel(
+                  '추천인 닉네임 (선택)',
+                  hint: '친구가 +200 QTA 받아요 · 무제한',
+                ),
+                TextFormField(
+                  controller: _referrerCtl,
+                  maxLength: 12,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  decoration: const InputDecoration(
+                    hintText: '추천해주신 분의 닉네임',
+                    prefixIcon: Icon(Icons.card_giftcard_outlined,
+                        color: EggplantColors.primary),
+                    counterText: '',
+                  ),
+                  // 선택 사항이라 유효성검사는 비움. 서버에서 존재 여부 검사.
+                ),
+
                 if (_error != null) ...[
                   const SizedBox(height: 14),
                   ErrorBox(message: _error!),
@@ -205,6 +251,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 const SizedBox(height: 20),
 
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: EggplantColors.background,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.card_giftcard,
+                          color: EggplantColors.primary, size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '가입 즉시 +500 QTA 지급! 추천인을 입력하면 추천인에게 +200 QTA가 무제한으로 지급돼요.\n'
+                          '※ 가입 후 탈퇴하면 추천인의 보너스는 즉시 회수돼요.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: EggplantColors.textSecondary,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(

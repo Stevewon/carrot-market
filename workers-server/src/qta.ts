@@ -14,6 +14,7 @@ export const QTA_SIGNUP_BONUS = 500;
 export const QTA_LOGIN_BONUS = 10;
 export const QTA_LOGIN_DAILY_MAX = 3;
 export const QTA_TRADE_BONUS = 10;
+export const QTA_REFERRAL_BONUS = 200; // 친구 초대 1명당 추천인에게 지급 (무제한)
 
 // ── 출금 정책 ──
 export const QTA_WITHDRAWAL_MIN = 5000;   // 최소 신청액
@@ -192,6 +193,191 @@ export async function grantTradeBonus(
     { product_id, role: 'buyer' },
   );
   return { seller_credited: sellerOk, buyer_credited: buyerOk };
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// 친구 초대 (referral) — 1명당 +200, 무제한
+// ────────────────────────────────────────────────────────────────────────
+
+/**
+ * 신규 가입자(referee) 가 추천인 닉네임을 입력했을 때 호출.
+ *  - inviter 와 referee 가 같으면 무시 (자기 자신 추천 방지)
+ *  - referee_id UNIQUE → 동일 신규가 두 번 트리거되지 않도록 referrals 테이블이 보장
+ *  - ledger.idem_key = 'referral:<referee_id>' 로 한번 더 방어
+ *
+ * 호출은 회원가입 트랜잭션 직후에 best-effort 로 실행. 실패해도 가입은 성공시킴.
+ */
+export async function grantReferralBonus(
+  env: Env,
+  inviter_id: string,
+  referee_id: string,
+): Promise<{ credited: boolean; reason?: string }> {
+  if (!inviter_id || !referee_id) {
+    return { credited: false, reason: 'missing_id' };
+  }
+  if (inviter_id === referee_id) {
+    return { credited: false, reason: 'self_referral' };
+  }
+
+  const refId = crypto.randomUUID();
+  const ledgerId = crypto.randomUUID();
+  const idem = `referral:${referee_id}`;
+
+  try {
+    await env.DB.batch([
+      // referrals 행 — referee_id UNIQUE 라 중복 시 실패 → 전체 롤백
+      env.DB
+        .prepare(
+          `INSERT INTO referrals (id, inviter_id, referee_id, status, bonus_ledger_id)
+             VALUES (?, ?, ?, 'granted', ?)`,
+        )
+        .bind(refId, inviter_id, referee_id, ledgerId),
+      env.DB
+        .prepare(
+          `INSERT INTO qta_ledger (id, user_id, amount, reason, idem_key, meta)
+             VALUES (?, ?, ?, 'referral_inviter', ?, ?)`,
+        )
+        .bind(
+          ledgerId,
+          inviter_id,
+          QTA_REFERRAL_BONUS,
+          idem,
+          JSON.stringify({ referee_id }),
+        ),
+      env.DB
+        .prepare(
+          `UPDATE users SET qta_balance = qta_balance + ?, updated_at = datetime('now')
+             WHERE id = ?`,
+        )
+        .bind(QTA_REFERRAL_BONUS, inviter_id),
+    ]);
+    return { credited: true };
+  } catch (e) {
+    const msg = String((e as Error)?.message || e);
+    if (/UNIQUE/i.test(msg)) {
+      // 이미 처리됨 (referee_id 또는 idem_key 충돌)
+      return { credited: false, reason: 'already_processed' };
+    }
+    console.error('[qta] referral bonus failed', msg);
+    return { credited: false, reason: 'error' };
+  }
+}
+
+/**
+ * 탈퇴 시 referral 보너스 즉시 회수 (clawback).
+ *
+ * 회수 대상:
+ *   1) 탈퇴자가 추천인(inviter)이었던 referrals → -200 each
+ *   2) 탈퇴자가 referee 였던 referrals      → 추천인에게서 -200
+ *
+ * 각 회수는 ledger 1행 + qta_balance -= 200 으로 즉시 반영.
+ * 멱등키: 'referral_clawback:<referrals.id>'
+ *
+ * 주의: users 행을 DELETE 하기 _직전_ 에 호출해야 함. (CASCADE 발동 전)
+ */
+export async function clawbackReferralsOnDelete(
+  env: Env,
+  user_id: string,
+): Promise<{ inviter_clawbacks: number; referee_clawbacks: number }> {
+  // 1) 탈퇴자가 inviter 였던 케이스 — 탈퇴자 자신에게서 회수
+  //    (탈퇴자 행이 곧 사라지므로 자기 잔액 차감 → 어차피 의미 없지만, ledger 일관성을 위해 기록)
+  //    실제로는 status='granted' 인 행만 대상.
+  const asInviter = await env.DB
+    .prepare(
+      `SELECT id, referee_id FROM referrals
+         WHERE inviter_id = ? AND status = 'granted'`,
+    )
+    .bind(user_id)
+    .all<{ id: string; referee_id: string }>();
+
+  // 2) 탈퇴자가 referee 였던 케이스 — 추천인에게서 회수
+  const asReferee = await env.DB
+    .prepare(
+      `SELECT id, inviter_id FROM referrals
+         WHERE referee_id = ? AND status = 'granted'`,
+    )
+    .bind(user_id)
+    .all<{ id: string; inviter_id: string }>();
+
+  const stmts: D1PreparedStatement[] = [];
+
+  // ── inviter clawback: 탈퇴자 본인에게서 -200 each ──
+  for (const row of asInviter.results || []) {
+    const lid = crypto.randomUUID();
+    stmts.push(
+      env.DB
+        .prepare(
+          `INSERT INTO qta_ledger (id, user_id, amount, reason, idem_key, meta)
+             VALUES (?, ?, ?, 'referral_clawback', ?, ?)`,
+        )
+        .bind(
+          lid,
+          user_id,
+          -QTA_REFERRAL_BONUS,
+          `referral_clawback:${row.id}`,
+          JSON.stringify({ ref_id: row.id, role: 'inviter_self_delete' }),
+        ),
+      env.DB
+        .prepare(
+          `UPDATE users SET qta_balance = qta_balance - ?, updated_at = datetime('now')
+             WHERE id = ?`,
+        )
+        .bind(QTA_REFERRAL_BONUS, user_id),
+      env.DB
+        .prepare(
+          `UPDATE referrals
+             SET status = 'clawed_back', clawback_ledger_id = ?, updated_at = datetime('now')
+             WHERE id = ? AND status = 'granted'`,
+        )
+        .bind(lid, row.id),
+    );
+  }
+
+  // ── referee clawback: 추천인에게서 -200 회수 ──
+  for (const row of asReferee.results || []) {
+    const lid = crypto.randomUUID();
+    stmts.push(
+      env.DB
+        .prepare(
+          `INSERT INTO qta_ledger (id, user_id, amount, reason, idem_key, meta)
+             VALUES (?, ?, ?, 'referral_clawback', ?, ?)`,
+        )
+        .bind(
+          lid,
+          row.inviter_id,
+          -QTA_REFERRAL_BONUS,
+          `referral_clawback:${row.id}`,
+          JSON.stringify({ ref_id: row.id, role: 'referee_deleted' }),
+        ),
+      env.DB
+        .prepare(
+          `UPDATE users SET qta_balance = qta_balance - ?, updated_at = datetime('now')
+             WHERE id = ?`,
+        )
+        .bind(QTA_REFERRAL_BONUS, row.inviter_id),
+      env.DB
+        .prepare(
+          `UPDATE referrals
+             SET status = 'clawed_back', clawback_ledger_id = ?, updated_at = datetime('now')
+             WHERE id = ? AND status = 'granted'`,
+        )
+        .bind(lid, row.id),
+    );
+  }
+
+  if (stmts.length > 0) {
+    try {
+      await env.DB.batch(stmts);
+    } catch (e) {
+      // best-effort. 일부 idem 충돌 시에도 다음 단계(account delete)는 진행.
+      console.error('[qta] referral clawback failed', String((e as Error)?.message || e));
+    }
+  }
+
+  return {
+    inviter_clawbacks: asInviter.results?.length ?? 0,
+    referee_clawbacks: asReferee.results?.length ?? 0,
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────────

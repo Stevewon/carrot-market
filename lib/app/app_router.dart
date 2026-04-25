@@ -22,6 +22,8 @@ import '../screens/keyword_alerts_screen.dart';
 import '../screens/hidden_products_screen.dart';
 import '../screens/qta_ledger_screen.dart';
 import '../screens/qta_withdraw_screen.dart';
+import '../screens/referrals_screen.dart';
+import '../screens/account_delete_screen.dart';
 
 GoRouter createRouter(AuthService auth) {
   return GoRouter(
@@ -118,6 +120,14 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(
         path: '/qta/withdraw',
         builder: (_, __) => const QtaWithdrawScreen(),
+      ),
+      GoRoute(
+        path: '/referrals',
+        builder: (_, __) => const ReferralsScreen(),
+      ),
+      GoRoute(
+        path: '/account/delete',
+        builder: (_, __) => const AccountDeleteScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

@@ -159,12 +159,13 @@ class AuthService extends ChangeNotifier {
   // ================================================================
   // Sign up
   // ================================================================
-  Future<String?> register({
+  Future<RegisterResult> register({
     required String walletAddress,
     required String nickname,
     required String password,
     required String passwordConfirm,
     String? region,
+    String? referrerNickname,
   }) async {
     try {
       final res = await api.post('/api/auth/register', data: {
@@ -174,6 +175,8 @@ class AuthService extends ChangeNotifier {
         'password_confirm': passwordConfirm,
         'device_uuid': deviceUuid,
         'region': region,
+        if (referrerNickname != null && referrerNickname.isNotEmpty)
+          'referrer_nickname': referrerNickname.trim(),
       });
 
       if (res.statusCode == 200 || res.statusCode == 201) {
@@ -185,11 +188,54 @@ class AuthService extends ChangeNotifier {
         if (data['qta_bonus'] is Map) {
           _pendingQtaBonus = Map<String, dynamic>.from(data['qta_bonus'] as Map);
         }
+        ReferralOutcome? ref;
+        if (data['referral'] is Map) {
+          ref = ReferralOutcome.fromJson(
+              Map<String, dynamic>.from(data['referral'] as Map));
+        }
+        return RegisterResult(error: null, referral: ref);
+      }
+      return RegisterResult(
+          error: _errorOf(res.data) ?? '가입 실패', referral: null);
+    } catch (e) {
+      return RegisterResult(error: _parseError(e), referral: null);
+    }
+  }
+
+  // ================================================================
+  // Account deletion (영구 삭제 — "한 번 사라진 건 영구 보관 X")
+  // ================================================================
+  Future<String?> deleteAccount({required String password}) async {
+    try {
+      final res = await api.dio.delete(
+        '/api/auth/me',
+        data: {'password': password},
+      );
+      if (res.statusCode == 200) {
+        await _localLogout();
         return null;
       }
-      return _errorOf(res.data) ?? '가입 실패';
+      return _errorOf(res.data) ?? '탈퇴 처리 실패';
     } catch (e) {
       return _parseError(e);
+    }
+  }
+
+  // ================================================================
+  // Check if a nickname exists (for referrer field on signup screen)
+  // ================================================================
+  Future<bool> checkNicknameExists(String nickname) async {
+    try {
+      final res = await api.dio.get(
+        '/api/auth/check-nickname',
+        queryParameters: {'nickname': nickname.trim()},
+      );
+      if (res.statusCode == 200 && res.data is Map) {
+        return res.data['exists'] == true;
+      }
+      return false;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -400,3 +446,30 @@ class AuthService extends ChangeNotifier {
 // Small record-type polyfill note: `({String? nickname, String? error})` requires
 // Dart 3.0+. The project already uses go_router 14+ which implies Dart 3.x,
 // so this is safe.
+
+/// 회원가입 결과 (에러 또는 친구 초대 처리 결과 포함)
+class RegisterResult {
+  final String? error;
+  final ReferralOutcome? referral;
+  const RegisterResult({this.error, this.referral});
+}
+
+/// 친구 초대 처리 결과
+class ReferralOutcome {
+  final bool credited;
+  final String? inviterNickname;
+  final int inviterBonus;
+  final String? reason; // 'self_referral' | 'inviter_not_found' | 'already_processed' | null
+  const ReferralOutcome({
+    required this.credited,
+    this.inviterNickname,
+    this.inviterBonus = 0,
+    this.reason,
+  });
+  factory ReferralOutcome.fromJson(Map<String, dynamic> j) => ReferralOutcome(
+        credited: j['credited'] == true,
+        inviterNickname: j['inviter_nickname']?.toString(),
+        inviterBonus: (j['inviter_bonus'] as num?)?.toInt() ?? 0,
+        reason: j['reason']?.toString(),
+      );
+}
