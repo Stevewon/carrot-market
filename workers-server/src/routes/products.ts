@@ -472,39 +472,10 @@ app.put('/:id/status', authMiddleware, async (c) => {
   return c.json({ ok: true, status: body.status, buyer_id: buyerId });
 });
 
-/**
- * GET /api/products/:id/buyers
- *
- * Owner-only. Returns the list of users that have an active chat room with
- * the seller about this product — used as the buyer-picker when marking the
- * listing as 'sold'.
- */
-app.get('/:id/buyers', authMiddleware, async (c) => {
-  const user = c.get('user')!;
-  const id = c.req.param('id');
-
-  const row = await c.env.DB
-    .prepare('SELECT seller_id FROM products WHERE id = ?')
-    .bind(id)
-    .first<{ seller_id: string }>();
-  if (!row) return c.json({ error: 'Not found' }, 404);
-  if (row.seller_id !== user.id) return c.json({ error: 'Forbidden' }, 403);
-
-  // Pull the *other* side of every chat room tied to this product.
-  const { results } = await c.env.DB
-    .prepare(
-      `SELECT DISTINCT u.id, u.nickname, u.manner_score
-         FROM chat_rooms r
-         JOIN users u ON u.id = CASE WHEN r.user_a_id = ?1 THEN r.user_b_id ELSE r.user_a_id END
-        WHERE r.product_id = ?2
-          AND (r.user_a_id = ?1 OR r.user_b_id = ?1)
-        ORDER BY r.last_message_at DESC`
-    )
-    .bind(user.id, id)
-    .all<{ id: string; nickname: string; manner_score: number }>();
-
-  return c.json({ buyers: results || [] });
-});
+// /api/products/:id/buyers 는 제거됨.
+// 휘발성 채팅 정책상 서버에 chat_rooms 가 없으므로 "이 상품에 문의했던 사람" 같은
+// 목록을 만들 수 없다. 대신 거래완료 시 판매자가 직접 구매자의 닉네임으로
+// 검색해서 (GET /api/users/search) 선택한 buyer_id 를 PUT /:id/status 에 넣는다.
 
 /**
  * POST /api/products/:id/review

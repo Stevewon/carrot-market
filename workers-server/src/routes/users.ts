@@ -164,4 +164,36 @@ app.get('/:id/reviews', async (c) => {
   return c.json({ reviews: results || [] });
 });
 
+/**
+ * GET /api/users/search?nickname=xxx
+ *
+ * 닉네임 부분 일치(대소문자 무시) 검색. 거래완료 시 판매자가 구매자를 직접
+ * 닉네임으로 찾기 위해 사용된다 (휘발성 채팅이라 chat_rooms 로 구매자 후보를
+ * 뽑을 수 없음). 자기 자신은 결과에서 제외하고, 최대 20명만 반환한다.
+ *
+ * 응답에는 wallet_address / device_uuid 같은 식별자는 절대 포함되지 않는다.
+ */
+app.get('/search', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+  const q = (c.req.query('nickname') || '').trim();
+  if (q.length < 1) {
+    return c.json({ users: [] });
+  }
+  const like = `%${q.replace(/[%_]/g, '\\$&')}%`;
+  const { results } = await c.env.DB
+    .prepare(
+      `SELECT id, nickname, manner_score, region
+         FROM users
+        WHERE nickname LIKE ? ESCAPE '\\' COLLATE NOCASE
+          AND id != ?
+        ORDER BY
+          CASE WHEN nickname = ? COLLATE NOCASE THEN 0 ELSE 1 END,
+          length(nickname) ASC
+        LIMIT 20`
+    )
+    .bind(like, me.id, q)
+    .all<{ id: string; nickname: string; manner_score: number; region: string | null }>();
+  return c.json({ users: results || [] });
+});
+
 export default app;

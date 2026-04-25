@@ -70,6 +70,11 @@ class ChatRoom {
   }
 
   ChatRoom copyWith({
+    String? peerNickname,
+    int? peerMannerScore,
+    String? productId,
+    String? productTitle,
+    String? productThumb,
     String? lastMessage,
     String? lastSenderId,
     DateTime? lastMessageAt,
@@ -79,11 +84,11 @@ class ChatRoom {
     return ChatRoom(
       id: id,
       peerId: peerId,
-      peerNickname: peerNickname,
-      peerMannerScore: peerMannerScore,
-      productId: productId,
-      productTitle: productTitle,
-      productThumb: productThumb,
+      peerNickname: peerNickname ?? this.peerNickname,
+      peerMannerScore: peerMannerScore ?? this.peerMannerScore,
+      productId: productId ?? this.productId,
+      productTitle: productTitle ?? this.productTitle,
+      productThumb: productThumb ?? this.productThumb,
       lastMessage: lastMessage ?? this.lastMessage,
       lastSenderId: lastSenderId ?? this.lastSenderId,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,

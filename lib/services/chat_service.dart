@@ -12,18 +12,18 @@ import '../models/chat_room.dart';
 import 'auth_service.dart';
 import 'notification_service.dart';
 
-/// Persistent chat service (당근 style).
+/// 휘발성 채팅 서비스 — 사생활 보호 모드 (telegram secret chat 스타일).
 ///
-/// - Messages are stored server-side in D1 and loaded on demand.
-/// - Leaving a room (DELETE /rooms/:id) wipes the room AND all messages for
-///   both users via CASCADE. The server then broadcasts `room_deleted` so the
-///   peer's UI drops the room immediately.
-/// - Clearing messages (DELETE /rooms/:id/messages) keeps the room but erases
-///   all history, broadcasting `messages_cleared`.
+/// 정책:
+/// - 메시지·가격제안·채팅방은 서버 DB 에 절대 저장되지 않는다.
+/// - 모든 데이터는 WebSocket Durable Object 메모리에서만 broadcast 된다.
+/// - 앱을 닫거나 재시작하면 채팅 목록과 내역은 모두 비어 있다 (영구 소실).
+/// - "채팅방 나가기" 또는 "채팅 내역 삭제" 시 양쪽 기기에서 즉시 사라진다.
+/// - 통화는 원래부터 WebRTC P2P 라 미디어가 서버를 거치지 않는다.
 ///
 /// Transport:
-///   REST : AuthService.api (Bearer token) for CRUD.
-///   WS   : raw WebSocket against /socket?token=... for realtime push.
+///   WS   : /socket?token=... 으로 실시간 송수신.
+///   REST : 거의 사용 안 함 (서버는 휘발성 모드라 빈 응답만 반환).
 class ChatService extends ChangeNotifier {
   final AuthService auth;
 
@@ -79,192 +79,187 @@ class ChatService extends ChangeNotifier {
   // REST: rooms list / create / messages / delete
   // ------------------------------------------------------------------
 
+  /// 휘발성 모드: 서버는 채팅방을 보관하지 않는다.
+  /// 따라서 fetchRooms 는 서버에 묻지 않고 로컬 메모리(_rooms)만 사용한다.
+  /// 앱이 막 켜졌거나 disconnect 직후에는 빈 목록이 정상이다.
   Future<void> fetchRooms({bool silent = false}) async {
     if (!silent) {
       _roomsLoading = true;
       notifyListeners();
     }
-    try {
-      final res = await auth.api.get('/api/chat/rooms');
-      final data = res.data as Map<String, dynamic>;
-      final list = (data['rooms'] as List? ?? [])
-          .map((e) => ChatRoom.fromJson(e as Map<String, dynamic>))
-          .toList();
-      _rooms = list;
-    } catch (e) {
-      debugPrint('[chat] fetchRooms failed: $e');
-    } finally {
-      _roomsLoading = false;
-      notifyListeners();
-    }
+    // 서버에 호출하지 않는다 — 휘발성. 단, REST 엔드포인트는 빈 배열을 돌려주므로
+    // 기존 호출이 살아 있어도 데이터를 덮어쓰지 않도록 그냥 종료.
+    _roomsLoading = false;
+    notifyListeners();
   }
 
-  /// Create or retrieve a room with a peer.
-  /// Returns the room id, or null on failure.
+  /// Deterministic roomId from two userIds (+ optional productId).
+  /// Both sides compute the same id without contacting the server.
+  String _makeRoomId(String userA, String userB, [String? productId]) {
+    final pair = [userA, userB]..sort();
+    return productId != null && productId.isNotEmpty
+        ? '${pair[0]}_${pair[1]}_$productId'
+        : '${pair[0]}_${pair[1]}';
+  }
+
+  /// Open (or recreate locally) a chat room with a peer. Does NOT touch the DB.
+  /// Returns a synthetic ChatRoom that lives only in memory.
   Future<ChatRoom?> openRoomWithPeer({
     required String peerUserId,
+    String? peerNickname,
     String? productId,
     String? productTitle,
     String? productThumb,
   }) async {
-    try {
-      final res = await auth.api.post('/api/chat/rooms', data: {
-        'peer_user_id': peerUserId,
-        if (productId != null) 'product_id': productId,
-        if (productTitle != null) 'product_title': productTitle,
-        if (productThumb != null) 'product_thumb': productThumb,
-      });
-      final data = res.data as Map<String, dynamic>;
-      final room = ChatRoom.fromJson({
-        ...data['room'] as Map<String, dynamic>,
-        'last_message_at': DateTime.now().toIso8601String(),
-        'created_at': DateTime.now().toIso8601String(),
-      });
-      // Merge into local cache.
-      final existing = _rooms.indexWhere((r) => r.id == room.id);
-      if (existing >= 0) {
-        _rooms[existing] = room;
-      } else {
-        _rooms.insert(0, room);
-      }
-      notifyListeners();
-      return room;
-    } on DioException catch (e) {
-      debugPrint('[chat] openRoomWithPeer failed: ${e.response?.data ?? e.message}');
-      return null;
-    } catch (e) {
-      debugPrint('[chat] openRoomWithPeer failed: $e');
-      return null;
+    final me = auth.user?.id;
+    if (me == null) return null;
+    final roomId = _makeRoomId(me, peerUserId, productId);
+    final now = DateTime.now();
+    final room = ChatRoom(
+      id: roomId,
+      peerId: peerUserId,
+      peerNickname: peerNickname ?? '익명',
+      peerMannerScore: 36, // default neutral; server uses *10 scale but for fresh local rooms keep simple
+      productId: productId,
+      productTitle: productTitle,
+      productThumb: productThumb,
+      lastMessage: '',
+      lastSenderId: null,
+      lastMessageAt: now,
+      createdAt: now,
+      unreadCount: 0,
+      peerLastReadAt: null,
+    );
+    final existing = _rooms.indexWhere((r) => r.id == roomId);
+    if (existing >= 0) {
+      // 메모리에 이미 있으면 product 정보만 보강.
+      _rooms[existing] = _rooms[existing].copyWith(
+        productId: productId ?? _rooms[existing].productId,
+        productTitle: productTitle ?? _rooms[existing].productTitle,
+        productThumb: productThumb ?? _rooms[existing].productThumb,
+        peerNickname: peerNickname ?? _rooms[existing].peerNickname,
+      );
+    } else {
+      _rooms.insert(0, room);
     }
+    notifyListeners();
+    return _rooms.firstWhere((r) => r.id == roomId);
   }
 
-  /// Load persisted history for a room.
+  /// 휘발성: 히스토리가 서버에 없다. no-op.
   Future<void> loadHistory(String roomId) async {
-    try {
-      final res = await auth.api.get('/api/chat/rooms/$roomId/messages');
-      final data = res.data as Map<String, dynamic>;
-      final msgs = (data['messages'] as List? ?? []).map((e) {
-        final m = Map<String, dynamic>.from(e as Map);
-        // Pass through every server field so PriceOfferInfo.tryParse can pick
-        // up the joined offer_* columns. We only stuff in a placeholder
-        // sender_nickname since per-message nicknames aren't persisted.
-        m['sender_nickname'] = '';
-        return ChatMessage.fromJson(m, currentUserId: auth.user?.id);
-      }).toList();
-      _roomMessages[roomId] = msgs;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('[chat] loadHistory failed: $e');
-    }
+    // 서버에 저장된 메시지가 없으므로 가져올 것이 없다.
+    // 메모리 캐시(_roomMessages)에 이미 있는 것만 유지.
+    _roomMessages.putIfAbsent(roomId, () => []);
   }
 
-  // ── Price offer (가격 제안 / 네고) ──────────────────────────────────
+  // ── 가격 제안 (휘발성: WebSocket 으로만 전송) ──────────────────────────
 
-  /// Send a price offer in the given room. Server requires the room to have
-  /// a product attached and the sender to NOT be the seller. Any prior
-  /// pending offer in this room is auto-cancelled by the server.
-  /// Returns null on success, error string on failure.
+  /// 가격 제안을 보낸다. 서버 DB 에 저장하지 않고 WS broadcast 만 함.
   Future<String?> sendPriceOffer(String roomId, int price) async {
     if (price <= 0) return '금액을 입력해주세요';
-    try {
-      await auth.api.post(
-        '/api/chat/rooms/$roomId/offer',
-        data: {'price': price},
-      );
-      // The server broadcasts via WS so the message appears via _onData.
-      // We don't optimistically insert here to keep the source of truth
-      // consistent (avoids duplicate bubbles).
-      return null;
-    } on DioException catch (e) {
-      debugPrint('[chat] sendPriceOffer failed: ${e.response?.data ?? e.message}');
-      final data = e.response?.data;
-      if (data is Map && data['error'] != null) return data['error'].toString();
-      return '제안 전송 실패';
-    } catch (e) {
-      debugPrint('[chat] sendPriceOffer failed: $e');
-      return '제안 전송 실패';
+    if (auth.user == null) return '로그인이 필요해요';
+    if (!_connected) {
+      connect();
+      // 재연결 직후 큐에 못 실으면 사용자에게 즉시 알림.
+      return '연결 중이에요. 잠시 후 다시 시도해주세요';
     }
+    emit('price_offer', {
+      'room_id': roomId,
+      'price': price,
+      'sender_nickname': auth.user!.nickname,
+    });
+    return null;
   }
 
-  /// Accept / reject (seller) or cancel (buyer) a pending offer.
-  /// [action] must be one of: 'accept', 'reject', 'cancel'.
-  Future<String?> respondToOffer(String offerId, String action) async {
+  /// 가격 제안에 응답 (수락/거절/취소). 휘발성이라 WS 로만.
+  Future<String?> respondToOffer(String offerId, String action,
+      {String? roomId}) async {
     if (!['accept', 'reject', 'cancel'].contains(action)) {
       return 'invalid action';
     }
-    try {
-      await auth.api.patch(
-        '/api/chat/offers/$offerId',
-        data: {'action': action},
-      );
-      // Server broadcasts 'offer_updated' which we handle in _onData.
-      return null;
-    } on DioException catch (e) {
-      debugPrint('[chat] respondToOffer failed: ${e.response?.data ?? e.message}');
-      final data = e.response?.data;
-      if (data is Map && data['error'] != null) return data['error'].toString();
-      return '처리 실패';
-    } catch (e) {
-      debugPrint('[chat] respondToOffer failed: $e');
-      return '처리 실패';
+    if (auth.user == null) return '로그인이 필요해요';
+    if (!_connected) {
+      connect();
+      return '연결 중이에요. 잠시 후 다시 시도해주세요';
     }
+    // roomId 가 안 들어오면 메모리에서 offerId 로 찾는다.
+    String? rid = roomId;
+    if (rid == null) {
+      for (final entry in _roomMessages.entries) {
+        if (entry.value.any((m) => m.offer?.id == offerId)) {
+          rid = entry.key;
+          break;
+        }
+      }
+    }
+    if (rid == null) return '대화방을 찾을 수 없어요';
+    emit('offer_response', {
+      'room_id': rid,
+      'offer_id': offerId,
+      'action': action,
+    });
+    return null;
   }
 
-  /// Permanently delete a room (and all messages) for BOTH users.
+  /// 채팅방 나가기 — 양쪽에서 즉시 사라짐.
+  /// 서버에 저장된 데이터가 없으므로 DB delete 호출은 형식상이고,
+  /// 핵심은 peer 에게 'room_deleted' broadcast 다. 양쪽 메모리 캐시가 모두 비워진다.
   Future<bool> deleteRoom(String roomId) async {
+    // 즉시 로컬 캐시에서 제거.
+    _rooms.removeWhere((r) => r.id == roomId);
+    _roomMessages.remove(roomId);
+    if (_activeRoomId == roomId) _activeRoomId = null;
+    notifyListeners();
+    // peer 에게도 알리기 위해 서버 REST 호출 (서버는 broadcast 만 함, DB 삭제는 없음).
     try {
       await auth.api.delete('/api/chat/rooms/$roomId');
-      _rooms.removeWhere((r) => r.id == roomId);
-      _roomMessages.remove(roomId);
-      if (_activeRoomId == roomId) _activeRoomId = null;
-      notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('[chat] deleteRoom failed: $e');
-      return false;
+      debugPrint('[chat] deleteRoom broadcast failed: $e');
+      // 로컬에서는 이미 지워졌으니 사용자 입장에선 성공으로 본다.
+      return true;
     }
   }
 
-  /// Mark the room as read up to now. Called when the user opens the chat
-  /// screen, and also whenever a new incoming message arrives while the user
-  /// is already in that room. Optimistically zeroes the local badge so the UI
-  /// snaps immediately, then tells the server (which broadcasts a read_receipt
-  /// to the peer for the "읽음" indicator).
+  /// 읽음 처리. 휘발성이라 서버 DB read 가 없지만 peer 에게 read_receipt 는 보내야
+  /// '읽음' 표시가 켜진다. UI 뱃지는 즉시 0으로.
   Future<void> markRoomAsRead(String roomId) async {
     final idx = _rooms.indexWhere((r) => r.id == roomId);
     if (idx >= 0 && _rooms[idx].unreadCount > 0) {
       _rooms[idx] = _rooms[idx].copyWith(unreadCount: 0);
       notifyListeners();
     }
-    // Dismiss any system notification for this room — user is here now.
+    // 시스템 알림(푸시) 도 정리.
     // ignore: discarded_futures
     NotificationService.instance.cancelForRoom(roomId);
-    try {
-      await auth.api.post('/api/chat/rooms/$roomId/read');
-    } catch (e) {
-      debugPrint('[chat] markRoomAsRead failed: $e');
+    // peer 에게 직접 read_receipt 를 emit (서버는 그대로 forward 함).
+    if (_connected) {
+      emit('read_receipt', {
+        'room_id': roomId,
+        'read_at': DateTime.now().toUtc().toIso8601String(),
+      });
     }
   }
 
-  /// Clear all messages in a room (room itself stays).
+  /// 채팅 내역만 비우기. 휘발성이라 서버에 지울 게 없고, peer 에게 broadcast 만 발송.
   Future<bool> clearMessages(String roomId) async {
+    _roomMessages[roomId] = [];
+    final idx = _rooms.indexWhere((r) => r.id == roomId);
+    if (idx >= 0) {
+      _rooms[idx] = _rooms[idx].copyWith(
+        lastMessage: '',
+        lastSenderId: null,
+        lastMessageAt: DateTime.now(),
+      );
+    }
+    notifyListeners();
     try {
       await auth.api.delete('/api/chat/rooms/$roomId/messages');
-      _roomMessages[roomId] = [];
-      final idx = _rooms.indexWhere((r) => r.id == roomId);
-      if (idx >= 0) {
-        _rooms[idx] = _rooms[idx].copyWith(
-          lastMessage: '',
-          lastSenderId: null,
-          lastMessageAt: DateTime.now(),
-        );
-      }
-      notifyListeners();
-      return true;
     } catch (e) {
-      debugPrint('[chat] clearMessages failed: $e');
-      return false;
+      debugPrint('[chat] clearMessages broadcast failed: $e');
     }
+    return true;
   }
 
   // ------------------------------------------------------------------
@@ -444,56 +439,29 @@ class ChatService extends ChangeNotifier {
       }
 
       case 'offer_updated': {
-        // Server tells us a price-offer changed status (accepted/rejected/cancelled).
-        // Update the matching message's offer info in-place so the UI re-renders
-        // the bubble's status chip and disables the action buttons.
+        // 휘발성 모드: 서버는 { room_id, offer_id, status, responder_id, updated_at } 만 보낸다.
+        // 메모리에서 해당 메시지를 찾아 offer.status 만 갱신하고 같은 버블이 다시 렌더되게 한다.
         final roomId = msg['room_id']?.toString();
-        final offerData = msg['offer'];
-        if (roomId == null || offerData is! Map) break;
-        final offerId = offerData['id']?.toString();
-        final newStatus = offerData['status']?.toString();
-        if (offerId == null || newStatus == null) break;
+        final offerId = msg['offer_id']?.toString();
+        final newStatus = msg['status']?.toString();
+        if (roomId == null || offerId == null || newStatus == null) break;
         final list = _roomMessages[roomId];
         if (list == null) break;
         for (var i = 0; i < list.length; i++) {
           final m = list[i];
           if (m.offer?.id == offerId) {
-            final updated = m.copyWith(
+            list[i] = m.copyWith(
               offer: m.offer!.copyWith(
                 status: newStatus,
                 respondedAt: DateTime.tryParse(
-                      offerData['responded_at']?.toString() ?? '',
+                      msg['updated_at']?.toString() ?? '',
                     ) ??
                     DateTime.now(),
               ),
             );
-            list[i] = updated;
             notifyListeners();
             break;
           }
-        }
-        break;
-      }
-
-      case 'offer_updated': {
-        // Server tells us a price-offer's status changed (accepted/rejected/cancelled).
-        // Find the corresponding message in our cache and patch its `offer` field
-        // so the existing bubble re-renders with the new status (no new message
-        // is inserted — the same card just changes look).
-        final roomId = msg['room_id']?.toString();
-        final messageId = msg['message_id']?.toString();
-        final offerJson = msg['offer'];
-        if (roomId == null || messageId == null || offerJson is! Map) break;
-        final newOffer = PriceOfferInfo.tryParse({
-          'offer': Map<String, dynamic>.from(offerJson),
-        });
-        if (newOffer == null) break;
-        final list = _roomMessages[roomId];
-        if (list == null) break;
-        final idx = list.indexWhere((m) => m.id == messageId);
-        if (idx >= 0) {
-          list[idx] = list[idx].copyWith(offer: newOffer);
-          notifyListeners();
         }
         break;
       }

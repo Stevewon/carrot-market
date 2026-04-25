@@ -191,7 +191,6 @@ export class ChatHub {
 
       case 'join_room': {
         const room_id = String(msg.room_id || '');
-        const product_id = msg.product_id ? String(msg.product_id) : undefined;
         if (!room_id) return;
 
         if (!meta.rooms.includes(room_id)) {
@@ -204,15 +203,7 @@ export class ChatHub {
           type: 'system',
           text: `${meta.nickname} 님이 대화에 참여했어요`,
         });
-
-        // Bump chat_count (fire-and-forget)
-        if (product_id) {
-          this.env.DB
-            .prepare('UPDATE products SET chat_count = chat_count + 1 WHERE id = ?')
-            .bind(product_id)
-            .run()
-            .catch(() => {});
-        }
+        // 휘발성 정책: chat_count / 채팅방 통계 등 어떠한 DB 업데이트도 하지 않는다.
         return;
       }
 
@@ -233,39 +224,22 @@ export class ChatHub {
         const text = String(msg.text || '').slice(0, 2000);
         if (!room_id || !text.trim()) return;
 
-        // Confirm the sender is a member of this room (prevents spoofing).
-        const isMember = await this.env.DB.prepare(
-          'SELECT 1 FROM chat_rooms WHERE id = ? AND (user_a_id = ? OR user_b_id = ?) LIMIT 1'
-        )
-          .bind(room_id, meta.userId, meta.userId)
-          .first();
-        if (!isMember) {
-          this.sendSafe(ws, { type: 'error', message: '채팅방에 참여하지 않았어요' });
+        // 휘발성: 멤버십 검증을 DB 로 하지 않는다 (chat_rooms 자체가 없음).
+        // 대신 roomId 형식이 'a_b' / 'a_b_productId' 이므로 sender 의 ID 가
+        // roomId 토큰 안에 있어야 한다. 이게 spoof 방지의 1차 게이트.
+        const tokens = room_id.split('_');
+        if (!tokens.includes(meta.userId)) {
+          this.sendSafe(ws, { type: 'error', message: '이 채팅방에 참여할 수 없어요' });
           return;
+        }
+        // 자동으로 join 처리 (peer 가 먼저 메시지를 보낸 경우에도 broadcast 받도록)
+        if (!meta.rooms.includes(room_id)) {
+          meta.rooms.push(room_id);
+          ws.serializeAttachment(meta);
         }
 
         const msgId = crypto.randomUUID();
         const sentAt = new Date().toISOString();
-
-        // Persist message + bump room last_message (single batch).
-        try {
-          await this.env.DB.batch([
-            this.env.DB
-              .prepare(
-                'INSERT INTO chat_messages (id, room_id, sender_id, text, msg_type, sent_at) VALUES (?, ?, ?, ?, ?, ?)'
-              )
-              .bind(msgId, room_id, meta.userId, text, 'text', sentAt),
-            this.env.DB
-              .prepare(
-                'UPDATE chat_rooms SET last_message = ?, last_sender_id = ?, last_message_at = ? WHERE id = ?'
-              )
-              .bind(text, meta.userId, sentAt, room_id),
-          ]);
-        } catch (e) {
-          console.error('[chat] persist failed', e);
-          this.sendSafe(ws, { type: 'error', message: '메시지 저장 실패' });
-          return;
-        }
 
         const payload = {
           type: 'message',
@@ -278,25 +252,94 @@ export class ChatHub {
           msg_type: 'text',
           sent_at: sentAt,
         };
-        // Send to ALL in room including sender (so UI shows own message consistently)
+        // 같은 방의 모든 소켓 (자신 포함) 에게 broadcast.
         this.broadcastToRoom(room_id, null, payload);
 
-        // Also notify the peer — even if they're not currently in the room view —
-        // so their chat-list tab can bump unread/preview.
-        const peerRow = await this.env.DB.prepare(
-          'SELECT CASE WHEN user_a_id = ? THEN user_b_id ELSE user_a_id END AS peer FROM chat_rooms WHERE id = ?'
-        )
-          .bind(meta.userId, room_id)
-          .first<{ peer: string }>();
-        if (peerRow?.peer) {
-          this.sendToUser(peerRow.peer, {
+        // peer 가 방 화면에 없을 수도 있으니 chat-list 뱃지/미리보기용 푸시도 발송.
+        const peerId = tokens.find((t) => t.length >= 30 && t !== meta.userId);
+        if (peerId) {
+          this.sendToUser(peerId, {
             type: 'room_updated',
             room_id,
             last_message: text,
             last_sender_id: meta.userId,
+            last_sender_nickname: meta.nickname || '익명',
             last_message_at: sentAt,
           });
         }
+        return;
+      }
+
+      // ---------- 가격 제안 (휘발성) ----------
+      // 클라이언트가 보내는 형식:
+      //   { type: 'price_offer', room_id, price, currency? }
+      //   { type: 'offer_response', room_id, offer_id, action: 'accept'|'reject'|'cancel' }
+      // 서버는 어떠한 DB 도 건드리지 않고 그대로 broadcast 만 한다.
+      case 'price_offer': {
+        const room_id = String(msg.room_id || '');
+        const price = Number(msg.price);
+        if (!room_id || !Number.isFinite(price) || price < 0 || price > 1_000_000_000) return;
+        const tokens = room_id.split('_');
+        if (!tokens.includes(meta.userId)) {
+          this.sendSafe(ws, { type: 'error', message: '이 채팅방에 참여할 수 없어요' });
+          return;
+        }
+        if (!meta.rooms.includes(room_id)) {
+          meta.rooms.push(room_id);
+          ws.serializeAttachment(meta);
+        }
+        const offerId = crypto.randomUUID();
+        const sentAt = new Date().toISOString();
+        const payload = {
+          type: 'message',
+          id: offerId,
+          room_id,
+          sender_id: meta.userId,
+          sender_nickname: meta.nickname || '익명',
+          text: `${price.toLocaleString('ko-KR')}원에 어떠세요?`,
+          msg_type: 'price_offer',
+          sent_at: sentAt,
+          offer: {
+            id: offerId,
+            price,
+            status: 'pending',
+            buyer_id: meta.userId,
+          },
+        };
+        this.broadcastToRoom(room_id, null, payload);
+        const peerId = tokens.find((t) => t.length >= 30 && t !== meta.userId);
+        if (peerId) {
+          this.sendToUser(peerId, {
+            type: 'room_updated',
+            room_id,
+            last_message: payload.text,
+            last_sender_id: meta.userId,
+            last_sender_nickname: meta.nickname || '익명',
+            last_message_at: sentAt,
+          });
+        }
+        return;
+      }
+
+      case 'offer_response': {
+        const room_id = String(msg.room_id || '');
+        const offer_id = String(msg.offer_id || '');
+        const action = String(msg.action || '');
+        if (!room_id || !offer_id) return;
+        if (!['accept', 'reject', 'cancel'].includes(action)) return;
+        const tokens = room_id.split('_');
+        if (!tokens.includes(meta.userId)) return;
+        const status =
+          action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : 'cancelled';
+        const updatedAt = new Date().toISOString();
+        this.broadcastToRoom(room_id, null, {
+          type: 'offer_updated',
+          room_id,
+          offer_id,
+          status,
+          responder_id: meta.userId,
+          updated_at: updatedAt,
+        });
         return;
       }
 
