@@ -38,17 +38,36 @@ class ProductService extends ChangeNotifier {
   bool get mySellingLoading => _mySellingLoading;
   bool get mySellingLoaded => _mySellingLoaded;
 
-  Future<void> fetchProducts({String category = 'all', String? region, String? search}) async {
+  /// 거리 필터 (당근식 동네 범위 슬라이더). 0 = 비활성, 2/4/6/10 km.
+  /// 동네 인증 안 된 사용자가 지정하면 서버에서 무시된다.
+  int _rangeKm = 0;
+  int get rangeKm => _rangeKm;
+  set rangeKm(int v) {
+    if (_rangeKm == v) return;
+    _rangeKm = v;
+    notifyListeners();
+  }
+
+  Future<void> fetchProducts({
+    String category = 'all',
+    String? region,
+    String? search,
+    int? rangeKm,
+  }) async {
     _loading = true;
     _currentCategory = category;
     _searchQuery = search ?? '';
+    if (rangeKm != null) _rangeKm = rangeKm;
     notifyListeners();
 
     try {
       final res = await auth.api.get('/api/products', query: {
         if (category != 'all') 'category': category,
-        if (region != null && region.isNotEmpty) 'region': region,
+        // 거리 필터가 켜져 있으면 region 단순 필터는 끈다 (반경이 더 정확함).
+        if (_rangeKm == 0 && region != null && region.isNotEmpty)
+          'region': region,
         if (search != null && search.isNotEmpty) 'search': search,
+        if (_rangeKm > 0) 'range_km': '$_rangeKm',
       });
       final list = (res.data['products'] as List? ?? [])
           .map((e) => Product.fromJson(e as Map<String, dynamic>))

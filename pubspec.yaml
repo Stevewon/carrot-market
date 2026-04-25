@@ -50,6 +50,9 @@ dependencies:
   flutter_webrtc: ^0.12.0
   permission_handler: ^11.3.1
 
+  # GPS 좌표 (동네 인증 + 거리 필터에 사용). 정확한 좌표는 검증 직후 폐기됨.
+  geolocator: ^13.0.1
+
   # Local notifications (foreground/background push without Firebase)
   flutter_local_notifications: ^17.2.3
 

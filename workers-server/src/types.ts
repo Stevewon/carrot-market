@@ -33,6 +33,10 @@ export interface UserRow {
   password_salt: string | null; // legacy / unused (we store salt inside password_hash now)
   token_version: number;
   region: string | null;
+  /** region 중심 좌표 (동네 인증 통과 시 채워짐). */
+  lat: number | null;
+  lng: number | null;
+  region_verified_at: string | null;
   manner_score: number;
   created_at: string;
   updated_at: string;
@@ -45,6 +49,7 @@ export interface UserPublic {
   device_uuid: string;
   wallet_address: string | null;
   region: string | null;
+  region_verified_at: string | null;
   manner_score: number;
   created_at: string;
   updated_at: string;
@@ -68,6 +73,9 @@ export interface ProductRow {
   bumped_at: string | null;
   /** Set when the seller marks the listing as 'sold' and picks a buyer. */
   buyer_id: string | null;
+  /** 작성자의 region 중심 좌표(인증 시점에 복사). 거리 필터에 사용. */
+  lat: number | null;
+  lng: number | null;
   created_at: string;
   updated_at: string;
 }

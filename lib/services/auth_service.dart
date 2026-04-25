@@ -268,6 +268,43 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 동네 인증 — GPS 좌표를 서버에 보내고 region 중심점에서 4km 안인지 검증.
+  /// 통과 시 region 과 region_verified_at 이 업데이트된다.
+  /// 사생활: 정확한 GPS 는 서버 검증 직후 폐기되고 DB 에 저장되지 않는다.
+  ///
+  /// 반환: null = 성공, 그 외 = 사용자에게 보여줄 에러 메시지.
+  Future<String?> verifyRegion({
+    required double lat,
+    required double lng,
+    String? region,
+  }) async {
+    if (_user == null) return '로그인이 필요해요';
+    try {
+      final res = await api.post(
+        '/api/users/me/region/verify',
+        data: {
+          'lat': lat,
+          'lng': lng,
+          if (region != null && region.isNotEmpty) 'region': region,
+        },
+      );
+      final data = res.data is Map ? res.data as Map : {};
+      final newRegion = (data['region'] ?? region ?? _user!.region) as String?;
+      final verifiedAtStr = data['region_verified_at'] as String?;
+      _user = _user!.copyWith(
+        region: newRegion,
+        regionVerifiedAt: verifiedAtStr != null
+            ? DateTime.tryParse(verifiedAtStr)
+            : DateTime.now(),
+      );
+      if (newRegion != null) await prefs.setString(_kRegion, newRegion);
+      notifyListeners();
+      return null;
+    } catch (e) {
+      return _parseError(e);
+    }
+  }
+
   // ================================================================
   // Logout
   // ================================================================

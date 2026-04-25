@@ -42,11 +42,14 @@ class _FeedTabState extends State<FeedTab> {
 
   void _load() {
     final auth = context.read<AuthService>();
-    context.read<ProductService>().fetchProducts(
-          category: _category,
-          region: auth.user?.region,
-          search: _searchCtl.text.isEmpty ? null : _searchCtl.text,
-        );
+    final productSvc = context.read<ProductService>();
+    productSvc.fetchProducts(
+      category: _category,
+      region: auth.user?.region,
+      search: _searchCtl.text.isEmpty ? null : _searchCtl.text,
+      // 동네 인증된 사용자에 한해 현재 슬라이더 값 유지.
+      rangeKm: (auth.user?.isRegionVerified ?? false) ? productSvc.rangeKm : 0,
+    );
   }
 
   Future<void> _submitSearch(String raw) async {
@@ -148,6 +151,15 @@ class _FeedTabState extends State<FeedTab> {
                   _load();
                 },
               ),
+              // 동네 인증된 사용자에게만 거리 필터 노출.
+              if (auth.user?.isRegionVerified ?? false)
+                _RangeBar(
+                  current: productSvc.rangeKm,
+                  onChanged: (km) {
+                    productSvc.rangeKm = km;
+                    _load();
+                  },
+                ),
               const Divider(height: 1, color: EggplantColors.border),
               Expanded(
                 child: productSvc.loading && productSvc.products.isEmpty
@@ -302,6 +314,80 @@ class _SearchHistoryPanel extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 거리 필터 (당근식 동네 범위 슬라이더). 동네 인증 통과자만 노출.
+/// 0 = 전체, 2/4/6/10 km.
+class _RangeBar extends StatelessWidget {
+  final int current;
+  final ValueChanged<int> onChanged;
+  const _RangeBar({required this.current, required this.onChanged});
+
+  static const _options = <(int, String)>[
+    (0, '전체'),
+    (2, '2km'),
+    (4, '4km'),
+    (6, '6km'),
+    (10, '10km'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      color: Colors.white,
+      child: Row(
+        children: [
+          const Icon(Icons.near_me_rounded,
+              size: 16, color: EggplantColors.textSecondary),
+          const SizedBox(width: 6),
+          const Text('거리',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: EggplantColors.textSecondary,
+              )),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _options.map((o) {
+                  final selected = o.$1 == current;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(o.$2),
+                      selected: selected,
+                      onSelected: (_) => onChanged(o.$1),
+                      labelStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: selected
+                            ? Colors.white
+                            : EggplantColors.textSecondary,
+                      ),
+                      selectedColor: EggplantColors.primary,
+                      backgroundColor: Colors.white,
+                      side: BorderSide(
+                        color: selected
+                            ? EggplantColors.primary
+                            : EggplantColors.border,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize:
+                          MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

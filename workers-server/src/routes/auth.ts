@@ -40,6 +40,7 @@ function sanitize(u: UserRow): UserPublic {
     device_uuid: u.device_uuid,
     wallet_address: u.wallet_address,
     region: u.region,
+    region_verified_at: u.region_verified_at,
     manner_score: u.manner_score,
     created_at: u.created_at,
     updated_at: u.updated_at,

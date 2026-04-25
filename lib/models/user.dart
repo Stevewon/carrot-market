@@ -5,6 +5,9 @@ class User {
   final String? walletAddress;
   final String? region;
 
+  /// 동네 인증 통과 시각. null 이면 미인증.
+  final DateTime? regionVerifiedAt;
+
   /// Manner score stored as ×10 integer (e.g. 365 = 36.5°).
   /// Default is 365 (= 36.5°), matching 당근의 시작값.
   /// Old API rows that still return 36 are auto-upgraded to 365 (see [fromJson]).
@@ -17,9 +20,13 @@ class User {
     required this.deviceUuid,
     this.walletAddress,
     this.region,
+    this.regionVerifiedAt,
     this.mannerScore = 365,
     required this.createdAt,
   });
+
+  /// 동네 인증 여부.
+  bool get isRegionVerified => regionVerifiedAt != null;
 
   /// Display-friendly temperature, e.g. `36.5`.
   double get mannerTemperature => mannerScore / 10.0;
@@ -48,6 +55,9 @@ class User {
       deviceUuid: json['device_uuid'] ?? '',
       walletAddress: json['wallet_address'] as String?,
       region: json['region'] as String?,
+      regionVerifiedAt: json['region_verified_at'] is String
+          ? DateTime.tryParse(json['region_verified_at'] as String)
+          : null,
       mannerScore: score,
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
@@ -59,6 +69,7 @@ class User {
         'device_uuid': deviceUuid,
         'wallet_address': walletAddress,
         'region': region,
+        'region_verified_at': regionVerifiedAt?.toIso8601String(),
         'manner_score': mannerScore,
         'created_at': createdAt.toIso8601String(),
       };
@@ -68,6 +79,7 @@ class User {
     String? deviceUuid,
     String? walletAddress,
     String? region,
+    DateTime? regionVerifiedAt,
     int? mannerScore,
   }) {
     return User(
@@ -76,6 +88,7 @@ class User {
       deviceUuid: deviceUuid ?? this.deviceUuid,
       walletAddress: walletAddress ?? this.walletAddress,
       region: region ?? this.region,
+      regionVerifiedAt: regionVerifiedAt ?? this.regionVerifiedAt,
       mannerScore: mannerScore ?? this.mannerScore,
       createdAt: createdAt,
     );

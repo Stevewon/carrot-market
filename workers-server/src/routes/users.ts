@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Env, UserRow, UserPublic, Variables } from '../types';
 import { authMiddleware } from '../jwt';
+import { regionCenter, haversineKm, REGION_VERIFY_RADIUS_KM } from '../regions';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -11,6 +12,7 @@ function sanitize(u: UserRow): UserPublic {
     device_uuid: u.device_uuid,
     wallet_address: u.wallet_address,
     region: u.region,
+    region_verified_at: u.region_verified_at,
     manner_score: u.manner_score,
     created_at: u.created_at,
     updated_at: u.updated_at,
@@ -162,6 +164,84 @@ app.get('/:id/reviews', async (c) => {
     : c.env.DB.prepare(sql).bind(id, limit);
   const { results } = await stmt.all();
   return c.json({ reviews: results || [] });
+});
+
+/**
+ * POST /api/users/me/region/verify
+ *
+ * 동네 인증 (당근식). 클라이언트가 GPS 좌표를 보내면 현재 region 의 중심점에서
+ * REGION_VERIFY_RADIUS_KM(=4km) 안에 있는지만 검증한다.
+ *
+ * 사생활 보호:
+ *   - 정확한 GPS 는 검증 직후 폐기. DB 에는 region 중심 좌표만 저장.
+ *   - 같은 동네 모든 사용자는 같은 점을 갖는다 → 다른 사용자에게 노출되지 않는다.
+ *   - 응답으로도 본인의 region/verified_at 만 돌려준다.
+ *
+ * Body: { lat: number, lng: number, region?: string }
+ *   region 이 들어오면 그 region 으로 동시에 변경하면서 인증한다.
+ *   region 이 없으면 현재 저장된 user.region 을 사용한다.
+ */
+app.post('/me/region/verify', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+  let body: { lat?: number; lng?: number; region?: string } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: '잘못된 요청' }, 400);
+  }
+
+  const lat = Number(body.lat);
+  const lng = Number(body.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)
+      || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return c.json({ error: 'GPS 좌표가 유효하지 않아요' }, 400);
+  }
+
+  // 현재 또는 새 region 결정.
+  let region = (body.region || '').trim();
+  if (!region) {
+    const cur = await c.env.DB
+      .prepare('SELECT region FROM users WHERE id = ?')
+      .bind(me.id)
+      .first<{ region: string | null }>();
+    region = cur?.region || '';
+  }
+  if (!region) {
+    return c.json({ error: '먼저 동네를 선택해주세요' }, 400);
+  }
+
+  const center = regionCenter(region);
+  if (!center) {
+    return c.json({ error: '지원하지 않는 지역이에요' }, 400);
+  }
+
+  const dist = haversineKm({ lat, lng }, center);
+  if (dist > REGION_VERIFY_RADIUS_KM) {
+    return c.json({
+      error: '내 동네에서 너무 멀어요',
+      distance_km: Math.round(dist * 10) / 10,
+      radius_km: REGION_VERIFY_RADIUS_KM,
+    }, 403);
+  }
+
+  // 검증 통과 — 정확한 좌표는 버리고 region 중심점만 저장.
+  const nowIso = new Date().toISOString();
+  await c.env.DB
+    .prepare(
+      `UPDATE users
+         SET region = ?, lat = ?, lng = ?,
+             region_verified_at = ?, updated_at = datetime('now')
+       WHERE id = ?`
+    )
+    .bind(region, center.lat, center.lng, nowIso, me.id)
+    .run();
+
+  return c.json({
+    ok: true,
+    region,
+    region_verified_at: nowIso,
+    distance_km: Math.round(dist * 10) / 10,
+  });
 });
 
 /**

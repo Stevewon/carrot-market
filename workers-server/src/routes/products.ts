@@ -56,11 +56,20 @@ async function hydrate(
   };
 }
 
-/** GET /api/products - list with filters */
+/**
+ * GET /api/products - list with filters
+ *
+ * 추가 필터:
+ *   - range_km=2|4|6  → 인증된 사용자의 lat/lng 중심으로 Haversine 거리 필터.
+ *                      미인증 사용자가 지정하면 무시된다 (사생활 보호: 서버는
+ *                      클라이언트가 임의로 보낸 좌표를 신뢰하지 않는다).
+ */
 app.get('/', optionalAuth, async (c) => {
   const category = c.req.query('category');
   const region = c.req.query('region');
   const search = c.req.query('search');
+  const rangeKmRaw = parseInt(c.req.query('range_km') || '0', 10);
+  const rangeKm = [2, 4, 6, 10].includes(rangeKmRaw) ? rangeKmRaw : 0;
   const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 100);
   const offset = parseInt(c.req.query('offset') || '0', 10);
 
@@ -80,9 +89,31 @@ app.get('/', optionalAuth, async (c) => {
     params.push(`%${search}%`, `%${search}%`);
   }
 
+  // 인증·동네인증된 사용자만 거리 필터 사용. 우리는 본인 좌표를 DB 에서 직접 조회.
+  const user = c.get('user');
+  let myLat: number | null = null;
+  let myLng: number | null = null;
+  if (user && rangeKm > 0) {
+    const me = await c.env.DB
+      .prepare('SELECT lat, lng FROM users WHERE id = ?')
+      .bind(user.id)
+      .first<{ lat: number | null; lng: number | null }>();
+    if (me?.lat != null && me?.lng != null) {
+      myLat = me.lat;
+      myLng = me.lng;
+      // 위도 1° ≈ 111km, 경도 1° ≈ 111 * cos(lat) km. 거친 bbox prefilter 로 후보 축소.
+      const dLat = rangeKm / 111;
+      const dLng = rangeKm / (111 * Math.cos((myLat * Math.PI) / 180));
+      conditions.push('lat IS NOT NULL AND lng IS NOT NULL');
+      conditions.push('lat BETWEEN ? AND ?');
+      params.push(myLat - dLat, myLat + dLat);
+      conditions.push('lng BETWEEN ? AND ?');
+      params.push(myLng - dLng, myLng + dLng);
+    }
+  }
+
   // Hide listings from anyone the current user has blocked. Done with a
   // NOT IN subquery instead of a join so the WHERE-clause stays simple.
-  const user = c.get('user');
   if (user) {
     conditions.push(
       'seller_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)'
@@ -91,8 +122,8 @@ app.get('/', optionalAuth, async (c) => {
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  // Sort by the most recent of (bumped_at, created_at). Sellers who bump a
-  // listing within the last 24h surface back to the top, exactly like 당근.
+  // 거리 필터가 켜져 있으면 후보를 더 많이 뽑은 뒤 정확히 거리 컷.
+  const fetchLimit = rangeKm > 0 && myLat != null ? Math.min(limit * 4, 400) : limit;
   const sql = `
     SELECT * FROM products ${where}
      ORDER BY COALESCE(bumped_at, created_at) DESC
@@ -100,10 +131,25 @@ app.get('/', optionalAuth, async (c) => {
   `;
   const rs = await c.env.DB
     .prepare(sql)
-    .bind(...params, limit, offset)
+    .bind(...params, fetchLimit, offset)
     .all<ProductRow>();
 
-  const rows = rs.results || [];
+  let rows = rs.results || [];
+  if (rangeKm > 0 && myLat != null && myLng != null) {
+    const R = 6371;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const myLatRad = toRad(myLat);
+    rows = rows.filter((r) => {
+      if (r.lat == null || r.lng == null) return false;
+      const dLat = toRad(r.lat - myLat!);
+      const dLng = toRad(r.lng - myLng!);
+      const lat2 = toRad(r.lat);
+      const h = Math.sin(dLat / 2) ** 2 +
+                Math.sin(dLng / 2) ** 2 * Math.cos(myLatRad) * Math.cos(lat2);
+      const dist = 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+      return dist <= rangeKm;
+    }).slice(0, limit);
+  }
   const products = await Promise.all(rows.map((r) => hydrate(c.env, r, user?.id)));
   return c.json({ products });
 });
@@ -267,12 +313,22 @@ app.post('/', authMiddleware, async (c) => {
   const images = imageKeys.join(',');
   const priceInt = parseInt(price, 10) || 0;
 
+  // 작성자의 동네 좌표를 그대로 복사 — 거리 필터에 사용.
+  // 인증 안 된 사용자면 lat/lng 가 NULL 이라 거리 필터 결과에서 빠진다.
+  const seller = await c.env.DB
+    .prepare('SELECT lat, lng FROM users WHERE id = ?')
+    .bind(user.id)
+    .first<{ lat: number | null; lng: number | null }>();
+
   await c.env.DB
     .prepare(`
-      INSERT INTO products (id, seller_id, title, description, price, category, region, images, video_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (id, seller_id, title, description, price, category, region, images, video_url, lat, lng)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-    .bind(id, user.id, title, description, priceInt, category, region, images, videoUrl)
+    .bind(
+      id, user.id, title, description, priceInt, category, region, images, videoUrl,
+      seller?.lat ?? null, seller?.lng ?? null
+    )
     .run();
 
   const row = await c.env.DB
