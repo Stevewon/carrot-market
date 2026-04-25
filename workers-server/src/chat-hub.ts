@@ -189,6 +189,26 @@ export class ChatHub {
         this.sendSafe(ws, { type: 'pong' });
         return;
 
+      // 클라이언트가 방을 읽었음을 알림 — peer 에게 그대로 forward.
+      // 휘발성: 서버는 read 상태를 저장하지 않는다.
+      case 'read_receipt': {
+        const room_id = String(msg.room_id || '');
+        const read_at = String(msg.read_at || new Date().toISOString());
+        if (!room_id) return;
+        const tokens = room_id.split('_');
+        if (!tokens.includes(meta.userId)) return;
+        const peerId = tokens.find((t) => t.length >= 30 && t !== meta.userId);
+        if (peerId) {
+          this.sendToUser(peerId, {
+            type: 'read_receipt',
+            room_id,
+            reader_id: meta.userId,
+            read_at,
+          });
+        }
+        return;
+      }
+
       case 'join_room': {
         const room_id = String(msg.room_id || '');
         if (!room_id) return;
