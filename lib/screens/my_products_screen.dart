@@ -32,6 +32,25 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
   Future<void> _refresh() =>
       context.read<ProductService>().fetchMyProducts(silent: true);
 
+  Future<void> _bump(Product p) async {
+    if (!p.canBump) {
+      // Show how long until they can bump again.
+      final remaining = p.bumpCooldownRemaining;
+      final h = remaining.inHours;
+      final m = remaining.inMinutes - h * 60;
+      final wait = h > 0 ? '$h시간 ${m}분' : '${m}분';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$wait 후에 다시 끌어올릴 수 있어요')),
+      );
+      return;
+    }
+    final err = await context.read<ProductService>().bumpProduct(p.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(err ?? '🍆 끌어올렸어요! 피드 맨 위로 올라갔어요')),
+    );
+  }
+
   Future<void> _confirmDelete(Product p) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -194,10 +213,12 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
               top: 8,
               right: 8,
               child: PopupMenuButton<String>(
-                tooltip: '상태 변경 / 삭제',
+                tooltip: '끌어올리기 / 상태 변경 / 삭제',
                 icon: const Icon(Icons.more_vert, color: EggplantColors.textSecondary),
                 onSelected: (v) {
-                  if (v == 'status') {
+                  if (v == 'bump') {
+                    _bump(p);
+                  } else if (v == 'status') {
                     _changeStatus(p);
                   } else if (v == 'edit') {
                     context.push('/product/${p.id}/edit');
@@ -205,8 +226,36 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
                     _confirmDelete(p);
                   }
                 },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
+                itemBuilder: (_) => [
+                  // Show "끌어올리기" only for items currently for sale —
+                  // sold/reserved listings can't be bumped.
+                  if (p.status == 'sale')
+                    PopupMenuItem(
+                      value: 'bump',
+                      enabled: p.canBump,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.arrow_upward_rounded,
+                            size: 20,
+                            color: p.canBump
+                                ? EggplantColors.primary
+                                : EggplantColors.textTertiary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            p.canBump ? '끌어올리기' : '끌어올리기 (대기중)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: p.canBump
+                                  ? EggplantColors.primary
+                                  : EggplantColors.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
@@ -216,7 +265,7 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
                       ],
                     ),
                   ),
-                  PopupMenuItem(
+                  const PopupMenuItem(
                     value: 'status',
                     child: Row(
                       children: [
@@ -226,7 +275,7 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
                       ],
                     ),
                   ),
-                  PopupMenuItem(
+                  const PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [

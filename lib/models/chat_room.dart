@@ -10,6 +10,12 @@ class ChatRoom {
   final String? lastSenderId;
   final DateTime lastMessageAt;
   final DateTime createdAt;
+  /// Number of messages from the peer I haven't read yet.
+  /// Renders as the red badge on the chat list and the bottom-tab.
+  final int unreadCount;
+  /// When the PEER last read MY messages. Used for the "읽음" indicator
+  /// next to my outgoing bubbles. null = peer hasn't opened the room yet.
+  final DateTime? peerLastReadAt;
 
   ChatRoom({
     required this.id,
@@ -23,9 +29,22 @@ class ChatRoom {
     this.lastSenderId,
     required this.lastMessageAt,
     required this.createdAt,
+    this.unreadCount = 0,
+    this.peerLastReadAt,
   });
 
   factory ChatRoom.fromJson(Map<String, dynamic> json) {
+    // Server sends peer_last_read_at = the OTHER user's last_read_at_*.
+    // (Endpoint computes which side I am and returns the peer's value.)
+    // For backward-compat, also check both raw columns.
+    String? peerLastReadStr;
+    if (json['peer_last_read_at'] != null) {
+      peerLastReadStr = json['peer_last_read_at'].toString();
+    } else {
+      // Pre-0006 payloads won't have these — that's fine.
+      peerLastReadStr = null;
+    }
+
     return ChatRoom(
       id: json['id']?.toString() ?? '',
       peerId: json['peer_id']?.toString() ?? '',
@@ -41,6 +60,12 @@ class ChatRoom {
           DateTime.tryParse(json['last_message_at']?.toString() ?? '') ?? DateTime.now(),
       createdAt:
           DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+      unreadCount: (json['unread_count'] is num)
+          ? (json['unread_count'] as num).toInt()
+          : 0,
+      peerLastReadAt: peerLastReadStr != null
+          ? DateTime.tryParse(peerLastReadStr)
+          : null,
     );
   }
 
@@ -48,6 +73,8 @@ class ChatRoom {
     String? lastMessage,
     String? lastSenderId,
     DateTime? lastMessageAt,
+    int? unreadCount,
+    DateTime? peerLastReadAt,
   }) {
     return ChatRoom(
       id: id,
@@ -61,6 +88,8 @@ class ChatRoom {
       lastSenderId: lastSenderId ?? this.lastSenderId,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
       createdAt: createdAt,
+      unreadCount: unreadCount ?? this.unreadCount,
+      peerLastReadAt: peerLastReadAt ?? this.peerLastReadAt,
     );
   }
 

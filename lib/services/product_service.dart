@@ -286,6 +286,44 @@ class ProductService extends ChangeNotifier {
     }
   }
 
+  /// 끌어올리기 — bump the product to the top of the feed.
+  /// Returns null on success, an error string (Korean, server-friendly) on failure.
+  /// 429 cooldown is surfaced as the server's `error` message.
+  Future<String?> bumpProduct(String productId) async {
+    try {
+      final res = await auth.api.dio.post('/api/products/$productId/bump');
+      if (res.statusCode == 200) {
+        final map = (res.data is Map) ? res.data['product'] : null;
+        if (map is Map<String, dynamic>) {
+          final updated = Product.fromJson(map);
+          // Refresh in every cache + re-sort the main feed by effectiveAt.
+          final fIdx = _products.indexWhere((p) => p.id == productId);
+          if (fIdx >= 0) _products[fIdx] = updated;
+          _products.sort((a, b) => b.effectiveAt.compareTo(a.effectiveAt));
+
+          final sIdx = _mySelling.indexWhere((p) => p.id == productId);
+          if (sIdx >= 0) _mySelling[sIdx] = updated;
+          _mySelling.sort((a, b) => b.effectiveAt.compareTo(a.effectiveAt));
+
+          notifyListeners();
+        }
+        return null;
+      }
+      return (res.data is Map)
+          ? (res.data['error']?.toString() ?? '끌어올리기 실패')
+          : '끌어올리기 실패';
+    } on DioException catch (e) {
+      debugPrint('bumpProduct error: ${e.response?.data ?? e.message}');
+      // 429 cooldown returns a friendly Korean message we should pass through.
+      return (e.response?.data is Map)
+          ? (e.response!.data['error']?.toString() ?? '끌어올리기 실패')
+          : '끌어올리기 실패';
+    } catch (e) {
+      debugPrint('bumpProduct error: $e');
+      return '끌어올리기 실패';
+    }
+  }
+
   /// Change product status: 'sale' | 'reserved' | 'sold'.
   /// Returns null on success, error string on failure.
   Future<String?> updateStatus(String productId, String status) async {

@@ -37,6 +37,10 @@ class _ChatScreenState extends State<ChatScreen> {
       final chat = context.read<ChatService>();
       chat.connect();
       chat.joinRoom(widget.roomId, peerNickname: widget.peerNickname);
+      // Mark this conversation as read — clears the unread badge and tells
+      // the peer (via WS read_receipt) that their messages are now read.
+      // ignore: discarded_futures
+      chat.markRoomAsRead(widget.roomId);
       // After history loads, scroll to bottom.
       Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
     });
@@ -131,13 +135,32 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: messages.isEmpty
                 ? _EmptyChat(peerNickname: widget.peerNickname)
-                : ListView.builder(
-                    controller: _scrollCtl,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: messages.length,
-                    itemBuilder: (_, i) {
-                      final msg = messages[i];
-                      return _MessageBubble(message: msg);
+                : Builder(
+                    builder: (_) {
+                      // Look up this room's peerLastReadAt so each of my
+                      // outgoing bubbles can show "읽음" once the peer's
+                      // last_read_at >= that message's sent_at.
+                      DateTime? peerReadAt;
+                      try {
+                        final room = chat.rooms.firstWhere(
+                          (r) => r.id == widget.roomId,
+                        );
+                        peerReadAt = room.peerLastReadAt;
+                      } catch (_) {
+                        peerReadAt = null;
+                      }
+                      return ListView.builder(
+                        controller: _scrollCtl,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: messages.length,
+                        itemBuilder: (_, i) {
+                          final msg = messages[i];
+                          return _MessageBubble(
+                            message: msg,
+                            peerLastReadAt: peerReadAt,
+                          );
+                        },
+                      );
                     },
                   ),
           ),
@@ -347,7 +370,10 @@ class _EmptyChat extends StatelessWidget {
 
 class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
-  const _MessageBubble({required this.message});
+  /// When the peer last read THIS room. If non-null and >= message.sentAt,
+  /// the bubble shows "읽음" instead of just the timestamp.
+  final DateTime? peerLastReadAt;
+  const _MessageBubble({required this.message, this.peerLastReadAt});
 
   @override
   Widget build(BuildContext context) {
@@ -370,14 +396,42 @@ class _MessageBubble extends StatelessWidget {
 
     final mine = message.isMine;
     final time = DateFormat('HH:mm').format(message.sentAt);
+    // For my own messages: was this seen by the peer yet?
+    final read = mine &&
+        peerLastReadAt != null &&
+        !message.sentAt.isAfter(peerLastReadAt!);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: mine ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (mine) Text(time, style: const TextStyle(fontSize: 10, color: EggplantColors.textTertiary)),
-          if (mine) const SizedBox(width: 4),
+          if (mine) ...[
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (read)
+                  const Text(
+                    '읽음',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: EggplantColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                Text(
+                  time,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: EggplantColors.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 4),
+          ],
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

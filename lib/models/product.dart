@@ -16,6 +16,9 @@ class Product {
   final int chatCount;
   final bool isLiked;
   final DateTime createdAt;
+  /// Last "끌어올리기" timestamp. NULL = never bumped.
+  /// Used to compute the "방금 끌어올림" hint and the 24h cooldown.
+  final DateTime? bumpedAt;
 
   Product({
     required this.id,
@@ -35,6 +38,7 @@ class Product {
     this.chatCount = 0,
     this.isLiked = false,
     required this.createdAt,
+    this.bumpedAt,
   });
 
   /// True if [videoUrl] points to a YouTube video (not an uploaded file).
@@ -91,7 +95,29 @@ class Product {
           : (json['chat_count'] as num).toInt(),
       isLiked: json['is_liked'] == true || json['is_liked'] == 1,
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+      bumpedAt: json['bumped_at'] != null
+          ? DateTime.tryParse(json['bumped_at'].toString())
+          : null,
     );
+  }
+
+  /// Effective "shown timestamp" for sorting / display — most recent of
+  /// (bumpedAt, createdAt). Mirrors the server's COALESCE in the feed query.
+  DateTime get effectiveAt => bumpedAt ?? createdAt;
+
+  /// Whether 24h has elapsed since the last bump (or it was never bumped),
+  /// i.e. whether the seller can press "끌어올리기" right now.
+  bool get canBump {
+    if (bumpedAt == null) return true;
+    return DateTime.now().difference(bumpedAt!).inHours >= 24;
+  }
+
+  /// Time until the next bump is allowed. Duration.zero if available now.
+  Duration get bumpCooldownRemaining {
+    if (bumpedAt == null) return Duration.zero;
+    final next = bumpedAt!.add(const Duration(hours: 24));
+    final remaining = next.difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
   }
 
   String get priceFormatted {
@@ -109,8 +135,10 @@ class Product {
     return buf.toString();
   }
 
+  /// Human-readable freshness — uses [effectiveAt] so a bumped product reads
+  /// as "방금 전" right after the seller끌어올림 (matches 당근).
   String get timeAgo {
-    final diff = DateTime.now().difference(createdAt);
+    final diff = DateTime.now().difference(effectiveAt);
     if (diff.inMinutes < 1) return '방금 전';
     if (diff.inHours < 1) return '${diff.inMinutes}분 전';
     if (diff.inDays < 1) return '${diff.inHours}시간 전';

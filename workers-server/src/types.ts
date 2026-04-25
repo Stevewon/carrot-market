@@ -64,6 +64,8 @@ export interface ProductRow {
   view_count: number;
   like_count: number;
   chat_count: number;
+  /** Last time the seller pressed "끌어올리기" (24h cooldown). NULL if never. */
+  bumped_at: string | null;
   created_at: string;
   updated_at: string;
 }

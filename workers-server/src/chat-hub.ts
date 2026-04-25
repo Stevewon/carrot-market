@@ -82,6 +82,27 @@ export class ChatHub {
       return new Response('ok');
     }
 
+    if (url.pathname === '/internal/read-receipt' && request.method === 'POST') {
+      const body = (await request.json().catch(() => ({}))) as {
+        room_id?: string;
+        reader_id?: string;
+        peer_user_id?: string;
+        read_at?: string;
+      };
+      if (body.room_id && body.peer_user_id && body.read_at) {
+        // Tell the peer that their messages in this room got read.
+        // Their UI flips "전송됨" → "읽음" and clears the unread badge for
+        // that conversation locally.
+        this.sendToUser(body.peer_user_id, {
+          type: 'read_receipt',
+          room_id: body.room_id,
+          reader_id: body.reader_id || '',
+          read_at: body.read_at,
+        });
+      }
+      return new Response('ok');
+    }
+
     if (request.headers.get('Upgrade') !== 'websocket') {
       return new Response('Expected WebSocket upgrade', { status: 426 });
     }

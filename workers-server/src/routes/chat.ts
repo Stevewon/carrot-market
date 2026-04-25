@@ -2,7 +2,10 @@
  * Chat REST endpoints (persistent chat, 당근 style).
  *
  *   GET    /api/chat/rooms                       -> my chat rooms with last message
+ *                                                   AND unread_count (per-user)
+ *   GET    /api/chat/unread-count                -> total unread across all my rooms
  *   POST   /api/chat/rooms                       -> get-or-create a room
+ *   POST   /api/chat/rooms/:roomId/read          -> mark this room as read up to now
  *   GET    /api/chat/rooms/:roomId/messages      -> paginated history
  *   DELETE /api/chat/rooms/:roomId               -> leave = delete the room AND all
  *                                                   messages for both users (CASCADE).
@@ -26,6 +29,8 @@ interface ChatRoomRow {
   last_sender_id: string | null;
   last_message_at: string;
   created_at: string;
+  last_read_at_a: string | null;
+  last_read_at_b: string | null;
 }
 
 interface ChatMessageRow {
@@ -61,24 +66,109 @@ async function getRoomIfMember(
   return row || null;
 }
 
-/** List my rooms, sorted by last activity. */
+/** List my rooms, sorted by last activity. Includes unread_count per room. */
 app.get('/rooms', async (c) => {
   const me = c.get('user')!;
+  // The correlated sub-query computes unread count = messages from the OTHER
+  // person sent after MY last_read_at. SQLite handles this efficiently with
+  // the (room_id, sent_at) index.
   const rows = await c.env.DB.prepare(
     `SELECT r.*,
             CASE WHEN r.user_a_id = ? THEN r.user_b_id ELSE r.user_a_id END AS peer_id,
             u.nickname      AS peer_nickname,
-            u.manner_score  AS peer_manner_score
+            u.manner_score  AS peer_manner_score,
+            (
+              SELECT COUNT(*) FROM chat_messages m
+               WHERE m.room_id = r.id
+                 AND m.sender_id != ?
+                 AND m.sent_at > COALESCE(
+                       CASE WHEN r.user_a_id = ?
+                            THEN r.last_read_at_a
+                            ELSE r.last_read_at_b END,
+                       r.created_at
+                     )
+            ) AS unread_count,
+            CASE WHEN r.user_a_id = ?
+                 THEN r.last_read_at_b
+                 ELSE r.last_read_at_a END AS peer_last_read_at
        FROM chat_rooms r
        JOIN users u
          ON u.id = CASE WHEN r.user_a_id = ? THEN r.user_b_id ELSE r.user_a_id END
       WHERE r.user_a_id = ? OR r.user_b_id = ?
       ORDER BY r.last_message_at DESC`
   )
-    .bind(me.id, me.id, me.id, me.id)
+    .bind(me.id, me.id, me.id, me.id, me.id, me.id, me.id)
     .all();
 
   return c.json({ rooms: rows.results || [] });
+});
+
+/** Total unread across all my rooms (for tab-bar badge on home). */
+app.get('/unread-count', async (c) => {
+  const me = c.get('user')!;
+  const row = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(cnt), 0) AS total
+       FROM (
+         SELECT (
+           SELECT COUNT(*) FROM chat_messages m
+            WHERE m.room_id = r.id
+              AND m.sender_id != ?
+              AND m.sent_at > COALESCE(
+                    CASE WHEN r.user_a_id = ?
+                         THEN r.last_read_at_a
+                         ELSE r.last_read_at_b END,
+                    r.created_at
+                  )
+         ) AS cnt
+           FROM chat_rooms r
+          WHERE r.user_a_id = ? OR r.user_b_id = ?
+       )`
+  )
+    .bind(me.id, me.id, me.id, me.id)
+    .first<{ total: number }>();
+
+  return c.json({ unread: row?.total ?? 0 });
+});
+
+/**
+ * POST /api/chat/rooms/:roomId/read
+ * Marks the room as read for the authenticated user, updating their per-user
+ * `last_read_at_*` to now(). Also broadcasts a `read_receipt` to the peer so
+ * their UI can show "읽음" on the messages they sent.
+ */
+app.post('/rooms/:roomId/read', async (c) => {
+  const me = c.get('user')!;
+  const roomId = c.req.param('roomId');
+  const room = await getRoomIfMember(c.env, roomId, me.id);
+  if (!room) return c.json({ error: 'Not found' }, 404);
+
+  const now = new Date().toISOString();
+  const isA = room.user_a_id === me.id;
+  const sql = isA
+    ? "UPDATE chat_rooms SET last_read_at_a = ? WHERE id = ?"
+    : "UPDATE chat_rooms SET last_read_at_b = ? WHERE id = ?";
+  await c.env.DB.prepare(sql).bind(now, roomId).run();
+
+  // Tell the peer in real-time that their messages are now read.
+  try {
+    const peerId = isA ? room.user_b_id : room.user_a_id;
+    const id = c.env.CHAT_HUB.idFromName('global');
+    const stub = c.env.CHAT_HUB.get(id);
+    await stub.fetch('https://do/internal/read-receipt', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        room_id: roomId,
+        reader_id: me.id,
+        peer_user_id: peerId,
+        read_at: now,
+      }),
+    });
+  } catch (e) {
+    console.error('[chat] broadcast read failed', e);
+  }
+
+  return c.json({ ok: true, read_at: now });
 });
 
 /**

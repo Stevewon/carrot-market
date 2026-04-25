@@ -81,7 +81,13 @@ app.get('/', optionalAuth, async (c) => {
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  const sql = `SELECT * FROM products ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+  // Sort by the most recent of (bumped_at, created_at). Sellers who bump a
+  // listing within the last 24h surface back to the top, exactly like 당근.
+  const sql = `
+    SELECT * FROM products ${where}
+     ORDER BY COALESCE(bumped_at, created_at) DESC
+     LIMIT ? OFFSET ?
+  `;
   const rs = await c.env.DB
     .prepare(sql)
     .bind(...params, limit, offset)
@@ -116,7 +122,11 @@ app.get('/my/likes', authMiddleware, async (c) => {
 app.get('/my/selling', authMiddleware, async (c) => {
   const user = c.get('user')!;
   const rs = await c.env.DB
-    .prepare('SELECT * FROM products WHERE seller_id = ? ORDER BY created_at DESC')
+    .prepare(
+      `SELECT * FROM products
+        WHERE seller_id = ?
+        ORDER BY COALESCE(bumped_at, created_at) DESC`,
+    )
     .bind(user.id)
     .all<ProductRow>();
 
@@ -417,6 +427,66 @@ app.put('/:id/status', authMiddleware, async (c) => {
     .run();
 
   return c.json({ ok: true, status: body.status });
+});
+
+/**
+ * POST /api/products/:id/bump
+ * 끌어올리기 — re-promote my listing to the top of the feed.
+ *   - Owner-only.
+ *   - Cooldown: 24h between bumps. Returns the next-allowed time on 429.
+ *   - Only "sale" listings can be bumped (sold/reserved doesn't make sense).
+ */
+app.post('/:id/bump', authMiddleware, async (c) => {
+  const user = c.get('user')!;
+  const id = c.req.param('id');
+
+  const row = await c.env.DB
+    .prepare('SELECT * FROM products WHERE id = ?')
+    .bind(id)
+    .first<ProductRow>();
+  if (!row) return c.json({ error: 'Not found' }, 404);
+  if (row.seller_id !== user.id) return c.json({ error: 'Forbidden' }, 403);
+  if (row.status !== 'sale') {
+    return c.json({ error: '판매중인 상품만 끌어올릴 수 있어요' }, 400);
+  }
+
+  // 24h cooldown — we read bumped_at via a typed cast since ProductRow
+  // doesn't (yet) include the new column in some envs.
+  const bumpedAt = (row as ProductRow & { bumped_at?: string | null }).bumped_at || null;
+  if (bumpedAt) {
+    const last = Date.parse(bumpedAt);
+    if (Number.isFinite(last)) {
+      const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+      const elapsed = Date.now() - last;
+      if (elapsed < COOLDOWN_MS) {
+        const remainingSec = Math.ceil((COOLDOWN_MS - elapsed) / 1000);
+        const hours = Math.floor(remainingSec / 3600);
+        const mins = Math.ceil((remainingSec % 3600) / 60);
+        const wait = hours > 0 ? `${hours}시간 ${mins}분` : `${mins}분`;
+        return c.json(
+          {
+            error: `${wait} 후에 다시 끌어올릴 수 있어요`,
+            next_allowed_at: new Date(last + COOLDOWN_MS).toISOString(),
+            remaining_seconds: remainingSec,
+          },
+          429,
+        );
+      }
+    }
+  }
+
+  const now = new Date().toISOString();
+  await c.env.DB
+    .prepare("UPDATE products SET bumped_at = ?, updated_at = datetime('now') WHERE id = ?")
+    .bind(now, id)
+    .run();
+
+  const updated = await c.env.DB
+    .prepare('SELECT * FROM products WHERE id = ?')
+    .bind(id)
+    .first<ProductRow>();
+  const product = await hydrate(c.env, updated, user.id);
+  return c.json({ product, bumped_at: now });
 });
 
 /** DELETE /api/products/:id */

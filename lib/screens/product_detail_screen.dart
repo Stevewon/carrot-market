@@ -75,6 +75,34 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   String _statusLabel(String s) =>
       s == 'sale' ? '판매중' : s == 'reserved' ? '예약중' : '거래완료';
 
+  Future<void> _handleBump() async {
+    final p = _product;
+    if (p == null) return;
+    final err = await context.read<ProductService>().bumpProduct(p.id);
+    if (!mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      return;
+    }
+    // Reload so the "방금 전" timestamp refreshes.
+    await _load();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('🍆 끌어올렸어요! 피드 맨 위로 올라갔어요')),
+    );
+  }
+
+  /// Format the remaining cooldown for the bump tile subtitle.
+  String _bumpRemainingLabel(Product p) {
+    final r = p.bumpCooldownRemaining;
+    if (r == Duration.zero) return '지금 끌어올릴 수 있어요';
+    final h = r.inHours;
+    final m = r.inMinutes - h * 60;
+    return h > 0
+        ? '$h시간 ${m}분 후 다시 가능해요'
+        : '${m}분 후 다시 가능해요';
+  }
+
   Future<void> _confirmDelete() async {
     final p = _product;
     if (p == null) return;
@@ -153,6 +181,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               },
             ),
             const Divider(height: 1),
+            // 끌어올리기 — only meaningful for active listings.
+            if (p.status == 'sale')
+              ListTile(
+                leading: Icon(
+                  Icons.arrow_upward_rounded,
+                  color: p.canBump
+                      ? EggplantColors.primary
+                      : EggplantColors.textTertiary,
+                ),
+                title: Text(
+                  p.canBump ? '끌어올리기' : '끌어올리기 (대기중)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: p.canBump
+                        ? EggplantColors.primary
+                        : EggplantColors.textTertiary,
+                  ),
+                ),
+                subtitle: Text(
+                  p.canBump
+                      ? '상품을 피드 맨 위로 올려요 (24시간마다 가능)'
+                      : _bumpRemainingLabel(p),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                onTap: p.canBump
+                    ? () {
+                        Navigator.pop(ctx);
+                        _handleBump();
+                      }
+                    : null,
+              ),
             ListTile(
               leading: const Icon(Icons.edit_outlined,
                   color: EggplantColors.primary),
@@ -437,13 +496,37 @@ class _ImageCarouselState extends State<_ImageCarousel> {
             final fullUrl = url.startsWith('http')
                 ? url
                 : '${AppConfig.apiBase}${url.startsWith('/') ? '' : '/'}$url';
-            return CachedNetworkImage(
-              imageUrl: fullUrl,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              placeholder: (_, __) => Container(color: EggplantColors.background),
-              errorWidget: (_, __, ___) =>
-                  Container(color: EggplantColors.background),
+            return GestureDetector(
+              onTap: () {
+                // Build the absolute list once, open fullscreen viewer.
+                final urls = widget.images.map((u) {
+                  return u.startsWith('http')
+                      ? u
+                      : '${AppConfig.apiBase}${u.startsWith('/') ? '' : '/'}$u';
+                }).toList();
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    opaque: false,
+                    barrierColor: Colors.black,
+                    pageBuilder: (_, __, ___) => _PhotoViewer(
+                      images: urls,
+                      initialIndex: i,
+                    ),
+                  ),
+                );
+              },
+              child: Hero(
+                tag: 'product-img-$i-$fullUrl',
+                child: CachedNetworkImage(
+                  imageUrl: fullUrl,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  placeholder: (_, __) =>
+                      Container(color: EggplantColors.background),
+                  errorWidget: (_, __, ___) =>
+                      Container(color: EggplantColors.background),
+                ),
+              ),
             );
           },
         ),
@@ -789,6 +872,83 @@ class _StatusTile extends StatelessWidget {
           ? const Icon(Icons.check, color: EggplantColors.primary)
           : null,
       onTap: onTap,
+    );
+  }
+}
+
+/// Fullscreen pinch‑zoom photo viewer (당근식).
+///
+/// • Pinch to zoom (1x–4x) via [InteractiveViewer].
+/// • Swipe left/right to switch photos.
+/// • Tap the close button or back gesture to dismiss.
+class _PhotoViewer extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+  const _PhotoViewer({required this.images, required this.initialIndex});
+
+  @override
+  State<_PhotoViewer> createState() => _PhotoViewerState();
+}
+
+class _PhotoViewerState extends State<_PhotoViewer> {
+  late final PageController _ctl =
+      PageController(initialPage: widget.initialIndex);
+  late int _index = widget.initialIndex;
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          '${_index + 1} / ${widget.images.length}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: PageView.builder(
+        controller: _ctl,
+        itemCount: widget.images.length,
+        onPageChanged: (i) => setState(() => _index = i),
+        itemBuilder: (_, i) {
+          final url = widget.images[i];
+          return Center(
+            child: Hero(
+              tag: 'product-img-$i-$url',
+              child: InteractiveViewer(
+                minScale: 1.0,
+                maxScale: 4.0,
+                child: CachedNetworkImage(
+                  imageUrl: url,
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                  errorWidget: (_, __, ___) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white54,
+                    size: 48,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

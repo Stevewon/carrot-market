@@ -209,9 +209,12 @@ class _RoomTile extends StatelessWidget {
                           child: Text(
                             room.peerNickname,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15,
-                              fontWeight: FontWeight.w700,
+                              // Unread rooms get bolder name + darker color.
+                              fontWeight: room.unreadCount > 0
+                                  ? FontWeight.w800
+                                  : FontWeight.w700,
                               color: EggplantColors.textPrimary,
                             ),
                           ),
@@ -237,31 +240,68 @@ class _RoomTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13.5,
-                        color: room.lastMessage.isEmpty
-                            ? EggplantColors.textTertiary
-                            : EggplantColors.textSecondary,
+                        // Unread → darker preview text + slightly bolder.
+                        color: room.unreadCount > 0
+                            ? EggplantColors.textPrimary
+                            : (room.lastMessage.isEmpty
+                                ? EggplantColors.textTertiary
+                                : EggplantColors.textSecondary),
+                        fontWeight: room.unreadCount > 0
+                            ? FontWeight.w600
+                            : FontWeight.normal,
                       ),
                     ),
                   ],
                 ),
               ),
-              if (room.productThumb != null && room.productThumb!.isNotEmpty) ...[
-                const SizedBox(width: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: CachedNetworkImage(
-                    imageUrl: _absUrl(room.productThumb!),
-                    width: 44,
-                    height: 44,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => Container(
-                      width: 44,
-                      height: 44,
-                      color: EggplantColors.background,
+              // Right side: thumbnail + unread badge (당근식 빨간 점/숫자)
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (room.productThumb != null && room.productThumb!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 10),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: CachedNetworkImage(
+                          imageUrl: _absUrl(room.productThumb!),
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                            width: 44,
+                            height: 44,
+                            color: EggplantColors.background,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                  if (room.unreadCount > 0) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      constraints: const BoxConstraints(minWidth: 20),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: EggplantColors.error,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        room.unreadCount > 99 ? '99+' : '${room.unreadCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
         ),

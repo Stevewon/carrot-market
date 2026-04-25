@@ -51,6 +51,10 @@ class ChatService extends ChangeNotifier {
   bool get roomsLoading => _roomsLoading;
   List<ChatMessage> messagesFor(String roomId) => _roomMessages[roomId] ?? const [];
 
+  /// Total unread across every room — used by the bottom-tab badge.
+  int get totalUnread =>
+      _rooms.fold<int>(0, (sum, r) => sum + r.unreadCount);
+
   Stream<Map<String, dynamic>> get events => _eventBus.stream;
 
   StreamSubscription<Map<String, dynamic>> on(
@@ -172,6 +176,24 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Mark the room as read up to now. Called when the user opens the chat
+  /// screen, and also whenever a new incoming message arrives while the user
+  /// is already in that room. Optimistically zeroes the local badge so the UI
+  /// snaps immediately, then tells the server (which broadcasts a read_receipt
+  /// to the peer for the "읽음" indicator).
+  Future<void> markRoomAsRead(String roomId) async {
+    final idx = _rooms.indexWhere((r) => r.id == roomId);
+    if (idx >= 0 && _rooms[idx].unreadCount > 0) {
+      _rooms[idx] = _rooms[idx].copyWith(unreadCount: 0);
+      notifyListeners();
+    }
+    try {
+      await auth.api.post('/api/chat/rooms/$roomId/read');
+    } catch (e) {
+      debugPrint('[chat] markRoomAsRead failed: $e');
+    }
+  }
+
   /// Clear all messages in a room (room itself stays).
   Future<bool> clearMessages(String roomId) async {
     try {
@@ -282,13 +304,33 @@ class ChatService extends ChangeNotifier {
         // Bump local room preview.
         final idx = _rooms.indexWhere((r) => r.id == chatMsg.roomId);
         if (idx >= 0) {
+          // If the message is from the peer and we're NOT viewing this room,
+          // bump the unread badge. If we ARE viewing it, leave unread at 0
+          // and tell the server we've read up to now (fires read_receipt).
+          final fromPeer = !chatMsg.isMine;
+          final inRoom = _activeRoomId == chatMsg.roomId;
+          int newUnread = _rooms[idx].unreadCount;
+          if (fromPeer && !inRoom) {
+            newUnread += 1;
+          }
+
           _rooms[idx] = _rooms[idx].copyWith(
             lastMessage: chatMsg.text,
             lastSenderId: chatMsg.senderId,
             lastMessageAt: chatMsg.sentAt,
+            unreadCount: newUnread,
           );
           // Re-sort desc by last_message_at.
           _rooms.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
+
+          // If we're inside this room, immediately mark-as-read on the server
+          // so the peer sees the "읽음" indicator without delay.
+          if (fromPeer && inRoom) {
+            // Fire-and-forget — auth.api.post returns Future, but markRoomAsRead
+            // already handles errors internally.
+            // ignore: discarded_futures
+            markRoomAsRead(chatMsg.roomId);
+          }
         } else {
           // Room showed up via WS before we fetched rooms list — refresh.
           fetchRooms(silent: true);
@@ -339,6 +381,23 @@ class ChatService extends ChangeNotifier {
           );
         }
         notifyListeners();
+        break;
+      }
+
+      case 'read_receipt': {
+        // The peer just marked the room as read up to `read_at`. Update our
+        // local copy so the "읽음" indicator next to my outgoing messages
+        // can flip on for messages whose sent_at <= read_at.
+        final roomId = msg['room_id']?.toString();
+        final readAtStr = msg['read_at']?.toString();
+        if (roomId == null || readAtStr == null) break;
+        final readAt = DateTime.tryParse(readAtStr);
+        if (readAt == null) break;
+        final idx = _rooms.indexWhere((r) => r.id == roomId);
+        if (idx >= 0) {
+          _rooms[idx] = _rooms[idx].copyWith(peerLastReadAt: readAt);
+          notifyListeners();
+        }
         break;
       }
 

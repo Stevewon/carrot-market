@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme.dart';
-import '../services/auth_service.dart';
+import '../services/chat_service.dart';
 import 'tabs/feed_tab.dart';
 import 'tabs/likes_tab.dart';
 import 'tabs/chat_list_tab.dart';
@@ -24,10 +24,55 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialTab;
+    // Start the chat WS + room list ASAP so the bottom-tab badge is accurate
+    // even before the user visits the chat tab. Doing it here (rather than
+    // only inside ChatListTab.initState) means a push notification or QR
+    // chat invite reaches the user with the badge already updating.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chat = context.read<ChatService>();
+      chat.connect();
+      chat.fetchRooms(silent: true);
+    });
+  }
+
+  /// Wraps an icon with the standard 당근식 unread badge.
+  Widget _withBadge(Widget icon, int count) {
+    if (count <= 0) return icon;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        icon,
+        Positioned(
+          right: -8,
+          top: -4,
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            decoration: BoxDecoration(
+              color: EggplantColors.error,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white, width: 1.5),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              count > 99 ? '99+' : '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                height: 1.0,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final unread = context.watch<ChatService>().totalUnread;
+
     final tabs = <Widget>[
       const FeedTab(),
       const LikesTab(),
@@ -66,23 +111,23 @@ class _HomeShellState extends State<HomeShell> {
         type: BottomNavigationBarType.fixed,
         showSelectedLabels: true,
         showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.storefront_outlined),
             activeIcon: Icon(Icons.storefront),
             label: '홈',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.favorite_border),
             activeIcon: Icon(Icons.favorite),
             label: '찜',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            activeIcon: Icon(Icons.chat_bubble),
+            icon: _withBadge(const Icon(Icons.chat_bubble_outline), unread),
+            activeIcon: _withBadge(const Icon(Icons.chat_bubble), unread),
             label: '채팅',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             activeIcon: Icon(Icons.person),
             label: '내 정보',
