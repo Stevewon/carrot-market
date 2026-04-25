@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Env, ProductResponse, ProductRow, UserRow, Variables } from '../types';
 import { authMiddleware, optionalAuth } from '../jwt';
+import { grantTradeBonus } from '../qta';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -649,7 +650,25 @@ app.put('/:id/status', authMiddleware, async (c) => {
       .run();
   }
 
-  return c.json({ ok: true, status: body.status, buyer_id: buyerId });
+  // ── 거래완료 보너스 (양쪽 +10 QTA, 멱등) ────────────────────────
+  // sold + buyer_id 가 모두 있을 때만. idem_key='trade:<pid>:seller|buyer' 가
+  // UNIQUE 라 다시 sale → sold 토글되어도 한 번만 지급된다.
+  let qtaBonus: { seller_credited: boolean; buyer_credited: boolean; amount: number } | null = null;
+  if (body.status === 'sold' && buyerId) {
+    try {
+      const r = await grantTradeBonus(c.env, id, user.id, buyerId);
+      qtaBonus = { ...r, amount: 10 };
+    } catch (e) {
+      console.error('[products/status] trade bonus failed', e);
+    }
+  }
+
+  return c.json({
+    ok: true,
+    status: body.status,
+    buyer_id: buyerId,
+    qta_bonus: qtaBonus,
+  });
 });
 
 // /api/products/:id/buyers 는 제거됨.

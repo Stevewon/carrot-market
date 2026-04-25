@@ -20,6 +20,7 @@ import '../screens/region_select_screen.dart';
 import '../screens/user_profile_screen.dart';
 import '../screens/keyword_alerts_screen.dart';
 import '../screens/hidden_products_screen.dart';
+import '../screens/qta_ledger_screen.dart';
 
 GoRouter createRouter(AuthService auth) {
   return GoRouter(
@@ -108,6 +109,10 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(
         path: '/hidden',
         builder: (_, __) => const HiddenProductsScreen(),
+      ),
+      GoRoute(
+        path: '/qta/ledger',
+        builder: (_, __) => const QtaLedgerScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

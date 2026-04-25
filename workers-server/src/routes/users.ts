@@ -14,6 +14,7 @@ function sanitize(u: UserRow): UserPublic {
     region: u.region,
     region_verified_at: u.region_verified_at,
     manner_score: u.manner_score,
+    qta_balance: u.qta_balance ?? 0,
     created_at: u.created_at,
     updated_at: u.updated_at,
   };
@@ -243,6 +244,56 @@ app.post('/me/region/verify', authMiddleware, async (c) => {
     distance_km: Math.round(dist * 10) / 10,
   });
 });
+
+/**
+ * GET /api/users/me/qta/ledger?limit=30
+ *
+ * 본인 QTA 잔액 + 최근 변동 내역. 본인 외에는 절대 조회 불가.
+ * 응답: { balance, items: [{amount, reason, created_at, meta}] }
+ */
+app.get('/me/qta/ledger', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+  const limit = Math.min(100, parseInt(c.req.query('limit') || '30', 10) || 30);
+
+  const userRow = await c.env.DB
+    .prepare('SELECT qta_balance FROM users WHERE id = ?')
+    .bind(me.id)
+    .first<{ qta_balance: number }>();
+
+  const rs = await c.env.DB
+    .prepare(
+      `SELECT amount, reason, meta, created_at
+         FROM qta_ledger
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?`,
+    )
+    .bind(me.id, limit)
+    .all<{
+      amount: number;
+      reason: string;
+      meta: string | null;
+      created_at: string;
+    }>();
+
+  return c.json({
+    balance: userRow?.qta_balance ?? 0,
+    items: (rs.results || []).map((r) => ({
+      amount: r.amount,
+      reason: r.reason,
+      meta: r.meta ? safeJson(r.meta) : null,
+      created_at: r.created_at,
+    })),
+  });
+});
+
+function safeJson(s: string): unknown {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * GET /api/users/search?nickname=xxx

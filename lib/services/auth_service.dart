@@ -27,12 +27,22 @@ class AuthService extends ChangeNotifier {
   static const _kWallet = 'wallet_address';
   static const _kRegion = 'region';
   static const _kMannerScore = 'manner_score';
+  static const _kQtaBalance = 'qta_balance';
 
   final SharedPreferences prefs;
   final ApiClient api = ApiClient();
 
   String? _token;
   User? _user;
+
+  /// 마지막 가입/로그인 직후 받은 QTA 보너스 정보.
+  /// UI 가 한 번 읽고 `consumeQtaBonus()` 로 비우는 식으로 1회성으로 사용.
+  ///   { reason, amount, credited?, today_count?, today_max?, remaining? }
+  Map<String, dynamic>? _pendingQtaBonus;
+  Map<String, dynamic>? get pendingQtaBonus => _pendingQtaBonus;
+  void consumeQtaBonus() {
+    _pendingQtaBonus = null;
+  }
 
   AuthService(this.prefs) {
     // Whenever the API returns 401 with a "revoked" signal, we log out
@@ -90,6 +100,7 @@ class AuthService extends ChangeNotifier {
         walletAddress: prefs.getString(_kWallet),
         region: prefs.getString(_kRegion),
         mannerScore: prefs.getInt(_kMannerScore) ?? 36,
+        qtaBalance: prefs.getInt(_kQtaBalance) ?? 0,
         createdAt: DateTime.now(),
       );
       api.setToken(_token);
@@ -124,6 +135,7 @@ class AuthService extends ChangeNotifier {
               await prefs.setString(_kRegion, _user!.region!);
             }
             await prefs.setInt(_kMannerScore, _user!.mannerScore);
+            await prefs.setInt(_kQtaBalance, _user!.qtaBalance);
             notifyListeners();
           }
         }
@@ -170,6 +182,9 @@ class AuthService extends ChangeNotifier {
           token: data['token'] as String,
           user: User.fromJson(data['user'] as Map<String, dynamic>),
         );
+        if (data['qta_bonus'] is Map) {
+          _pendingQtaBonus = Map<String, dynamic>.from(data['qta_bonus'] as Map);
+        }
         return null;
       }
       return _errorOf(res.data) ?? '가입 실패';
@@ -198,6 +213,9 @@ class AuthService extends ChangeNotifier {
           token: data['token'] as String,
           user: User.fromJson(data['user'] as Map<String, dynamic>),
         );
+        if (data['qta_bonus'] is Map) {
+          _pendingQtaBonus = Map<String, dynamic>.from(data['qta_bonus'] as Map);
+        }
         return null;
       }
       return _errorOf(res.data) ?? '로그인 실패';
@@ -333,7 +351,16 @@ class AuthService extends ChangeNotifier {
     }
     if (user.region != null) await prefs.setString(_kRegion, user.region!);
     await prefs.setInt(_kMannerScore, user.mannerScore);
+    await prefs.setInt(_kQtaBalance, user.qtaBalance);
 
+    notifyListeners();
+  }
+
+  /// 잔액만 갱신 (보너스 수령 직후, ledger 새로고침 후 등).
+  Future<void> updateQtaBalance(int newBalance) async {
+    if (_user == null) return;
+    _user = _user!.copyWith(qtaBalance: newBalance);
+    await prefs.setInt(_kQtaBalance, newBalance);
     notifyListeners();
   }
 

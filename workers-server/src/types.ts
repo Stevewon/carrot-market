@@ -38,6 +38,8 @@ export interface UserRow {
   lng: number | null;
   region_verified_at: string | null;
   manner_score: number;
+  /** QTA 토큰 잔액. 본인에게만 노출. */
+  qta_balance: number;
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +53,8 @@ export interface UserPublic {
   region: string | null;
   region_verified_at: string | null;
   manner_score: number;
+  /** QTA 잔액 — 본인 응답에만 포함. 타인 프로필에는 ::sanitize 가 빼고 보낸다. */
+  qta_balance: number;
   created_at: string;
   updated_at: string;
 }

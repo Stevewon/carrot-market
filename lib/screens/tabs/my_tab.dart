@@ -10,17 +10,13 @@ import '../../services/product_service.dart';
 import '../../services/search_history_service.dart';
 import '../../services/keyword_alert_service.dart';
 import '../../services/hidden_products_service.dart';
+import '../../services/qta_service.dart';
 
 class MyTab extends StatefulWidget {
   const MyTab({super.key});
 
   @override
   State<MyTab> createState() => _MyTabState();
-}
-
-String _shortenWallet(String w) {
-  if (w.length <= 12) return w;
-  return '${w.substring(0, 6)}...${w.substring(w.length - 4)}';
 }
 
 class _MyTabState extends State<MyTab> {
@@ -32,6 +28,8 @@ class _MyTabState extends State<MyTab> {
       final svc = context.read<ProductService>();
       svc.fetchMyProducts(silent: svc.mySellingLoaded);
       svc.fetchMyLikes(silent: svc.myLikesLoaded);
+      // QTA 잔액 + 최근 내역 1회 로드 (이후 보너스 수령 시 갱신).
+      context.read<QtaService>().load();
     });
   }
 
@@ -145,20 +143,10 @@ class _MyTabState extends State<MyTab> {
               trailing: user.region ?? '설정 필요',
               onTap: () => context.push('/region'),
             ),
+            // QTA 지갑 카드 (지갑주소 마스킹 + 복사 + 잔액)
             if (user.walletAddress != null && user.walletAddress!.isNotEmpty)
-              _MenuTile(
-                icon: Icons.account_balance_wallet_outlined,
-                title: '지갑주소',
-                subtitle: _shortenWallet(user.walletAddress!),
-                onTap: () async {
-                  await Clipboard.setData(
-                      ClipboardData(text: user.walletAddress!));
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('지갑주소를 복사했어요')),
-                  );
-                },
-              ),
+              _QtaWalletCard(walletAddress: user.walletAddress!),
+
             _MenuTile(
               icon: Icons.qr_code_2,
               title: '내 QR 코드',
@@ -381,4 +369,212 @@ class _MenuTile extends StatelessWidget {
       onTap: onTap,
     );
   }
+}
+
+/// 지갑주소(마스킹) + QTA 잔액 + 복사 버튼이 들어간 큰 카드.
+/// 사용자에게 "내 지갑주소를 복사해서 닉네임/비밀번호 찾기에 쓰세요" 라는
+/// 흐름을 시각적으로 안내한다.
+class _QtaWalletCard extends StatefulWidget {
+  final String walletAddress;
+  const _QtaWalletCard({required this.walletAddress});
+
+  @override
+  State<_QtaWalletCard> createState() => _QtaWalletCardState();
+}
+
+class _QtaWalletCardState extends State<_QtaWalletCard> {
+  bool _revealed = false;
+
+  String get _masked {
+    final w = widget.walletAddress;
+    if (w.length <= 12) return w;
+    return '${w.substring(0, 6)}…${w.substring(w.length - 4)}';
+  }
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.walletAddress));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('지갑주소를 복사했어요. 닉네임·비밀번호 찾기에 붙여넣을 수 있어요.'),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final qta = context.watch<QtaService>();
+    final balance = qta.balance;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFF6E3CC4),
+              Color(0xFF9559E0),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6E3CC4).withOpacity(0.25),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // QTA 잔액
+            Row(
+              children: [
+                const Text('🍆',
+                    style: TextStyle(fontSize: 22)),
+                const SizedBox(width: 8),
+                const Text(
+                  'QTA 잔액',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => context.push('/qta/ledger'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Text(
+                          '내역',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700),
+                        ),
+                        SizedBox(width: 2),
+                        Icon(Icons.chevron_right,
+                            size: 16, color: Colors.white),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  _formatNumber(balance),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    'QTA',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // 지갑주소 (마스킹/공개 토글)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.account_balance_wallet_outlined,
+                      color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _revealed ? widget.walletAddress : _masked,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'monospace',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: _revealed ? '가리기' : '전체 보기',
+                    icon: Icon(
+                      _revealed
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    onPressed: () =>
+                        setState(() => _revealed = !_revealed),
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                  ),
+                  IconButton(
+                    tooltip: '복사',
+                    icon: const Icon(Icons.copy_rounded,
+                        color: Colors.white, size: 18),
+                    onPressed: _copy,
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '닉네임·비밀번호 분실 시 이 지갑주소로 복구할 수 있어요.',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 11.5,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _formatNumber(int n) {
+  // 12,345 형태.
+  final s = n.abs().toString();
+  final buf = StringBuffer();
+  for (int i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+    buf.write(s[i]);
+  }
+  return n < 0 ? '-$buf' : buf.toString();
 }

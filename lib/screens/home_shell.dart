@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme.dart';
+import '../services/auth_service.dart';
 import '../services/chat_service.dart';
+import '../services/qta_service.dart';
 import 'tabs/feed_tab.dart';
 import 'tabs/likes_tab.dart';
 import 'tabs/chat_list_tab.dart';
@@ -32,6 +34,51 @@ class _HomeShellState extends State<HomeShell> {
       final chat = context.read<ChatService>();
       chat.connect();
       chat.fetchRooms(silent: true);
+
+      // QTA 잔액 첫 로드 + 가입/로그인 보너스 안내 스낵바.
+      final auth = context.read<AuthService>();
+      final qta = context.read<QtaService>();
+      // ignore: discarded_futures
+      qta.load();
+      _showQtaBonusIfAny(auth);
+    });
+  }
+
+  /// 가입/로그인 응답에 포함된 `qta_bonus` 가 있으면 1회 안내 스낵바.
+  void _showQtaBonusIfAny(AuthService auth) {
+    final bonus = auth.pendingQtaBonus;
+    if (bonus == null) return;
+    auth.consumeQtaBonus();
+
+    final reason = bonus['reason']?.toString() ?? '';
+    String? msg;
+    if (reason == 'signup') {
+      msg = '🎉 가입을 환영해요! +500 QTA 가 지급됐어요';
+    } else if (reason == 'login_daily') {
+      final credited = bonus['credited'] == true;
+      final amount = (bonus['amount'] as num?)?.toInt() ?? 0;
+      final remaining = (bonus['remaining'] as num?)?.toInt() ?? 0;
+      if (credited && amount > 0) {
+        final tail = remaining > 0 ? ' · 오늘 ${remaining}회 더 받을 수 있어요' : ' · 오늘 한도 끝!';
+        msg = '📅 출석 보너스 +$amount QTA$tail';
+      }
+    }
+    if (msg == null || !mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg!),
+          backgroundColor: EggplantColors.primary,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: '내역',
+            textColor: Colors.white,
+            onPressed: () => context.push('/qta/ledger'),
+          ),
+        ),
+      );
     });
   }
 

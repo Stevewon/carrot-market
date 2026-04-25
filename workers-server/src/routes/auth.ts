@@ -7,6 +7,12 @@ import {
   isValidWallet,
   normalizeWallet,
 } from '../crypto';
+import {
+  grantSignupBonus,
+  grantLoginDailyBonus,
+  QTA_LOGIN_DAILY_MAX,
+} from '../qta';
+
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -42,6 +48,7 @@ function sanitize(u: UserRow): UserPublic {
     region: u.region,
     region_verified_at: u.region_verified_at,
     manner_score: u.manner_score,
+    qta_balance: u.qta_balance ?? 0,
     created_at: u.created_at,
     updated_at: u.updated_at,
   };
@@ -157,6 +164,15 @@ app.post('/register', async (c) => {
     return c.json({ error: '가입 중 오류가 발생했어요' }, 500);
   }
 
+  // ── 가입 보너스 +500 QTA (멱등) ──────────────────────────────
+  // INSERT 직후 grantSignupBonus 가 ledger 1행 + qta_balance + 500 처리.
+  try {
+    await grantSignupBonus(c.env, id);
+  } catch (e) {
+    console.error('[auth/register] signup bonus failed', e);
+    // 보너스 실패해도 가입 자체는 성공으로 본다 (사용자 입장에서 재시도 어려움).
+  }
+
   const user = await c.env.DB
     .prepare('SELECT * FROM users WHERE id = ?')
     .bind(id)
@@ -164,7 +180,11 @@ app.post('/register', async (c) => {
   if (!user) return c.json({ error: '사용자 생성 실패' }, 500);
 
   const token = await signToken(user, c.env.JWT_SECRET);
-  return c.json({ token, user: sanitize(user) }, 201);
+  return c.json({
+    token,
+    user: sanitize(user),
+    qta_bonus: { reason: 'signup', amount: 500 },
+  }, 201);
 });
 
 // ================================================================
@@ -225,8 +245,38 @@ app.post('/login', async (c) => {
     user.token_version = tokenVersion;
   }
 
+  // ── 일일 로그인 보너스 +10 QTA (하루 3회) ─────────────────────
+  let qtaBonus: { credited: boolean; count: number; remaining: number; amount: number } | null = null;
+  try {
+    const r = await grantLoginDailyBonus(c.env, user.id);
+    qtaBonus = { ...r, amount: r.credited ? 10 : 0 };
+    if (r.credited) {
+      // 응답 sanitize 가 정확한 잔액을 반영하도록 row 다시 읽기.
+      const fresh = await c.env.DB
+        .prepare('SELECT qta_balance FROM users WHERE id = ?')
+        .bind(user.id)
+        .first<{ qta_balance: number }>();
+      if (fresh) user.qta_balance = fresh.qta_balance;
+    }
+  } catch (e) {
+    console.error('[auth/login] login bonus failed', e);
+  }
+
   const token = await signToken(user, c.env.JWT_SECRET);
-  return c.json({ token, user: sanitize(user) });
+  return c.json({
+    token,
+    user: sanitize(user),
+    qta_bonus: qtaBonus
+      ? {
+          reason: 'login_daily',
+          credited: qtaBonus.credited,
+          amount: qtaBonus.amount,
+          today_count: qtaBonus.count,
+          today_max: QTA_LOGIN_DAILY_MAX,
+          remaining: qtaBonus.remaining,
+        }
+      : null,
+  });
 });
 
 // ================================================================

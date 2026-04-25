@@ -17,6 +17,7 @@ import 'services/notification_service.dart';
 import 'services/search_history_service.dart';
 import 'services/keyword_alert_service.dart';
 import 'services/hidden_products_service.dart';
+import 'services/qta_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +57,7 @@ class EggplantApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => KeywordAlertService(authService)),
         ChangeNotifierProvider(create: (_) => HiddenProductsService(authService)),
+        ChangeNotifierProvider(create: (_) => QtaService(authService)),
         ChangeNotifierProxyProvider<ChatService, CallService>(
           create: (ctx) => CallService(
             auth: authService,

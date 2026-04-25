@@ -12,6 +12,10 @@ class User {
   /// Default is 365 (= 36.5°), matching 당근의 시작값.
   /// Old API rows that still return 36 are auto-upgraded to 365 (see [fromJson]).
   final int mannerScore;
+
+  /// QTA 토큰 잔액 (정수, 본인 응답에만 포함).
+  final int qtaBalance;
+
   final DateTime createdAt;
 
   User({
@@ -22,6 +26,7 @@ class User {
     this.region,
     this.regionVerifiedAt,
     this.mannerScore = 365,
+    this.qtaBalance = 0,
     required this.createdAt,
   });
 
@@ -59,6 +64,12 @@ class User {
           ? DateTime.tryParse(json['region_verified_at'] as String)
           : null,
       mannerScore: score,
+      qtaBalance: () {
+        final r = json['qta_balance'];
+        if (r is int) return r;
+        if (r is num) return r.toInt();
+        return 0;
+      }(),
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
   }
@@ -71,6 +82,7 @@ class User {
         'region': region,
         'region_verified_at': regionVerifiedAt?.toIso8601String(),
         'manner_score': mannerScore,
+        'qta_balance': qtaBalance,
         'created_at': createdAt.toIso8601String(),
       };
 
@@ -81,6 +93,7 @@ class User {
     String? region,
     DateTime? regionVerifiedAt,
     int? mannerScore,
+    int? qtaBalance,
   }) {
     return User(
       id: id,
@@ -90,6 +103,7 @@ class User {
       region: region ?? this.region,
       regionVerifiedAt: regionVerifiedAt ?? this.regionVerifiedAt,
       mannerScore: mannerScore ?? this.mannerScore,
+      qtaBalance: qtaBalance ?? this.qtaBalance,
       createdAt: createdAt,
     );
   }
