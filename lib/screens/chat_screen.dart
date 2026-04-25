@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/chat_message.dart';
 import '../services/auth_service.dart';
@@ -134,57 +135,63 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (widget.productTitle != null) _ProductBanner(title: widget.productTitle!),
-          Expanded(
-            child: messages.isEmpty
-                ? _EmptyChat(peerNickname: widget.peerNickname)
-                : Builder(
-                    builder: (_) {
-                      // Look up this room's peerLastReadAt so each of my
-                      // outgoing bubbles can show "읽음" once the peer's
-                      // last_read_at >= that message's sent_at.
-                      DateTime? peerReadAt;
-                      try {
-                        final room = chat.rooms.firstWhere(
-                          (r) => r.id == widget.roomId,
-                        );
-                        peerReadAt = room.peerLastReadAt;
-                      } catch (_) {
-                        peerReadAt = null;
-                      }
-                      return ListView.builder(
-                        controller: _scrollCtl,
-                        padding: const EdgeInsets.all(16),
-                        itemCount: messages.length,
-                        itemBuilder: (_, i) {
-                          final msg = messages[i];
-                          if (msg.type == 'price_offer' && msg.offer != null) {
-                            return _PriceOfferCard(
-                              message: msg,
-                              myUserId: auth.user?.id,
-                              onRespond: (action) =>
-                                  _respondToOffer(msg.offer!.id, action),
+      // 태블릿/폴드 펼침 모드에서 채팅창이 가로로 무한정 늘어나지 않도록 600dp 제한.
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+          child: Column(
+            children: [
+              if (widget.productTitle != null) _ProductBanner(title: widget.productTitle!),
+              Expanded(
+                child: messages.isEmpty
+                    ? _EmptyChat(peerNickname: widget.peerNickname)
+                    : Builder(
+                        builder: (_) {
+                          // Look up this room's peerLastReadAt so each of my
+                          // outgoing bubbles can show "읽음" once the peer's
+                          // last_read_at >= that message's sent_at.
+                          DateTime? peerReadAt;
+                          try {
+                            final room = chat.rooms.firstWhere(
+                              (r) => r.id == widget.roomId,
                             );
+                            peerReadAt = room.peerLastReadAt;
+                          } catch (_) {
+                            peerReadAt = null;
                           }
-                          return _MessageBubble(
-                            message: msg,
-                            peerLastReadAt: peerReadAt,
+                          return ListView.builder(
+                            controller: _scrollCtl,
+                            padding: const EdgeInsets.all(16),
+                            itemCount: messages.length,
+                            itemBuilder: (_, i) {
+                              final msg = messages[i];
+                              if (msg.type == 'price_offer' && msg.offer != null) {
+                                return _PriceOfferCard(
+                                  message: msg,
+                                  myUserId: auth.user?.id,
+                                  onRespond: (action) =>
+                                      _respondToOffer(msg.offer!.id, action),
+                                );
+                              }
+                              return _MessageBubble(
+                                message: msg,
+                                peerLastReadAt: peerReadAt,
+                              );
+                            },
                           );
                         },
-                      );
-                    },
-                  ),
+                      ),
+              ),
+              _InputBar(
+                controller: _ctl,
+                onSend: _send,
+                connected: chat.connected,
+                // Price-offer button only makes sense in product-tied rooms.
+                onOffer: widget.productTitle != null ? () => _openOfferSheet() : null,
+              ),
+            ],
           ),
-          _InputBar(
-            controller: _ctl,
-            onSend: _send,
-            connected: chat.connected,
-            // Price-offer button only makes sense in product-tied rooms.
-            onOffer: widget.productTitle != null ? () => _openOfferSheet() : null,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -615,25 +622,32 @@ class _MessageBubble extends StatelessWidget {
             ),
             const SizedBox(width: 4),
           ],
+          // 버블이 가로로 너무 길어지지 않도록 화면폭의 약 72% 까지만 사용.
+          // (시간/읽음 표시를 위한 좌우 여백 확보 + 태블릿/폴드에서도 자연스러운 길이)
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: mine ? EggplantColors.primary : Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(mine ? 16 : 4),
-                  bottomRight: Radius.circular(mine ? 4 : 16),
-                ),
-                border: mine ? null : Border.all(color: EggplantColors.border),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.72,
               ),
-              child: Text(
-                message.text,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: mine ? Colors.white : EggplantColors.textPrimary,
-                  height: 1.4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: mine ? EggplantColors.primary : Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: Radius.circular(mine ? 16 : 4),
+                    bottomRight: Radius.circular(mine ? 4 : 16),
+                  ),
+                  border: mine ? null : Border.all(color: EggplantColors.border),
+                ),
+                child: Text(
+                  message.text,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: mine ? Colors.white : EggplantColors.textPrimary,
+                    height: 1.4,
+                  ),
                 ),
               ),
             ),
