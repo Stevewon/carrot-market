@@ -475,6 +475,29 @@ class ChatService extends ChangeNotifier {
         break;
       }
 
+      case 'offer_updated': {
+        // Server tells us a price-offer's status changed (accepted/rejected/cancelled).
+        // Find the corresponding message in our cache and patch its `offer` field
+        // so the existing bubble re-renders with the new status (no new message
+        // is inserted — the same card just changes look).
+        final roomId = msg['room_id']?.toString();
+        final messageId = msg['message_id']?.toString();
+        final offerJson = msg['offer'];
+        if (roomId == null || messageId == null || offerJson is! Map) break;
+        final newOffer = PriceOfferInfo.tryParse({
+          'offer': Map<String, dynamic>.from(offerJson),
+        });
+        if (newOffer == null) break;
+        final list = _roomMessages[roomId];
+        if (list == null) break;
+        final idx = list.indexWhere((m) => m.id == messageId);
+        if (idx >= 0) {
+          list[idx] = list[idx].copyWith(offer: newOffer);
+          notifyListeners();
+        }
+        break;
+      }
+
       case 'read_receipt': {
         // The peer just marked the room as read up to `read_at`. Update our
         // local copy so the "읽음" indicator next to my outgoing messages

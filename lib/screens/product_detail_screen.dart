@@ -533,7 +533,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     context.push(
       '/chat/${room.id}?peer=${Uri.encodeComponent(p.sellerNickname)}'
       '&product=${Uri.encodeComponent(p.title)}'
-      '&peerId=${Uri.encodeComponent(p.sellerId)}',
+      '&peerId=${Uri.encodeComponent(p.sellerId)}'
+      '&productId=${Uri.encodeComponent(p.id)}',
     );
   }
 

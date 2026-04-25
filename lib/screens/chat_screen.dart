@@ -14,6 +14,8 @@ class ChatScreen extends StatefulWidget {
   final String peerNickname;
   final String? productTitle;
   final String? peerUserId;
+  /// productId가 주어지면 가격 제안(💰) 버튼을 노출한다 (구매자 측 UI).
+  final String? productId;
 
   const ChatScreen({
     super.key,
@@ -21,6 +23,7 @@ class ChatScreen extends StatefulWidget {
     required this.peerNickname,
     this.productTitle,
     this.peerUserId,
+    this.productId,
   });
 
   @override
@@ -79,6 +82,7 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     });
   }
+
 
   @override
   Widget build(BuildContext context) {

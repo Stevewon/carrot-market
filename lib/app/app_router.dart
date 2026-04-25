@@ -78,6 +78,7 @@ GoRouter createRouter(AuthService auth) {
           peerNickname: state.uri.queryParameters['peer'] ?? '익명',
           productTitle: state.uri.queryParameters['product'],
           peerUserId: state.uri.queryParameters['peerId'],
+          productId: state.uri.queryParameters['productId'],
         ),
       ),
       GoRoute(

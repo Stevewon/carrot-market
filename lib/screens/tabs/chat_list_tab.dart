@@ -142,7 +142,8 @@ class _ChatListTabState extends State<ChatListTab> {
             context.push(
               '/chat/${room.id}?peer=${Uri.encodeComponent(room.peerNickname)}'
               '${room.peerId.isNotEmpty ? '&peerId=${room.peerId}' : ''}'
-              '${room.productTitle != null ? '&product=${Uri.encodeComponent(room.productTitle!)}' : ''}',
+              '${room.productTitle != null ? '&product=${Uri.encodeComponent(room.productTitle!)}' : ''}'
+              '${room.productId != null ? '&productId=${Uri.encodeComponent(room.productId!)}' : ''}',
             );
           },
           onLongPress: () => _confirmDelete(room),
