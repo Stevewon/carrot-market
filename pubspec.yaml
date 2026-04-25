@@ -50,6 +50,9 @@ dependencies:
   flutter_webrtc: ^0.12.0
   permission_handler: ^11.3.1
 
+  # Local notifications (foreground/background push without Firebase)
+  flutter_local_notifications: ^17.2.3
+
   # Note: Screen security (FLAG_SECURE) is implemented natively in
   # MainActivity.kt via MethodChannel (lib/services/secure_screen.dart).
   # This avoids the flutter_windowmanager plugin which has AGP namespace

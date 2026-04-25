@@ -7,6 +7,7 @@ import '../../app/theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/moderation_service.dart';
 import '../../services/product_service.dart';
+import '../../services/search_history_service.dart';
 
 class MyTab extends StatefulWidget {
   const MyTab({super.key});
@@ -215,6 +216,8 @@ class _MyTabState extends State<MyTab> {
                 // Wipe cached lists so next user starts fresh.
                 context.read<ProductService>().clearCaches();
                 context.read<ModerationService>().clear();
+                // ignore: unawaited_futures
+                context.read<SearchHistoryService>().clear();
                 await context.read<AuthService>().logout();
                 if (context.mounted) context.go('/onboarding');
               },

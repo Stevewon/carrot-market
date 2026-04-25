@@ -7,6 +7,7 @@ import '../../app/theme.dart';
 import '../../models/product.dart';
 import '../../services/auth_service.dart';
 import '../../services/product_service.dart';
+import '../../services/search_history_service.dart';
 import '../../widgets/product_card.dart';
 
 class FeedTab extends StatefulWidget {
@@ -19,12 +20,24 @@ class FeedTab extends StatefulWidget {
 class _FeedTabState extends State<FeedTab> {
   String _category = 'all';
   final TextEditingController _searchCtl = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
   bool _searchMode = false;
+  bool _showHistory = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _searchFocus.addListener(() {
+      if (mounted) setState(() => _showHistory = _searchFocus.hasFocus);
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
   }
 
   void _load() {
@@ -34,6 +47,24 @@ class _FeedTabState extends State<FeedTab> {
           region: auth.user?.region,
           search: _searchCtl.text.isEmpty ? null : _searchCtl.text,
         );
+  }
+
+  Future<void> _submitSearch(String raw) async {
+    final term = raw.trim();
+    if (term.isNotEmpty) {
+      // ignore: use_build_context_synchronously
+      await context.read<SearchHistoryService>().add(term);
+    }
+    _searchFocus.unfocus();
+    setState(() => _showHistory = false);
+    _load();
+  }
+
+  void _pickHistoryTerm(String term) {
+    _searchCtl.text = term;
+    _searchCtl.selection =
+        TextSelection.collapsed(offset: _searchCtl.text.length);
+    _submitSearch(term);
   }
 
   @override
@@ -47,13 +78,14 @@ class _FeedTabState extends State<FeedTab> {
         title: _searchMode
             ? TextField(
                 controller: _searchCtl,
+                focusNode: _searchFocus,
                 autofocus: true,
                 decoration: const InputDecoration(
                   hintText: '상품명 검색',
                   border: InputBorder.none,
                   filled: false,
                 ),
-                onSubmitted: (_) => _load(),
+                onSubmitted: _submitSearch,
               )
             : InkWell(
                 onTap: () => context.push('/region'),
@@ -90,6 +122,8 @@ class _FeedTabState extends State<FeedTab> {
                 _searchMode = !_searchMode;
                 if (!_searchMode) {
                   _searchCtl.clear();
+                  _showHistory = false;
+                  _searchFocus.unfocus();
                   _load();
                 }
               });
@@ -103,46 +137,171 @@ class _FeedTabState extends State<FeedTab> {
           const SizedBox(width: 4),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          _CategoryBar(
-            selected: _category,
-            onSelected: (id) {
-              setState(() => _category = id);
-              _load();
-            },
-          ),
-          const Divider(height: 1, color: EggplantColors.border),
-          Expanded(
-            child: productSvc.loading && productSvc.products.isEmpty
-                ? const Center(
-                    child: CircularProgressIndicator(color: EggplantColors.primary),
-                  )
-                : productSvc.products.isEmpty
-                    ? _EmptyView(onRefresh: _load)
-                    : RefreshIndicator(
-                        color: EggplantColors.primary,
-                        onRefresh: () async => _load(),
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: productSvc.products.length,
-                          separatorBuilder: (_, __) => const Divider(
-                            height: 1,
-                            color: EggplantColors.border,
-                            indent: 16,
-                            endIndent: 16,
+          Column(
+            children: [
+              _CategoryBar(
+                selected: _category,
+                onSelected: (id) {
+                  setState(() => _category = id);
+                  _load();
+                },
+              ),
+              const Divider(height: 1, color: EggplantColors.border),
+              Expanded(
+                child: productSvc.loading && productSvc.products.isEmpty
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                            color: EggplantColors.primary),
+                      )
+                    : productSvc.products.isEmpty
+                        ? _EmptyView(onRefresh: _load)
+                        : RefreshIndicator(
+                            color: EggplantColors.primary,
+                            onRefresh: () async => _load(),
+                            child: ListView.separated(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              itemCount: productSvc.products.length,
+                              separatorBuilder: (_, __) => const Divider(
+                                height: 1,
+                                color: EggplantColors.border,
+                                indent: 16,
+                                endIndent: 16,
+                              ),
+                              itemBuilder: (_, i) {
+                                final p = productSvc.products[i];
+                                return ProductCard(
+                                  product: p,
+                                  onTap: () =>
+                                      context.push('/product/${p.id}'),
+                                );
+                              },
+                            ),
                           ),
-                          itemBuilder: (_, i) {
-                            final p = productSvc.products[i];
-                            return ProductCard(
-                              product: p,
-                              onTap: () => context.push('/product/${p.id}'),
-                            );
-                          },
+              ),
+            ],
+          ),
+          // 검색창 포커스 시 최근 검색어 오버레이 (당근식)
+          if (_searchMode && _showHistory)
+            Positioned.fill(
+              child: _SearchHistoryPanel(
+                onPick: _pickHistoryTerm,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 최근 검색어 패널 — 검색창에 포커스가 있을 때만 표시.
+/// 빈 상태면 안내 문구만 보여 준다.
+class _SearchHistoryPanel extends StatelessWidget {
+  final ValueChanged<String> onPick;
+  const _SearchHistoryPanel({required this.onPick});
+
+  @override
+  Widget build(BuildContext context) {
+    final history = context.watch<SearchHistoryService>();
+    final terms = history.terms;
+
+    return GestureDetector(
+      // 패널 바깥 탭 시 키보드 닫고 패널 닫기 효과 (포커스 해제로 자동 처리)
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Container(
+        color: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                children: [
+                  const Text(
+                    '최근 검색어',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: EggplantColors.textSecondary,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (terms.isNotEmpty)
+                    TextButton(
+                      onPressed: () => history.clear(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(0, 0),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text(
+                        '전체 삭제',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: EggplantColors.textSecondary,
                         ),
                       ),
-          ),
-        ],
+                    ),
+                ],
+              ),
+            ),
+            if (terms.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+                child: Center(
+                  child: Text(
+                    '최근 검색 기록이 없어요',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: EggplantColors.textSecondary,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.separated(
+                  itemCount: terms.length,
+                  separatorBuilder: (_, __) => const Divider(
+                    height: 1,
+                    color: EggplantColors.border,
+                    indent: 16,
+                    endIndent: 16,
+                  ),
+                  itemBuilder: (_, i) {
+                    final t = terms[i];
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(
+                        Icons.history_rounded,
+                        size: 20,
+                        color: EggplantColors.textSecondary,
+                      ),
+                      title: Text(
+                        t,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: EggplantColors.textPrimary,
+                        ),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: EggplantColors.textSecondary,
+                        ),
+                        onPressed: () => history.remove(t),
+                      ),
+                      onTap: () => onPick(t),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

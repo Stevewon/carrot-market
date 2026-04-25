@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,8 @@ import 'services/product_service.dart';
 import 'services/chat_service.dart';
 import 'services/call_service.dart';
 import 'services/moderation_service.dart';
+import 'services/notification_service.dart';
+import 'services/search_history_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +28,10 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final authService = AuthService(prefs);
   await authService.loadFromStorage();
+
+  // Init local notifications (system-tray push for chat messages).
+  // ignore: unawaited_futures
+  NotificationService.instance.init();
 
   runApp(EggplantApp(authService: authService));
 }
@@ -41,6 +49,9 @@ class EggplantApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProductService(authService)),
         ChangeNotifierProvider(create: (_) => ChatService(authService)),
         ChangeNotifierProvider(create: (_) => ModerationService(authService)),
+        ChangeNotifierProvider(
+          create: (_) => SearchHistoryService(authService.prefs),
+        ),
         ChangeNotifierProxyProvider<ChatService, CallService>(
           create: (ctx) => CallService(
             auth: authService,
@@ -87,6 +98,21 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
   CallService? _callService;
   CallState _lastState = CallState.idle;
   bool _chatConnectRequested = false;
+  StreamSubscription<String>? _notifTapSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // When a chat notification is tapped, deep-link into the room.
+    _notifTapSub = NotificationService.instance.onTap.listen((roomId) {
+      if (roomId.isEmpty) return;
+      try {
+        widget.router.push('/chat/$roomId');
+      } catch (e) {
+        debugPrint('[notif] router push failed: $e');
+      }
+    });
+  }
 
   @override
   void didChangeDependencies() {
@@ -127,6 +153,7 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
   @override
   void dispose() {
     _callService?.removeListener(_onCallChange);
+    _notifTapSub?.cancel();
     super.dispose();
   }
 

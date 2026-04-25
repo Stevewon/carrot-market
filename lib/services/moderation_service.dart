@@ -3,113 +3,136 @@ import 'package:flutter/foundation.dart';
 
 import 'auth_service.dart';
 
-/// Block (차단) + report (신고) operations.
+/// Lightweight client for the /api/moderation/* endpoints.
 ///
-/// We keep a local cache of blocked user IDs so the UI can short-circuit
-/// (e.g. hide a chat row immediately) without waiting for the next API call.
+/// Block:
+///   • blockUser   — add the user to my block list (server-enforced both ways)
+///   • unblockUser — undo
+///   • myBlocks    — list of users I've blocked
+///
+/// Report:
+///   • reportUser  — submit a report with a reason + optional product/detail
+///
+/// Reasons accepted by the server (must match migration 0009 CHECK):
+///   spam | fraud | abuse | inappropriate | fake | other
 class ModerationService extends ChangeNotifier {
   final AuthService auth;
-  Set<String> _blockedIds = <String>{};
-  bool _loaded = false;
+
+  /// Local cache of blocked user IDs — kept in sync with the server so feed
+  /// filters don't have to round-trip every render.
+  final Set<String> _blockedIds = <String>{};
+  bool _blocksLoaded = false;
 
   ModerationService(this.auth);
 
-  /// True once the cache has been populated at least once.
-  bool get loaded => _loaded;
-
-  /// All users I've blocked.
   Set<String> get blockedIds => _blockedIds;
+  bool get blocksLoaded => _blocksLoaded;
 
   bool isBlocked(String userId) => _blockedIds.contains(userId);
 
-  /// Refresh the block cache from the server. Safe to call repeatedly.
-  Future<List<Map<String, dynamic>>> fetchBlocks() async {
-    try {
-      final res = await auth.api.get('/api/moderation/blocks');
-      final list = (res.data?['blocks'] as List?) ?? [];
-      final maps = list
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList();
-      _blockedIds = maps
-          .map((m) => m['blocked_id']?.toString())
-          .whereType<String>()
-          .toSet();
-      _loaded = true;
-      notifyListeners();
-      return maps;
-    } catch (e) {
-      debugPrint('[moderation] fetchBlocks failed: $e');
-      return [];
-    }
-  }
+  // ── Block / Unblock ────────────────────────────────────────────────
 
-  /// Block a user. Returns null on success, error message on failure.
-  Future<String?> block(String userId) async {
+  /// Block a user. Returns null on success, error string on failure.
+  Future<String?> blockUser(String userId) async {
     try {
-      await auth.api.post(
+      final res = await auth.api.post(
         '/api/moderation/block',
         data: {'user_id': userId},
       );
-      _blockedIds = {..._blockedIds, userId};
-      notifyListeners();
-      return null;
+      if (res.statusCode == 200) {
+        _blockedIds.add(userId);
+        notifyListeners();
+        return null;
+      }
+      return _err(res.data) ?? '차단 실패';
     } on DioException catch (e) {
-      final msg = (e.response?.data is Map)
-          ? (e.response!.data['error']?.toString() ?? '차단 실패')
-          : '차단 실패';
-      debugPrint('[moderation] block error: $msg');
-      return msg;
+      debugPrint('blockUser error: ${e.response?.data ?? e.message}');
+      return _err(e.response?.data) ?? '차단 실패';
     } catch (e) {
-      debugPrint('[moderation] block error: $e');
+      debugPrint('blockUser error: $e');
       return '차단 실패';
     }
   }
 
-  /// Unblock a user. Returns null on success.
-  Future<String?> unblock(String userId) async {
+  Future<String?> unblockUser(String userId) async {
     try {
-      await auth.api.delete('/api/moderation/block/$userId');
-      _blockedIds = {..._blockedIds}..remove(userId);
-      notifyListeners();
-      return null;
+      final res = await auth.api.delete('/api/moderation/block/$userId');
+      if (res.statusCode == 200) {
+        _blockedIds.remove(userId);
+        notifyListeners();
+        return null;
+      }
+      return _err(res.data) ?? '차단 해제 실패';
+    } on DioException catch (e) {
+      debugPrint('unblockUser error: ${e.response?.data ?? e.message}');
+      return _err(e.response?.data) ?? '차단 해제 실패';
     } catch (e) {
-      debugPrint('[moderation] unblock error: $e');
+      debugPrint('unblockUser error: $e');
       return '차단 해제 실패';
     }
   }
 
-  /// Report a user. `reason` must be one of:
+  /// Pull the full block list from the server. Each entry includes the
+  /// blocked user's nickname/region/manner_score for display.
+  Future<List<Map<String, dynamic>>> fetchBlocks() async {
+    try {
+      final res = await auth.api.get('/api/moderation/blocks');
+      final list = (res.data?['blocks'] as List? ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      _blockedIds
+        ..clear()
+        ..addAll(list.map((e) => e['blocked_id']?.toString() ?? ''));
+      _blockedIds.remove('');
+      _blocksLoaded = true;
+      notifyListeners();
+      return list;
+    } catch (e) {
+      debugPrint('fetchBlocks error: $e');
+      return [];
+    }
+  }
+
+  // ── Report ─────────────────────────────────────────────────────────
+
+  /// Submit a user report. [reason] must be one of:
   ///   spam | fraud | abuse | inappropriate | fake | other
-  Future<String?> report({
+  /// Returns null on success, error string on failure.
+  Future<String?> reportUser({
     required String userId,
     required String reason,
     String? productId,
     String detail = '',
   }) async {
     try {
-      await auth.api.post('/api/moderation/report', data: {
-        'user_id': userId,
-        'reason': reason,
-        if (productId != null && productId.isNotEmpty) 'product_id': productId,
-        if (detail.trim().isNotEmpty) 'detail': detail.trim(),
-      });
-      return null;
+      final res = await auth.api.post(
+        '/api/moderation/report',
+        data: {
+          'user_id': userId,
+          'reason': reason,
+          if (productId != null && productId.isNotEmpty) 'product_id': productId,
+          if (detail.isNotEmpty) 'detail': detail,
+        },
+      );
+      return res.statusCode == 200 ? null : (_err(res.data) ?? '신고 접수 실패');
     } on DioException catch (e) {
-      final msg = (e.response?.data is Map)
-          ? (e.response!.data['error']?.toString() ?? '신고 접수 실패')
-          : '신고 접수 실패';
-      debugPrint('[moderation] report error: $msg');
-      return msg;
+      debugPrint('reportUser error: ${e.response?.data ?? e.message}');
+      return _err(e.response?.data) ?? '신고 접수 실패';
     } catch (e) {
-      debugPrint('[moderation] report error: $e');
+      debugPrint('reportUser error: $e');
       return '신고 접수 실패';
     }
   }
 
-  /// Clear cache (called from logout).
+  /// Reset cached block list when the user logs out.
   void clear() {
-    _blockedIds = <String>{};
-    _loaded = false;
+    _blockedIds.clear();
+    _blocksLoaded = false;
     notifyListeners();
+  }
+
+  String? _err(dynamic data) {
+    if (data is Map && data['error'] != null) return data['error'].toString();
+    return null;
   }
 }

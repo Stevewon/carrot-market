@@ -10,6 +10,7 @@ import '../app/constants.dart';
 import '../models/chat_message.dart';
 import '../models/chat_room.dart';
 import 'auth_service.dart';
+import 'notification_service.dart';
 
 /// Persistent chat service (당근 style).
 ///
@@ -187,6 +188,9 @@ class ChatService extends ChangeNotifier {
       _rooms[idx] = _rooms[idx].copyWith(unreadCount: 0);
       notifyListeners();
     }
+    // Dismiss any system notification for this room — user is here now.
+    // ignore: discarded_futures
+    NotificationService.instance.cancelForRoom(roomId);
     try {
       await auth.api.post('/api/chat/rooms/$roomId/read');
     } catch (e) {
@@ -312,6 +316,13 @@ class ChatService extends ChangeNotifier {
           int newUnread = _rooms[idx].unreadCount;
           if (fromPeer && !inRoom) {
             newUnread += 1;
+            // Surface a system notification (당근 style). Tap → /chat/:roomId.
+            // ignore: discarded_futures
+            NotificationService.instance.showChatMessage(
+              roomId: chatMsg.roomId,
+              senderNickname: chatMsg.senderNickname,
+              text: chatMsg.text,
+            );
           }
 
           _rooms[idx] = _rooms[idx].copyWith(
