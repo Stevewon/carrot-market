@@ -103,6 +103,26 @@ export class ChatHub {
       return new Response('ok');
     }
 
+    // Generic broadcast to everyone joined to a room AND a direct push to a
+    // peer who may not be in the room view. Used by REST routes that mutate
+    // chat state (e.g. price offers) so both clients can update in realtime.
+    if (url.pathname === '/internal/broadcast-room' && request.method === 'POST') {
+      const body = (await request.json().catch(() => ({}))) as {
+        room_id?: string;
+        peer_user_id?: string;
+        payload?: Record<string, unknown>;
+      };
+      if (body.room_id && body.payload) {
+        this.broadcastToRoom(body.room_id, null, body.payload);
+        // Make sure the peer who's NOT currently in the room view also gets
+        // the event (so chat-list previews / unread badges update).
+        if (body.peer_user_id) {
+          this.sendToUser(body.peer_user_id, body.payload);
+        }
+      }
+      return new Response('ok');
+    }
+
     if (request.headers.get('Upgrade') !== 'websocket') {
       return new Response('Expected WebSocket upgrade', { status: 426 });
     }

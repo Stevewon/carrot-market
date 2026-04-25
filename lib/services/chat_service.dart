@@ -144,21 +144,69 @@ class ChatService extends ChangeNotifier {
       final res = await auth.api.get('/api/chat/rooms/$roomId/messages');
       final data = res.data as Map<String, dynamic>;
       final msgs = (data['messages'] as List? ?? []).map((e) {
-        final m = e as Map<String, dynamic>;
-        return ChatMessage.fromJson({
-          'id': m['id'],
-          'room_id': m['room_id'],
-          'sender_id': m['sender_id'],
-          'sender_nickname': '', // not stored per-msg; UI uses isMine vs peer
-          'text': m['text'],
-          'type': m['msg_type'] ?? 'text',
-          'sent_at': m['sent_at'],
-        }, currentUserId: auth.user?.id);
+        final m = Map<String, dynamic>.from(e as Map);
+        // Pass through every server field so PriceOfferInfo.tryParse can pick
+        // up the joined offer_* columns. We only stuff in a placeholder
+        // sender_nickname since per-message nicknames aren't persisted.
+        m['sender_nickname'] = '';
+        return ChatMessage.fromJson(m, currentUserId: auth.user?.id);
       }).toList();
       _roomMessages[roomId] = msgs;
       notifyListeners();
     } catch (e) {
       debugPrint('[chat] loadHistory failed: $e');
+    }
+  }
+
+  // ── Price offer (가격 제안 / 네고) ──────────────────────────────────
+
+  /// Send a price offer in the given room. Server requires the room to have
+  /// a product attached and the sender to NOT be the seller. Any prior
+  /// pending offer in this room is auto-cancelled by the server.
+  /// Returns null on success, error string on failure.
+  Future<String?> sendPriceOffer(String roomId, int price) async {
+    if (price <= 0) return '금액을 입력해주세요';
+    try {
+      await auth.api.post(
+        '/api/chat/rooms/$roomId/offer',
+        data: {'price': price},
+      );
+      // The server broadcasts via WS so the message appears via _onData.
+      // We don't optimistically insert here to keep the source of truth
+      // consistent (avoids duplicate bubbles).
+      return null;
+    } on DioException catch (e) {
+      debugPrint('[chat] sendPriceOffer failed: ${e.response?.data ?? e.message}');
+      final data = e.response?.data;
+      if (data is Map && data['error'] != null) return data['error'].toString();
+      return '제안 전송 실패';
+    } catch (e) {
+      debugPrint('[chat] sendPriceOffer failed: $e');
+      return '제안 전송 실패';
+    }
+  }
+
+  /// Accept / reject (seller) or cancel (buyer) a pending offer.
+  /// [action] must be one of: 'accept', 'reject', 'cancel'.
+  Future<String?> respondToOffer(String offerId, String action) async {
+    if (!['accept', 'reject', 'cancel'].contains(action)) {
+      return 'invalid action';
+    }
+    try {
+      await auth.api.patch(
+        '/api/chat/offers/$offerId',
+        data: {'action': action},
+      );
+      // Server broadcasts 'offer_updated' which we handle in _onData.
+      return null;
+    } on DioException catch (e) {
+      debugPrint('[chat] respondToOffer failed: ${e.response?.data ?? e.message}');
+      final data = e.response?.data;
+      if (data is Map && data['error'] != null) return data['error'].toString();
+      return '처리 실패';
+    } catch (e) {
+      debugPrint('[chat] respondToOffer failed: $e');
+      return '처리 실패';
     }
   }
 
@@ -392,6 +440,38 @@ class ChatService extends ChangeNotifier {
           );
         }
         notifyListeners();
+        break;
+      }
+
+      case 'offer_updated': {
+        // Server tells us a price-offer changed status (accepted/rejected/cancelled).
+        // Update the matching message's offer info in-place so the UI re-renders
+        // the bubble's status chip and disables the action buttons.
+        final roomId = msg['room_id']?.toString();
+        final offerData = msg['offer'];
+        if (roomId == null || offerData is! Map) break;
+        final offerId = offerData['id']?.toString();
+        final newStatus = offerData['status']?.toString();
+        if (offerId == null || newStatus == null) break;
+        final list = _roomMessages[roomId];
+        if (list == null) break;
+        for (var i = 0; i < list.length; i++) {
+          final m = list[i];
+          if (m.offer?.id == offerId) {
+            final updated = m.copyWith(
+              offer: m.offer!.copyWith(
+                status: newStatus,
+                respondedAt: DateTime.tryParse(
+                      offerData['responded_at']?.toString() ?? '',
+                    ) ??
+                    DateTime.now(),
+              ),
+            );
+            list[i] = updated;
+            notifyListeners();
+            break;
+          }
+        }
         break;
       }
 

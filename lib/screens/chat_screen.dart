@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -155,6 +156,14 @@ class _ChatScreenState extends State<ChatScreen> {
                         itemCount: messages.length,
                         itemBuilder: (_, i) {
                           final msg = messages[i];
+                          if (msg.type == 'price_offer' && msg.offer != null) {
+                            return _PriceOfferCard(
+                              message: msg,
+                              myUserId: auth.user?.id,
+                              onRespond: (action) =>
+                                  _respondToOffer(msg.offer!.id, action),
+                            );
+                          }
                           return _MessageBubble(
                             message: msg,
                             peerLastReadAt: peerReadAt,
@@ -164,10 +173,179 @@ class _ChatScreenState extends State<ChatScreen> {
                     },
                   ),
           ),
-          _InputBar(controller: _ctl, onSend: _send, connected: chat.connected),
+          _InputBar(
+            controller: _ctl,
+            onSend: _send,
+            connected: chat.connected,
+            // Price-offer button only makes sense in product-tied rooms.
+            onOffer: widget.productTitle != null ? () => _openOfferSheet() : null,
+          ),
         ],
       ),
     );
+  }
+
+  // ── Price offer flow ────────────────────────────────────────────────
+
+  Future<void> _openOfferSheet() async {
+    final priceCtl = TextEditingController();
+    final result = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: 20 + MediaQuery.of(sheetCtx).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: EggplantColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '💰 가격 제안하기',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                widget.productTitle ?? '',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: EggplantColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: priceCtl,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(9),
+                ],
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+                decoration: InputDecoration(
+                  hintText: '제안 금액 (원)',
+                  prefixIcon: const Icon(Icons.payments_outlined),
+                  filled: true,
+                  fillColor: EggplantColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                onSubmitted: (v) {
+                  final n = int.tryParse(v);
+                  if (n != null && n > 0) Navigator.pop(sheetCtx, n);
+                },
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: EggplantColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    final n = int.tryParse(priceCtl.text);
+                    if (n != null && n > 0) Navigator.pop(sheetCtx, n);
+                  },
+                  child: const Text(
+                    '제안 보내기',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '이전에 보낸 미응답 제안은 자동으로 취소돼요.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: EggplantColors.textSecondary),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    priceCtl.dispose();
+    if (result == null || result <= 0) return;
+    if (!mounted) return;
+    final err = await context.read<ChatService>().sendPriceOffer(widget.roomId, result);
+    if (!mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+    } else {
+      Future.delayed(const Duration(milliseconds: 80), _scrollToBottom);
+    }
+  }
+
+  Future<void> _respondToOffer(String offerId, String action) async {
+    final label = action == 'accept'
+        ? '수락'
+        : action == 'reject'
+            ? '거절'
+            : '취소';
+    // Confirm only the destructive ones.
+    if (action != 'cancel') {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text('가격 제안 $label'),
+          content: Text(action == 'accept'
+              ? '이 가격에 거래를 진행하시겠어요?'
+              : '제안을 거절할까요?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(_, false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(_, true),
+              style: TextButton.styleFrom(
+                foregroundColor: action == 'accept'
+                    ? EggplantColors.primary
+                    : EggplantColors.error,
+              ),
+              child: Text(label),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    if (!mounted) return;
+    final err =
+        await context.read<ChatService>().respondToOffer(offerId, action);
+    if (!mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+    }
   }
 
   /// Derive the peer's userId from the deterministic room ID.
@@ -468,11 +646,14 @@ class _InputBar extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onSend;
   final bool connected;
+  /// 가격 제안 버튼 핸들러. null 이면 버튼 숨김 (상품 첨부되지 않은 방).
+  final VoidCallback? onOffer;
 
   const _InputBar({
     required this.controller,
     required this.onSend,
     required this.connected,
+    this.onOffer,
   });
 
   @override
@@ -483,20 +664,29 @@ class _InputBar extends StatelessWidget {
         border: Border(top: BorderSide(color: EggplantColors.border)),
       ),
       padding: EdgeInsets.only(
-        left: 12,
+        left: 8,
         right: 8,
         top: 10,
         bottom: 10 + MediaQuery.of(context).padding.bottom,
       ),
       child: Row(
         children: [
+          if (onOffer != null)
+            IconButton(
+              tooltip: '가격 제안',
+              icon: const Icon(
+                Icons.payments_outlined,
+                color: EggplantColors.primary,
+              ),
+              onPressed: onOffer,
+            ),
           Expanded(
             child: TextField(
               controller: controller,
               minLines: 1,
               maxLines: 4,
               decoration: InputDecoration(
-                hintText: connected ? '메시지 입력 (저장 안 됨)' : '연결 중...',
+                hintText: connected ? '메시지 입력' : '연결 중...',
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 border: OutlineInputBorder(
@@ -523,5 +713,224 @@ class _InputBar extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// 가격 제안(price_offer) 메시지 전용 풍선.
+///
+/// 상태(pending/accepted/rejected/cancelled)에 따라 색상과 액션 버튼이 달라진다.
+///   - pending + 내가 판매자: [거절] [수락] 두 버튼
+///   - pending + 내가 구매자: [제안 취소] 버튼
+///   - 그 외(이미 처리된 제안): 상태 칩만
+class _PriceOfferCard extends StatelessWidget {
+  final ChatMessage message;
+  final String? myUserId;
+  final void Function(String action) onRespond;
+
+  const _PriceOfferCard({
+    required this.message,
+    required this.myUserId,
+    required this.onRespond,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final offer = message.offer!;
+    final mine = message.isMine;
+    final iAmSeller = myUserId != null && myUserId == offer.sellerId;
+    final iAmBuyer = myUserId != null && myUserId == offer.buyerId;
+
+    final time = DateFormat('HH:mm').format(message.sentAt);
+    final accent = _accentForStatus(offer.status);
+    final bg = _bgForStatus(offer.status);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: mine ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (mine) ...[
+            Text(
+              time,
+              style: const TextStyle(
+                fontSize: 10,
+                color: EggplantColors.textTertiary,
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: Radius.circular(mine ? 16 : 4),
+                    bottomRight: Radius.circular(mine ? 4 : 16),
+                  ),
+                  border: Border.all(color: accent.withOpacity(0.35)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.payments_rounded, size: 16, color: accent),
+                        const SizedBox(width: 6),
+                        const Text(
+                          '가격 제안',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: EggplantColors.textSecondary,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: accent.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            offer.statusLabel,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: accent,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      offer.priceLabel,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: EggplantColors.textPrimary,
+                      ),
+                    ),
+                    if (offer.isPending) ...[
+                      const SizedBox(height: 10),
+                      _buildActionRow(iAmSeller, iAmBuyer),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (!mine) ...[
+            const SizedBox(width: 4),
+            Text(
+              time,
+              style: const TextStyle(
+                fontSize: 10,
+                color: EggplantColors.textTertiary,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionRow(bool iAmSeller, bool iAmBuyer) {
+    if (iAmSeller) {
+      return Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: EggplantColors.error,
+                side: const BorderSide(color: EggplantColors.error),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => onRespond('reject'),
+              child: const Text(
+                '거절',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: EggplantColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => onRespond('accept'),
+              child: const Text(
+                '수락',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    if (iAmBuyer) {
+      return SizedBox(
+        width: double.infinity,
+        child: TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: EggplantColors.textSecondary,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+          ),
+          onPressed: () => onRespond('cancel'),
+          child: const Text(
+            '제안 취소하기',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Color _accentForStatus(String status) {
+    switch (status) {
+      case 'accepted':
+        return EggplantColors.primary;
+      case 'rejected':
+        return EggplantColors.error;
+      case 'cancelled':
+        return EggplantColors.textSecondary;
+      case 'pending':
+      default:
+        return EggplantColors.primary;
+    }
+  }
+
+  Color _bgForStatus(String status) {
+    switch (status) {
+      case 'accepted':
+        return const Color(0xFFEEF7F0); // soft green-ish
+      case 'rejected':
+        return const Color(0xFFFDECEC);
+      case 'cancelled':
+        return const Color(0xFFF3F4F6);
+      case 'pending':
+      default:
+        return Colors.white;
+    }
   }
 }
