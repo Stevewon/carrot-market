@@ -344,8 +344,9 @@ class _ChatScreenState extends State<ChatScreen> {
       if (ok != true) return;
     }
     if (!mounted) return;
-    final err =
-        await context.read<ChatService>().respondToOffer(offerId, action);
+    final err = await context
+        .read<ChatService>()
+        .respondToOffer(offerId, action, roomId: widget.roomId);
     if (!mounted) return;
     if (err != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));

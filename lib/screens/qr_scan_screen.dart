@@ -63,6 +63,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
     final chat = context.read<ChatService>();
     final room = await chat.openRoomWithPeer(
       peerUserId: peerUserId,
+      peerNickname: peerNickname,
     );
     if (!mounted) return;
     if (room == null) {

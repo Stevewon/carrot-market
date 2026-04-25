@@ -81,9 +81,38 @@ class _ChatListTabState extends State<ChatListTab> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () => chat.fetchRooms(silent: true),
-        child: _buildBody(chat, me),
+      body: Column(
+        children: [
+          // 사생활 보호 안내 배너 — 휘발성 채팅임을 항상 인식할 수 있도록.
+          Container(
+            width: double.infinity,
+            color: EggplantColors.background,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: const Row(
+              children: [
+                Icon(Icons.lock_outline_rounded,
+                    size: 14, color: EggplantColors.primary),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '대화는 어디에도 저장되지 않아요. 앱을 닫으면 사라져요.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: EggplantColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () => chat.fetchRooms(silent: true),
+              child: _buildBody(chat, me),
+            ),
+          ),
+        ],
       ),
     );
   }

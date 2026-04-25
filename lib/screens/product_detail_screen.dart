@@ -518,6 +518,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final chat = context.read<ChatService>();
     final room = await chat.openRoomWithPeer(
       peerUserId: p.sellerId,
+      peerNickname: p.sellerNickname,
       productId: p.id,
       productTitle: p.title,
       productThumb: p.images.isNotEmpty ? p.images.first : null,
