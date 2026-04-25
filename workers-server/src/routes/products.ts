@@ -80,6 +80,16 @@ app.get('/', optionalAuth, async (c) => {
     params.push(`%${search}%`, `%${search}%`);
   }
 
+  // Hide listings from anyone the current user has blocked. Done with a
+  // NOT IN subquery instead of a join so the WHERE-clause stays simple.
+  const user = c.get('user');
+  if (user) {
+    conditions.push(
+      'seller_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)'
+    );
+    params.push(user.id);
+  }
+
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   // Sort by the most recent of (bumped_at, created_at). Sellers who bump a
   // listing within the last 24h surface back to the top, exactly like 당근.
@@ -94,7 +104,6 @@ app.get('/', optionalAuth, async (c) => {
     .all<ProductRow>();
 
   const rows = rs.results || [];
-  const user = c.get('user');
   const products = await Promise.all(rows.map((r) => hydrate(c.env, r, user?.id)));
   return c.json({ products });
 });
@@ -399,11 +408,19 @@ app.patch('/:id', authMiddleware, async (c) => {
   return c.json({ product });
 });
 
-/** PUT /api/products/:id/status */
+/**
+ * PUT /api/products/:id/status
+ *
+ * Seller updates listing status.
+ * • status='sold' may carry a `buyer_id` — typically chosen from the chat
+ *   partners that messaged about this product. Stored on the product so both
+ *   sides can leave a review later.
+ * • Switching back to 'sale' or 'reserved' clears any previous buyer_id.
+ */
 app.put('/:id/status', authMiddleware, async (c) => {
   const user = c.get('user')!;
   const id = c.req.param('id');
-  let body: { status?: string } = {};
+  let body: { status?: string; buyer_id?: string | null } = {};
   try {
     body = await c.req.json();
   } catch {
@@ -421,12 +438,174 @@ app.put('/:id/status', authMiddleware, async (c) => {
   if (!row) return c.json({ error: 'Not found' }, 404);
   if (row.seller_id !== user.id) return c.json({ error: 'Forbidden' }, 403);
 
+  // Validate buyer_id if provided (must be a real user, not the seller).
+  let buyerId: string | null = null;
+  if (body.status === 'sold' && body.buyer_id) {
+    if (body.buyer_id === user.id) {
+      return c.json({ error: '본인을 구매자로 지정할 수 없어요' }, 400);
+    }
+    const buyer = await c.env.DB
+      .prepare('SELECT id FROM users WHERE id = ?')
+      .bind(body.buyer_id)
+      .first<{ id: string }>();
+    if (!buyer) return c.json({ error: '구매자를 찾을 수 없어요' }, 400);
+    buyerId = body.buyer_id;
+  }
+
+  if (body.status === 'sold') {
+    await c.env.DB
+      .prepare(
+        "UPDATE products SET status = ?, buyer_id = ?, updated_at = datetime('now') WHERE id = ?"
+      )
+      .bind(body.status, buyerId, id)
+      .run();
+  } else {
+    // sale / reserved → clear any stored buyer.
+    await c.env.DB
+      .prepare(
+        "UPDATE products SET status = ?, buyer_id = NULL, updated_at = datetime('now') WHERE id = ?"
+      )
+      .bind(body.status, id)
+      .run();
+  }
+
+  return c.json({ ok: true, status: body.status, buyer_id: buyerId });
+});
+
+/**
+ * GET /api/products/:id/buyers
+ *
+ * Owner-only. Returns the list of users that have an active chat room with
+ * the seller about this product — used as the buyer-picker when marking the
+ * listing as 'sold'.
+ */
+app.get('/:id/buyers', authMiddleware, async (c) => {
+  const user = c.get('user')!;
+  const id = c.req.param('id');
+
+  const row = await c.env.DB
+    .prepare('SELECT seller_id FROM products WHERE id = ?')
+    .bind(id)
+    .first<{ seller_id: string }>();
+  if (!row) return c.json({ error: 'Not found' }, 404);
+  if (row.seller_id !== user.id) return c.json({ error: 'Forbidden' }, 403);
+
+  // Pull the *other* side of every chat room tied to this product.
+  const { results } = await c.env.DB
+    .prepare(
+      `SELECT DISTINCT u.id, u.nickname, u.manner_score
+         FROM chat_rooms r
+         JOIN users u ON u.id = CASE WHEN r.user_a_id = ?1 THEN r.user_b_id ELSE r.user_a_id END
+        WHERE r.product_id = ?2
+          AND (r.user_a_id = ?1 OR r.user_b_id = ?1)
+        ORDER BY r.last_message_at DESC`
+    )
+    .bind(user.id, id)
+    .all<{ id: string; nickname: string; manner_score: number }>();
+
+  return c.json({ buyers: results || [] });
+});
+
+/**
+ * POST /api/products/:id/review
+ *
+ * 거래후기. Either side (seller ↔ buyer) can leave one review per product.
+ *   body: { rating: 'good' | 'soso' | 'bad', tags?: string[], comment?: string }
+ *
+ * Auto‑updates the reviewee's manner_score via DB trigger
+ * (good +0.5°, soso 0°, bad -0.5°; stored *10).
+ *
+ * Constraints:
+ *   • Product status must be 'sold'.
+ *   • Reviewer must be the seller or the recorded buyer.
+ *   • One review per (product, reviewer).
+ */
+app.post('/:id/review', authMiddleware, async (c) => {
+  const user = c.get('user')!;
+  const id = c.req.param('id');
+
+  let body: { rating?: string; tags?: string[]; comment?: string } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: '잘못된 요청' }, 400);
+  }
+  if (!['good', 'soso', 'bad'].includes(body.rating || '')) {
+    return c.json({ error: '평가를 선택해주세요' }, 400);
+  }
+
+  const product = await c.env.DB
+    .prepare('SELECT seller_id, buyer_id, status FROM products WHERE id = ?')
+    .bind(id)
+    .first<{ seller_id: string; buyer_id: string | null; status: string }>();
+  if (!product) return c.json({ error: 'Not found' }, 404);
+  if (product.status !== 'sold') {
+    return c.json({ error: '거래완료 후에 후기를 남길 수 있어요' }, 400);
+  }
+  if (!product.buyer_id) {
+    return c.json({ error: '구매자가 지정되지 않았어요' }, 400);
+  }
+
+  // Determine reviewee.
+  let revieweeId: string | null = null;
+  if (user.id === product.seller_id) revieweeId = product.buyer_id;
+  else if (user.id === product.buyer_id) revieweeId = product.seller_id;
+  if (!revieweeId) {
+    return c.json({ error: '거래 당사자만 후기를 남길 수 있어요' }, 403);
+  }
+
+  // Duplicate check — UNIQUE(product_id, reviewer_id) is the source of truth,
+  // but we want a friendly Korean error rather than a 500 from the DB.
+  const dup = await c.env.DB
+    .prepare('SELECT 1 FROM reviews WHERE product_id = ? AND reviewer_id = ?')
+    .bind(id, user.id)
+    .first();
+  if (dup) return c.json({ error: '이미 후기를 남기셨어요' }, 409);
+
+  const tags = Array.isArray(body.tags)
+    ? body.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 8).join(',')
+    : '';
+  const comment = (body.comment || '').toString().trim().slice(0, 300);
+
+  const reviewId = crypto.randomUUID();
   await c.env.DB
-    .prepare("UPDATE products SET status = ?, updated_at = datetime('now') WHERE id = ?")
-    .bind(body.status, id)
+    .prepare(
+      `INSERT INTO reviews (id, product_id, reviewer_id, reviewee_id, rating, tags, comment)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(reviewId, id, user.id, revieweeId, body.rating, tags, comment)
     .run();
 
-  return c.json({ ok: true, status: body.status });
+  // Trigger has already adjusted manner_score; fetch the new value to return.
+  const updated = await c.env.DB
+    .prepare('SELECT manner_score FROM users WHERE id = ?')
+    .bind(revieweeId)
+    .first<{ manner_score: number }>();
+
+  return c.json({
+    ok: true,
+    review_id: reviewId,
+    reviewee_id: revieweeId,
+    new_manner_score: updated?.manner_score ?? 365,
+  });
+});
+
+/**
+ * GET /api/products/:id/review/me
+ *
+ * Returns the current user's review on this product (if any). Used by the
+ * client to know whether to show the "후기 남기기" CTA or "후기 보기".
+ */
+app.get('/:id/review/me', authMiddleware, async (c) => {
+  const user = c.get('user')!;
+  const id = c.req.param('id');
+  const review = await c.env.DB
+    .prepare(
+      'SELECT id, rating, tags, comment, created_at FROM reviews WHERE product_id = ? AND reviewer_id = ?'
+    )
+    .bind(id, user.id)
+    .first();
+  return c.json({ review: review || null });
 });
 
 /**

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../app/theme.dart';
 import '../services/auth_service.dart';
+import '../services/moderation_service.dart';
 import '../services/permission_service.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -33,6 +34,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
     if (auth.isLoggedIn) {
+      // Warm up the block cache so feed/chat filtering works on first load.
+      // Fire-and-forget; failure is non-fatal.
+      // ignore: unawaited_futures
+      context.read<ModerationService>().fetchBlocks();
       context.go('/');
     } else {
       context.go('/onboarding');

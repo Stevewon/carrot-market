@@ -66,8 +66,21 @@ export interface ProductRow {
   chat_count: number;
   /** Last time the seller pressed "끌어올리기" (24h cooldown). NULL if never. */
   bumped_at: string | null;
+  /** Set when the seller marks the listing as 'sold' and picks a buyer. */
+  buyer_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ReviewRow {
+  id: string;
+  product_id: string;
+  reviewer_id: string;
+  reviewee_id: string;
+  rating: 'good' | 'soso' | 'bad';
+  tags: string; // CSV
+  comment: string;
+  created_at: string;
 }
 
 /**

@@ -17,6 +17,7 @@ import '../screens/qr_scan_screen.dart';
 import '../screens/chat_screen.dart';
 import '../screens/call_screen.dart';
 import '../screens/region_select_screen.dart';
+import '../screens/user_profile_screen.dart';
 
 GoRouter createRouter(AuthService auth) {
   return GoRouter(
@@ -82,6 +83,12 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(
         path: '/region',
         builder: (_, __) => const RegionSelectScreen(),
+      ),
+      GoRoute(
+        path: '/user/:id',
+        builder: (_, state) => UserProfileScreen(
+          userId: state.pathParameters['id']!,
+        ),
       ),
       GoRoute(
         path: '/call',

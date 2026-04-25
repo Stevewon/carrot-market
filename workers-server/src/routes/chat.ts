@@ -94,10 +94,12 @@ app.get('/rooms', async (c) => {
        FROM chat_rooms r
        JOIN users u
          ON u.id = CASE WHEN r.user_a_id = ? THEN r.user_b_id ELSE r.user_a_id END
-      WHERE r.user_a_id = ? OR r.user_b_id = ?
+      WHERE (r.user_a_id = ? OR r.user_b_id = ?)
+        AND (CASE WHEN r.user_a_id = ? THEN r.user_b_id ELSE r.user_a_id END)
+            NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)
       ORDER BY r.last_message_at DESC`
   )
-    .bind(me.id, me.id, me.id, me.id, me.id, me.id, me.id)
+    .bind(me.id, me.id, me.id, me.id, me.id, me.id, me.id, me.id, me.id)
     .all();
 
   return c.json({ rooms: rows.results || [] });
@@ -197,6 +199,22 @@ app.post('/rooms', async (c) => {
     .bind(peerUserId)
     .first<{ id: string; nickname: string; manner_score: number }>();
   if (!peer) return c.json({ error: '상대방을 찾을 수 없어요' }, 404);
+
+  // Block check: if EITHER side has blocked the other, refuse to (re)create
+  // a room. We check both directions so a blocker can't be cold-DMed by their
+  // blockee, AND a blockee can't keep talking to someone who blocked them.
+  const block = await c.env.DB
+    .prepare(
+      `SELECT 1 FROM user_blocks
+        WHERE (blocker_id = ? AND blocked_id = ?)
+           OR (blocker_id = ? AND blocked_id = ?)
+        LIMIT 1`
+    )
+    .bind(me.id, peerUserId, peerUserId, me.id)
+    .first();
+  if (block) {
+    return c.json({ error: '대화할 수 없는 상대예요' }, 403);
+  }
 
   const roomId = makeRoomId(me.id, peerUserId, body.product_id);
   const [userA, userB] = [me.id, peerUserId].sort();

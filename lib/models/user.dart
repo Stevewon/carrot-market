@@ -4,7 +4,11 @@ class User {
   final String deviceUuid;
   final String? walletAddress;
   final String? region;
-  final int mannerScore; // starts at 36 (36.5°C)
+
+  /// Manner score stored as ×10 integer (e.g. 365 = 36.5°).
+  /// Default is 365 (= 36.5°), matching 당근의 시작값.
+  /// Old API rows that still return 36 are auto-upgraded to 365 (see [fromJson]).
+  final int mannerScore;
   final DateTime createdAt;
 
   User({
@@ -13,20 +17,38 @@ class User {
     required this.deviceUuid,
     this.walletAddress,
     this.region,
-    this.mannerScore = 36,
+    this.mannerScore = 365,
     required this.createdAt,
   });
 
+  /// Display-friendly temperature, e.g. `36.5`.
+  double get mannerTemperature => mannerScore / 10.0;
+
+  /// "36.5°" — ready to render in UI.
+  String get mannerLabel => '${mannerTemperature.toStringAsFixed(1)}°';
+
   factory User.fromJson(Map<String, dynamic> json) {
+    final raw = json['manner_score'];
+    int score;
+    if (raw == null) {
+      score = 365;
+    } else if (raw is int) {
+      score = raw;
+    } else if (raw is num) {
+      score = raw.toInt();
+    } else {
+      score = 365;
+    }
+    // Backwards-compat: if the server still serves the old 0–99 scale
+    // (anything < 100), upgrade to ×10.
+    if (score > 0 && score < 100) score *= 10;
     return User(
       id: json['id'].toString(),
       nickname: json['nickname'] ?? '익명가지',
       deviceUuid: json['device_uuid'] ?? '',
       walletAddress: json['wallet_address'] as String?,
       region: json['region'] as String?,
-      mannerScore: (json['manner_score'] ?? 36) is int
-          ? json['manner_score'] ?? 36
-          : (json['manner_score'] as num).toInt(),
+      mannerScore: score,
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
   }

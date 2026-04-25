@@ -10,6 +10,7 @@ import 'services/auth_service.dart';
 import 'services/product_service.dart';
 import 'services/chat_service.dart';
 import 'services/call_service.dart';
+import 'services/moderation_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +40,7 @@ class EggplantApp extends StatelessWidget {
         ChangeNotifierProvider<AuthService>.value(value: authService),
         ChangeNotifierProvider(create: (_) => ProductService(authService)),
         ChangeNotifierProvider(create: (_) => ChatService(authService)),
+        ChangeNotifierProvider(create: (_) => ModerationService(authService)),
         ChangeNotifierProxyProvider<ChatService, CallService>(
           create: (ctx) => CallService(
             auth: authService,
@@ -93,10 +95,13 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
     final auth = context.read<AuthService>();
 
     // Trigger chat connection once logged in so socket is ready
-    // to receive incoming call signals.
+    // to receive incoming call signals. We also warm the block cache
+    // here so feed / chat filtering works before the user navigates.
     if (!_chatConnectRequested && auth.isLoggedIn) {
       _chatConnectRequested = true;
       context.read<ChatService>().connect();
+      // ignore: unawaited_futures
+      context.read<ModerationService>().fetchBlocks();
     }
 
     if (_callService != call) {

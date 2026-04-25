@@ -58,7 +58,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _changeStatus(String status) async {
     final p = _product;
     if (p == null) return;
-    final err = await context.read<ProductService>().updateStatus(p.id, status);
+
+    // 거래완료 → ask the seller to pick a buyer (from chat partners), then
+    // open the 거래후기 sheet so the seller can leave a review right away.
+    String? buyerId;
+    Map<String, dynamic>? buyer;
+    if (status == 'sold') {
+      buyer = await _pickBuyer(p);
+      if (buyer == null) return; // user cancelled
+      buyerId = buyer['id']?.toString();
+    }
+
+    final err = await context
+        .read<ProductService>()
+        .updateStatus(p.id, status, buyerId: buyerId);
     if (!mounted) return;
     if (err != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
@@ -70,6 +83,257 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('상태를 ${_statusLabel(status)}(으)로 변경했어요')),
     );
+
+    // Offer to leave a review immediately when sold.
+    if (status == 'sold' && buyer != null) {
+      await _showReviewSheet(buyerNickname: buyer['nickname']?.toString() ?? '구매자');
+    }
+  }
+
+  /// Bottom sheet — pick the buyer from chat partners that messaged about
+  /// this listing. Returns the chosen `{id, nickname, manner_score}` or null.
+  Future<Map<String, dynamic>?> _pickBuyer(Product p) async {
+    final candidates =
+        await context.read<ProductService>().fetchBuyerCandidates(p.id);
+    if (!mounted) return null;
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('구매자와 채팅한 기록이 없어요. 먼저 채팅을 열어주세요.'),
+        ),
+      );
+      return null;
+    }
+    return showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  '누구와 거래하셨나요?',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(height: 4),
+              for (final b in candidates)
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: EggplantColors.surface,
+                    child: Icon(Icons.person, color: EggplantColors.primary),
+                  ),
+                  title: Text(
+                    b['nickname']?.toString() ?? '익명가지',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(_mannerLabel(b['manner_score'])),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.pop(ctx, b),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('취소'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Render manner_score (×10) as e.g. "매너온도 36.5°".
+  String _mannerLabel(dynamic raw) {
+    int v;
+    if (raw is int) v = raw;
+    else if (raw is num) v = raw.toInt();
+    else v = int.tryParse(raw?.toString() ?? '365') ?? 365;
+    if (v > 0 && v < 100) v *= 10;
+    return '매너온도 ${(v / 10.0).toStringAsFixed(1)}°';
+  }
+
+  /// 거래후기 입력 시트.
+  Future<void> _showReviewSheet({required String buyerNickname}) async {
+    String rating = 'good';
+    final tags = <String>{};
+    final ctl = TextEditingController();
+    const tagLibrary = <String, List<String>>{
+      'good': ['시간 약속을 잘 지켜요', '친절하고 매너가 좋아요', '상품 설명이 정확해요', '응답이 빨라요'],
+      'soso': ['적당히 친절해요', '특별한 점은 없었어요'],
+      'bad': ['약속 시간을 안 지켜요', '응답이 늦어요', '상품 상태가 달라요'],
+    };
+
+    final p = _product;
+    if (p == null) return;
+
+    final submitted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 12,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Text(
+                  '$buyerNickname 님과의 거래는 어떠셨어요?',
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _RatingChip(
+                      emoji: '😊',
+                      label: '좋아요',
+                      selected: rating == 'good',
+                      onTap: () => setSt(() {
+                        rating = 'good';
+                        tags.clear();
+                      }),
+                    ),
+                    _RatingChip(
+                      emoji: '😐',
+                      label: '보통',
+                      selected: rating == 'soso',
+                      onTap: () => setSt(() {
+                        rating = 'soso';
+                        tags.clear();
+                      }),
+                    ),
+                    _RatingChip(
+                      emoji: '😣',
+                      label: '별로',
+                      selected: rating == 'bad',
+                      onTap: () => setSt(() {
+                        rating = 'bad';
+                        tags.clear();
+                      }),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text('어떤 점이 좋았나요? (선택)',
+                    style:
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final t in (tagLibrary[rating] ?? const []))
+                      FilterChip(
+                        label: Text(t),
+                        selected: tags.contains(t),
+                        onSelected: (v) => setSt(() {
+                          if (v) {
+                            tags.add(t);
+                          } else {
+                            tags.remove(t);
+                          }
+                        }),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: ctl,
+                  maxLength: 300,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    hintText: '거래에 대한 한마디 (선택)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: EggplantColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: () async {
+                      final err = await context
+                          .read<ProductService>()
+                          .postReview(
+                            p.id,
+                            rating: rating,
+                            tags: tags.toList(),
+                            comment: ctl.text.trim(),
+                          );
+                      if (!ctx.mounted) return;
+                      if (err != null) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(content: Text(err)),
+                        );
+                        return;
+                      }
+                      Navigator.pop(ctx, true);
+                    },
+                    child: const Text(
+                      '후기 보내기',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800, fontSize: 15),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('나중에 할게요'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (submitted == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('후기를 등록했어요. 매너온도가 반영됐어요 🍆')),
+      );
+    }
   }
 
   String _statusLabel(String s) =>
@@ -588,50 +852,60 @@ class _SellerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: EggplantColors.background,
-            border: Border.all(color: EggplantColors.primaryLight),
-          ),
-          child: ClipOval(
-            child: Image.asset('assets/images/eggplant-mascot.png'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(product.sellerNickname,
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700)),
-              Text(product.region,
-                  style: const TextStyle(
-                      fontSize: 12, color: EggplantColors.textSecondary)),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: EggplantColors.background,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            '${product.sellerMannerScore}.5°C',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: EggplantColors.primary,
+    return InkWell(
+      onTap: () => context.push('/user/${product.sellerId}'),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: EggplantColors.background,
+                border: Border.all(color: EggplantColors.primaryLight),
+              ),
+              child: ClipOval(
+                child: Image.asset('assets/images/eggplant-mascot.png'),
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(product.sellerNickname,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w700)),
+                  Text(product.region,
+                      style: const TextStyle(
+                          fontSize: 12, color: EggplantColors.textSecondary)),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: EggplantColors.background,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${product.sellerMannerLabel}C',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: EggplantColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right,
+                size: 18, color: EggplantColors.textTertiary),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -948,6 +1222,58 @@ class _PhotoViewerState extends State<_PhotoViewer> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Reusable rating chip used in the 거래후기 sheet.
+class _RatingChip extends StatelessWidget {
+  final String emoji;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _RatingChip({
+    required this.emoji,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? EggplantColors.primary.withOpacity(0.12)
+              : Colors.transparent,
+          border: Border.all(
+            color: selected ? EggplantColors.primary : Colors.black12,
+            width: selected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 28)),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: selected
+                    ? EggplantColors.primary
+                    : EggplantColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

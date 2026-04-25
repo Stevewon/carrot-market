@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/product.dart';
+import '../models/review.dart';
 import 'auth_service.dart';
 
 class ProductService extends ChangeNotifier {
@@ -326,11 +327,21 @@ class ProductService extends ChangeNotifier {
 
   /// Change product status: 'sale' | 'reserved' | 'sold'.
   /// Returns null on success, error string on failure.
-  Future<String?> updateStatus(String productId, String status) async {
+  ///
+  /// When [status] == 'sold' and a [buyerId] is provided, the server records
+  /// who the listing was sold to so both sides can leave 거래후기 later.
+  Future<String?> updateStatus(
+    String productId,
+    String status, {
+    String? buyerId,
+  }) async {
     try {
       final res = await auth.api.put(
         '/api/products/$productId/status',
-        data: {'status': status},
+        data: {
+          'status': status,
+          if (status == 'sold' && buyerId != null) 'buyer_id': buyerId,
+        },
       );
       if (res.statusCode == 200) {
         // Update local caches so every tab reflects the new status immediately.
@@ -438,5 +449,106 @@ class ProductService extends ChangeNotifier {
     _mySelling = [];
     _mySellingLoaded = false;
     notifyListeners();
+  }
+
+  // ─── Reviews / 거래후기 ──────────────────────────────────────────────
+
+  /// Owner-only: list of buyer candidates (everyone who chatted about this
+  /// product). Used as the picker when marking a listing as 'sold'.
+  /// Returns `[ {id, nickname, manner_score} ]` — empty list on error.
+  Future<List<Map<String, dynamic>>> fetchBuyerCandidates(String productId) async {
+    try {
+      final res = await auth.api.get('/api/products/$productId/buyers');
+      final list = (res.data?['buyers'] as List?) ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      debugPrint('fetchBuyerCandidates error: ${e.response?.data ?? e.message}');
+      return [];
+    } catch (e) {
+      debugPrint('fetchBuyerCandidates error: $e');
+      return [];
+    }
+  }
+
+  /// Submit a review for a 'sold' product.
+  ///   [rating]   : 'good' | 'soso' | 'bad'
+  ///   [tags]     : up to 8 short labels (e.g. '시간약속을 잘 지켜요').
+  ///   [comment]  : optional free-form text (≤ 300 chars on server).
+  ///
+  /// Returns null on success, Korean error string on failure.
+  Future<String?> postReview(
+    String productId, {
+    required String rating,
+    List<String> tags = const [],
+    String comment = '',
+  }) async {
+    try {
+      final res = await auth.api.post(
+        '/api/products/$productId/review',
+        data: {
+          'rating': rating,
+          'tags': tags,
+          'comment': comment,
+        },
+      );
+      return res.statusCode == 200
+          ? null
+          : (res.data is Map
+              ? (res.data['error']?.toString() ?? '후기 등록 실패')
+              : '후기 등록 실패');
+    } on DioException catch (e) {
+      debugPrint('postReview error: ${e.response?.data ?? e.message}');
+      return (e.response?.data is Map)
+          ? (e.response!.data['error']?.toString() ?? '후기 등록 실패')
+          : '후기 등록 실패';
+    } catch (e) {
+      debugPrint('postReview error: $e');
+      return '후기 등록 실패';
+    }
+  }
+
+  /// Returns the current user's review on this product, or null if none yet.
+  Future<Review?> fetchMyReview(String productId) async {
+    try {
+      final res = await auth.api.get('/api/products/$productId/review/me');
+      final raw = res.data?['review'];
+      if (raw == null) return null;
+      return Review.fromJson(Map<String, dynamic>.from(raw as Map));
+    } catch (e) {
+      debugPrint('fetchMyReview error: $e');
+      return null;
+    }
+  }
+
+  /// Public profile of a user (nickname, region, manner_score, stats).
+  Future<Map<String, dynamic>?> fetchUserProfile(String userId) async {
+    try {
+      final res = await auth.api.get('/api/users/$userId/profile');
+      return Map<String, dynamic>.from(res.data as Map);
+    } catch (e) {
+      debugPrint('fetchUserProfile error: $e');
+      return null;
+    }
+  }
+
+  /// Reviews received by a user (newest first).
+  Future<List<Review>> fetchUserReviews(String userId,
+      {int limit = 20, DateTime? before}) async {
+    try {
+      final res = await auth.api.get(
+        '/api/users/$userId/reviews',
+        query: {
+          'limit': limit,
+          if (before != null) 'before': before.toIso8601String(),
+        },
+      );
+      final list = (res.data?['reviews'] as List?) ?? [];
+      return list
+          .map((e) => Review.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (e) {
+      debugPrint('fetchUserReviews error: $e');
+      return [];
+    }
   }
 }

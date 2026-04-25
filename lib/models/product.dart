@@ -9,6 +9,7 @@ class Product {
   final String videoUrl; // '' | https://youtu.be/<id> | /uploads/<key>.mp4
   final String sellerId;
   final String sellerNickname;
+  /// ×10 scale (e.g. 365 = 36.5°). See [User.mannerScore].
   final int sellerMannerScore;
   final String status; // 'sale', 'reserved', 'sold'
   final int viewCount;
@@ -19,6 +20,9 @@ class Product {
   /// Last "끌어올리기" timestamp. NULL = never bumped.
   /// Used to compute the "방금 끌어올림" hint and the 24h cooldown.
   final DateTime? bumpedAt;
+  /// Set by the server when the seller marks the listing as 'sold'
+  /// and picks a buyer (used for the 거래후기 flow).
+  final String? buyerId;
 
   Product({
     required this.id,
@@ -31,7 +35,7 @@ class Product {
     this.videoUrl = '',
     required this.sellerId,
     required this.sellerNickname,
-    this.sellerMannerScore = 36,
+    this.sellerMannerScore = 365,
     this.status = 'sale',
     this.viewCount = 0,
     this.likeCount = 0,
@@ -39,7 +43,13 @@ class Product {
     this.isLiked = false,
     required this.createdAt,
     this.bumpedAt,
+    this.buyerId,
   });
+
+  /// Display-friendly seller temperature, e.g. `36.5`.
+  double get sellerMannerTemperature => sellerMannerScore / 10.0;
+  String get sellerMannerLabel =>
+      '${sellerMannerTemperature.toStringAsFixed(1)}°';
 
   /// True if [videoUrl] points to a YouTube video (not an uploaded file).
   bool get isYouTubeVideo =>
@@ -80,9 +90,7 @@ class Product {
       videoUrl: (json['video_url'] ?? '').toString(),
       sellerId: json['seller_id']?.toString() ?? '',
       sellerNickname: json['seller_nickname'] ?? '익명가지',
-      sellerMannerScore: (json['seller_manner_score'] ?? 36) is int
-          ? json['seller_manner_score'] ?? 36
-          : (json['seller_manner_score'] as num).toInt(),
+      sellerMannerScore: _parseMannerScore(json['seller_manner_score']),
       status: json['status'] ?? 'sale',
       viewCount: (json['view_count'] ?? 0) is int
           ? json['view_count'] ?? 0
@@ -98,7 +106,25 @@ class Product {
       bumpedAt: json['bumped_at'] != null
           ? DateTime.tryParse(json['bumped_at'].toString())
           : null,
+      buyerId: (json['buyer_id'] ?? '').toString().isEmpty
+          ? null
+          : json['buyer_id'].toString(),
     );
+  }
+
+  /// Coerces seller_manner_score from any of the legacy formats:
+  ///   • null            → 365
+  ///   • int 0..99       → ×10 upgrade (e.g. 36 → 365)
+  ///   • int >= 100      → already on the new scale
+  ///   • num (double)    → toInt() with the same rules
+  static int _parseMannerScore(dynamic raw) {
+    if (raw == null) return 365;
+    int v;
+    if (raw is int) v = raw;
+    else if (raw is num) v = raw.toInt();
+    else v = int.tryParse(raw.toString()) ?? 365;
+    if (v > 0 && v < 100) v *= 10;
+    return v;
   }
 
   /// Effective "shown timestamp" for sorting / display — most recent of
