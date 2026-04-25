@@ -133,7 +133,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
     if (ok != true || !mounted) return;
     final mod = context.read<ModerationService>();
-    final err = await mod.block(widget.userId);
+    final err = await mod.blockUser(widget.userId);
     if (!mounted) return;
     if (err != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
@@ -165,7 +165,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ),
     );
     if (ok != true || !mounted) return;
-    final err = await context.read<ModerationService>().unblock(widget.userId);
+    final err = await context.read<ModerationService>().unblockUser(widget.userId);
     if (!mounted) return;
     if (err != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
@@ -257,7 +257,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               Navigator.pop(ctx);
                               final err = await context
                                   .read<ModerationService>()
-                                  .report(
+                                  .reportUser(
                                     userId: widget.userId,
                                     reason: selected!,
                                     detail: detailCtl.text,

@@ -21,7 +21,9 @@ if (flutterVersionName == null) { flutterVersionName = '1.0' }
 android {
     namespace "com.eggplant.market"
     compileSdk 36
-    ndkVersion flutter.ndkVersion
+    // 일부 플러그인(flutter_secure_storage, flutter_webrtc 등)이 27.0.12077973 을 요구.
+    // 가장 높은 버전을 못 박아 두면 plugin 들이 모두 호환된다.
+    ndkVersion "27.0.12077973"
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
