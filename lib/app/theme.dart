@@ -88,4 +88,16 @@ final ThemeData eggplantTheme = ThemeData(
     showUnselectedLabels: true,
     elevation: 8,
   ),
+  // 태블릿/폴드 가로 모드에서 모달 바텀시트가 화면 전체로 늘어나지 않도록 max-width 600dp 로 제한.
+  // (모바일 폰에서는 화면이 600dp 보다 작으므로 영향 없음.)
+  // 다이얼로그(AlertDialog/Dialog)는 Flutter 기본값이 이미 가로 패딩을 적용하여 가운데 정렬되므로
+  // 별도 max-width 처리 불필요.
+  bottomSheetTheme: const BottomSheetThemeData(
+    backgroundColor: Colors.white,
+    surfaceTintColor: Colors.white,
+    constraints: BoxConstraints(maxWidth: 600),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+  ),
 );

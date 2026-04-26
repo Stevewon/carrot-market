@@ -752,11 +752,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
     }
 
+    // 미디어(이미지/영상) 영역 높이 — 화면 폭의 100%(최대 480dp).
+    // 태블릿/폴드 가로 모드에서는 너무 커지지 않게 480 으로 상한.
+    // 작은 폰(폴드 닫힘 등)에서도 정사각형(1:1)을 유지하면서 비율감 살림.
+    final mediaSize = MediaQuery.of(context).size;
+    final mediaHeight = mediaSize.width.clamp(280.0, 480.0).toDouble();
     return Scaffold(
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 360,
+            expandedHeight: mediaHeight,
             pinned: true,
             backgroundColor: Colors.white,
             foregroundColor: Colors.white,
@@ -1224,9 +1229,12 @@ class _ProductVideoState extends State<_ProductVideo> {
 
   @override
   Widget build(BuildContext context) {
+    // 동영상 placeholder/오류 화면 높이도 화면 폭에 비례 (180 고정 → 9:16 비율).
+    final w = MediaQuery.of(context).size.width;
+    final fallbackHeight = (w * 9 / 16).clamp(180.0, 320.0).toDouble();
     if (_initError) {
       return Container(
-        height: 180,
+        height: fallbackHeight,
         decoration: BoxDecoration(
           color: EggplantColors.background,
           borderRadius: BorderRadius.circular(12),
@@ -1242,9 +1250,9 @@ class _ProductVideoState extends State<_ProductVideo> {
 
     if (widget.product.isYouTubeVideo) {
       if (_ytCtl == null) {
-        return const SizedBox(
-          height: 180,
-          child: Center(
+        return SizedBox(
+          height: fallbackHeight,
+          child: const Center(
               child: CircularProgressIndicator(color: EggplantColors.primary)),
         );
       }
@@ -1265,9 +1273,9 @@ class _ProductVideoState extends State<_ProductVideo> {
     if (_chewieCtl == null ||
         _vpCtl == null ||
         !_vpCtl!.value.isInitialized) {
-      return const SizedBox(
-        height: 180,
-        child: Center(
+      return SizedBox(
+        height: fallbackHeight,
+        child: const Center(
             child: CircularProgressIndicator(color: EggplantColors.primary)),
       );
     }

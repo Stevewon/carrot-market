@@ -137,10 +137,10 @@ class QtaService extends ChangeNotifier {
     _loading = true;
     notifyListeners();
     try {
-      final res =
-          await auth.api.get('/api/users/me/qta/ledger', queryParameters: {
-        'limit': limit,
-      });
+      final res = await auth.api.get(
+        '/api/users/me/qta/ledger',
+        query: {'limit': limit},
+      );
       final data = res.data as Map<String, dynamic>;
       _balance = (data['balance'] as num?)?.toInt() ?? 0;
       _items
