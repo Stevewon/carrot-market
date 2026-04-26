@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/constants.dart';
+import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../models/product.dart';
 import '../../services/auth_service.dart';
@@ -162,35 +163,47 @@ class _FeedTabState extends State<FeedTab> {
                 ),
               const Divider(height: 1, color: EggplantColors.border),
               Expanded(
-                child: productSvc.loading && productSvc.products.isEmpty
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                            color: EggplantColors.primary),
-                      )
-                    : productSvc.products.isEmpty
-                        ? _EmptyView(onRefresh: _load)
-                        : RefreshIndicator(
-                            color: EggplantColors.primary,
-                            onRefresh: () async => _load(),
-                            child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              itemCount: productSvc.products.length,
-                              separatorBuilder: (_, __) => const Divider(
-                                height: 1,
-                                color: EggplantColors.border,
-                                indent: 16,
-                                endIndent: 16,
+                // 태블릿/폴드 펼침에서 상품 카드 리스트가 가로로 무한정
+                // 늘어나지 않도록 600dp 가운데 정렬.
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: Responsive.maxFeedWidth,
+                    ),
+                    child: productSvc.loading && productSvc.products.isEmpty
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                                color: EggplantColors.primary),
+                          )
+                        : productSvc.products.isEmpty
+                            ? _EmptyView(onRefresh: _load)
+                            : RefreshIndicator(
+                                color: EggplantColors.primary,
+                                onRefresh: () async => _load(),
+                                child: ListView.separated(
+                                  // 마지막 카드가 FAB(글쓰기 버튼) 에 가리지 않도록
+                                  // 끝에 80dp 여백.
+                                  padding: const EdgeInsets.only(
+                                      top: 8, bottom: 80),
+                                  itemCount: productSvc.products.length,
+                                  separatorBuilder: (_, __) => const Divider(
+                                    height: 1,
+                                    color: EggplantColors.border,
+                                    indent: 16,
+                                    endIndent: 16,
+                                  ),
+                                  itemBuilder: (_, i) {
+                                    final p = productSvc.products[i];
+                                    return ProductCard(
+                                      product: p,
+                                      onTap: () =>
+                                          context.push('/product/${p.id}'),
+                                    );
+                                  },
+                                ),
                               ),
-                              itemBuilder: (_, i) {
-                                final p = productSvc.products[i];
-                                return ProductCard(
-                                  product: p,
-                                  onTap: () =>
-                                      context.push('/product/${p.id}'),
-                                );
-                              },
-                            ),
-                          ),
+                  ),
+                ),
               ),
             ],
           ),

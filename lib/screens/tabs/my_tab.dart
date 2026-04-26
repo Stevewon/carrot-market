@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/moderation_service.dart';
@@ -53,11 +54,15 @@ class _MyTabState extends State<MyTab> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('나의 Eggplant')),
-      body: RefreshIndicator(
-        color: EggplantColors.primary,
-        onRefresh: _refresh,
-        child: ListView(
-          children: [
+      // 태블릿/폴드 펼침에서 600dp 가운데 정렬.
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+          child: RefreshIndicator(
+            color: EggplantColors.primary,
+            onRefresh: _refresh,
+            child: ListView(
+              children: [
             // Profile Header
             Container(
               padding: const EdgeInsets.all(20),
@@ -242,6 +247,8 @@ class _MyTabState extends State<MyTab> {
             ),
             const SizedBox(height: 40),
           ],
+        ),
+          ),
         ),
       ),
     );

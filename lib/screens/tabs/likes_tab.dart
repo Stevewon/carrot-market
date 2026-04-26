@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../models/product.dart';
 import '../../services/product_service.dart';
@@ -43,10 +44,16 @@ class _LikesTabState extends State<LikesTab> {
           items.isEmpty ? '찜한 상품' : '찜한 상품 ${items.length}',
         ),
       ),
-      body: RefreshIndicator(
-        color: EggplantColors.primary,
-        onRefresh: _refresh,
-        child: _body(svc, items),
+      // 태블릿/폴드 펼침에서 600dp 가운데 정렬.
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+          child: RefreshIndicator(
+            color: EggplantColors.primary,
+            onRefresh: _refresh,
+            child: _body(svc, items),
+          ),
+        ),
       ),
     );
   }

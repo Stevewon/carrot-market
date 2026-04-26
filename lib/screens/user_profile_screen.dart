@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/review.dart';
 import '../services/auth_service.dart';
@@ -328,22 +329,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!))
-              : RefreshIndicator(
-                  onRefresh: _loadAll,
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: (n) {
-                      if (n.metrics.pixels >= n.metrics.maxScrollExtent - 200) {
-                        _loadMore();
-                      }
-                      return false;
-                    },
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                      children: [
+      // 태블릿/폴드 펼침에서 프로필 본문이 600dp 로 가운데 정렬.
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(child: Text(_error!))
+                  : RefreshIndicator(
+                      onRefresh: _loadAll,
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (n) {
+                          if (n.metrics.pixels >= n.metrics.maxScrollExtent - 200) {
+                            _loadMore();
+                          }
+                          return false;
+                        },
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                          children: [
                         _Header(profile: _profile!, stats: _stats!),
                         const SizedBox(height: 16),
                         _StatsBreakdown(stats: _stats!),
@@ -429,6 +434,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     ),
                   ),
                 ),
+        ),
+      ),
     );
   }
 }

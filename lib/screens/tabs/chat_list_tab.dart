@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/constants.dart';
+import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../models/chat_room.dart';
 import '../../services/auth_service.dart';
@@ -106,10 +107,18 @@ class _ChatListTabState extends State<ChatListTab> {
               ],
             ),
           ),
+          // 상단 보호 안내 배너는 풀와이드 유지(자연스러운 분리감).
+          // 본문 채팅방 리스트만 600dp 가운데 정렬 — 태블릿/폴드 대응.
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => chat.fetchRooms(silent: true),
-              child: _buildBody(chat, me),
+            child: Center(
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+                child: RefreshIndicator(
+                  onRefresh: () => chat.fetchRooms(silent: true),
+                  child: _buildBody(chat, me),
+                ),
+              ),
             ),
           ),
         ],
