@@ -157,6 +157,39 @@ class AuthService extends ChangeNotifier {
   }
 
   // ================================================================
+  // Manual session refresh (splash 등에서 호출)
+  //
+  // /api/auth/me 를 한 번 더 찍어서 서버가 user 를 못 찾으면 (404/401)
+  // 즉시 _localLogout 한다. loadFromStorage 와 다르게 짧은 timeout 으로
+  // 실패 시 그냥 무시 (예외는 호출자 측에서 catch).
+  // ================================================================
+  Future<void> refreshFromServer() async {
+    if (_token == null) return;
+    try {
+      final res = await api.dio.get(
+        '/api/auth/me',
+        options: Options(
+          sendTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 5),
+        ),
+      );
+      if (res.statusCode == 200 && res.data is Map) {
+        final u = (res.data as Map)['user'];
+        if (u is Map<String, dynamic>) {
+          _user = User.fromJson(u);
+          notifyListeners();
+        }
+      }
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      // 서버에서 user 가 사라졌거나 (404/401) 토큰이 무효면 즉시 로그아웃.
+      if (code == 401 || code == 404) {
+        await _localLogout();
+      }
+    } catch (_) {/* 네트워크 등 일시 오류는 세션 유지 */}
+  }
+
+  // ================================================================
   // Sign up
   // ================================================================
   Future<RegisterResult> register({

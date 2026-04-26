@@ -34,6 +34,21 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
     if (auth.isLoggedIn) {
+      // 서버에서 사용자가 이미 삭제됐거나 (운영자 reset / 본인 탈퇴 / DB
+      // 마이그레이션 0018) 토큰이 만료된 경우 401 인터셉터가 _localLogout 을
+      // 호출해서 isLoggedIn 이 false 가 된다. 그 경우 즉시 온보딩으로 보낸다.
+      // 검증은 AuthService 생성 시 이미 시작되지만, 짧은 추가 대기로 결과를
+      // 더 확실히 반영. (timeout 5s, 응답 늦으면 그냥 캐시 유지로 진행)
+      try {
+        await auth.refreshFromServer();
+      } catch (_) {
+        /* 네트워크 이슈는 무시 — 다음 실 API 호출에서 재검증된다 */
+      }
+      if (!mounted) return;
+      if (!auth.isLoggedIn) {
+        context.go('/onboarding');
+        return;
+      }
       // Warm up the block cache so feed/chat filtering works on first load.
       // Fire-and-forget; failure is non-fatal.
       // ignore: unawaited_futures
