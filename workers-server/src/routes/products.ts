@@ -720,8 +720,13 @@ app.put('/:id/status', authMiddleware, async (c) => {
  * 거래후기. Either side (seller ↔ buyer) can leave one review per product.
  *   body: { rating: 'good' | 'soso' | 'bad', tags?: string[], comment?: string }
  *
- * Auto‑updates the reviewee's manner_score via DB trigger
- * (good +0.5°, soso 0°, bad -0.5°; stored *10).
+ * Auto‑updates the reviewee's manner_score in the same batch as the review
+ * INSERT (good +0.5°, soso 0°, bad -0.5°; stored *10, clamped 0..990).
+ *
+ * NOTE: 원래는 DB 트리거(trg_reviews_update_manner)로 처리했지만 D1 의
+ *       `migrations apply` 단계에서 트리거 본문 안의 세미콜론 split 이슈로
+ *       인해 (`incomplete input: SQLITE_ERROR [code: 7500]`) 트리거를 못
+ *       만들었다. 따라서 application-level 에서 batch 두 statement 로 처리.
  *
  * Constraints:
  *   • Product status must be 'sold'.
@@ -776,15 +781,30 @@ app.post('/:id/review', authMiddleware, async (c) => {
   const comment = (body.comment || '').toString().trim().slice(0, 300);
 
   const reviewId = crypto.randomUUID();
-  await c.env.DB
-    .prepare(
-      `INSERT INTO reviews (id, product_id, reviewer_id, reviewee_id, rating, tags, comment)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    )
-    .bind(reviewId, id, user.id, revieweeId, body.rating, tags, comment)
-    .run();
 
-  // Trigger has already adjusted manner_score; fetch the new value to return.
+  // good = +5 (+0.5°), bad = -5 (-0.5°), soso = 0. *10 스케일이라 정수.
+  const delta = body.rating === 'good' ? 5 : body.rating === 'bad' ? -5 : 0;
+
+  // INSERT review + UPDATE manner_score 를 한 batch 로 묶어 atomic 보장.
+  // MIN/MAX 로 0..990 범위 클램프 (당근식 매너온도 0.0° ~ 99.0°).
+  await c.env.DB.batch([
+    c.env.DB
+      .prepare(
+        `INSERT INTO reviews (id, product_id, reviewer_id, reviewee_id, rating, tags, comment)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(reviewId, id, user.id, revieweeId, body.rating, tags, comment),
+    c.env.DB
+      .prepare(
+        `UPDATE users
+            SET manner_score = MIN(990, MAX(0, manner_score + ?)),
+                updated_at   = datetime('now')
+          WHERE id = ?`,
+      )
+      .bind(delta, revieweeId),
+  ]);
+
+  // 업데이트된 manner_score 를 응답에 포함 (클라이언트가 즉시 표시할 수 있도록).
   const updated = await c.env.DB
     .prepare('SELECT manner_score FROM users WHERE id = ?')
     .bind(revieweeId)

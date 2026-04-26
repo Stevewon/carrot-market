@@ -20,7 +20,11 @@
 --  • 한 번 남긴 후기는 수정/삭제 불가 (UNIQUE(product_id, reviewer_id)).
 
 -- ── 1. products: track buyer when sold ──────────────────────────────
-ALTER TABLE products ADD COLUMN buyer_id TEXT REFERENCES users(id) ON DELETE SET NULL;
+-- NOTE: SQLite ALTER TABLE ADD COLUMN 으로 추가하는 컬럼에는 일부 D1 환경에서
+--       REFERENCES (FK) 를 거부하는 케이스가 있어 plain TEXT 로만 추가하고,
+--       애플리케이션 레벨에서 정합성을 보장한다 (탈퇴 시 buyer_id NULL 처리).
+ALTER TABLE products ADD COLUMN buyer_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_products_buyer ON products(buyer_id);
 
 -- ── 2. reviews table ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS reviews (
@@ -41,19 +45,15 @@ CREATE INDEX IF NOT EXISTS idx_reviews_product  ON reviews(product_id);
 -- ── 3. backfill manner_score to *10 scale (36 → 365) ────────────────
 UPDATE users SET manner_score = manner_score * 10 WHERE manner_score < 100;
 
--- ── 4. auto‑update manner_score on review insert ────────────────────
-CREATE TRIGGER IF NOT EXISTS trg_reviews_update_manner
-AFTER INSERT ON reviews
-FOR EACH ROW
-BEGIN
-  UPDATE users
-     SET manner_score = MIN(990, MAX(0,
-           manner_score + CASE NEW.rating
-             WHEN 'good' THEN 5   -- +0.5°
-             WHEN 'bad'  THEN -5  -- -0.5°
-             ELSE 0
-           END
-         )),
-         updated_at = datetime('now')
-   WHERE id = NEW.reviewee_id;
-END;
+-- ── 4. manner_score 업데이트는 애플리케이션 레벨에서 수행 ──────────────
+--
+-- 원래는 AFTER INSERT 트리거로 자동 업데이트했지만, Cloudflare D1 의
+-- migration 적용 단계에서 `CREATE TRIGGER ... BEGIN ... END;` 블록 안의
+-- 세미콜론을 statement 종료로 오인해 `incomplete input: SQLITE_ERROR
+-- [code: 7500]` 으로 실패한다.
+--
+-- 따라서 트리거는 정의하지 않고, POST /api/products/:id/review 핸들러
+-- (workers-server/src/routes/products.ts) 안에서 INSERT review 다음에
+-- 명시적으로 users.manner_score 를 +5 / -5 / 0 (clamped 0..990) 으로
+-- 업데이트한다. 이 변경은 같은 batch 안에서 일어나므로 review 와
+-- manner_score 가 나뉘어 적용될 위험은 없다.
