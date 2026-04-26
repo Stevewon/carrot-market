@@ -6,7 +6,11 @@
  * we can rotate iterations later without a migration.
  */
 
-const ITERATIONS = 150_000;
+// Cloudflare Workers Web Crypto API는 PBKDF2 iteration 을 최대 100,000 까지만 지원한다.
+// (실제 에러: "Pbkdf2 failed: iteration counts above 100000 are not supported")
+// OWASP 권장 100k 이상이며, 저장 포맷에 iteration 이 포함되어 있어 향후 마이그레이션
+// 없이도 더 강한 값으로 회전 가능하다.
+const ITERATIONS = 100_000;
 const HASH_BITS = 256;
 const SALT_BYTES = 16;
 

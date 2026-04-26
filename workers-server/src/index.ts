@@ -126,13 +126,10 @@ app.notFound((c) => c.json({ error: 'Not found', path: c.req.path }, 404));
 // ---------- Error handler ----------
 app.onError((err, c) => {
   console.error('[error]', err?.stack || err);
-  // 디버깅: 운영(production) 환경에서도 에러 메시지를 응답에 포함시켜
-  // 클라이언트 측에서 원인을 즉시 파악할 수 있도록 한다.
-  // (보안상 stack trace 는 제외, message 만 노출)
   return c.json(
     {
       error: 'Internal Server Error',
-      message: String(err?.message || err),
+      message: c.env.ENVIRONMENT === 'production' ? undefined : String(err?.message || err),
     },
     500
   );
