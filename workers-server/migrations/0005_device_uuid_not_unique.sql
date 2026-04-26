@@ -13,15 +13,16 @@
 --
 -- HOW:
 --   SQLite can't ALTER TABLE DROP CONSTRAINT, so we rebuild the users table.
---   Wrapped in a single transaction so either all steps land or none do.
 --   We preserve every row (id → updated_at) exactly as-is.
 --
 --   The FK in products(seller_id) points at users(id), which stays stable
 --   through a rename-and-copy, so no CASCADE is triggered.
-
-PRAGMA foreign_keys = OFF;
-
-BEGIN TRANSACTION;
+--
+-- NOTE (D1):
+--   Cloudflare D1 자동으로 statement 들을 atomic batch 로 실행하기 때문에
+--   `BEGIN TRANSACTION`/`COMMIT`/`SAVEPOINT`/`PRAGMA foreign_keys` 같은
+--   세션 제어 SQL 은 거부된다 (error code 7500). 따라서 raw 트랜잭션은
+--   삭제하고 D1 batch 의 atomic 보장에 의존한다.
 
 -- 1) Rename the old table out of the way.
 ALTER TABLE users RENAME TO users_old;
@@ -67,7 +68,3 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wallet_unique
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nickname_unique
   ON users(nickname COLLATE NOCASE)
   WHERE nickname IS NOT NULL;
-
-COMMIT;
-
-PRAGMA foreign_keys = ON;
