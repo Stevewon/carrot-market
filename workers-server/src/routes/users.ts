@@ -295,6 +295,40 @@ function safeJson(s: string): unknown {
   }
 }
 
+// ── 닉네임 검색 rate-limit (in-memory, isolate-scoped) ──────────────────
+// 같은 isolate(보통 같은 colo) 내에서 IP+user_id 별 분당 호출수를 셈.
+// 분산 환경에서 perfect 하지는 않지만, scrape/봇 트래픽이 한 colo 에 몰리는
+// 패턴 (대부분 단일 IP + 단일 데이터센터 지역) 에 효과적이다.
+//   • 한도: 분당 30회
+//   • key: `${ip}:${user_id}` — 같은 IP 라도 여러 계정으로 우회하면 각각 카운팅
+const SEARCH_RATE_LIMIT = 30;
+const SEARCH_RATE_WINDOW_MS = 60_000;
+type RateBucket = { count: number; resetAt: number };
+const _searchRateMap = new Map<string, RateBucket>();
+
+function _checkSearchRateLimit(key: string): { ok: true } | { ok: false; retryAfterSec: number } {
+  const now = Date.now();
+  const b = _searchRateMap.get(key);
+  if (!b || b.resetAt <= now) {
+    _searchRateMap.set(key, { count: 1, resetAt: now + SEARCH_RATE_WINDOW_MS });
+    return { ok: true };
+  }
+  if (b.count >= SEARCH_RATE_LIMIT) {
+    return { ok: false, retryAfterSec: Math.max(1, Math.ceil((b.resetAt - now) / 1000)) };
+  }
+  b.count += 1;
+  return { ok: true };
+}
+
+// 메모리 누수 방지 — 최대 10K 엔트리 유지, 그 이상이면 만료된 항목 청소.
+function _pruneSearchRateMap() {
+  if (_searchRateMap.size < 10_000) return;
+  const now = Date.now();
+  for (const [k, v] of _searchRateMap) {
+    if (v.resetAt <= now) _searchRateMap.delete(k);
+  }
+}
+
 /**
  * GET /api/users/search?nickname=xxx
  *
@@ -303,9 +337,26 @@ function safeJson(s: string): unknown {
  * 뽑을 수 없음). 자기 자신은 결과에서 제외하고, 최대 20명만 반환한다.
  *
  * 응답에는 wallet_address / device_uuid 같은 식별자는 절대 포함되지 않는다.
+ *
+ * Rate-limit: IP+user_id 별 분당 30회. 초과 시 429 + Retry-After 헤더.
  */
 app.get('/search', authMiddleware, async (c) => {
   const me = c.get('user')!;
+  // CF-Connecting-IP 우선 (Cloudflare 표준), 없으면 X-Forwarded-For 첫 토큰.
+  const ip =
+    c.req.header('cf-connecting-ip') ||
+    (c.req.header('x-forwarded-for') || '').split(',')[0].trim() ||
+    'unknown';
+  _pruneSearchRateMap();
+  const rl = _checkSearchRateLimit(`${ip}:${me.id}`);
+  if (!rl.ok) {
+    c.header('Retry-After', String(rl.retryAfterSec));
+    return c.json(
+      { error: '요청이 너무 많아요. 잠시 후 다시 시도해주세요', retry_after: rl.retryAfterSec },
+      429,
+    );
+  }
+
   const q = (c.req.query('nickname') || '').trim();
   if (q.length < 1) {
     return c.json({ users: [] });

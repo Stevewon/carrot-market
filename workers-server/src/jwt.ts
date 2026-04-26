@@ -92,3 +92,35 @@ export const optionalAuth: MiddlewareHandler<{
   }
   await next();
 };
+
+/**
+ * 운영자 전용 미들웨어. authMiddleware 다음에 체이닝해서 사용.
+ *
+ *   app.use('/admin/*', authMiddleware, adminMiddleware)
+ *
+ * 검증 방식:
+ *   - `c.get('user')` 의 id 가 환경변수 `ADMIN_USER_IDS` (쉼표 구분) 안에 있으면 통과.
+ *   - ADMIN_USER_IDS 가 비어 있거나 등록되지 않은 user_id 면 403.
+ *   - 평문 패스워드/토큰을 추가로 받지 않는다 — 운영자도 보통 사용자 계정으로
+ *     로그인한 다음 동일 JWT 로 admin 라우트를 호출한다.
+ */
+export const adminMiddleware: MiddlewareHandler<{
+  Bindings: Env;
+  Variables: Variables;
+}> = async (c, next) => {
+  const user = c.get('user');
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+  const raw = (c.env.ADMIN_USER_IDS || '').trim();
+  if (!raw) {
+    // fail-closed: 운영자 명단이 설정 안 됐으면 누구도 admin 아님.
+    return c.json({ error: 'admin not configured' }, 403);
+  }
+  const allow = new Set(
+    raw.split(',').map((s) => s.trim()).filter(Boolean),
+  );
+  if (!allow.has(user.id)) {
+    return c.json({ error: 'Forbidden (admin only)' }, 403);
+  }
+  await next();
+};

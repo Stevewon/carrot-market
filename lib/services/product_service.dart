@@ -96,6 +96,7 @@ class ProductService extends ChangeNotifier {
     required String title,
     required String description,
     required int price,
+    int qtaPrice = 0,
     required String category,
     required String region,
     required List<File> imageFiles,
@@ -107,6 +108,7 @@ class ProductService extends ChangeNotifier {
         'title': title,
         'description': description,
         'price': price,
+        'qta_price': qtaPrice,
         'category': category,
         'region': region,
       };
@@ -259,6 +261,7 @@ class ProductService extends ChangeNotifier {
     String? title,
     String? description,
     int? price,
+    int? qtaPrice,
     String? category,
     String? youtubeUrl,
   }) async {
@@ -267,6 +270,7 @@ class ProductService extends ChangeNotifier {
       if (title != null) data['title'] = title;
       if (description != null) data['description'] = description;
       if (price != null) data['price'] = price;
+      if (qtaPrice != null) data['qta_price'] = qtaPrice;
       if (category != null) data['category'] = category;
       // Empty string means "clear YouTube URL" (server understands this).
       if (youtubeUrl != null) data['youtube_url'] = youtubeUrl;

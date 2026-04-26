@@ -13,12 +13,14 @@
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types';
-import { authMiddleware } from '../jwt';
+import { authMiddleware, adminMiddleware } from '../jwt';
 import {
   QTA_WITHDRAWAL_MIN,
   QTA_WITHDRAWAL_UNIT,
   requestWithdrawal,
   refundWithdrawal,
+  processWithdrawal,
+  completeWithdrawal,
   type WithdrawalRow,
 } from '../qta';
 
@@ -129,6 +131,108 @@ app.post('/:id/cancel', async (c) => {
     .first<{ qta_balance: number }>();
 
   return c.json({ ok: true, qta_balance: u?.qta_balance ?? 0 });
+});
+
+// ────────────────────────────────────────────────────────────────────
+// 운영자 전용 (ADMIN_USER_IDS 에 있는 user_id 만 통과).
+//
+// 워크플로:
+//   requested → (admin GET /admin/pending 으로 확인)
+//             → POST /admin/:id/process       (외부 송금 시작 표시)
+//             → POST /admin/:id/complete       (tx_hash 기록 + 종료)
+//   또는
+//   requested → POST /admin/:id/reject?reason  (거부 + 환불)
+// ────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/withdrawals/admin/pending
+ *
+ * 처리 대기(requested) + 진행중(processing) 신청 목록. 운영자 콘솔 진입 화면용.
+ */
+app.get('/admin/pending', adminMiddleware, async (c) => {
+  const rows = await c.env.DB
+    .prepare(
+      `SELECT w.id, w.user_id, w.wallet_address, w.amount, w.status,
+              w.requested_at, w.processed_at, w.tx_hash, w.reject_reason,
+              u.nickname AS user_nickname
+         FROM qta_withdrawals w
+    LEFT JOIN users u ON u.id = w.user_id
+        WHERE w.status IN ('requested', 'processing')
+     ORDER BY w.requested_at ASC
+        LIMIT 200`,
+    )
+    .all<WithdrawalRow & { user_nickname: string | null }>();
+  return c.json({ rows: rows.results || [] });
+});
+
+/**
+ * POST /api/withdrawals/admin/:id/reject
+ *   body: { reason?: string }
+ *
+ * 신청을 거부하고 잔액을 즉시 환불. 'requested' 상태에서만 호출 가능.
+ */
+app.post('/admin/:id/reject', adminMiddleware, async (c) => {
+  const wid = c.req.param('id');
+  let reason = '운영자 거부';
+  try {
+    const body = await c.req.json<{ reason?: string }>();
+    if (body?.reason && typeof body.reason === 'string' && body.reason.trim()) {
+      reason = body.reason.trim().slice(0, 200);
+    }
+  } catch {
+    /* body 없을 수 있음 — 기본 사유 사용 */
+  }
+
+  const w = await c.env.DB
+    .prepare('SELECT status FROM qta_withdrawals WHERE id = ?')
+    .bind(wid)
+    .first<{ status: string }>();
+  if (!w) return c.json({ error: 'not found' }, 404);
+  if (w.status !== 'requested') {
+    return c.json(
+      { error: `거부할 수 없는 상태에요 (${w.status})` },
+      409,
+    );
+  }
+
+  const r = await refundWithdrawal(c.env, wid, reason);
+  if (!r.ok) return c.json({ error: r.error || 'reject failed' }, 500);
+  return c.json({ ok: true });
+});
+
+/**
+ * POST /api/withdrawals/admin/:id/process
+ *
+ * 외부 송금을 시작했다는 의미. requested → processing 상태 전환.
+ * 잔액에는 영향 없음 (이미 신청 시점에 차감됨).
+ */
+app.post('/admin/:id/process', adminMiddleware, async (c) => {
+  const wid = c.req.param('id');
+  const r = await processWithdrawal(c.env, wid);
+  if (!r.ok) return c.json({ error: r.error || 'process failed' }, 400);
+  return c.json({ ok: true });
+});
+
+/**
+ * POST /api/withdrawals/admin/:id/complete
+ *   body: { tx_hash: string }
+ *
+ * 송금이 완료됐음을 기록. requested|processing → completed.
+ */
+app.post('/admin/:id/complete', adminMiddleware, async (c) => {
+  const wid = c.req.param('id');
+  let txHash = '';
+  try {
+    const body = await c.req.json<{ tx_hash?: string }>();
+    txHash = String(body?.tx_hash || '').trim();
+  } catch {
+    return c.json({ error: 'body 가 비어 있어요' }, 400);
+  }
+  if (!txHash) return c.json({ error: 'tx_hash 필수' }, 400);
+
+  const r = await completeWithdrawal(c.env, wid, txHash);
+  if (!r.ok) return c.json({ error: r.error || 'complete failed' }, 400);
+  return c.json({ ok: true });
 });
 
 export default app;

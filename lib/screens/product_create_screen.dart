@@ -26,6 +26,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleCtl = TextEditingController();
   final _priceCtl = TextEditingController();
+  final _qtaPriceCtl = TextEditingController();
   final _descCtl = TextEditingController();
   final _youtubeCtl = TextEditingController();
 
@@ -39,6 +40,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
   void dispose() {
     _titleCtl.dispose();
     _priceCtl.dispose();
+    _qtaPriceCtl.dispose();
     _descCtl.dispose();
     _youtubeCtl.dispose();
     _videoPreviewCtl?.dispose();
@@ -255,11 +257,16 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
           _priceCtl.text.replaceAll(',', '').replaceAll(' ', ''),
         ) ??
         0;
+    final qtaPrice = int.tryParse(
+          _qtaPriceCtl.text.replaceAll(',', '').replaceAll(' ', ''),
+        ) ??
+        0;
 
     final err = await context.read<ProductService>().createProduct(
           title: _titleCtl.text.trim(),
           description: _descCtl.text.trim(),
           price: price,
+          qtaPrice: qtaPrice,
           category: _category,
           region: auth.user!.region!,
           imageFiles: _images,
@@ -370,6 +377,18 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
                 if (v == null || v.isEmpty) return '가격을 입력해주세요';
                 return null;
               },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _qtaPriceCtl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: 'QTA 결제 (선택)',
+                hintText: '0 = 사용 안 함 / 거래완료 시 자동 차감',
+                prefixIcon: Icon(Icons.token_outlined, size: 20),
+                helperText: '예) 5000 → 거래완료 토글하면 구매자 잔액 5,000 QTA 가 자동 이체돼요',
+              ),
             ),
             const SizedBox(height: 16),
             TextFormField(

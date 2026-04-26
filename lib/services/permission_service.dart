@@ -102,6 +102,53 @@ class PermissionService {
     return false;
   }
 
+  /// Android 13+ POST_NOTIFICATIONS / iOS UN authorization 친절 가이드.
+  ///
+  /// 채팅방 입장 등에서 호출. 이미 허용돼 있으면 조용히 true.
+  /// 거부 상태라면 (a) 한 번도 묻지 않은 상태면 다시 묻고, (b) 그래도 거부면
+  /// AlertDialog 로 "왜 알림이 필요한지 + 설정 바로가기" 를 안내한다.
+  static Future<bool> ensureNotificationOrGuide(BuildContext context) async {
+    final status = await Permission.notification.status;
+    if (status.isGranted) return true;
+
+    // 첫 진입(또는 onboarding 누락) 이면 시스템 다이얼로그로 한 번 더 시도.
+    if (status.isDenied && !status.isPermanentlyDenied) {
+      final r = await Permission.notification.request();
+      if (r.isGranted) return true;
+    }
+
+    if (!context.mounted) return false;
+    final goSetting = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('🔔 알림 권한이 꺼져 있어요'),
+        content: const Text(
+          '알림이 꺼져 있으면 새 메시지·통화·키워드 매물 알림을 놓칠 수 있어요.\n\n'
+          '설정에서 알림을 켜시겠어요?\n\n'
+          '※ Eggplant는 알림 본문을 잠금화면에서 가리는 옵션도 제공해요. '
+          '"나의 Eggplant > 알림 본문 가리기" 에서 켤 수 있어요.',
+          style: TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('나중에'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('설정 열기'),
+          ),
+        ],
+      ),
+    );
+    if (goSetting == true) {
+      await openAppSettings();
+    }
+    return false;
+  }
+
   static void _showDenied(BuildContext context, String title, String body) {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

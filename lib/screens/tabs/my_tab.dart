@@ -11,6 +11,7 @@ import '../../services/product_service.dart';
 import '../../services/search_history_service.dart';
 import '../../services/keyword_alert_service.dart';
 import '../../services/hidden_products_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/qta_service.dart';
 
 class MyTab extends StatefulWidget {
@@ -171,6 +172,7 @@ class _MyTabState extends State<MyTab> {
               subtitle: '관심 키워드 등록하고 새 매물 알림 받기',
               onTap: () => context.push('/alerts/keywords'),
             ),
+            const _MaskBodySwitchTile(),
             _MenuTile(
               icon: Icons.visibility_off_outlined,
               title: '숨긴 게시물',
@@ -613,6 +615,72 @@ class _QtaWalletCardState extends State<_QtaWalletCard> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 알림 본문 마스킹 토글. SwitchListTile 로 _MenuTile 흐름에 맞춰 보여줌.
+/// 켜면 잠금화면/푸시 미리보기에 메시지 본문 대신 '💬 새 메시지가 있어요' 만 노출.
+class _MaskBodySwitchTile extends StatefulWidget {
+  const _MaskBodySwitchTile();
+
+  @override
+  State<_MaskBodySwitchTile> createState() => _MaskBodySwitchTileState();
+}
+
+class _MaskBodySwitchTileState extends State<_MaskBodySwitchTile> {
+  bool _value = false;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    // NotificationService.init() 이 SharedPreferences 를 읽어 _maskBody 를 채워둠.
+    await NotificationService.instance.init();
+    if (!mounted) return;
+    setState(() {
+      _value = NotificationService.instance.isMaskingBody;
+      _loaded = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile.adaptive(
+      value: _loaded ? _value : false,
+      onChanged: _loaded
+          ? (v) async {
+              setState(() => _value = v);
+              await NotificationService.instance.setMaskBody(v);
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(v
+                      ? '알림 본문이 가려져요. 잠금화면에서 안전하게 사용하세요 🔒'
+                      : '알림 본문이 표시돼요'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          : null,
+      activeColor: EggplantColors.primary,
+      secondary: const Icon(
+        Icons.lock_outline,
+        color: EggplantColors.textSecondary,
+      ),
+      title: const Text(
+        '알림 본문 가리기',
+        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
+      subtitle: const Text(
+        '잠금화면/푸시 미리보기에 메시지 내용 대신 "새 메시지가 있어요" 표시',
+        style: TextStyle(fontSize: 12, color: EggplantColors.textSecondary),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
   }
 }

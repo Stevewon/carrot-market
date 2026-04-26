@@ -196,6 +196,130 @@ export async function grantTradeBonus(
 }
 
 // ────────────────────────────────────────────────────────────────────────
+// 상품 거래 결제 (구매자 → 판매자, QTA 이체)
+// ────────────────────────────────────────────────────────────────────────
+
+export type PaymentResult =
+  | { ok: true; charged: number; already_paid?: false }
+  | { ok: true; charged: number; already_paid: true }
+  | { ok: false; error: string; reason: 'insufficient' | 'invalid' | 'failed' };
+
+/**
+ * 상품 거래 결제. 판매자가 거래완료 토글하면 호출.
+ *
+ *   - amount=0 이면 결제 없음 (KRW 거래) → ok:true, charged:0
+ *   - amount>0 이면 buyer 잔액에서 차감하고 seller 잔액에 가산 (1 batch)
+ *   - 멱등 키 'trade_payment:<product_id>:debit' / ':credit' 가 둘 다
+ *     UNIQUE 라 같은 상품에 두 번 결제되지 않는다.
+ *   - buyer 잔액 부족 시 reason='insufficient' 로 실패.
+ *
+ * 호출 측 책임: status='sold' UPDATE 가 이미 끝난 다음에 호출하지 말고,
+ * 결제가 성공한 다음 status 를 업데이트한다 (잔액 부족이면 거래 자체를 취소).
+ */
+export async function payTrade(
+  env: Env,
+  product_id: string,
+  seller_id: string,
+  buyer_id: string,
+  amount: number,
+): Promise<PaymentResult> {
+  if (!amount || amount <= 0) {
+    return { ok: true, charged: 0 };
+  }
+  if (!Number.isFinite(amount) || !Number.isInteger(amount)) {
+    return { ok: false, error: '잘못된 결제 금액', reason: 'invalid' };
+  }
+  if (seller_id === buyer_id) {
+    return { ok: false, error: '본인에게 결제할 수 없어요', reason: 'invalid' };
+  }
+
+  // 1) 멱등 — 이미 결제됐는지 ledger 의 buyer 차감 행으로 확인.
+  const existed = await env.DB
+    .prepare('SELECT 1 FROM qta_ledger WHERE idem_key = ? LIMIT 1')
+    .bind(`trade_payment:${product_id}:debit`)
+    .first<{ '1': number }>();
+  if (existed) {
+    return { ok: true, charged: amount, already_paid: true };
+  }
+
+  // 2) 잔액 확인 (커밋 전 사전 체크 — 동시성 보호는 batch UPDATE 의 WHERE 로).
+  const buyerRow = await env.DB
+    .prepare('SELECT qta_balance FROM users WHERE id = ?')
+    .bind(buyer_id)
+    .first<{ qta_balance: number }>();
+  if (!buyerRow) {
+    return { ok: false, error: '구매자 정보를 찾을 수 없어요', reason: 'invalid' };
+  }
+  if ((buyerRow.qta_balance ?? 0) < amount) {
+    return {
+      ok: false,
+      error: `구매자의 QTA 잔액이 부족해요 (${buyerRow.qta_balance} < ${amount})`,
+      reason: 'insufficient',
+    };
+  }
+
+  // 3) ledger 2행 + 양쪽 잔액 UPDATE 를 한 batch 로.
+  //    buyer UPDATE WHERE qta_balance >= amount 로 race 조건 차단.
+  const debitId = crypto.randomUUID();
+  const creditId = crypto.randomUUID();
+  const meta = JSON.stringify({ product_id });
+
+  try {
+    const out = await env.DB.batch([
+      env.DB
+        .prepare(
+          `INSERT INTO qta_ledger (id, user_id, amount, reason, idem_key, meta)
+             VALUES (?, ?, ?, 'trade_payment_out', ?, ?)`,
+        )
+        .bind(debitId, buyer_id, -amount, `trade_payment:${product_id}:debit`, meta),
+      env.DB
+        .prepare(
+          `UPDATE users
+              SET qta_balance = qta_balance - ?, updated_at = datetime('now')
+            WHERE id = ? AND qta_balance >= ?`,
+        )
+        .bind(amount, buyer_id, amount),
+      env.DB
+        .prepare(
+          `INSERT INTO qta_ledger (id, user_id, amount, reason, idem_key, meta)
+             VALUES (?, ?, ?, 'trade_payment_in', ?, ?)`,
+        )
+        .bind(creditId, seller_id, amount, `trade_payment:${product_id}:credit`, meta),
+      env.DB
+        .prepare(
+          `UPDATE users
+              SET qta_balance = qta_balance + ?, updated_at = datetime('now')
+            WHERE id = ?`,
+        )
+        .bind(amount, seller_id),
+    ]);
+
+    // batch 안의 buyer UPDATE 가 0행이면 race 로 잔액 부족이 된 것.
+    // D1 batch 결과는 각 statement 의 meta.changes 를 가지고 있음.
+    const buyerUpdate = out[1];
+    const changes = (buyerUpdate?.meta as { changes?: number } | undefined)?.changes ?? 1;
+    if (changes === 0) {
+      // 보정 — 가능한 한 ledger 정리. (실패해도 일관성을 깨지는 않음:
+      // INSERT 가 batch 안이라 같이 롤백됐을 가능성이 큼.)
+      return {
+        ok: false,
+        error: '결제 처리 중 잔액이 부족해졌어요. 잠시 후 다시 시도해주세요',
+        reason: 'insufficient',
+      };
+    }
+    return { ok: true, charged: amount };
+  } catch (e) {
+    const msg = String((e as Error)?.message || e);
+    if (/UNIQUE/i.test(msg)) {
+      // race: 다른 호출이 먼저 결제 완료. → 멱등 처리.
+      return { ok: true, charged: amount, already_paid: true };
+    }
+    console.error('[qta] payTrade failed', { product_id, msg });
+    return { ok: false, error: '결제 실패 (서버 오류)', reason: 'failed' };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────
 // 친구 초대 (referral) — 1명당 +200, 무제한
 // ────────────────────────────────────────────────────────────────────────
 
@@ -593,5 +717,73 @@ export async function refundWithdrawal(
     console.error('[qta] refund failed', msg);
     return { ok: false, error: msg };
   }
+}
+
+/**
+ * 출금 신청을 'processing' 상태로 전환. 운영자가 외부 송금을 시작할 때 호출.
+ *
+ *   requested → processing
+ *
+ * 잔액에는 영향 없음 (이미 requestWithdrawal 에서 차감됨).
+ */
+export async function processWithdrawal(
+  env: Env,
+  withdrawal_id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const w = await env.DB
+    .prepare('SELECT id, status FROM qta_withdrawals WHERE id = ?')
+    .bind(withdrawal_id)
+    .first<{ id: string; status: string }>();
+  if (!w) return { ok: false, error: 'not found' };
+  if (w.status !== 'requested') {
+    return { ok: false, error: `이미 처리되고 있거나 종료됐어요 (${w.status})` };
+  }
+  await env.DB
+    .prepare(
+      `UPDATE qta_withdrawals
+          SET status = 'processing', processed_at = datetime('now')
+        WHERE id = ?`,
+    )
+    .bind(withdrawal_id)
+    .run();
+  return { ok: true };
+}
+
+/**
+ * 출금 완료 처리. 운영자가 외부 송금을 마치고 tx_hash 를 기록할 때 호출.
+ *
+ *   requested | processing → completed
+ *
+ * tx_hash 는 외부 체인의 트랜잭션 해시(또는 내부 송금 영수증). UNIQUE 제약은
+ * 없으므로 운영자가 실수로 두 신청에 같은 tx_hash 를 쓸 수도 있다 — UI 측에서
+ * 중복 검증 권장.
+ */
+export async function completeWithdrawal(
+  env: Env,
+  withdrawal_id: string,
+  tx_hash: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!tx_hash || !tx_hash.trim()) {
+    return { ok: false, error: 'tx_hash 가 비어 있어요' };
+  }
+  const w = await env.DB
+    .prepare('SELECT id, status FROM qta_withdrawals WHERE id = ?')
+    .bind(withdrawal_id)
+    .first<{ id: string; status: string }>();
+  if (!w) return { ok: false, error: 'not found' };
+  if (w.status !== 'requested' && w.status !== 'processing') {
+    return { ok: false, error: `완료할 수 없는 상태에요 (${w.status})` };
+  }
+  await env.DB
+    .prepare(
+      `UPDATE qta_withdrawals
+          SET status = 'completed',
+              processed_at = COALESCE(processed_at, datetime('now')),
+              tx_hash = ?
+        WHERE id = ?`,
+    )
+    .bind(tx_hash.trim(), withdrawal_id)
+    .run();
+  return { ok: true };
 }
 

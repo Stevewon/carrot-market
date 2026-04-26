@@ -8,6 +8,12 @@ export interface Env {
   JWT_SECRET: string;
   ENVIRONMENT: string;
   PUBLIC_UPLOAD_URL: string;
+  /**
+   * 쉼표로 구분된 운영자 user_id 목록.
+   *   wrangler secret put ADMIN_USER_IDS  # → "uuid1,uuid2"
+   * 비어 있으면 admin 라우트는 모두 403. (보안 fail-closed)
+   */
+  ADMIN_USER_IDS?: string;
 }
 
 export interface AuthPayload {
@@ -65,6 +71,11 @@ export interface ProductRow {
   title: string;
   description: string;
   price: number;
+  /**
+   * QTA 거래 가격 (정수). 0 = KRW 거래(기본). 양수면 거래 완료 시 자동으로
+   * buyer→seller 잔액 이체. migration 0017 에서 추가됨.
+   */
+  qta_price: number;
   category: string;
   region: string;
   images: string; // comma-separated

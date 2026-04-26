@@ -9,6 +9,7 @@ import '../app/theme.dart';
 import '../models/chat_message.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
+import '../services/permission_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String roomId;
@@ -46,6 +47,10 @@ class _ChatScreenState extends State<ChatScreen> {
       // the peer (via WS read_receipt) that their messages are now read.
       // ignore: discarded_futures
       chat.markRoomAsRead(widget.roomId);
+      // Android 13+ POST_NOTIFICATIONS / iOS UN — 알림 꺼져 있으면 친절하게 안내.
+      // 이미 허용돼 있으면 조용히 통과. 한 번만 안내하면 충분하므로 await 없이 발사.
+      // ignore: discarded_futures
+      PermissionService.ensureNotificationOrGuide(context);
       // After history loads, scroll to bottom.
       Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
     });

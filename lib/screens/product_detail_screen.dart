@@ -920,9 +920,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         Text(p.priceFormatted,
                             style: const TextStyle(
                                 fontSize: 17, fontWeight: FontWeight.w800)),
-                        const Text('가격 제안 가능',
-                            style: TextStyle(
-                                fontSize: 12, color: EggplantColors.primary)),
+                        if (p.hasQtaPrice)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.token_outlined,
+                                    size: 13, color: EggplantColors.primary),
+                                const SizedBox(width: 3),
+                                Text(p.qtaPriceFormatted,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: EggplantColors.primary,
+                                      fontWeight: FontWeight.w600,
+                                    )),
+                              ],
+                            ),
+                          )
+                        else
+                          const Text('가격 제안 가능',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: EggplantColors.primary)),
                       ],
                     ),
                   ),
@@ -1316,9 +1336,35 @@ class _OwnerBottomBar extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            product.priceFormatted,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                product.priceFormatted,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+              if (product.hasQtaPrice)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.token_outlined,
+                          size: 13, color: EggplantColors.primary),
+                      const SizedBox(width: 3),
+                      Text(
+                        product.qtaPriceFormatted,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: EggplantColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ),
         OutlinedButton.icon(

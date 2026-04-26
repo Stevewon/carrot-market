@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Local notifications for incoming chat messages.
 ///
@@ -29,11 +30,36 @@ class NotificationService {
 
   bool _initialized = false;
 
+  // ── 본문 숨김 옵션 (privacy mode) ──────────────────────────────────────
+  // true 면 알림 본문에 메시지 텍스트 대신 '💬 새 메시지가 있어요' 만 표시.
+  // 잠금화면/푸시 미리보기에서 대화 내용이 노출되지 않도록 하는 옵션.
+  // SharedPreferences 키: 'notif_mask_body_v1' (default false).
+  static const _kMaskKey = 'notif_mask_body_v1';
+  bool _maskBody = false;
+  bool get isMaskingBody => _maskBody;
+
+  Future<void> _loadMask() async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      _maskBody = sp.getBool(_kMaskKey) ?? false;
+    } catch (_) {/* SharedPreferences 못 읽어도 default false 로 동작 */}
+  }
+
+  Future<void> setMaskBody(bool value) async {
+    _maskBody = value;
+    try {
+      final sp = await SharedPreferences.getInstance();
+      await sp.setBool(_kMaskKey, value);
+    } catch (_) {}
+  }
+
   /// Initialize the notification channel + tap handler.
   /// Safe to call more than once.
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
+
+    await _loadMask();
 
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings(
@@ -86,11 +112,13 @@ class NotificationService {
     if (!_initialized) {
       await init();
     }
+    final maskedTitle = '🔔 새 매물 알림';
+    final maskedBody = _maskBody ? '관심 키워드와 일치하는 새 상품이 있어요' : '$region · $title';
     try {
       await _plugin.show(
         ('kw_$productId').hashCode,
-        '🔔 새 매물 알림',
-        '$region · $title',
+        maskedTitle,
+        maskedBody,
         const NotificationDetails(
           android: AndroidNotificationDetails(
             'keyword_alerts',
@@ -128,11 +156,14 @@ class NotificationService {
     if (!_initialized) {
       await init();
     }
+    // 본문 숨김 옵션이 켜져 있으면 발신자/메시지 모두 마스킹.
+    final displayTitle = _maskBody ? '💬 새 메시지가 있어요' : senderNickname;
+    final displayBody = _maskBody ? '메시지를 보려면 탭하세요' : text;
     try {
       await _plugin.show(
         roomId.hashCode,
-        senderNickname,
-        text,
+        displayTitle,
+        displayBody,
         const NotificationDetails(
           android: AndroidNotificationDetails(
             'chat_messages',

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Env, ProductResponse, ProductRow, UserRow, Variables } from '../types';
 import { authMiddleware, optionalAuth } from '../jwt';
-import { grantTradeBonus } from '../qta';
+import { grantTradeBonus, payTrade } from '../qta';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -232,6 +232,7 @@ app.post('/', authMiddleware, async (c) => {
   const contentType = c.req.header('content-type') || '';
 
   let title = '', description = '', price = '0', category = '', region = '';
+  let qtaPriceRaw = '0'; // 선택적 QTA 결제 금액 (정수)
   let videoUrl = ''; // final stored value — either https://youtu.be/<id> or /uploads/<key>.mp4
   const imageKeys: string[] = [];
 
@@ -240,6 +241,7 @@ app.post('/', authMiddleware, async (c) => {
     title = String(form.get('title') || '').trim();
     description = String(form.get('description') || '').trim();
     price = String(form.get('price') || '0');
+    qtaPriceRaw = String(form.get('qta_price') || '0');
     category = String(form.get('category') || '').trim();
     region = String(form.get('region') || '').trim();
 
@@ -296,6 +298,7 @@ app.post('/', authMiddleware, async (c) => {
       title = String(body.title || '').trim();
       description = String(body.description || '').trim();
       price = String(body.price ?? '0');
+      qtaPriceRaw = String(body.qta_price ?? '0');
       category = String(body.category || '').trim();
       region = String(body.region || '').trim();
       const ytRaw = String(body.youtube_url || '').trim();
@@ -318,6 +321,7 @@ app.post('/', authMiddleware, async (c) => {
   const id = crypto.randomUUID();
   const images = imageKeys.join(',');
   const priceInt = parseInt(price, 10) || 0;
+  const qtaPriceInt = Math.max(0, parseInt(qtaPriceRaw, 10) || 0);
 
   // 작성자의 동네 좌표를 그대로 복사 — 거리 필터에 사용.
   // 인증 안 된 사용자면 lat/lng 가 NULL 이라 거리 필터 결과에서 빠진다.
@@ -328,11 +332,11 @@ app.post('/', authMiddleware, async (c) => {
 
   await c.env.DB
     .prepare(`
-      INSERT INTO products (id, seller_id, title, description, price, category, region, images, video_url, lat, lng)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (id, seller_id, title, description, price, qta_price, category, region, images, video_url, lat, lng)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .bind(
-      id, user.id, title, description, priceInt, category, region, images, videoUrl,
+      id, user.id, title, description, priceInt, qtaPriceInt, category, region, images, videoUrl,
       seller?.lat ?? null, seller?.lng ?? null
     )
     .run();
@@ -549,6 +553,18 @@ app.patch('/:id', authMiddleware, async (c) => {
     updates.push('price = ?');
     params.push(p);
   }
+  if (body.qta_price !== undefined) {
+    const q = parseInt(String(body.qta_price), 10);
+    if (!Number.isFinite(q) || q < 0) {
+      return c.json({ error: 'QTA 가격이 올바르지 않아요' }, 400);
+    }
+    // 거래완료 후에는 결제가 끝났으므로 변경 금지.
+    if (row.status === 'sold') {
+      return c.json({ error: '거래완료된 상품은 가격 변경 불가' }, 400);
+    }
+    updates.push('qta_price = ?');
+    params.push(q);
+  }
   if (typeof body.category === 'string' && (body.category as string).trim()) {
     updates.push('category = ?');
     params.push((body.category as string).trim());
@@ -633,6 +649,27 @@ app.put('/:id/status', authMiddleware, async (c) => {
     buyerId = body.buyer_id;
   }
 
+  // ── QTA 결제 (qta_price > 0 인 상품 한정) ─────────────────────────
+  // 거래완료(sold) + 구매자 지정 시점에 buyer→seller 로 자동 이체.
+  // 결제 실패 (잔액부족 등) 면 status 변경 자체를 거부 → 거래 미완료.
+  let qtaPayment:
+    | { ok: true; charged: number; already_paid?: boolean }
+    | null = null;
+  if (body.status === 'sold' && buyerId && (row.qta_price ?? 0) > 0) {
+    const pay = await payTrade(
+      c.env,
+      id,
+      user.id,
+      buyerId,
+      row.qta_price,
+    );
+    if (!pay.ok) {
+      const code = pay.reason === 'insufficient' ? 402 : 400;
+      return c.json({ error: pay.error, reason: pay.reason }, code);
+    }
+    qtaPayment = pay;
+  }
+
   if (body.status === 'sold') {
     await c.env.DB
       .prepare(
@@ -668,6 +705,7 @@ app.put('/:id/status', authMiddleware, async (c) => {
     status: body.status,
     buyer_id: buyerId,
     qta_bonus: qtaBonus,
+    qta_payment: qtaPayment,
   });
 });
 

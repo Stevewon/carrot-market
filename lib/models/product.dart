@@ -3,6 +3,9 @@ class Product {
   final String title;
   final String description;
   final int price;
+  /// QTA 거래 가격 (정수). 0 = KRW 거래(기본). >0 이면 거래완료 시
+  /// 자동 buyer→seller 잔액 이체.
+  final int qtaPrice;
   final String category;
   final String region;
   final List<String> images;
@@ -29,6 +32,7 @@ class Product {
     required this.title,
     required this.description,
     required this.price,
+    this.qtaPrice = 0,
     required this.category,
     required this.region,
     required this.images,
@@ -84,6 +88,9 @@ class Product {
       price: (json['price'] is num)
           ? (json['price'] as num).toInt()
           : int.tryParse(json['price']?.toString() ?? '0') ?? 0,
+      qtaPrice: (json['qta_price'] is num)
+          ? (json['qta_price'] as num).toInt()
+          : int.tryParse(json['qta_price']?.toString() ?? '0') ?? 0,
       category: json['category'] ?? 'etc',
       region: json['region'] ?? '',
       images: parsedImages,
@@ -144,6 +151,14 @@ class Product {
     final next = bumpedAt!.add(const Duration(hours: 24));
     final remaining = next.difference(DateTime.now());
     return remaining.isNegative ? Duration.zero : remaining;
+  }
+
+  /// QTA 거래 가능 여부 (qta_price > 0).
+  bool get hasQtaPrice => qtaPrice > 0;
+
+  String get qtaPriceFormatted {
+    if (qtaPrice <= 0) return '';
+    return '${_formatThousands(qtaPrice)} QTA';
   }
 
   String get priceFormatted {
