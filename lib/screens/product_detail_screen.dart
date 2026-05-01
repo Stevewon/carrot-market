@@ -10,11 +10,13 @@ import '../app/constants.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/product.dart';
+import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
 import '../services/product_service.dart';
 import '../services/moderation_service.dart';
 import '../services/hidden_products_service.dart';
+import 'profile_verify_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final String productId;
@@ -67,6 +69,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     String? buyerId;
     Map<String, dynamic>? buyer;
     if (status == 'sold') {
+      // 결제(자금이동) 단계 — 판매자도 Lv1(본인인증) 필요.
+      // 등록·예약·채팅은 자유, 거래완료(=정산) 시점에서만 차단.
+      final user = context.read<AuthService>().user;
+      if (user != null && !user.verificationLevel.canTrade) {
+        await showVerificationGuard(
+          context,
+          current: user.verificationLevel,
+          required: VerificationLevel.identity,
+          customTitle: '거래완료에는 본인 인증이 필요해요',
+          customMessage: '돈(KRW·QTA)이 오가는 단계라 1인 1계정 보장을 위해 '
+              '판매자 본인 인증이 필수입니다.\n'
+              '인증해도 채팅·통화는 익명 그대로 유지돼요.',
+        );
+        return;
+      }
       buyer = await _pickBuyer(p);
       if (buyer == null) return; // user cancelled
       buyerId = buyer['id']?.toString();

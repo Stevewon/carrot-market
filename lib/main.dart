@@ -58,7 +58,16 @@ class EggplantApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => KeywordAlertService(authService)),
         ChangeNotifierProvider(create: (_) => HiddenProductsService(authService)),
-        ChangeNotifierProvider(create: (_) => QtaService(authService)),
+        // QtaService 생성 후 ProductService 의 mining 콜백을 연결.
+        // 상품 상세 응답에 들어온 mining 진행도가 자동으로 QtaService 로 흘러간다.
+        ChangeNotifierProxyProvider<ProductService, QtaService>(
+          create: (_) => QtaService(authService),
+          update: (ctx, productSvc, previous) {
+            final qta = previous ?? QtaService(authService);
+            productSvc.setMiningUpdateCallback(qta.applyBrowseMiningFromDetail);
+            return qta;
+          },
+        ),
         ChangeNotifierProxyProvider<ChatService, CallService>(
           create: (ctx) => CallService(
             auth: authService,

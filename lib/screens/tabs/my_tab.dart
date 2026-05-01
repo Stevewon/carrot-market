@@ -32,15 +32,21 @@ class _MyTabState extends State<MyTab> {
       svc.fetchMyProducts(silent: svc.mySellingLoaded);
       svc.fetchMyLikes(silent: svc.myLikesLoaded);
       // QTA 잔액 + 최근 내역 1회 로드 (이후 보너스 수령 시 갱신).
-      context.read<QtaService>().load();
+      final qta = context.read<QtaService>();
+      qta.load();
+      // 오늘 둘러보기 채굴 현황도 함께 로드.
+      qta.loadBrowseMining();
     });
   }
 
   Future<void> _refresh() async {
     final svc = context.read<ProductService>();
+    final qta = context.read<QtaService>();
     await Future.wait([
       svc.fetchMyProducts(silent: true),
       svc.fetchMyLikes(silent: true),
+      qta.load(force: true),
+      qta.loadBrowseMining(force: true),
     ]);
   }
 
@@ -167,6 +173,9 @@ class _MyTabState extends State<MyTab> {
             // QTA 지갑 카드 (지갑주소 마스킹 + 복사 + 잔액)
             if (user.walletAddress != null && user.walletAddress!.isNotEmpty)
               _QtaWalletCard(walletAddress: user.walletAddress!),
+
+            // 오늘 둘러보기 채굴 현황 (X/10개 → +10 QTA)
+            const _BrowseMiningCard(),
 
             _MenuTile(
               icon: Icons.qr_code_2,
@@ -820,6 +829,114 @@ class _VerificationCta extends StatelessWidget {
                   color: EggplantColors.textSecondary),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 오늘(KST) 둘러보기 채굴 현황 카드.
+///
+/// - 상품 상세를 10개 이상 조회하면 자동으로 +10 QTA 적립.
+/// - 자기 상품·중복 조회는 카운트되지 않음 (백엔드 PK 보장).
+/// - 카운트는 KST 자정 기준 매일 0으로 리셋.
+class _BrowseMiningCard extends StatelessWidget {
+  const _BrowseMiningCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final qta = context.watch<QtaService>();
+    final count = qta.browseCount;
+    final threshold = qta.browseThreshold;
+    final credited = qta.browseCredited;
+    final progress = qta.browseProgress;
+
+    final accent = credited
+        ? const Color(0xFF22C55E)
+        : EggplantColors.primary;
+    final title = credited
+        ? '오늘 채굴 보너스 받았어요!'
+        : '오늘 둘러보기 채굴';
+    final subtitle = credited
+        ? '내일 자정(KST)에 다시 시작돼요.'
+        : '상품 $threshold개 보면 +10 QTA 적립';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    credited ? Icons.check_circle : Icons.bolt_outlined,
+                    color: accent,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: EggplantColors.textPrimary)),
+                      const SizedBox(height: 2),
+                      Text(subtitle,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: EggplantColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                Text('$count/$threshold',
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: accent)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 8,
+                backgroundColor: const Color(0xFFF3F4F6),
+                valueColor: AlwaysStoppedAnimation<Color>(accent),
+              ),
+            ),
+            if (!credited) ...[
+              const SizedBox(height: 8),
+              Text(
+                count == 0
+                    ? '홈 탭에서 상품을 둘러보세요 🛍️'
+                    : (threshold - count > 0
+                        ? '${threshold - count}개 더 보면 +10 QTA!'
+                        : '곧 적립돼요…'),
+                style: const TextStyle(
+                    fontSize: 11.5,
+                    color: EggplantColors.textSecondary),
+              ),
+            ],
+          ],
         ),
       ),
     );

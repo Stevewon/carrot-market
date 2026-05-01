@@ -1,7 +1,13 @@
 import { Hono } from 'hono';
 import type { Env, ProductResponse, ProductRow, UserRow, Variables } from '../types';
 import { authMiddleware, optionalAuth } from '../jwt';
-import { grantTradeBonus, payTrade } from '../qta';
+import {
+  grantTradeBonus,
+  payTrade,
+  recordBrowseAndMaybeMine,
+  grantListingMiningBonus,
+  getBrowseMiningStatus,
+} from '../qta';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -209,16 +215,55 @@ app.get('/:id', optionalAuth, async (c) => {
 
   const user = c.get('user');
   // Increment view_count for non-owners
+  let mining: Awaited<ReturnType<typeof recordBrowseAndMaybeMine>> | null = null;
   if (!user || user.id !== row.seller_id) {
     await c.env.DB
       .prepare('UPDATE products SET view_count = view_count + 1 WHERE id = ?')
       .bind(row.id)
       .run();
     row.view_count += 1;
+
+    // 둘러보기 채굴 카운트 (로그인 사용자, 자기 상품 아닐 때만).
+    // best-effort — 실패해도 상세 조회는 정상 응답.
+    if (user) {
+      try {
+        mining = await recordBrowseAndMaybeMine(c.env, user.id, row.id);
+      } catch (e) {
+        console.error('[mining] browse count failed', String((e as Error)?.message || e));
+      }
+    }
+
+    // 7일 보유 채굴 — 상품이 sale 상태로 7일 이상 묵혔으면 자동 지급(상품당 1회).
+    // 게으른 트리거: 상세 조회 시점에 lazily 검사. cron 불필요.
+    if ((row.status ?? 'sale') === 'sale') {
+      try {
+        await grantListingMiningBonus(
+          c.env,
+          row.id,
+          row.seller_id,
+          row.created_at,
+          row.status ?? 'sale',
+        );
+      } catch (e) {
+        console.error('[mining] listing bonus failed', String((e as Error)?.message || e));
+      }
+    }
   }
 
   const product = await hydrate(c.env, row, user?.id);
-  return c.json({ product });
+  return c.json({ product, mining });
+});
+
+/**
+ * GET /api/products/mining/browse — 오늘(KST) 둘러보기 채굴 현황.
+ * my_tab 위젯에서 호출.
+ *
+ * 반환: { count, threshold, credited, ymd_kst }
+ */
+app.get('/mining/browse', authMiddleware, async (c) => {
+  const user = c.get('user')!;
+  const status = await getBrowseMiningStatus(c.env, user.id);
+  return c.json(status);
 });
 
 /**

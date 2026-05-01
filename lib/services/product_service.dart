@@ -85,11 +85,23 @@ class ProductService extends ChangeNotifier {
   Future<Product?> fetchById(String id) async {
     try {
       final res = await auth.api.get('/api/products/$id');
-      return Product.fromJson(res.data['product'] as Map<String, dynamic>);
+      final data = res.data as Map<String, dynamic>;
+      // 응답에 mining 필드(둘러보기 채굴 진행도)가 있으면 콜백으로 넘긴다.
+      final mining = data['mining'];
+      if (mining is Map && _onMiningUpdate != null) {
+        _onMiningUpdate!(Map<String, dynamic>.from(mining));
+      }
+      return Product.fromJson(data['product'] as Map<String, dynamic>);
     } catch (e) {
       debugPrint('fetchById error: $e');
       return null;
     }
+  }
+
+  /// 상품 상세 응답의 mining 필드 수신 콜백 (QtaService 가 등록).
+  void Function(Map<String, dynamic>)? _onMiningUpdate;
+  void setMiningUpdateCallback(void Function(Map<String, dynamic>)? cb) {
+    _onMiningUpdate = cb;
   }
 
   Future<String?> createProduct({

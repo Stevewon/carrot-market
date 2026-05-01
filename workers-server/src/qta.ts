@@ -799,3 +799,189 @@ export async function completeWithdrawal(
   return { ok: true };
 }
 
+// ─────────────────────────────────────────────────────────────────────
+//  QTA 채굴 시스템
+//
+//  A. 상품 7일 보유 채굴 — `mining_listing:<product_id>` 멱등
+//  B. 둘러보기 일일 채굴 — `mining_browse:<user_id>:<ymd_kst>` 멱등
+//
+//  KST(UTC+9) 자정 기준 일자(YYYY-MM-DD)로 분리한다.
+// ─────────────────────────────────────────────────────────────────────
+
+/** 'YYYY-MM-DD' (KST). UTC 시각 + 9h 후 날짜를 반환. */
+function ymdKst(d = new Date()): string {
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  const y = kst.getUTCFullYear();
+  const m = String(kst.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(kst.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * 상품 7일 보유 채굴 — sale 상태로 7일 이상 유지된 상품 1건당 +10 QTA(상품당 1회).
+ * `products.ts` 의 GET /:id (상세) 또는 별도 cron 에서 호출 가능.
+ *
+ * - product.created_at 이 7일 이전이고 status='sale' 일 때만 지급
+ * - idem_key = 'mining_listing:<product_id>'
+ * - 이미 지급된 상품은 false 반환 (정상)
+ */
+export async function grantListingMiningBonus(
+  env: Env,
+  product_id: string,
+  seller_id: string,
+  created_at: string,
+  status: string,
+): Promise<{ credited: boolean; reason?: string }> {
+  if (status !== 'sale') return { credited: false, reason: 'not_on_sale' };
+
+  const created = new Date(created_at);
+  if (Number.isNaN(created.getTime())) {
+    return { credited: false, reason: 'bad_created_at' };
+  }
+  const ageDays =
+    (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
+  if (ageDays < QTA_MINING_LISTING_DAYS) {
+    return { credited: false, reason: 'too_young' };
+  }
+
+  const ok = await creditOnce(
+    env,
+    seller_id,
+    QTA_MINING_LISTING_BONUS,
+    'mining_listing',
+    `mining_listing:${product_id}`,
+    { product_id, age_days: Math.floor(ageDays) },
+  );
+  return { credited: ok, reason: ok ? undefined : 'already_credited' };
+}
+
+/**
+ * 상품 조회 카운트 + 둘러보기 일일 채굴.
+ *
+ * - 같은 사용자가 같은 상품을 봐도 1회만 카운트 (product_view_log PK)
+ * - 자기 상품은 카운트 X (호출자 책임)
+ * - 카운트가 임계값(QTA_MINING_BROWSE_THRESHOLD=10) 도달 시 +10 QTA
+ *   - idem_key = 'mining_browse:<user_id>:<ymd_kst>'  (하루 1회)
+ *
+ * 반환: { count, threshold, credited, alreadyCounted, alreadyCredited }
+ */
+export async function recordBrowseAndMaybeMine(
+  env: Env,
+  user_id: string,
+  product_id: string,
+): Promise<{
+  count: number;
+  threshold: number;
+  credited: boolean;
+  alreadyCounted: boolean;
+  alreadyCredited: boolean;
+}> {
+  const ymd = ymdKst();
+
+  // 1) view_log 시도 (같은 (user, product, day) 면 PK 충돌 → 중복 카운트 X).
+  let alreadyCounted = false;
+  try {
+    await env.DB
+      .prepare(
+        `INSERT INTO product_view_log (user_id, product_id, ymd_kst)
+           VALUES (?, ?, ?)`,
+      )
+      .bind(user_id, product_id, ymd)
+      .run();
+  } catch (e) {
+    const msg = String((e as Error)?.message || e);
+    if (/UNIQUE|PRIMARY KEY/i.test(msg)) {
+      alreadyCounted = true;
+    } else {
+      throw e;
+    }
+  }
+
+  // 2) qta_browse_mining_daily upsert (오늘 카운트/credited 캐시).
+  if (!alreadyCounted) {
+    await env.DB
+      .prepare(
+        `INSERT INTO qta_browse_mining_daily (user_id, ymd_kst, view_count, credited, updated_at)
+           VALUES (?, ?, 1, 0, datetime('now'))
+           ON CONFLICT(user_id, ymd_kst)
+           DO UPDATE SET view_count = view_count + 1, updated_at = datetime('now')`,
+      )
+      .bind(user_id, ymd)
+      .run();
+  }
+
+  // 3) 현재 상태 조회.
+  const cur = await env.DB
+    .prepare(
+      `SELECT view_count, credited
+         FROM qta_browse_mining_daily
+        WHERE user_id = ? AND ymd_kst = ?`,
+    )
+    .bind(user_id, ymd)
+    .first<{ view_count: number; credited: number }>();
+  const count = cur?.view_count ?? 0;
+  const alreadyCredited = (cur?.credited ?? 0) === 1;
+
+  // 4) 임계값 도달 + 미지급이면 보너스 적립.
+  let credited = false;
+  if (
+    count >= QTA_MINING_BROWSE_THRESHOLD &&
+    !alreadyCredited
+  ) {
+    const ok = await creditOnce(
+      env,
+      user_id,
+      QTA_MINING_BROWSE_BONUS,
+      'mining_browse',
+      `mining_browse:${user_id}:${ymd}`,
+      { ymd, view_count: count },
+    );
+    if (ok) {
+      await env.DB
+        .prepare(
+          `UPDATE qta_browse_mining_daily
+              SET credited = 1, updated_at = datetime('now')
+            WHERE user_id = ? AND ymd_kst = ?`,
+        )
+        .bind(user_id, ymd)
+        .run();
+      credited = true;
+    }
+  }
+
+  return {
+    count,
+    threshold: QTA_MINING_BROWSE_THRESHOLD,
+    credited,
+    alreadyCounted,
+    alreadyCredited: alreadyCredited || credited,
+  };
+}
+
+/** 오늘(KST) 둘러보기 채굴 현황 — my_tab 위젯에서 호출. */
+export async function getBrowseMiningStatus(
+  env: Env,
+  user_id: string,
+): Promise<{
+  count: number;
+  threshold: number;
+  credited: boolean;
+  ymd_kst: string;
+}> {
+  const ymd = ymdKst();
+  const cur = await env.DB
+    .prepare(
+      `SELECT view_count, credited
+         FROM qta_browse_mining_daily
+        WHERE user_id = ? AND ymd_kst = ?`,
+    )
+    .bind(user_id, ymd)
+    .first<{ view_count: number; credited: number }>();
+  return {
+    count: cur?.view_count ?? 0,
+    threshold: QTA_MINING_BROWSE_THRESHOLD,
+    credited: (cur?.credited ?? 0) === 1,
+    ymd_kst: ymd,
+  };
+}
+

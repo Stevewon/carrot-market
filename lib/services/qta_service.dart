@@ -173,6 +173,75 @@ class QtaService extends ChangeNotifier {
     _withdrawalsLoaded = false;
     _withdrawalMin = 5000;
     _withdrawalUnit = 5000;
+    _browseCount = 0;
+    _browseThreshold = 10;
+    _browseCredited = false;
+    _browseLoaded = false;
+    notifyListeners();
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  // 둘러보기 채굴 현황 (오늘 KST 기준)
+  //   - 상품 상세 응답의 mining 필드로도 갱신됨 (즉시 반영용).
+  //   - my_tab 진입 시 GET /api/products/mining/browse 로 1회 동기화.
+  // ────────────────────────────────────────────────────────────────────
+  int _browseCount = 0;
+  int _browseThreshold = 10;
+  bool _browseCredited = false;
+  bool _browseLoaded = false;
+  bool _browseLoading = false;
+
+  int get browseCount => _browseCount;
+  int get browseThreshold => _browseThreshold;
+  bool get browseCredited => _browseCredited;
+  bool get browseLoaded => _browseLoaded;
+  bool get browseLoading => _browseLoading;
+
+  /// 채굴 진행도 (0.0 ~ 1.0).
+  double get browseProgress {
+    if (_browseThreshold <= 0) return 0;
+    final p = _browseCount / _browseThreshold;
+    return p > 1.0 ? 1.0 : p;
+  }
+
+  /// 서버에서 오늘 둘러보기 채굴 현황 가져오기.
+  Future<void> loadBrowseMining({bool force = false}) async {
+    if (_browseLoading) return;
+    if (_browseLoaded && !force) return;
+    _browseLoading = true;
+    try {
+      final res = await auth.api.get('/api/products/mining/browse');
+      final data = res.data as Map<String, dynamic>;
+      _browseCount = (data['count'] as num?)?.toInt() ?? 0;
+      _browseThreshold = (data['threshold'] as num?)?.toInt() ?? 10;
+      _browseCredited = data['credited'] == true;
+      _browseLoaded = true;
+      _browseLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _browseLoading = false;
+      debugPrint('[qta] loadBrowseMining failed: $e');
+    }
+  }
+
+  /// 상품 상세 응답에 포함된 mining 필드로 즉시 갱신.
+  /// 채굴 보너스가 방금 적립된 경우 잔액·ledger 도 다시 가져온다.
+  void applyBrowseMiningFromDetail(Map<String, dynamic>? mining) {
+    if (mining == null) return;
+    final newCount = (mining['count'] as num?)?.toInt();
+    final newThreshold = (mining['threshold'] as num?)?.toInt();
+    final justCredited = mining['credited'] == true;
+    final alreadyCredited = mining['alreadyCredited'] == true;
+    if (newCount != null) _browseCount = newCount;
+    if (newThreshold != null) _browseThreshold = newThreshold;
+    if (alreadyCredited) _browseCredited = true;
+    _browseLoaded = true;
+    if (justCredited) {
+      // 보너스가 방금 적립됐으니 잔액/내역 다시 로드.
+      _loaded = false;
+      // ignore: discarded_futures
+      load(force: true);
+    }
     notifyListeners();
   }
 
