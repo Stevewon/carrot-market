@@ -772,14 +772,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     // Lv1 (본인인증) 가드. canTrade == verificationLevel >= 1.
     if (!user.verificationLevel.canTrade) {
-      final go = await showVerificationGuard(
+      await showVerificationGuard(
         context,
-        message: '안전결제는 본인인증(Lv1) 후 이용할 수 있어요.\n'
+        current: user.verificationLevel,
+        required: VerificationLevel.identity,
+        customMessage: '안전결제는 본인인증(Lv1) 후 이용할 수 있어요.\n'
             '인증을 완료하고 다시 시도해주세요.',
       );
-      if (go == true && mounted) {
-        context.push('/profile/verify');
-      }
       return;
     }
 
