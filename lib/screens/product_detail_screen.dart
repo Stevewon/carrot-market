@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
@@ -754,6 +755,275 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  /// 안전결제(에스크로) 시작 — 30,000원 미만 KRW 거래에서만 노출.
+  /// 백엔드: POST /api/products/:id/escrow → 입금자 메모 + 회사 임시계좌 반환.
+  /// 본인인증(Lv1) 미완료 시에는 가드 모달로 라우팅.
+  Future<void> _startEscrow() async {
+    final p = _product;
+    final user = context.read<AuthService>().user;
+    if (p == null || user == null) return;
+
+    if (p.sellerId == user.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('내가 등록한 상품이에요')),
+      );
+      return;
+    }
+
+    // Lv1 (본인인증) 가드. canTrade == verificationLevel >= 1.
+    if (!user.verificationLevel.canTrade) {
+      final go = await showVerificationGuard(
+        context,
+        message: '안전결제는 본인인증(Lv1) 후 이용할 수 있어요.\n'
+            '인증을 완료하고 다시 시도해주세요.',
+      );
+      if (go == true && mounted) {
+        context.push('/profile/verify');
+      }
+      return;
+    }
+
+    final auth = context.read<AuthService>();
+    Map<String, dynamic>? result;
+    try {
+      final res = await auth.api.post('/api/products/${p.id}/escrow');
+      result = res.data is Map<String, dynamic>
+          ? res.data as Map<String, dynamic>
+          : Map<String, dynamic>.from(res.data as Map);
+    } catch (e) {
+      // dio DioException → response.data.error 추출 시도
+      String msg = '안전결제를 시작하지 못했어요';
+      try {
+        final dynamic err = e;
+        // ignore: avoid_dynamic_calls
+        final data = err.response?.data;
+        if (data is Map && data['error'] is String) {
+          msg = data['error'] as String;
+        }
+      } catch (_) {}
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      return;
+    }
+
+    if (!mounted || result == null) return;
+    final memo = result['deposit_memo']?.toString() ?? '';
+    final amount = (result['amount_krw'] is num)
+        ? (result['amount_krw'] as num).toInt()
+        : p.price;
+    final bank = result['bank_info'] is Map
+        ? Map<String, dynamic>.from(result['bank_info'] as Map)
+        : <String, dynamic>{};
+
+    await _showEscrowSheet(
+      depositMemo: memo,
+      amountKrw: amount,
+      bankName: bank['bank_name']?.toString() ?? '국민은행',
+      accountNumber: bank['account_number']?.toString() ?? '',
+      accountHolder: bank['account_holder']?.toString() ?? '(주)가지마켓',
+    );
+  }
+
+  /// 안전결제 안내 모달 — 회사 임시계좌 + 입금자 메모(고유 코드) + 복사 버튼.
+  Future<void> _showEscrowSheet({
+    required String depositMemo,
+    required int amountKrw,
+    required String bankName,
+    required String accountNumber,
+    required String accountHolder,
+  }) async {
+    final p = _product;
+    if (p == null) return;
+
+    String fmtKrw(int v) {
+      final s = v.toString();
+      final buf = StringBuffer();
+      for (int i = 0; i < s.length; i++) {
+        if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+        buf.write(s[i]);
+      }
+      return buf.toString();
+    }
+
+    Future<void> copy(String text, String label) async {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$label 복사됨'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: EggplantColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: EggplantColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.shield_outlined,
+                          color: EggplantColors.primary, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text('가지 안전결제',
+                        style: TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.w800)),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                // 안내 박스
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: EggplantColors.background,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    '아래 회사 임시 계좌로 입금해주세요.\n'
+                    '판매자가 발송 처리 후 가지가 정산해 드립니다.\n'
+                    '• 30,000원 미만 거래만 자동 임시예치 가능\n'
+                    '• 입금자 메모(고유 코드) 누락 시 매칭이 늦어질 수 있어요',
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.4,
+                        color: EggplantColors.textSecondary),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                // 금액
+                _EscrowRow(
+                  label: '결제 금액',
+                  value: '${fmtKrw(amountKrw)}원',
+                  bold: true,
+                ),
+                const SizedBox(height: 10),
+                _EscrowRow(label: '은행', value: bankName),
+                const SizedBox(height: 10),
+                _EscrowRow(
+                  label: '계좌번호',
+                  value: accountNumber,
+                  trailing: TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () => copy(accountNumber, '계좌번호'),
+                    icon: const Icon(Icons.copy, size: 14),
+                    label: const Text('복사', style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _EscrowRow(label: '예금주', value: accountHolder),
+                const SizedBox(height: 10),
+                // 입금자 메모 — 가장 중요. 강조 표시.
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: EggplantColors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: EggplantColors.primary.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.qr_code_2,
+                          color: EggplantColors.primary, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '입금자명 (고유 메모)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: EggplantColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              depositMemo,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                fontFamily: 'monospace',
+                                letterSpacing: 1.2,
+                                color: EggplantColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => copy(depositMemo, '입금자 메모'),
+                        icon: const Icon(Icons.copy, size: 14),
+                        label: const Text('복사',
+                            style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('확인했어요',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Center(
+                  child: Text(
+                    '문의: 마이페이지 → 고객센터',
+                    style: TextStyle(
+                        fontSize: 11, color: EggplantColors.textTertiary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -968,6 +1238,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ],
                     ),
                   ),
+                  // 30,000원 미만 KRW 상품 + sale 상태인 경우에만 안전결제 노출.
+                  // QTA 거래는 자동 정산이라 에스크로가 없고, 직거래(>=30k)도 미노출.
+                  if (p.qtaPrice == 0 &&
+                      p.price > 0 &&
+                      p.price < AppConfig.escrowMaxAmountKrw &&
+                      p.status == 'sale') ...[
+                    OutlinedButton.icon(
+                      onPressed: _startEscrow,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: EggplantColors.primary,
+                        side: const BorderSide(color: EggplantColors.primary),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.shield_outlined, size: 16),
+                      label: const Text('안전결제',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700)),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   ElevatedButton.icon(
                     onPressed: _startChat,
                     icon: const Icon(Icons.chat_bubble, color: Colors.white, size: 18),
@@ -979,6 +1270,51 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 안전결제 모달 안의 한 줄 정보 행 (라벨 + 값 [+ trailing 버튼]).
+class _EscrowRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool bold;
+  final Widget? trailing;
+  const _EscrowRow({
+    required this.label,
+    required this.value,
+    this.bold = false,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 72,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: EggplantColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: bold ? 16 : 14,
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w700,
+              color: EggplantColors.textPrimary,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+        if (trailing != null) trailing!,
+      ],
     );
   }
 }

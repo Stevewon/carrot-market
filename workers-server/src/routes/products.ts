@@ -18,6 +18,33 @@ const MAX_IMAGE_SIZE = 8 * 1024 * 1024; // 8 MB
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
 const ALLOWED_VIDEO_EXT = /^(mp4|mov|m4v|webm)$/;
 
+/** 멀티파트 업로드 파일의 최소 인터페이스 (Workers / undici / DOM 통용). */
+interface UploadedFile {
+  size: number;
+  name: string;
+  type: string;
+  arrayBuffer(): Promise<ArrayBuffer>;
+}
+
+/**
+ * `FormData.get/getAll` 의 반환값 (`string | File | null`) 중에서
+ * 파일 객체만 안전하게 골라내는 type guard.
+ *
+ * Cloudflare Workers 빌드에서는 globalThis.File 타입 추론이 약해서
+ * `instanceof File` 분기가 TS2358 / TS2339 를 유발한다.
+ * 따라서 duck-typing(필요 멤버 보유 여부)으로 분기한다.
+ */
+function isUploadedFile(v: unknown): v is UploadedFile {
+  if (v == null || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.size === 'number' &&
+    typeof o.name === 'string' &&
+    typeof o.type === 'string' &&
+    typeof o.arrayBuffer === 'function'
+  );
+}
+
 /** Normalize a user-provided YouTube URL into a plain https://youtu.be/<id> form (or youtube.com/watch?v=). */
 function normalizeYouTubeUrl(raw: string): string | null {
   const url = raw.trim();
@@ -294,8 +321,14 @@ app.post('/', authMiddleware, async (c) => {
     category = String(form.get('category') || '').trim();
     region = String(form.get('region') || '').trim();
 
-    // Collect all "images" files (multer array-style)
-    const files = form.getAll('images').filter((v): v is File => v instanceof File);
+    // Collect all "images" files (multer array-style).
+    // Cloudflare Workers 환경에선 globalThis.File 의 타입 추론이 약해서
+    // instanceof 대신 duck-typing(arrayBuffer 메서드 보유 여부)으로 분기.
+    // FormDataEntryValue 가 string | File 인데 type guard narrowing 이
+    // 안정적으로 안 먹어서 명시 캐스트.
+    const files: UploadedFile[] = (form.getAll('images') as unknown[]).filter(
+      isUploadedFile,
+    );
     if (files.length > MAX_IMAGES) {
       return c.json({ error: `이미지는 최대 ${MAX_IMAGES}장까지에요` }, 400);
     }
@@ -325,8 +358,9 @@ app.post('/', authMiddleware, async (c) => {
 
     // Optional uploaded video file (only if no YouTube link)
     if (!videoUrl) {
-      const vFile = form.get('video');
-      if (vFile instanceof File && vFile.size > 0) {
+      const raw = form.get('video');
+      const vFile = isUploadedFile(raw) ? raw : null;
+      if (vFile && vFile.size > 0) {
         if (vFile.size > MAX_VIDEO_SIZE) {
           return c.json({ error: '영상 크기는 50MB 이하여야 해요' }, 400);
         }

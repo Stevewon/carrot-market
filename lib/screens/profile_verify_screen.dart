@@ -6,6 +6,7 @@ import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import '../services/verification/identity_provider.dart';
 
 /// 프로필 인증 단계 화면.
 ///
@@ -68,13 +69,7 @@ class ProfileVerifyScreen extends StatelessWidget {
                 actionLabel: lv.value >= 1 ? '완료됨' : '본인 인증 시작',
                 onAction: lv.value >= 1
                     ? null
-                    : () => _showDummyDialog(
-                          context,
-                          title: '본인 인증',
-                          message:
-                              '실서비스에서는 PASS / SMS 본인인증 SDK가 호출됩니다.\n'
-                              '현재는 더미 화면이라 인증 단계가 변경되지 않아요.',
-                        ),
+                    : () => _startIdentityVerification(context),
               ),
               const SizedBox(height: 12),
               _StepCard(
@@ -138,6 +133,64 @@ class ProfileVerifyScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// 본인인증 시작 핸들러.
+  /// 1) [IdentityProviderRegistry.verifyOrFallback] 으로 PASS/SMS/KISA SDK 호출
+  ///    (SDK 미연결이면 자동 dummy 폴백)
+  /// 2) 결과 페이로드를 [AuthService.verifyIdentity] 로 전송
+  /// 3) 성공 시 verification_level=1 로 갱신, 실패 시 에러 다이얼로그.
+  Future<void> _startIdentityVerification(BuildContext context) async {
+    final auth = context.read<AuthService>();
+
+    // 진행 다이얼로그
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: SizedBox(
+          width: 56,
+          height: 56,
+          child: CircularProgressIndicator(color: EggplantColors.primary),
+        ),
+      ),
+    );
+
+    String? error;
+    IdentityVerifyResult? result;
+    try {
+      // SDK 호출 (PASS 우선, 실패 시 dummy 폴백). 사용자 취소는 IdentityVerifyCancelled.
+      result = await IdentityProviderRegistry.verifyOrFallback();
+    } on IdentityVerifyCancelled {
+      // 사용자가 SDK 화면에서 취소
+      if (!context.mounted) return;
+      Navigator.of(context, rootNavigator: true).pop(); // close progress
+      return;
+    } catch (e) {
+      error = '본인인증 SDK 오류: $e';
+    }
+
+    // 서버 호출
+    if (result != null) {
+      error = await auth.verifyIdentity(
+        provider: result.provider,
+        ciToken: result.ciToken,
+        nonce: result.nonce,
+        txId: result.txId,
+        phoneHash: result.phoneHash,
+      );
+    }
+
+    if (!context.mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // close progress
+
+    if (error == null) {
+      _showDummyDialog(context,
+          title: '본인 인증 완료',
+          message: '본인인증이 완료됐어요.\nKRW · QTA 결제와 상품 구매가 활성화됩니다.');
+    } else {
+      _showDummyDialog(context, title: '본인 인증 실패', message: error);
+    }
   }
 }
 

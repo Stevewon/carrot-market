@@ -304,6 +304,82 @@ class AuthService extends ChangeNotifier {
   }
 
   // ================================================================
+  // SSO Exchange — QRChat 토큰 + 퀀타리움 지갑주소 → 가지 JWT 발급
+  //
+  // 컨셉: "퀀타리움 지갑주소 = Universal User ID"
+  //   QRChat 과 가지(Eggplant)는 같은 회사의 자매 앱.
+  //   한쪽에서 가입/로그인하면 반대쪽이 자동으로 같은 계정 인식.
+  //
+  // 백엔드: POST /api/auth/sso/exchange (workers-server auth.ts).
+  //   - wallet_address 가 신규면 SSO-only 계정 자동 생성 (password_hash NULL,
+  //     password 직접 로그인은 막힘 → 보안). 닉네임 자동 생성 / 충돌 시 접미사.
+  //   - 기존 user 면 sso_links 테이블에 (provider, user_id) 기록 갱신.
+  //   - JWT 와 sanitize 된 user 반환.
+  //
+  // 응답 스키마:
+  //   { token, user, sso: { provider, created_new, signup_bonus_granted },
+  //     login_bonus: { credited, remaining } | null }
+  //
+  // 호출자(예: QRChat 앱에서 가지 진입):
+  //   final r = await auth.ssoExchange(
+  //     walletAddress: '0xABC...',
+  //     provider: 'qrchat',
+  //     externalToken: qrchatJwt,
+  //     externalId: qrchatUserId,
+  //     nickname: qrchatNickname,
+  //   );
+  //   if (r.error == null) → 가지 로그인 완료, GoRouter 가 /로 이동.
+  // ================================================================
+  Future<({String? error, bool createdNew, String? provider})> ssoExchange({
+    required String walletAddress,
+    String provider = 'qrchat',
+    String? externalToken,
+    String? externalId,
+    String? nickname,
+    String? region,
+  }) async {
+    try {
+      final res = await api.post('/api/auth/sso/exchange', data: {
+        'wallet_address': walletAddress.trim(),
+        'provider': provider,
+        if (externalToken != null && externalToken.isNotEmpty)
+          'external_token': externalToken,
+        if (externalId != null && externalId.isNotEmpty)
+          'external_id': externalId,
+        if (nickname != null && nickname.trim().isNotEmpty)
+          'nickname': nickname.trim(),
+        if (region != null && region.isNotEmpty) 'region': region,
+        'device_uuid': deviceUuid,
+      });
+
+      if (res.statusCode == 200) {
+        final data = res.data as Map<String, dynamic>;
+        await _saveSession(
+          token: data['token'] as String,
+          user: User.fromJson(data['user'] as Map<String, dynamic>),
+        );
+        // SSO-only 신규 가입의 경우 서버가 signup_bonus 를 별도로 처리하므로
+        // qta_bonus 는 안 내려준다. login_bonus 는 일일 보상 (3회 한도).
+        final sso = data['sso'] is Map
+            ? Map<String, dynamic>.from(data['sso'] as Map)
+            : <String, dynamic>{};
+        return (
+          error: null,
+          createdNew: sso['created_new'] == true,
+          provider: sso['provider']?.toString(),
+        );
+      }
+      return (
+        error: _errorOf(res.data) ?? 'SSO 인증 실패',
+        createdNew: false,
+        provider: null,
+      );
+    } catch (e) {
+      return (error: _parseError(e), createdNew: false, provider: null);
+    }
+  }
+
+  // ================================================================
   // Recover: look up nickname from wallet address.
   // Returns the nickname on success, or throws with a message.
   // ================================================================
@@ -406,17 +482,34 @@ class AuthService extends ChangeNotifier {
   // Verification (본인인증 / 계좌 인증)
   // ================================================================
 
-  /// 본인인증 (Lv1). 현재는 더미 — UI 시연용.
-  /// 실제 PASS/SMS 통합은 추후 진행. 클라이언트가 ci_token 을 보내면
-  /// 서버가 SHA-256 해시해서 저장하고 verification_level 을 1 로 올린다.
+  /// 본인인증 (Lv1).
+  ///
+  /// PASS / SMS / KISA / dummy provider 분기 구조와 호환.
+  /// 호출자는 사업자 SDK 어댑터([IdentityProvider]) 가 돌려준
+  /// `provider, ciToken, nonce, txId, phoneHash` 를 그대로 넘기면 된다.
+  ///
+  /// 서버 라우트: POST /api/users/me/verify/identity (workers-server users.ts).
+  /// 서버는 ci_token 을 SHA-256 해시해서 저장하고 verification_level 을 1 로 올린다.
   ///
   /// 반환: null = 성공, 그 외 = 사용자에게 보여줄 에러 메시지.
-  Future<String?> verifyIdentity({required String ciToken}) async {
+  Future<String?> verifyIdentity({
+    required String ciToken,
+    String provider = 'dummy',
+    String? nonce,
+    String? txId,
+    String? phoneHash,
+  }) async {
     if (_user == null) return '로그인이 필요해요';
     try {
       final res = await api.post(
         '/api/users/me/verify/identity',
-        data: {'ci_token': ciToken},
+        data: {
+          'provider': provider,
+          'ci_token': ciToken,
+          if (nonce != null && nonce.isNotEmpty) 'nonce': nonce,
+          if (txId != null && txId.isNotEmpty) 'tx_id': txId,
+          if (phoneHash != null && phoneHash.isNotEmpty) 'phone_hash': phoneHash,
+        },
       );
       final data = res.data is Map ? res.data as Map : {};
       final userJson = data['user'];

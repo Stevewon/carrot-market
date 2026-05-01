@@ -19,6 +19,11 @@ class AppConfig {
     'SOCKET_URL',
     defaultValue: 'wss://api.eggplant.life/socket',
   );
+
+  /// 가지 안전결제(에스크로) 자동 임시예치 가능한 최대 금액 (KRW).
+  /// 이 금액 이상은 회사 미개입 → 당사자 직거래.
+  /// 백엔드 [ESCROW_MAX_AMOUNT_KRW] 와 동기화돼 있어야 함.
+  static const int escrowMaxAmountKrw = 30000;
 }
 
 class Categories {
