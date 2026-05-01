@@ -171,3 +171,39 @@ enum CallSessionState {
   connected,
   ended,
 }
+
+/// 사용 가능한 메시징 어댑터 종류.
+///
+/// `--dart-define=MESSAGING_ADAPTER=qrchat` 로 빌드하면 QRChat SDK 어댑터를
+/// 시도하고, SDK 미연결 시 빌트인으로 자동 폴백한다.
+enum MessagingAdapterKind {
+  /// 가지(Eggplant) 자체 WebSocket 구현(ChatService) 을 감싸는 어댑터.
+  eggplantBuiltin,
+
+  /// QRChat SDK 어댑터. SDK 가 연결되어 있어야 정상 작동.
+  qrchatSdk,
+}
+
+extension MessagingAdapterKindCode on MessagingAdapterKind {
+  String get code {
+    switch (this) {
+      case MessagingAdapterKind.eggplantBuiltin:
+        return 'eggplant_builtin';
+      case MessagingAdapterKind.qrchatSdk:
+        return 'qrchat';
+    }
+  }
+
+  static MessagingAdapterKind fromCode(String code) {
+    switch (code.toLowerCase().trim()) {
+      case 'qrchat':
+      case 'qrchat_sdk':
+        return MessagingAdapterKind.qrchatSdk;
+      case 'eggplant':
+      case 'eggplant_builtin':
+      case 'builtin':
+      default:
+        return MessagingAdapterKind.eggplantBuiltin;
+    }
+  }
+}

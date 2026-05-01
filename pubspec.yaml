@@ -61,6 +61,25 @@ dependencies:
   # This avoids the flutter_windowmanager plugin which has AGP namespace
   # compatibility issues.
 
+  # ── PASS / SMS / KISA 본인확인 SDK (Lv1 verification) ────────────────
+  # 운영 배포 시점에 통신사 계약 + 사이트코드 발급 후 활성화.
+  # 후보 패키지 (택1 — 계약된 사업자에 맞춰 선택):
+  #
+  #   pass_dsop_sdk: ^x.y.z       # 드림시큐리티(통합 PASS DSOP)
+  #   kg_inicis_pass: ^x.y.z      # KG이니시스 PASS
+  #   nice_id_pass: ^x.y.z        # NICE 평가정보
+  #   kcb_pass: ^x.y.z            # KCB
+  #
+  # 활성화 절차:
+  #   1) 위 한 줄 주석 해제 + 정확한 버전으로 변경
+  #   2) lib/services/verification/identity_provider.dart 의
+  #      PassIdentityProvider.verify() 안의 TODO(pass-sdk) 블록을 SDK 호출로 채움
+  #   3) Android: AndroidManifest 에 SDK 가 요구하는 receiver/queries 추가
+  #      iOS: Info.plist 에 LSApplicationQueriesSchemes(통신사앱) 추가
+  #   4) flutter build apk --dart-define=IDENTITY_PROVIDER=pass \
+  #                        --dart-define=IDENTITY_FALLBACK_DUMMY=false
+  #   5) 운영 백엔드: ALLOW_DUMMY_VERIFY 를 1 → 0 로 내려 dummy 차단
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
