@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../services/permission_service.dart';
 
+/// 당근마켓 스타일 온보딩.
+///
+/// 좌우 스와이프 페이지뷰 (3페이지) + 하단 인디케이터 점 + 우상단 건너뛰기.
+/// 마지막 페이지에서만 [시작하기] 버튼 노출.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -12,25 +17,48 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
+  final PageController _pageCtl = PageController();
+  int _currentPage = 0;
   bool _requesting = false;
+
+  static const _pages = <_OnboardingPageData>[
+    _OnboardingPageData(
+      headline: '전화번호 없이\n익명으로 거래해요',
+      desc: '닉네임 하나면 충분해요.\n개인정보 노출 걱정 없이 안전하게.',
+      bgColor: Color(0xFFFAF5FF),
+    ),
+    _OnboardingPageData(
+      headline: '우리 동네\n이웃과 거래해요',
+      desc: '내 동네 인증된 사람들과만 만나요.\nQR 코드로 안심하고 직거래!',
+      bgColor: Color(0xFFF5F3FF),
+    ),
+    _OnboardingPageData(
+      headline: '쓸수록 쌓이는\nQTA 토큰 보상',
+      desc: '가입만 해도 +500 QTA,\n친구 초대마다 +200 QTA × 무제한!',
+      bgColor: Color(0xFFFAF5FF),
+    ),
+  ];
+
+  @override
+  void dispose() {
+    _pageCtl.dispose();
+    super.dispose();
+  }
 
   Future<void> _startFlow({required String target}) async {
     if (_requesting) return;
 
-    // If we've already bulk-asked on this device, skip straight to target.
     if (await PermissionService.hasAskedBefore()) {
       if (!mounted) return;
       context.push(target);
       return;
     }
 
-    // Show a clean explainer first so users know WHY we ask for perms.
     final proceed = await _showPermissionExplainer();
     if (!mounted || proceed != true) return;
 
     setState(() => _requesting = true);
     try {
-      // One system-level burst: camera, mic, photos, videos, notifications.
       await PermissionService.requestAll();
     } finally {
       if (mounted) setState(() => _requesting = false);
@@ -138,111 +166,264 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  void _goNextPage() {
+    if (_currentPage < _pages.length - 1) {
+      _pageCtl.nextPage(
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      _startFlow(target: '/register');
+    }
+  }
+
+  void _skipToEnd() {
+    _pageCtl.animateToPage(
+      _pages.length - 1,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isLastPage = _currentPage == _pages.length - 1;
+
     return Scaffold(
-      backgroundColor: EggplantColors.background,
+      backgroundColor: _pages[_currentPage].bgColor,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const Spacer(),
-              Image.asset(
-                'assets/images/eggplant-mascot.png',
-                width: 200,
-                height: 200,
-              ),
-              const SizedBox(height: 32),
-              const Text(
-                'Eggplant',
-                style: TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.w900,
-                  color: EggplantColors.primary,
-                  letterSpacing: -1.5,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                '전화번호 없이, 완전 익명으로\n안전하게 중고거래하세요',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 17,
-                  color: EggplantColors.textSecondary,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 40),
-              const _FeatureRow(
-                emoji: '🔐',
-                title: 'QR 코드로만 연결',
-                desc: '전화번호·이메일 없이 완벽한 익명',
-              ),
-              const SizedBox(height: 16),
-              const _FeatureRow(
-                emoji: '💬',
-                title: '우리끼리 대화',
-                desc: '채팅은 언제든 나가면 완전 삭제',
-              ),
-              const SizedBox(height: 16),
-              const _FeatureRow(
-                emoji: '🍆',
-                title: '우리 동네 거래',
-                desc: '내 동네 이웃과 안전하게',
-              ),
-              const Spacer(flex: 2),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed:
-                      _requesting ? null : () => _startFlow(target: '/register'),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: Responsive.maxContentWidth,
+            ),
+            child: Column(
+              children: [
+                // ────────────────────────────────────────
+                // 우상단: 건너뛰기 (마지막 페이지에서는 숨김)
+                // ────────────────────────────────────────
+                SizedBox(
+                  height: 48,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: _requesting
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (!isLastPage)
+                          TextButton(
+                            onPressed: _skipToEnd,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              minimumSize: const Size(0, 0),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                          )
-                        : const Text('회원가입',
-                            style: TextStyle(fontSize: 17)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed:
-                      _requesting ? null : () => _startFlow(target: '/login'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: EggplantColors.primary,
-                    side: const BorderSide(color: EggplantColors.primary),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                            child: const Text(
+                              '건너뛰기',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: EggplantColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  child: const Text('이미 계정이 있어요 · 로그인',
-                      style: TextStyle(fontSize: 15)),
                 ),
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                '퀀타리움 지갑주소로 가입해요 🍆',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: EggplantColors.textTertiary,
+
+                // ────────────────────────────────────────
+                // 메인: 좌우 스와이프 페이지뷰
+                // ────────────────────────────────────────
+                Expanded(
+                  child: PageView.builder(
+                    controller: _pageCtl,
+                    itemCount: _pages.length,
+                    onPageChanged: (i) => setState(() => _currentPage = i),
+                    itemBuilder: (_, i) => _OnboardingPage(data: _pages[i]),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-            ],
+
+                // ────────────────────────────────────────
+                // 인디케이터 점
+                // ────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 24, top: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      _pages.length,
+                      (i) => AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: _currentPage == i ? 24 : 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: _currentPage == i
+                              ? EggplantColors.primary
+                              : EggplantColors.primary.withOpacity(0.25),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ────────────────────────────────────────
+                // 하단 버튼: 다음/시작하기 + 로그인 링크
+                // ────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _requesting ? null : _goNextPage,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: EggplantColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: _requesting
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  isLastPage ? '시작하기' : '다음',
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            '이미 계정이 있어요?',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: EggplantColors.textSecondary,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _requesting
+                                ? null
+                                : () => _startFlow(target: '/login'),
+                            style: TextButton.styleFrom(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 6),
+                              minimumSize: const Size(0, 0),
+                              tapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              '로그인',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: EggplantColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 한 페이지의 데이터.
+class _OnboardingPageData {
+  final String headline;
+  final String desc;
+  final Color bgColor;
+
+  const _OnboardingPageData({
+    required this.headline,
+    required this.desc,
+    required this.bgColor,
+  });
+}
+
+/// 한 페이지: 마스코트(상단) + 헤드라인 + 설명.
+class _OnboardingPage extends StatelessWidget {
+  final _OnboardingPageData data;
+  const _OnboardingPage({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        children: [
+          const Spacer(flex: 2),
+          // 마스코트 — 모든 페이지 공통, 부드럽게 떠있는 듯 가벼운 그림자
+          Container(
+            width: 240,
+            height: 240,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: EggplantColors.primary.withOpacity(0.08),
+                  blurRadius: 40,
+                  spreadRadius: 8,
+                ),
+              ],
+            ),
+            child: Image.asset(
+              'assets/images/eggplant-mascot.png',
+              fit: BoxFit.contain,
+            ),
+          ),
+          const Spacer(flex: 2),
+          // 헤드라인 — 큰 폰트, 진한 색
+          Text(
+            data.headline,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: EggplantColors.textPrimary,
+              height: 1.3,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // 보조 설명 — 회색, 두 줄
+          Text(
+            data.desc,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 15,
+              color: EggplantColors.textSecondary,
+              height: 1.6,
+            ),
+          ),
+          const Spacer(flex: 3),
+        ],
       ),
     );
   }
@@ -284,51 +465,6 @@ class _PermRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _FeatureRow extends StatelessWidget {
-  final String emoji;
-  final String title;
-  final String desc;
-
-  const _FeatureRow({required this.emoji, required this.title, required this.desc});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: EggplantColors.border),
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 28)),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: EggplantColors.textPrimary,
-                    )),
-                const SizedBox(height: 2),
-                Text(desc,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: EggplantColors.textSecondary,
-                    )),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
