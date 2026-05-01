@@ -13,6 +13,7 @@ import '../../services/keyword_alert_service.dart';
 import '../../services/hidden_products_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/qta_service.dart';
+import '../../models/user.dart';
 
 class MyTab extends StatefulWidget {
   const MyTab({super.key});
@@ -87,9 +88,19 @@ class _MyTabState extends State<MyTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(user.nickname,
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w800)),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(user.nickname,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800)),
+                            ),
+                            const SizedBox(width: 6),
+                            _VerificationBadge(level: user.verificationLevel),
+                          ],
+                        ),
                         const SizedBox(height: 4),
                         Text('매너온도 ${user.mannerScore}.5°C',
                             style: const TextStyle(
@@ -111,6 +122,10 @@ class _MyTabState extends State<MyTab> {
                 ],
               ),
             ),
+
+            // 인증 단계 CTA 카드 (Lv0/1 일 때만 노출)
+            if (user.verificationLevel != VerificationLevel.bankAccount)
+              _VerificationCta(level: user.verificationLevel),
 
             // Quick stats row
             _StatsRow(
@@ -694,4 +709,119 @@ String _formatNumber(int n) {
     buf.write(s[i]);
   }
   return n < 0 ? '-$buf' : buf.toString();
+}
+
+/// 닉네임 옆에 붙는 작은 인증 배지.
+class _VerificationBadge extends StatelessWidget {
+  final VerificationLevel level;
+  const _VerificationBadge({required this.level});
+
+  @override
+  Widget build(BuildContext context) {
+    if (level == VerificationLevel.none) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Text('미인증',
+            style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF6B7280))),
+      );
+    }
+    final isLv2 = level == VerificationLevel.bankAccount;
+    final color = isLv2
+        ? EggplantColors.primary
+        : const Color(0xFF22C55E);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.verified, size: 11, color: color),
+          const SizedBox(width: 3),
+          Text(isLv2 ? 'Lv2' : 'Lv1',
+              style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+/// 인증 CTA 카드 — 프로필 헤더 아래, 통계행 위에 노출.
+class _VerificationCta extends StatelessWidget {
+  final VerificationLevel level;
+  const _VerificationCta({required this.level});
+
+  @override
+  Widget build(BuildContext context) {
+    final isLv0 = level == VerificationLevel.none;
+    final title = isLv0 ? '본인 인증하고 거래 시작하기' : '계좌 등록하고 QTA 출금하기';
+    final desc = isLv0
+        ? '인증해도 채팅·통화는 익명 그대로 유지돼요.'
+        : 'QTA 출금을 위해 본인 명의 계좌 등록이 필요합니다.';
+    final icon = isLv0
+        ? Icons.verified_user_outlined
+        : Icons.account_balance_outlined;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => context.push('/profile/verify'),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFAF5FF),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFEDE9FE)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: EggplantColors.primary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon,
+                    color: EggplantColors.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: EggplantColors.textPrimary)),
+                    const SizedBox(height: 3),
+                    Text(desc,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: EggplantColors.textSecondary)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right,
+                  color: EggplantColors.textSecondary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

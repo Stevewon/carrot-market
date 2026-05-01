@@ -4,8 +4,10 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme.dart';
+import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/qta_service.dart';
+import 'profile_verify_screen.dart';
 
 /// QTA 출금 신청 + 신청 내역 화면.
 ///
@@ -39,7 +41,17 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
   Future<void> _showRequestSheet() async {
     final qta = context.read<QtaService>();
     final auth = context.read<AuthService>();
-    final wallet = auth.user?.walletAddress;
+    final user = auth.user;
+    // Lv2 (계좌 등록) 미완료 시 가드 모달 노출 후 종료.
+    if (user != null && !user.verificationLevel.canWithdraw) {
+      await showVerificationGuard(
+        context,
+        current: user.verificationLevel,
+        required: VerificationLevel.bankAccount,
+      );
+      return;
+    }
+    final wallet = user?.walletAddress;
     if (wallet == null || wallet.isEmpty) {
       _toast('지갑 주소가 등록되지 않았어요');
       return;

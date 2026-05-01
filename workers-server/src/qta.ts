@@ -20,6 +20,18 @@ export const QTA_REFERRAL_BONUS = 200; // 친구 초대 1명당 추천인에게 
 export const QTA_WITHDRAWAL_MIN = 5000;   // 최소 신청액
 export const QTA_WITHDRAWAL_UNIT = 5000;  // 5,000 단위만
 
+// ── 채굴 정책 ──
+export const QTA_MINING_LISTING_BONUS = 10;     // 상품 7일 유지 보너스
+export const QTA_MINING_LISTING_DAYS = 7;        // 7일 이상 유지 시 지급
+export const QTA_MINING_BROWSE_BONUS = 10;       // 둘러보기 일일 보너스
+export const QTA_MINING_BROWSE_THRESHOLD = 10;   // 하루 10개 이상 봐야 지급
+
+// ── 에스크로우 정책 ──
+// 30,000원 미만 KRW 거래만 회사가 임시예치(에스크로우) 해줌.
+// 그 이상은 당사자 직거래 — 회사 절대 미개입, 사고 시 자기책임.
+// QTA 거래는 즉시 자동 송금, 에스크로우 없음.
+export const ESCROW_MAX_AMOUNT_KRW = 30_000;
+
 /** 'YYYY-MM-DD' (UTC). */
 function ymdUtc(d = new Date()): string {
   const y = d.getUTCFullYear();

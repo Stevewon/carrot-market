@@ -5,6 +5,11 @@ import { regionCenter, haversineKm, REGION_VERIFY_RADIUS_KM } from '../regions';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+/**
+ * 본인 응답용 (모든 필드 포함).
+ * verified_at / bank_registered_at 같은 민감 시각도 포함되지만
+ * 라우트 호출자에서 본인 인증 후에만 호출되므로 OK.
+ */
 function sanitize(u: UserRow): UserPublic {
   return {
     id: u.id,
@@ -15,6 +20,30 @@ function sanitize(u: UserRow): UserPublic {
     region_verified_at: u.region_verified_at,
     manner_score: u.manner_score,
     qta_balance: u.qta_balance ?? 0,
+    verification_level: u.verification_level ?? 0,
+    verified_at: u.verified_at,
+    bank_registered_at: u.bank_registered_at,
+    created_at: u.created_at,
+    updated_at: u.updated_at,
+  };
+}
+
+/**
+ * 타인 프로필 응답용 (민감 정보 제거).
+ * 잔액·계좌 등록일·CI 해시 등은 절대 노출하지 않음.
+ * verification_level 자체는 신뢰 표시용으로 노출 (배지 표시).
+ */
+function sanitizePublic(u: UserRow): UserPublic {
+  return {
+    id: u.id,
+    nickname: u.nickname,
+    device_uuid: '',
+    wallet_address: null,
+    region: u.region,
+    region_verified_at: u.region_verified_at,
+    manner_score: u.manner_score,
+    qta_balance: 0,
+    verification_level: u.verification_level ?? 0,
     created_at: u.created_at,
     updated_at: u.updated_at,
   };
@@ -88,7 +117,7 @@ app.get('/:id/profile', async (c) => {
   const id = c.req.param('id');
   const u = await c.env.DB
     .prepare(
-      'SELECT id, nickname, region, manner_score, created_at FROM users WHERE id = ?'
+      'SELECT id, nickname, region, manner_score, verification_level, created_at FROM users WHERE id = ?'
     )
     .bind(id)
     .first<{
@@ -96,6 +125,7 @@ app.get('/:id/profile', async (c) => {
       nickname: string;
       region: string | null;
       manner_score: number;
+      verification_level: number;
       created_at: string;
     }>();
   if (!u) return c.json({ error: 'Not found' }, 404);
@@ -244,6 +274,137 @@ app.post('/me/region/verify', authMiddleware, async (c) => {
     distance_km: Math.round(dist * 10) / 10,
   });
 });
+
+/**
+ * POST /api/users/me/verify/identity
+ *
+ * 본인인증 (Lv1). 현재는 더미 구현 — UI 시연용.
+ * 실제 PASS/SMS 통합은 추후 진행. 클라이언트가 인증 토큰을 보내면
+ * 서버가 SHA-256 해시해서 verified_ci_hash 에 저장.
+ *
+ * Body: { ci_token: string }   // 본인인증 사업자가 발급한 CI (Connecting Information)
+ *
+ * 정책:
+ *   - 휴대폰 번호는 절대 받지 않고, 절대 저장 X
+ *   - CI 의 SHA-256 해시만 저장 → 같은 사람의 중복 가입 차단용
+ *   - 같은 CI 가 다른 계정에 이미 등록되어 있으면 409
+ */
+app.post('/me/verify/identity', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+
+  let body: { ci_token?: string } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: '잘못된 요청' }, 400);
+  }
+
+  const ci = (body.ci_token || '').trim();
+  if (!ci || ci.length < 8) {
+    return c.json({ error: '인증 토큰이 유효하지 않아요' }, 400);
+  }
+
+  // SHA-256(ci) — Web Crypto API 사용
+  const ciHash = await sha256Hex(ci);
+
+  // 같은 사람이 다른 계정에 이미 등록되어 있는지 확인
+  const dup = await c.env.DB
+    .prepare(
+      'SELECT id FROM users WHERE verified_ci_hash = ? AND id != ?',
+    )
+    .bind(ciHash, me.id)
+    .first<{ id: string }>();
+  if (dup) {
+    return c.json({ error: '이미 다른 계정에 등록된 본인인증이에요' }, 409);
+  }
+
+  const nowIso = new Date().toISOString();
+  await c.env.DB
+    .prepare(
+      `UPDATE users
+         SET verification_level = MAX(verification_level, 1),
+             verified_ci_hash = ?,
+             verified_at = ?,
+             updated_at = datetime('now')
+       WHERE id = ?`,
+    )
+    .bind(ciHash, nowIso, me.id)
+    .run();
+
+  const user = await c.env.DB
+    .prepare('SELECT * FROM users WHERE id = ?')
+    .bind(me.id)
+    .first<UserRow>();
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  return c.json({ ok: true, user: sanitize(user) });
+});
+
+/**
+ * POST /api/users/me/verify/bank
+ *
+ * 계좌 등록 (Lv2). 본인인증(Lv1) 선행 필수.
+ * 계좌번호는 절대 평문 저장하지 않고, SHA-256(bank_code + account_number) 해시만 저장.
+ *
+ * Body: { bank_code: string, account_number: string }
+ */
+app.post('/me/verify/bank', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+
+  // 본인인증 선행 체크
+  const cur = await c.env.DB
+    .prepare('SELECT verification_level FROM users WHERE id = ?')
+    .bind(me.id)
+    .first<{ verification_level: number }>();
+  if (!cur || (cur.verification_level ?? 0) < 1) {
+    return c.json({ error: '먼저 본인인증을 완료해주세요' }, 403);
+  }
+
+  let body: { bank_code?: string; account_number?: string } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: '잘못된 요청' }, 400);
+  }
+
+  const bankCode = (body.bank_code || '').trim();
+  const acctNum = (body.account_number || '').trim().replace(/[-\s]/g, '');
+  if (!bankCode || !acctNum || acctNum.length < 6) {
+    return c.json({ error: '은행 정보가 유효하지 않아요' }, 400);
+  }
+
+  const bankHash = await sha256Hex(`${bankCode}:${acctNum}`);
+
+  const nowIso = new Date().toISOString();
+  await c.env.DB
+    .prepare(
+      `UPDATE users
+         SET verification_level = 2,
+             bank_account_hash = ?,
+             bank_registered_at = ?,
+             updated_at = datetime('now')
+       WHERE id = ?`,
+    )
+    .bind(bankHash, nowIso, me.id)
+    .run();
+
+  const user = await c.env.DB
+    .prepare('SELECT * FROM users WHERE id = ?')
+    .bind(me.id)
+    .first<UserRow>();
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  return c.json({ ok: true, user: sanitize(user) });
+});
+
+/** SHA-256 hex helper using Web Crypto API. */
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 /**
  * GET /api/users/me/qta/ledger?limit=30

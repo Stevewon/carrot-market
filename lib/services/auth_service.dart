@@ -403,6 +403,63 @@ class AuthService extends ChangeNotifier {
   }
 
   // ================================================================
+  // Verification (본인인증 / 계좌 인증)
+  // ================================================================
+
+  /// 본인인증 (Lv1). 현재는 더미 — UI 시연용.
+  /// 실제 PASS/SMS 통합은 추후 진행. 클라이언트가 ci_token 을 보내면
+  /// 서버가 SHA-256 해시해서 저장하고 verification_level 을 1 로 올린다.
+  ///
+  /// 반환: null = 성공, 그 외 = 사용자에게 보여줄 에러 메시지.
+  Future<String?> verifyIdentity({required String ciToken}) async {
+    if (_user == null) return '로그인이 필요해요';
+    try {
+      final res = await api.post(
+        '/api/users/me/verify/identity',
+        data: {'ci_token': ciToken},
+      );
+      final data = res.data is Map ? res.data as Map : {};
+      final userJson = data['user'];
+      if (userJson is Map) {
+        _user = User.fromJson(Map<String, dynamic>.from(userJson));
+        notifyListeners();
+      }
+      return null;
+    } catch (e) {
+      return _parseError(e);
+    }
+  }
+
+  /// 계좌 등록 (Lv2). 본인인증 선행 필수.
+  /// 계좌번호 자체는 절대 저장 X — SHA-256(bank_code + account_number) 해시만 저장.
+  ///
+  /// 반환: null = 성공, 그 외 = 사용자에게 보여줄 에러 메시지.
+  Future<String?> registerBankAccount({
+    required String bankCode,
+    required String accountNumber,
+  }) async {
+    if (_user == null) return '로그인이 필요해요';
+    try {
+      final res = await api.post(
+        '/api/users/me/verify/bank',
+        data: {
+          'bank_code': bankCode,
+          'account_number': accountNumber,
+        },
+      );
+      final data = res.data is Map ? res.data as Map : {};
+      final userJson = data['user'];
+      if (userJson is Map) {
+        _user = User.fromJson(Map<String, dynamic>.from(userJson));
+        notifyListeners();
+      }
+      return null;
+    } catch (e) {
+      return _parseError(e);
+    }
+  }
+
+  // ================================================================
   // Logout
   // ================================================================
   Future<void> logout() async {

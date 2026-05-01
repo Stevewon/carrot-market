@@ -24,6 +24,7 @@ import '../screens/qta_ledger_screen.dart';
 import '../screens/qta_withdraw_screen.dart';
 import '../screens/referrals_screen.dart';
 import '../screens/account_delete_screen.dart';
+import '../screens/profile_verify_screen.dart';
 
 GoRouter createRouter(AuthService auth) {
   return GoRouter(
@@ -128,6 +129,10 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(
         path: '/account/delete',
         builder: (_, __) => const AccountDeleteScreen(),
+      ),
+      GoRoute(
+        path: '/profile/verify',
+        builder: (_, __) => const ProfileVerifyScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
