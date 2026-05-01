@@ -52,10 +52,267 @@ function sanitize(u: UserRow): UserPublic {
     region_verified_at: u.region_verified_at,
     manner_score: u.manner_score,
     qta_balance: u.qta_balance ?? 0,
+    verification_level: u.verification_level ?? 0,
+    verified_at: u.verified_at ?? null,
+    bank_registered_at: u.bank_registered_at ?? null,
     created_at: u.created_at,
     updated_at: u.updated_at,
   };
 }
+
+// ================================================================
+// SSO: 퀀타리움 지갑주소 = Universal User ID
+//
+// POST /api/auth/sso/exchange
+// Body: {
+//   wallet_address: '0x...',     // 필수
+//   provider: 'qrchat',          // 'qrchat' / 'eggplant_self'
+//   external_token?: '...',      // QRChat 발급 토큰 (선택)
+//   nickname?: '...',            // 신규 가입 시 사용 (선택, 없으면 자동 생성)
+//   device_uuid: '...'           // 필수
+// }
+//
+// 동작:
+//   1) wallet_address 로 가지 users 조회
+//   2) 있으면 → token_version 그대로, device_uuid 만 갱신, 가지 JWT 발급
+//   3) 없으면 → 신규 user 생성 (password_hash NULL = SSO-only 계정),
+//      가입 보너스 +500 QTA 지급, 가지 JWT 발급
+//   4) sso_links 에 (provider, user_id, wallet, device) 기록/갱신
+//
+// 보안:
+//   - 현재는 external_token 의 형식만 점검(미래 QRChat 공개키 검증 자리 마련).
+//     QRChat 측 SDK 가 공개되면 jwks 로 서명 검증 추가.
+//   - SSO-only 계정은 password 로 직접 로그인 불가 (NULL hash → verifyPassword 실패).
+// ================================================================
+app.post('/sso/exchange', async (c) => {
+  let body: {
+    wallet_address?: string;
+    provider?: string;
+    external_token?: string;
+    external_id?: string;
+    nickname?: string;
+    device_uuid?: string;
+    region?: string;
+  } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: '잘못된 요청' }, 400);
+  }
+
+  const { wallet_address, provider, external_token, external_id, device_uuid } =
+    body;
+
+  if (!wallet_address || !isValidWallet(wallet_address)) {
+    return c.json(
+      { error: '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)' },
+      400,
+    );
+  }
+  if (!device_uuid || typeof device_uuid !== 'string' || device_uuid.length < 8) {
+    return c.json({ error: '기기 정보가 올바르지 않아요' }, 400);
+  }
+  const prov = (provider ?? 'qrchat').trim().toLowerCase();
+  if (!/^[a-z0-9_]{2,32}$/.test(prov)) {
+    return c.json({ error: '잘못된 provider' }, 400);
+  }
+
+  // QRChat 토큰 검증 자리. 현재는 형식만 확인(64~2048 글자).
+  // QRChat SDK 의 공개키/JWKS 가 확정되면 여기서 jwt.verify 추가.
+  if (external_token != null) {
+    if (typeof external_token !== 'string' ||
+        external_token.length < 8 ||
+        external_token.length > 4096) {
+      return c.json({ error: '외부 토큰 형식이 올바르지 않아요' }, 400);
+    }
+  }
+
+  const walletNorm = normalizeWallet(wallet_address);
+
+  // 1) 기존 user 조회.
+  let user = await c.env.DB
+    .prepare('SELECT * FROM users WHERE wallet_address = ? COLLATE NOCASE')
+    .bind(walletNorm)
+    .first<UserRow>();
+
+  let createdNew = false;
+  let signupBonusGranted = false;
+
+  if (!user) {
+    // 2) 신규 가입 — SSO-only 계정 (password_hash = NULL).
+    let nick = (body.nickname ?? '').trim();
+    if (!nick) {
+      // 닉네임 미지정 시 walletAddress 끝 6자리로 자동 생성.
+      const tail = walletNorm.slice(-6).toLowerCase();
+      nick = `사용자${tail}`;
+    } else {
+      const ne = validateNickname(nick);
+      if (ne) return c.json({ error: ne }, 400);
+    }
+    // 닉네임 중복 시 뒤에 접미사 자동 추가 (최대 5회 시도).
+    let finalNick = nick;
+    for (let i = 0; i < 5; i++) {
+      const taken = await c.env.DB
+        .prepare('SELECT id FROM users WHERE nickname = ? COLLATE NOCASE')
+        .bind(finalNick)
+        .first<{ id: string }>();
+      if (!taken) break;
+      const tail = walletNorm.slice(-4 - i, -1).toLowerCase();
+      finalNick = `${nick}_${tail}`;
+    }
+
+    const id = crypto.randomUUID();
+    try {
+      // device_uuid 가 다른 계정에 묶여 있으면 token_version 만 bump 해서 풀어준다.
+      await c.env.DB
+        .prepare(
+          `UPDATE users
+              SET device_uuid = 'released:' || id,
+                  token_version = token_version + 1,
+                  updated_at = datetime('now')
+            WHERE device_uuid = ? AND id != ?`,
+        )
+        .bind(device_uuid, id)
+        .run();
+    } catch (e) {
+      console.error('[auth/sso] device cleanup failed', e);
+    }
+
+    let insertedNew = false;
+    try {
+      await c.env.DB
+        .prepare(
+          `INSERT INTO users
+             (id, nickname, device_uuid, wallet_address, password_hash, region, token_version)
+           VALUES (?, ?, ?, ?, NULL, ?, 1)`,
+        )
+        .bind(id, finalNick, device_uuid, walletNorm, body.region ?? null)
+        .run();
+      insertedNew = true;
+    } catch (e) {
+      const msg = String((e as Error)?.message || e);
+      console.error('[auth/sso] INSERT failed:', msg);
+      if (/UNIQUE constraint failed: users\.wallet_address/i.test(msg)) {
+        // race — 같은 지갑이 동시에 들어왔으면 다시 조회.
+        const fetched = await c.env.DB
+          .prepare('SELECT * FROM users WHERE wallet_address = ? COLLATE NOCASE')
+          .bind(walletNorm)
+          .first<UserRow>();
+        if (!fetched) return c.json({ error: 'SSO 처리 중 오류' }, 500);
+        user = fetched;
+      } else {
+        return c.json({ error: 'SSO 가입 중 오류가 발생했어요' }, 500);
+      }
+    }
+
+    if (insertedNew) {
+      // 가입 보너스 +500 QTA (멱등).
+      try {
+        await grantSignupBonus(c.env, id);
+        signupBonusGranted = true;
+      } catch (e) {
+        console.error('[auth/sso] signup bonus failed', e);
+      }
+      const fetched = await c.env.DB
+        .prepare('SELECT * FROM users WHERE id = ?')
+        .bind(id)
+        .first<UserRow>();
+      if (!fetched) return c.json({ error: '사용자 생성 실패' }, 500);
+      user = fetched;
+      createdNew = true;
+    }
+  } else {
+    // 3) 기존 user — device_uuid 갱신 (다른 기기에서 로그인하면 자연 교체).
+    if (user.device_uuid !== device_uuid) {
+      const existingId = user.id;
+      try {
+        // 다른 계정이 이 device_uuid 를 들고 있으면 풀어준다.
+        await c.env.DB
+          .prepare(
+            `UPDATE users
+                SET device_uuid = 'released:' || id,
+                    token_version = token_version + 1,
+                    updated_at = datetime('now')
+              WHERE device_uuid = ? AND id != ?`,
+          )
+          .bind(device_uuid, existingId)
+          .run();
+        await c.env.DB
+          .prepare(
+            `UPDATE users
+                SET device_uuid = ?,
+                    token_version = token_version + 1,
+                    updated_at = datetime('now')
+              WHERE id = ?`,
+          )
+          .bind(device_uuid, existingId)
+          .run();
+        const fetched = await c.env.DB
+          .prepare('SELECT * FROM users WHERE id = ?')
+          .bind(existingId)
+          .first<UserRow>();
+        if (!fetched) return c.json({ error: 'SSO 갱신 실패' }, 500);
+        user = fetched;
+      } catch (e) {
+        console.error('[auth/sso] device update failed', e);
+      }
+    }
+  }
+
+  // 여기까지 오면 user 는 반드시 채워져 있어야 한다 (모든 분기에서 보장).
+  // TS narrowing 보강용 명시적 가드.
+  if (!user) return c.json({ error: 'SSO 처리 실패' }, 500);
+  const finalUser: UserRow = user;
+
+  // 4) sso_links 기록/갱신 (멱등 upsert by provider+user).
+  try {
+    await c.env.DB
+      .prepare(
+        `INSERT INTO sso_links
+           (id, user_id, provider, external_id, wallet_address, device_uuid, last_seen_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+         ON CONFLICT(provider, user_id) DO UPDATE SET
+           external_id    = COALESCE(excluded.external_id, sso_links.external_id),
+           wallet_address = excluded.wallet_address,
+           device_uuid    = excluded.device_uuid,
+           last_seen_at   = datetime('now')`,
+      )
+      .bind(
+        crypto.randomUUID(),
+        finalUser.id,
+        prov,
+        external_id ?? null,
+        walletNorm,
+        device_uuid,
+      )
+      .run();
+  } catch (e) {
+    console.error('[auth/sso] sso_links upsert failed', e);
+  }
+
+  // 5) 일일 로그인 보너스 (가입 직후엔 패스, 기존 사용자만).
+  let loginBonus: { credited: boolean; remaining: number } | null = null;
+  if (!createdNew) {
+    try {
+      const r = await grantLoginDailyBonus(c.env, finalUser.id);
+      loginBonus = { credited: r.credited, remaining: r.remaining };
+    } catch (e) {
+      console.error('[auth/sso] login bonus failed', e);
+    }
+  }
+
+  const token = await signToken(finalUser, c.env.JWT_SECRET);
+  return c.json({
+    token,
+    user: sanitize(finalUser),
+    sso: {
+      provider: prov,
+      created_new: createdNew,
+      signup_bonus_granted: signupBonusGranted,
+    },
+    login_bonus: loginBonus,
+  });
+});
 
 // ================================================================
 // POST /api/auth/register

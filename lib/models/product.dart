@@ -12,6 +12,9 @@ class Product {
   final String videoUrl; // '' | https://youtu.be/<id> | /uploads/<key>.mp4
   final String sellerId;
   final String sellerNickname;
+  /// 판매자의 퀀타리움 지갑주소 (Universal User ID, SSO 식별자).
+  /// 상품 상세에 마스킹된 형태로만 노출. 서버는 이 값을 옵션으로 내려줄 수 있음.
+  final String? sellerWalletAddress;
   /// ×10 scale (e.g. 365 = 36.5°). See [User.mannerScore].
   final int sellerMannerScore;
   final String status; // 'sale', 'reserved', 'sold'
@@ -39,6 +42,7 @@ class Product {
     this.videoUrl = '',
     required this.sellerId,
     required this.sellerNickname,
+    this.sellerWalletAddress,
     this.sellerMannerScore = 365,
     this.status = 'sale',
     this.viewCount = 0,
@@ -97,6 +101,9 @@ class Product {
       videoUrl: (json['video_url'] ?? '').toString(),
       sellerId: json['seller_id']?.toString() ?? '',
       sellerNickname: json['seller_nickname'] ?? '익명가지',
+      sellerWalletAddress: (json['seller_wallet_address']?.toString().isNotEmpty == true)
+          ? json['seller_wallet_address'].toString()
+          : null,
       sellerMannerScore: _parseMannerScore(json['seller_manner_score']),
       status: json['status'] ?? 'sale',
       viewCount: (json['view_count'] ?? 0) is int
@@ -197,5 +204,15 @@ class Product {
       default:
         return '';
     }
+  }
+
+  /// 판매자 지갑주소(SSO Universal User ID) 의 마스킹 표기.
+  /// 정책: 앞 6자 + … + 뒤 4자만 노출. 길이가 너무 짧으면 전체 마스킹.
+  /// 예: 0xA1B2c3D4e5F6...d3F1
+  String? get sellerWalletMasked {
+    final w = sellerWalletAddress;
+    if (w == null || w.isEmpty) return null;
+    if (w.length <= 12) return '${w.substring(0, 2)}…${w.substring(w.length - 2)}';
+    return '${w.substring(0, 6)}…${w.substring(w.length - 4)}';
   }
 }

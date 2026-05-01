@@ -134,6 +134,8 @@ export interface ProductResponse extends Omit<ProductRow, 'images'> {
   video_url: string;
   seller_nickname: string;
   seller_manner_score: number;
+  /** SSO Universal User ID — 클라이언트가 마스킹해서 표시. */
+  seller_wallet_address: string | null;
   is_liked: boolean;
 }
 

@@ -7,6 +7,8 @@ import {
   recordBrowseAndMaybeMine,
   grantListingMiningBonus,
   getBrowseMiningStatus,
+  createEscrowIfEligible,
+  ESCROW_MAX_AMOUNT_KRW,
 } from '../qta';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -40,9 +42,9 @@ async function hydrate(
   if (!row) return null;
 
   const seller = await env.DB
-    .prepare('SELECT nickname, manner_score FROM users WHERE id = ?')
+    .prepare('SELECT nickname, manner_score, wallet_address FROM users WHERE id = ?')
     .bind(row.seller_id)
-    .first<{ nickname: string; manner_score: number }>();
+    .first<{ nickname: string; manner_score: number; wallet_address: string | null }>();
 
   let isLiked = false;
   if (currentUserId) {
@@ -59,6 +61,8 @@ async function hydrate(
     video_url: row.video_url || '',
     seller_nickname: seller?.nickname || '익명가지',
     seller_manner_score: seller?.manner_score ?? 36,
+    // SSO 식별자 — Universal User ID. 클라이언트가 마스킹해서 표시.
+    seller_wallet_address: seller?.wallet_address ?? null,
     is_liked: isLiked,
   };
 }
@@ -939,6 +943,135 @@ app.post('/:id/bump', authMiddleware, async (c) => {
     .first<ProductRow>();
   const product = await hydrate(c.env, updated, user.id);
   return c.json({ product, bumped_at: now });
+});
+
+/**
+ * POST /api/products/:id/escrow
+ *
+ * 30,000원 미만 KRW 거래에 대한 에스크로(임시예치) 생성.
+ *  - 호출자: 구매자 (buyer). 본인인증 Lv1 필수.
+ *  - 같은 product+buyer 로 이미 pending 인 게 있으면 그 메모/금액 그대로 반환 (멱등).
+ *  - 30,000원 이상은 거부 → 클라이언트가 직거래로 안내.
+ *
+ * Body: (없음 — product.price 를 그대로 사용)
+ * 응답: { ok, escrow_id, deposit_memo, amount_krw, bank_info }
+ */
+app.post('/:id/escrow', authMiddleware, async (c) => {
+  const user = c.get('user')!;
+  const id = c.req.param('id');
+
+  // 본인인증(Lv1) 필수
+  const meRow = await c.env.DB
+    .prepare('SELECT verification_level FROM users WHERE id = ?')
+    .bind(user.id)
+    .first<{ verification_level: number }>();
+  if (!meRow || (meRow.verification_level ?? 0) < 1) {
+    return c.json({ error: '본인인증(Lv1) 후 거래할 수 있어요', need_verify: 1 }, 403);
+  }
+
+  const row = await c.env.DB
+    .prepare('SELECT id, seller_id, price, status FROM products WHERE id = ?')
+    .bind(id)
+    .first<{ id: string; seller_id: string; price: number; status: string }>();
+  if (!row) return c.json({ error: '상품을 찾을 수 없어요' }, 404);
+  if (row.seller_id === user.id) {
+    return c.json({ error: '본인 상품에는 에스크로를 만들 수 없어요' }, 400);
+  }
+  if (row.status === 'sold') {
+    return c.json({ error: '이미 거래 완료된 상품이에요' }, 400);
+  }
+  if (row.price >= ESCROW_MAX_AMOUNT_KRW) {
+    return c.json(
+      {
+        error: '30,000원 이상은 당사자 직거래에요',
+        reason: 'over_limit',
+        threshold: ESCROW_MAX_AMOUNT_KRW,
+      },
+      400,
+    );
+  }
+
+  const result = await createEscrowIfEligible(
+    c.env,
+    row.id,
+    user.id,
+    row.seller_id,
+    row.price,
+  );
+  if (!result.ok) {
+    const code = result.reason === 'over_limit' ? 400 : 500;
+    return c.json({ error: result.error, reason: result.reason }, code);
+  }
+
+  // 회사 임시 예치 계좌 정보 — 환경변수에서 읽음 (운영 시 secret 으로 관리)
+  const bankInfo = {
+    bank_name: (c.env as { ESCROW_BANK_NAME?: string }).ESCROW_BANK_NAME || '국민은행',
+    account_number:
+      (c.env as { ESCROW_ACCOUNT_NUMBER?: string }).ESCROW_ACCOUNT_NUMBER ||
+      '000-0000-0000-00',
+    account_holder:
+      (c.env as { ESCROW_ACCOUNT_HOLDER?: string }).ESCROW_ACCOUNT_HOLDER ||
+      '(주)가지마켓',
+  };
+
+  return c.json({
+    ok: true,
+    escrow_id: result.escrow_id,
+    deposit_memo: result.deposit_memo,
+    amount_krw: result.amount_krw,
+    already_exists: result.already_exists ?? false,
+    bank_info: bankInfo,
+  });
+});
+
+/**
+ * GET /api/products/:id/escrow
+ *
+ * 해당 상품에 대해 본인이 만든 에스크로 상태 조회.
+ *  - 본인이 buyer 또는 seller 인 경우만 조회 가능.
+ */
+app.get('/:id/escrow', authMiddleware, async (c) => {
+  const user = c.get('user')!;
+  const id = c.req.param('id');
+
+  const tx = await c.env.DB
+    .prepare(
+      `SELECT id, product_id, buyer_id, seller_id, amount_krw, status,
+              deposit_memo, admin_note, created_at, updated_at
+         FROM escrow_transactions
+        WHERE product_id = ?
+          AND (buyer_id = ? OR seller_id = ?)
+        ORDER BY created_at DESC
+        LIMIT 1`,
+    )
+    .bind(id, user.id, user.id)
+    .first<{
+      id: string;
+      product_id: string;
+      buyer_id: string;
+      seller_id: string;
+      amount_krw: number;
+      status: string;
+      deposit_memo: string;
+      admin_note: string | null;
+      created_at: string;
+      updated_at: string;
+    }>();
+
+  if (!tx) return c.json({ escrow: null });
+
+  return c.json({
+    escrow: {
+      id: tx.id,
+      product_id: tx.product_id,
+      amount_krw: tx.amount_krw,
+      status: tx.status,
+      deposit_memo: tx.deposit_memo,
+      role: tx.buyer_id === user.id ? 'buyer' : 'seller',
+      created_at: tx.created_at,
+      updated_at: tx.updated_at,
+    },
+  });
 });
 
 /** DELETE /api/products/:id */

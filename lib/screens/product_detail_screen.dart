@@ -1139,6 +1139,27 @@ class _SellerRow extends StatelessWidget {
                   Text(product.region,
                       style: const TextStyle(
                           fontSize: 12, color: EggplantColors.textSecondary)),
+                  if (product.sellerWalletMasked != null) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.account_balance_wallet_outlined,
+                            size: 11, color: EggplantColors.textTertiary),
+                        const SizedBox(width: 3),
+                        Text(
+                          product.sellerWalletMasked!,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: EggplantColors.textTertiary,
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

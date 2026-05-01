@@ -985,3 +985,104 @@ export async function getBrowseMiningStatus(
   };
 }
 
+
+// ─────────────────────────────────────────────────────────────────────
+// 에스크로 (KRW < 30,000 자동 임시예치)
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * 입금자 메모 생성 — 사람이 ATM 에서 6자리만 외워서 칠 수 있는 길이.
+ * 충돌 가능성을 줄이기 위해 product_id + 시각 base36 해시 앞 6자리.
+ */
+function genDepositMemo(productId: string): string {
+  const seed = `${productId}:${Date.now()}:${crypto.randomUUID()}`;
+  // FNV-1a 32bit hash (간단)
+  let h = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  // 앞에 'EG' 접두어 + base36 6자리 → 'EG3K8XQ4' 형태 (8자)
+  return 'EG' + h.toString(36).toUpperCase().padStart(6, '0').slice(0, 6);
+}
+
+export type EscrowResult =
+  | {
+      ok: true;
+      escrow_id: string;
+      deposit_memo: string;
+      amount_krw: number;
+      already_exists?: boolean;
+    }
+  | { ok: false; error: string; reason: 'over_limit' | 'invalid' | 'db_error' };
+
+/**
+ * 30,000원 미만 KRW 거래에 대한 자동 임시예치(에스크로) 생성.
+ *  - 같은 product_id + buyer_id 조합으로 이미 pending 인 게 있으면 그걸 그대로 반환 (멱등).
+ *  - 30,000원 이상이면 거부 → 당사자 직거래로 안내.
+ */
+export async function createEscrowIfEligible(
+  env: Env,
+  product_id: string,
+  buyer_id: string,
+  seller_id: string,
+  amount_krw: number,
+): Promise<EscrowResult> {
+  if (!Number.isInteger(amount_krw) || amount_krw <= 0) {
+    return { ok: false, error: '거래 금액이 잘못됐어요', reason: 'invalid' };
+  }
+  if (amount_krw >= ESCROW_MAX_AMOUNT_KRW) {
+    return {
+      ok: false,
+      error: '30,000원 이상은 당사자 직거래에요',
+      reason: 'over_limit',
+    };
+  }
+
+  // 이미 동일 거래 pending 있으면 재사용
+  try {
+    const existing = await env.DB
+      .prepare(
+        `SELECT id, deposit_memo, amount_krw FROM escrow_transactions
+          WHERE product_id = ? AND buyer_id = ? AND status = 'pending'
+          LIMIT 1`,
+      )
+      .bind(product_id, buyer_id)
+      .first<{ id: string; deposit_memo: string; amount_krw: number }>();
+    if (existing) {
+      return {
+        ok: true,
+        escrow_id: existing.id,
+        deposit_memo: existing.deposit_memo,
+        amount_krw: existing.amount_krw,
+        already_exists: true,
+      };
+    }
+
+    const id = crypto.randomUUID();
+    let memo = genDepositMemo(product_id);
+    // 메모 충돌 방어 (확률 매우 낮지만)
+    for (let i = 0; i < 3; i++) {
+      const dup = await env.DB
+        .prepare('SELECT id FROM escrow_transactions WHERE deposit_memo = ?')
+        .bind(memo)
+        .first<{ id: string }>();
+      if (!dup) break;
+      memo = genDepositMemo(product_id + ':r' + i);
+    }
+
+    await env.DB
+      .prepare(
+        `INSERT INTO escrow_transactions
+           (id, product_id, buyer_id, seller_id, amount_krw, status, deposit_memo, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'pending', ?, datetime('now'), datetime('now'))`,
+      )
+      .bind(id, product_id, buyer_id, seller_id, amount_krw, memo)
+      .run();
+
+    return { ok: true, escrow_id: id, deposit_memo: memo, amount_krw };
+  } catch (e) {
+    console.log('[escrow] create failed:', e);
+    return { ok: false, error: '에스크로 생성 실패', reason: 'db_error' };
+  }
+}

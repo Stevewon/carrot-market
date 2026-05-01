@@ -145,10 +145,14 @@ class ChatService extends ChangeNotifier {
     return _rooms.firstWhere((r) => r.id == roomId);
   }
 
-  /// 휘발성: 히스토리가 서버에 없다. no-op.
+  /// 채팅 내역 정책: **무조건 QRChat SDK 정책 100% 준수**.
+  /// 가지(Eggplant) 백엔드는 채팅 메시지를 절대 저장·중계·복제하지 않는다.
+  /// 따라서 서버에서 히스토리를 가져오지 않으며, QRChat SDK 가 도입되면
+  /// 이 메서드는 SDK 의 history API 를 직접 호출하도록 어댑터에서 위임된다.
   Future<void> loadHistory(String roomId) async {
-    // 서버에 저장된 메시지가 없으므로 가져올 것이 없다.
-    // 메모리 캐시(_roomMessages)에 이미 있는 것만 유지.
+    // 가지 서버에는 메시지가 없다 → no-op.
+    // QRChat SDK 도입 후에는 EggplantBuiltinMessagingAdapter 가
+    // QRChatMessagingAdapter 로 교체되며, 그쪽에서 SDK history 를 호출한다.
     _roomMessages.putIfAbsent(roomId, () => []);
   }
 

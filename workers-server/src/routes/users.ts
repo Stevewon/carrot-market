@@ -278,34 +278,92 @@ app.post('/me/region/verify', authMiddleware, async (c) => {
 /**
  * POST /api/users/me/verify/identity
  *
- * 본인인증 (Lv1). 현재는 더미 구현 — UI 시연용.
- * 실제 PASS/SMS 통합은 추후 진행. 클라이언트가 인증 토큰을 보내면
- * 서버가 SHA-256 해시해서 verified_ci_hash 에 저장.
+ * 본인인증 (Lv1). PASS / SMS / KISA provider 분기 구조.
  *
- * Body: { ci_token: string }   // 본인인증 사업자가 발급한 CI (Connecting Information)
+ * Body: {
+ *   provider: 'pass' | 'sms' | 'kisa' | 'dummy',
+ *   ci_token: string,            // 인증 사업자가 발급한 CI (Connecting Information)
+ *   nonce?: string,              // (옵션) PASS/KISA 트랜잭션 nonce — replay 방지
+ *   tx_id?: string,              // (옵션) 사업자 트랜잭션 ID — 감사용
+ *   phone_hash?: string,         // (옵션) 클라이언트가 미리 SHA-256 해시한 전화번호. 평문 절대 금지
+ * }
  *
  * 정책:
- *   - 휴대폰 번호는 절대 받지 않고, 절대 저장 X
+ *   - 휴대폰 번호 평문은 절대 받지 않고 저장 X. 해시만 옵션으로 받음.
  *   - CI 의 SHA-256 해시만 저장 → 같은 사람의 중복 가입 차단용
  *   - 같은 CI 가 다른 계정에 이미 등록되어 있으면 409
+ *   - provider='dummy' 는 개발/테스트 모드에서만 허용 (env.ALLOW_DUMMY_VERIFY === '1')
  */
 app.post('/me/verify/identity', authMiddleware, async (c) => {
   const me = c.get('user')!;
 
-  let body: { ci_token?: string } = {};
+  let body: {
+    provider?: string;
+    ci_token?: string;
+    nonce?: string;
+    tx_id?: string;
+    phone_hash?: string;
+  } = {};
   try {
     body = await c.req.json();
   } catch {
     return c.json({ error: '잘못된 요청' }, 400);
   }
 
+  const provider = (body.provider || 'dummy').trim().toLowerCase();
   const ci = (body.ci_token || '').trim();
+  const nonce = (body.nonce || '').trim();
+  const txId = (body.tx_id || '').trim();
+  const phoneHash = (body.phone_hash || '').trim();
+
   if (!ci || ci.length < 8) {
     return c.json({ error: '인증 토큰이 유효하지 않아요' }, 400);
   }
 
-  // SHA-256(ci) — Web Crypto API 사용
-  const ciHash = await sha256Hex(ci);
+  // ── provider 별 검증 ─────────────────────────────────────────────
+  // 실제 SDK 연동 시 각 case 안에서 해당 provider 의 verify API 를 호출.
+  // 현재는 인터페이스만 분리해 두고, dummy 외 케이스는 토큰 형식만 검사.
+  switch (provider) {
+    case 'pass': {
+      // PASS (이통3사 본인확인) 토큰. 보통 base64-url 형식, 100+ chars.
+      if (ci.length < 32) {
+        return c.json({ error: 'PASS 인증 토큰 형식이 잘못됐어요' }, 400);
+      }
+      if (!nonce) {
+        return c.json({ error: 'PASS 인증 nonce 가 필요해요' }, 400);
+      }
+      // TODO: PASS 사업자 서버에 (ci_token, nonce, tx_id) 검증 요청
+      break;
+    }
+    case 'sms': {
+      // SMS 인증 — CI 가 없는 경우가 많아 ci_token 자리에 phone+otp 해시가 들어옴.
+      // 폰 번호 자체는 절대 받지 않음.
+      if (!phoneHash || phoneHash.length !== 64) {
+        return c.json({ error: 'SMS 인증은 phone_hash(SHA-256) 가 필요해요' }, 400);
+      }
+      break;
+    }
+    case 'kisa': {
+      // KISA 본인확인 (NICE/KCB 등). PASS 와 비슷하게 nonce 필수.
+      if (!nonce) {
+        return c.json({ error: 'KISA 인증 nonce 가 필요해요' }, 400);
+      }
+      break;
+    }
+    case 'dummy': {
+      // 개발/시연 모드. 운영 배포에서는 ALLOW_DUMMY_VERIFY=0 으로 차단해야 함.
+      const allow = (c.env as { ALLOW_DUMMY_VERIFY?: string }).ALLOW_DUMMY_VERIFY;
+      if (allow !== '1') {
+        return c.json({ error: '운영 환경에서는 dummy provider 가 허용되지 않아요' }, 403);
+      }
+      break;
+    }
+    default:
+      return c.json({ error: '지원하지 않는 인증 사업자에요' }, 400);
+  }
+
+  // SHA-256(ci) — 식별자 해시
+  const ciHash = await sha256Hex(`${provider}:${ci}`);
 
   // 같은 사람이 다른 계정에 이미 등록되어 있는지 확인
   const dup = await c.env.DB
@@ -331,13 +389,35 @@ app.post('/me/verify/identity', authMiddleware, async (c) => {
     .bind(ciHash, nowIso, me.id)
     .run();
 
+  // 감사 로그 — provider/tx_id 기록 (CI 평문/해시는 별도 컬럼에만)
+  try {
+    await c.env.DB
+      .prepare(
+        `INSERT INTO verification_audit
+           (id, user_id, provider, tx_id, phone_hash, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        crypto.randomUUID(),
+        me.id,
+        provider,
+        txId || null,
+        phoneHash || null,
+        nowIso,
+      )
+      .run();
+  } catch (e) {
+    // verification_audit 테이블이 아직 없을 수 있음 — 무시
+    console.log('[verify] audit log skipped:', e);
+  }
+
   const user = await c.env.DB
     .prepare('SELECT * FROM users WHERE id = ?')
     .bind(me.id)
     .first<UserRow>();
   if (!user) return c.json({ error: 'User not found' }, 404);
 
-  return c.json({ ok: true, user: sanitize(user) });
+  return c.json({ ok: true, user: sanitize(user), provider });
 });
 
 /**
