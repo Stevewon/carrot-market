@@ -1043,16 +1043,45 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // [DIAG #70] 분기 무관하게 무조건 화면에 노란 배너부터 그린다.
+    // - ProductDetailScreen.build()가 진짜 호출되는지
+    // - _loading / _product 상태가 어떤 값인지
+    // 화면에 직접 출력해서 100% 확정한다.
+    Widget _diagBanner(String stage) => Container(
+          width: double.infinity,
+          color: Colors.yellow,
+          padding: const EdgeInsets.all(12),
+          child: Text(
+            '[DIAG #70 stage=$stage]\n'
+            'productId=${widget.productId}\n'
+            '_loading=$_loading\n'
+            '_product==null? ${_product == null}\n'
+            'time=${DateTime.now().toIso8601String()}',
+            style: const TextStyle(fontSize: 12, color: Colors.black, fontWeight: FontWeight.w700),
+          ),
+        );
+
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: EggplantColors.primary)),
+      return Scaffold(
+        appBar: AppBar(title: const Text('[DIAG #70] LOADING')),
+        body: Column(
+          children: [
+            _diagBanner('LOADING'),
+            const Expanded(child: Center(child: CircularProgressIndicator(color: EggplantColors.primary))),
+          ],
+        ),
       );
     }
     final p = _product;
     if (p == null) {
       return Scaffold(
-        appBar: AppBar(),
-        body: const Center(child: Text('상품을 찾을 수 없어요')),
+        appBar: AppBar(title: const Text('[DIAG #70] PRODUCT NULL')),
+        body: Column(
+          children: [
+            _diagBanner('PRODUCT_NULL'),
+            const Expanded(child: Center(child: Text('상품을 찾을 수 없어요'))),
+          ],
+        ),
       );
     }
 
