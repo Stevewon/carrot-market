@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chewie/chewie.dart';
@@ -34,8 +36,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _loading = true;
   bool _liked = false;
 
-  // [DIAG #71] _load() 단계별 누적 로그 — 화면에 그대로 출력해서
-  // 어느 단계에서 hang/실패하는지 확정한다.
+  // [DIAG #72] trace + Dio 우회 직접 호출 검증
   final List<String> _diagLog = [];
   void _addDiag(String s) {
     final ts = DateTime.now().toIso8601String().substring(11, 23);
@@ -48,6 +49,31 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     super.initState();
     _addDiag('initState() called');
     _load();
+    _loadDirectBypass(); // [DIAG #72] Dio 우회 직접 호출도 동시에 시도
+  }
+
+  // [DIAG #72] ProductService/Dio를 거치지 않고 dart:io HttpClient로 직접 호출.
+  // 이게 응답 받으면 → ProductService/Dio 쪽 문제 확정.
+  // 이것도 hang → 네트워크 자체 문제.
+  Future<void> _loadDirectBypass() async {
+    _addDiag('[BYPASS] HttpClient direct fetch start');
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+      final url = Uri.parse('https://api.eggplant.life/api/products/${widget.productId}');
+      _addDiag('[BYPASS] opening connection...');
+      final req = await client.getUrl(url).timeout(const Duration(seconds: 12));
+      _addDiag('[BYPASS] got request, closing...');
+      final resp = await req.close().timeout(const Duration(seconds: 12));
+      _addDiag('[BYPASS] response: HTTP ${resp.statusCode}');
+      final body = await resp.transform(utf8.decoder).join();
+      _addDiag('[BYPASS] body length=${body.length}');
+      client.close();
+    } on TimeoutException catch (e) {
+      _addDiag('[BYPASS] TimeoutException: $e');
+    } catch (e) {
+      _addDiag('[BYPASS] error: $e');
+    }
   }
 
   Future<void> _load() async {
@@ -55,7 +81,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     try {
       _addDiag('before context.read<ProductService>()');
       final svc = context.read<ProductService>();
-      _addDiag('got svc=$svc, calling fetchById...');
+      _addDiag('got svc, calling fetchById...');
       final p = await svc
           .fetchById(widget.productId)
           .timeout(const Duration(seconds: 15));
@@ -76,13 +102,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         const SnackBar(content: Text('서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐')),
       );
     } catch (e, st) {
-      _addDiag('CAUGHT: $e\n${st.toString().split('\n').take(2).join(' | ')}');
+      _addDiag('CAUGHT: $e | ${st.toString().split('\n').take(2).join(' | ')}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('상품을 불러오지 못했어요')),
       );
     } finally {
-      _addDiag('finally: setting _loading=false');
+      _addDiag('finally: _loading=false');
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -1068,7 +1094,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     // - ProductDetailScreen.build()가 진짜 호출되는지
     // - _loading / _product 상태가 어떤 값인지
     // 화면에 직접 출력해서 100% 확정한다.
-    // [DIAG #71] _load() 단계별 진단 로그 + 분기 상태 — 화면에 누적 출력.
+    // [DIAG #72] _load() 단계별 진단 로그 + 분기 상태 — 화면에 누적 출력.
     Widget _diagBanner(String stage) => Container(
           width: double.infinity,
           color: Colors.yellow,
@@ -1077,7 +1103,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '[DIAG #71 stage=$stage]\n'
+                '[DIAG #72 stage=$stage]\n'
                 'productId=${widget.productId}\n'
                 '_loading=$_loading / _product==null? ${_product == null}\n'
                 'now=${DateTime.now().toIso8601String().substring(11, 23)}',
@@ -1096,7 +1122,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('[DIAG #71] LOADING')),
+        appBar: AppBar(title: const Text('[DIAG #72] LOADING')),
         body: SingleChildScrollView(
           child: Column(
             children: [
@@ -1111,7 +1137,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final p = _product;
     if (p == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('[DIAG #71] PRODUCT NULL')),
+        appBar: AppBar(title: const Text('[DIAG #72] PRODUCT NULL')),
         body: SingleChildScrollView(
           child: Column(
             children: [
