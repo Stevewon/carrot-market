@@ -1056,8 +1056,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
     }
 
-    // 당근마켓 패턴 그대로: Scaffold + 일반 AppBar + ListView (Sliver 미사용).
-    // Sliver 조합으로 본문이 0높이로 collapse 되던 문제를 근본적으로 해결.
+    // [DIAG #69] 본문 자식 위젯들을 한 줄씩 try/catch로 감싸서
+    // 어떤 자식에서 어떤 예외가 나는지 화면에 직접 노출. 원인 잡으면 즉시 제거.
+    Widget _safe(String tag, Widget Function() build) {
+      try {
+        return build();
+      } catch (e, st) {
+        return Container(
+          width: double.infinity,
+          color: Colors.red.withOpacity(0.15),
+          padding: const EdgeInsets.all(8),
+          child: Text(
+            '[ERR $tag] $e\n${st.toString().split('\n').take(3).join('\n')}',
+            style: const TextStyle(fontSize: 11, color: Colors.red),
+          ),
+        );
+      }
+    }
+
     final hasImages = p.images.isNotEmpty;
     return Scaffold(
       backgroundColor: Colors.white,
@@ -1081,23 +1097,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          if (hasImages)
-            SizedBox(
-              width: double.infinity,
-              height: 360,
-              child: _ImageCarousel(images: p.images),
+          // [DIAG #69] 화면 최상단에 진단 배너 — build()가 실행됐다면 이게 무조건 보임.
+          Container(
+            width: double.infinity,
+            color: Colors.green.withOpacity(0.2),
+            padding: const EdgeInsets.all(8),
+            child: Text(
+              '[DIAG #69] build() OK / images=${p.images.length} / title="${p.title}" / seller="${p.sellerNickname}" / hasVideo=${p.hasVideo} / category="${p.category}"',
+              style: const TextStyle(fontSize: 11, color: Colors.black),
             ),
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _SellerRow(product: p),
-                    const Divider(height: 32),
-                    Text(
+          ),
+          if (hasImages)
+            _safe('ImageCarousel', () => SizedBox(
+                  width: double.infinity,
+                  height: 360,
+                  child: _ImageCarousel(images: p.images),
+                )),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _safe('SellerRow', () => _SellerRow(product: p)),
+                const Divider(height: 32),
+                _safe('Title', () => Text(
                       p.title,
                       style: const TextStyle(
                         fontSize: 22,
@@ -1105,39 +1128,39 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         color: EggplantColors.textPrimary,
                         height: 1.3,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
+                    )),
+                const SizedBox(height: 8),
+                _safe('CategoryTime', () => Text(
                       '${Categories.find(p.category).label} · ${p.timeAgo}',
                       style: const TextStyle(
                         fontSize: 13,
                         color: EggplantColors.textTertiary,
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
+                    )),
+                const SizedBox(height: 20),
+                _safe('Description', () => Text(
                       p.description,
                       style: const TextStyle(
                         fontSize: 15,
                         color: EggplantColors.textPrimary,
                         height: 1.7,
                       ),
+                    )),
+                if (p.hasVideo) ...[
+                  const SizedBox(height: 20),
+                  const Text(
+                    '영상',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: EggplantColors.textPrimary,
                     ),
-                    if (p.hasVideo) ...[
-                      const SizedBox(height: 20),
-                      const Text(
-                        '영상',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: EggplantColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      _ProductVideo(product: p),
-                    ],
-                    const SizedBox(height: 24),
-                    Row(
+                  ),
+                  const SizedBox(height: 10),
+                  _safe('ProductVideo', () => _ProductVideo(product: p)),
+                ],
+                const SizedBox(height: 24),
+                _safe('StatsRow', () => Row(
                       children: [
                         const Icon(Icons.visibility_outlined,
                             size: 14, color: EggplantColors.textTertiary),
@@ -1160,11 +1183,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             style: const TextStyle(
                                 fontSize: 12, color: EggplantColors.textTertiary)),
                       ],
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                ),
-              ),
+                    )),
+                const SizedBox(height: 24),
+              ],
             ),
           ),
         ],
