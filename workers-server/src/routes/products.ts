@@ -406,28 +406,58 @@ app.post('/', authMiddleware, async (c) => {
   const priceInt = parseInt(price, 10) || 0;
   const qtaPriceInt = Math.max(0, parseInt(qtaPriceRaw, 10) || 0);
 
-  // 작성자의 동네 좌표를 그대로 복사 — 거리 필터에 사용.
-  // 인증 안 된 사용자면 lat/lng 가 NULL 이라 거리 필터 결과에서 빠진다.
-  const seller = await c.env.DB
-    .prepare('SELECT lat, lng FROM users WHERE id = ?')
-    .bind(user.id)
-    .first<{ lat: number | null; lng: number | null }>();
+  // ── 핵심 INSERT 블록을 try/catch 로 감싸 사장님께 정확한 한국어 에러 노출 ──
+  // 마이그레이션 누락(qta_price/video_url/lat/lng 컬럼 없음)이나 D1 일시 장애를
+  // 그냥 "Internal Server Error" 로 떨어뜨리지 않고, 어떤 단계에서 깨졌는지를
+  // 응답 본문에 명시한다. 운영 디버깅 + 사용자 안내 메시지 두 마리 토끼.
+  let row: ProductRow | null = null;
+  let sellerLat: number | null = null;
+  let sellerLng: number | null = null;
 
-  await c.env.DB
-    .prepare(`
-      INSERT INTO products (id, seller_id, title, description, price, qta_price, category, region, images, video_url, lat, lng)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .bind(
-      id, user.id, title, description, priceInt, qtaPriceInt, category, region, images, videoUrl,
-      seller?.lat ?? null, seller?.lng ?? null
-    )
-    .run();
+  try {
+    // 작성자의 동네 좌표를 그대로 복사 — 거리 필터에 사용.
+    // 인증 안 된 사용자면 lat/lng 가 NULL 이라 거리 필터 결과에서 빠진다.
+    // users.lat/lng 컬럼이 없으면 0012 마이그레이션 미적용. 이때는 좌표 없이 진행.
+    try {
+      const seller = await c.env.DB
+        .prepare('SELECT lat, lng FROM users WHERE id = ?')
+        .bind(user.id)
+        .first<{ lat: number | null; lng: number | null }>();
+      sellerLat = seller?.lat ?? null;
+      sellerLng = seller?.lng ?? null;
+    } catch (e) {
+      // users.lat/lng 미존재 → 좌표 없이 진행 (거리 필터에서만 빠짐)
+      console.error('[products.create] users.lat/lng 조회 실패 (무시):', e);
+    }
 
-  const row = await c.env.DB
-    .prepare('SELECT * FROM products WHERE id = ?')
-    .bind(id)
-    .first<ProductRow>();
+    await c.env.DB
+      .prepare(`
+        INSERT INTO products (id, seller_id, title, description, price, qta_price, category, region, images, video_url, lat, lng)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .bind(
+        id, user.id, title, description, priceInt, qtaPriceInt, category, region, images, videoUrl,
+        sellerLat, sellerLng
+      )
+      .run();
+
+    row = await c.env.DB
+      .prepare('SELECT * FROM products WHERE id = ?')
+      .bind(id)
+      .first<ProductRow>();
+  } catch (e) {
+    // 마이그레이션 누락이 가장 흔한 원인. 정확한 원본 메시지를 응답에 포함.
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[products.create] INSERT 실패:', msg);
+    return c.json({
+      error: '상품 저장 중 서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.',
+      detail: msg, // 운영 진단용 — 클라이언트는 표시만 안 하면 됨
+    }, 500);
+  }
+
+  if (!row) {
+    return c.json({ error: '상품 저장 직후 조회 실패 — 잠시 후 다시 시도해주세요.' }, 500);
+  }
 
   const product = await hydrate(c.env, row, user.id);
 
@@ -443,8 +473,8 @@ app.post('/', authMiddleware, async (c) => {
       description,
       category,
       region,
-      lat: seller?.lat ?? null,
-      lng: seller?.lng ?? null,
+      lat: sellerLat,
+      lng: sellerLng,
       thumb: imageKeys[0]
         ? (c.env.PUBLIC_UPLOAD_URL
             ? `${c.env.PUBLIC_UPLOAD_URL.replace(/\/$/, '')}/${imageKeys[0]}`
