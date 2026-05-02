@@ -1,7 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:isolate';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chewie/chewie.dart';
@@ -37,111 +34,34 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _loading = true;
   bool _liked = false;
 
-  // [DIAG #73] trace + Dio 우회 직접 호출 검증
-  final List<String> _diagLog = [];
-  void _addDiag(String s) {
-    final ts = DateTime.now().toIso8601String().substring(11, 23);
-    _diagLog.add('$ts $s');
-    if (mounted) setState(() {});
-  }
-
   @override
   void initState() {
     super.initState();
-    _addDiag('[#73] initState() called');
-    // [#73] 진입 시점 경합 회피 — 다음 프레임에서 fetch 발사
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _addDiag('[#73] postFrame fired, launching fetches...');
-      _load();
-      _loadDirectBypass(); // 메인 isolate HttpClient
-      _loadInIsolate(); // [#73] 백그라운드 isolate HttpClient
-    });
-  }
-
-  // [#73] 백그라운드 isolate에서 HttpClient 직접 호출 — 메인 isolate 차단 여부 판별
-  Future<void> _loadInIsolate() async {
-    _addDiag('[ISO] launching background isolate...');
-    final pid = widget.productId;
-    try {
-      final result = await Isolate.run<String>(() async {
-        try {
-          final client = HttpClient();
-          client.connectionTimeout = const Duration(seconds: 10);
-          final url = Uri.parse('https://api.eggplant.life/api/products/$pid');
-          final req = await client.getUrl(url).timeout(const Duration(seconds: 12));
-          final resp = await req.close().timeout(const Duration(seconds: 12));
-          final body = await resp.transform(utf8.decoder).join();
-          client.close();
-          return 'OK status=${resp.statusCode} len=${body.length}';
-        } catch (e) {
-          return 'ISO_ERR: $e';
-        }
-      }).timeout(const Duration(seconds: 18));
-      _addDiag('[ISO] result: $result');
-    } on TimeoutException {
-      _addDiag('[ISO] outer timeout — main isolate also blocked OR isolate hang');
-    } catch (e) {
-      _addDiag('[ISO] outer error: $e');
-    }
-  }
-
-  // [DIAG #73] ProductService/Dio를 거치지 않고 dart:io HttpClient로 직접 호출.
-  // 이게 응답 받으면 → ProductService/Dio 쪽 문제 확정.
-  // 이것도 hang → 네트워크 자체 문제.
-  Future<void> _loadDirectBypass() async {
-    _addDiag('[BYPASS] HttpClient direct fetch start');
-    try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 10);
-      final url = Uri.parse('https://api.eggplant.life/api/products/${widget.productId}');
-      _addDiag('[BYPASS] opening connection...');
-      final req = await client.getUrl(url).timeout(const Duration(seconds: 12));
-      _addDiag('[BYPASS] got request, closing...');
-      final resp = await req.close().timeout(const Duration(seconds: 12));
-      _addDiag('[BYPASS] response: HTTP ${resp.statusCode}');
-      final body = await resp.transform(utf8.decoder).join();
-      _addDiag('[BYPASS] body length=${body.length}');
-      client.close();
-    } on TimeoutException catch (e) {
-      _addDiag('[BYPASS] TimeoutException: $e');
-    } catch (e) {
-      _addDiag('[BYPASS] error: $e');
-    }
+    _load();
   }
 
   Future<void> _load() async {
-    _addDiag('_load() start, productId=${widget.productId}');
     try {
-      _addDiag('before context.read<ProductService>()');
-      final svc = context.read<ProductService>();
-      _addDiag('got svc, calling fetchById...');
-      final p = await svc
+      final p = await context
+          .read<ProductService>()
           .fetchById(widget.productId)
           .timeout(const Duration(seconds: 15));
-      _addDiag('fetchById returned: p==null? ${p == null}');
-      if (!mounted) {
-        _addDiag('!mounted, returning early');
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _product = p;
         _liked = p?.isLiked ?? false;
       });
-      _addDiag('setState(_product=p) done');
-    } on TimeoutException catch (e) {
-      _addDiag('TimeoutException: $e');
+    } on TimeoutException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐')),
       );
-    } catch (e, st) {
-      _addDiag('CAUGHT: $e | ${st.toString().split('\n').take(2).join(' | ')}');
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('상품을 불러오지 못했어요')),
       );
     } finally {
-      _addDiag('finally: _loading=false');
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -1123,81 +1043,32 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // [DIAG #70] 분기 무관하게 무조건 화면에 노란 배너부터 그린다.
-    // - ProductDetailScreen.build()가 진짜 호출되는지
-    // - _loading / _product 상태가 어떤 값인지
-    // 화면에 직접 출력해서 100% 확정한다.
-    // [DIAG #73] _load() 단계별 진단 로그 + 분기 상태 — 화면에 누적 출력.
-    Widget _diagBanner(String stage) => Container(
-          width: double.infinity,
-          color: Colors.yellow,
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '[DIAG #73 stage=$stage]\n'
-                'productId=${widget.productId}\n'
-                '_loading=$_loading / _product==null? ${_product == null}\n'
-                'now=${DateTime.now().toIso8601String().substring(11, 23)}',
-                style: const TextStyle(fontSize: 11, color: Colors.black, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              const Text('--- _load() trace ---',
-                  style: TextStyle(fontSize: 10, color: Colors.black54)),
-              ..._diagLog.map((line) => Text(
-                    line,
-                    style: const TextStyle(fontSize: 10, color: Colors.black87),
-                  )),
-            ],
-          ),
-        );
-
     if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('[DIAG #73] LOADING')),
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              _diagBanner('LOADING'),
-              const SizedBox(height: 16),
-              const Center(child: CircularProgressIndicator(color: EggplantColors.primary)),
-            ],
-          ),
-        ),
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: EggplantColors.primary)),
       );
     }
     final p = _product;
     if (p == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('[DIAG #73] PRODUCT NULL')),
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              _diagBanner('PRODUCT_NULL'),
-              const SizedBox(height: 16),
-              const Center(child: Text('상품을 찾을 수 없어요')),
-            ],
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          foregroundColor: EggplantColors.textPrimary,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: EggplantColors.textPrimary),
+            onPressed: () => context.pop(),
           ),
         ),
+        body: const Center(child: Text('상품을 찾을 수 없어요')),
       );
     }
 
-    // [DIAG #69] 본문 자식 위젯들을 한 줄씩 try/catch로 감싸서
-    // 어떤 자식에서 어떤 예외가 나는지 화면에 직접 노출. 원인 잡으면 즉시 제거.
     Widget _safe(String tag, Widget Function() build) {
       try {
         return build();
-      } catch (e, st) {
-        return Container(
-          width: double.infinity,
-          color: Colors.red.withOpacity(0.15),
-          padding: const EdgeInsets.all(8),
-          child: Text(
-            '[ERR $tag] $e\n${st.toString().split('\n').take(3).join('\n')}',
-            style: const TextStyle(fontSize: 11, color: Colors.red),
-          ),
-        );
+      } catch (_) {
+        return const SizedBox.shrink();
       }
     }
 
@@ -1224,16 +1095,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // [DIAG #69] 화면 최상단에 진단 배너 — build()가 실행됐다면 이게 무조건 보임.
-          Container(
-            width: double.infinity,
-            color: Colors.green.withOpacity(0.2),
-            padding: const EdgeInsets.all(8),
-            child: Text(
-              '[DIAG #69] build() OK / images=${p.images.length} / title="${p.title}" / seller="${p.sellerNickname}" / hasVideo=${p.hasVideo} / category="${p.category}"',
-              style: const TextStyle(fontSize: 11, color: Colors.black),
-            ),
-          ),
           if (hasImages)
             _safe('ImageCarousel', () => SizedBox(
                   width: double.infinity,
