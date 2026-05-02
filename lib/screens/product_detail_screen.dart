@@ -1090,22 +1090,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: _ImageCarousel(images: p.images),
+              background: SizedBox(
+                width: double.infinity,
+                height: 360,
+                child: _ImageCarousel(images: p.images),
+              ),
             ),
           ),
           SliverToBoxAdapter(
-            // 태블릿/폴드 펼침에서 텍스트 본문이 너무 길게 늘어나지 않도록
-            // 600dp 로 max-width 제한하고 가운데 정렬.
-            // (이미지/영상 영역은 풀와이드 유지 — 위쪽 SliverAppBar 가 담당)
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SellerRow(product: p),
+            // [진단용] 빨간 배경 + 최소 높이 200 강제 — 본문 sliver가 실제로
+            // 그려지는지 시각 확인용. 다음 빌드에서 제거 예정.
+            child: Container(
+              color: Colors.red.withOpacity(0.15),
+              constraints: const BoxConstraints(minHeight: 200),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          color: Colors.yellow,
+                          child: Text(
+                            '[DIAG] images=${p.images.length} title=${p.title} seller=${p.sellerNickname}',
+                            style: const TextStyle(fontSize: 12, color: Colors.black),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _SellerRow(product: p),
                       const Divider(height: 32),
                       Text(
                         p.title,
@@ -1172,7 +1187,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ],
                       ),
                       const SizedBox(height: 100),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
