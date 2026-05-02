@@ -265,6 +265,8 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Text(
                       canRequest ? '출금 신청하기' : '잔액이 부족해요',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: 15, fontWeight: FontWeight.w700),
                     ),
@@ -624,14 +626,22 @@ class _RequestSheetState extends State<_RequestSheet> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => _setSafe(widget.min),
-                  child: Text('최소 ${_fmt(widget.min)}'),
+                  child: Text(
+                    '최소 ${_fmt(widget.min)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => _setSafe(widget.max),
-                  child: Text('전액 ${_fmt(widget.max)}'),
+                  child: Text(
+                    '전액 ${_fmt(widget.max)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ],
@@ -679,6 +689,8 @@ class _RequestSheetState extends State<_RequestSheet> {
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Text(
                   '${_fmt(_amount)} QTA 신청하기',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 15),
                 ),
               ),

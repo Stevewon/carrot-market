@@ -291,7 +291,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isMe ? '내 프로필' : '판매자 정보'),
+        title: Text(
+          isMe ? '내 프로필' : '판매자 정보',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         elevation: 0,
         actions: [
           if (!isMe)

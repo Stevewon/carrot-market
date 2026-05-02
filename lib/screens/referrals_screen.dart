@@ -123,6 +123,8 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                         Expanded(
                           child: Text(
                             myNick,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,

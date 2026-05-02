@@ -164,7 +164,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         )
                       : const Padding(
                           padding: EdgeInsets.symmetric(vertical: 4),
-                          child: Text('로그인', style: TextStyle(fontSize: 16)),
+                          child: Text(
+                            '로그인',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 16),
+                          ),
                         ),
                 ),
 
@@ -176,6 +181,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () => context.push('/find'),
                       child: const Text(
                         '닉네임 / 비밀번호 찾기',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: EggplantColors.textSecondary,
                           fontSize: 13,
@@ -189,6 +196,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () => context.push('/register'),
                       child: const Text(
                         '회원가입',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: EggplantColors.primary,
                           fontSize: 13,

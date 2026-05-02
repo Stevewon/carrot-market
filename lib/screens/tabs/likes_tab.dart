@@ -42,6 +42,8 @@ class _LikesTabState extends State<LikesTab> {
       appBar: AppBar(
         title: Text(
           items.isEmpty ? '찜한 상품' : '찜한 상품 ${items.length}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ),
       // 태블릿/폴드 펼침에서 600dp 가운데 정렬.

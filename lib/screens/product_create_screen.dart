@@ -633,6 +633,8 @@ class _SheetTile extends StatelessWidget {
       leading: Icon(icon, color: iconColor ?? EggplantColors.primary, size: 24),
       title: Text(
         label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 15,
           fontWeight: dense ? FontWeight.w500 : FontWeight.w600,

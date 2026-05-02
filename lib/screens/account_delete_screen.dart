@@ -271,9 +271,13 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
                       )
                     : const Padding(
                         padding: EdgeInsets.symmetric(vertical: 4),
-                        child: Text('영구 삭제하기',
-                            style: TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.w800)),
+                        child: Text(
+                          '영구 삭제하기',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w800),
+                        ),
                       ),
               ),
               const SizedBox(height: 12),
@@ -282,6 +286,8 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
                   onPressed: () => context.pop(),
                   child: const Text(
                     '취소하고 돌아가기',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: EggplantColors.textSecondary),
                   ),
                 ),

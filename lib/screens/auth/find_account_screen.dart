@@ -198,7 +198,12 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
                   )
                 : const Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Text('계정 확인', style: TextStyle(fontSize: 16)),
+                    child: Text(
+                      '계정 확인',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
           ),
         ],
@@ -348,8 +353,12 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
                   )
                 : const Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Text('비밀번호 재설정',
-                        style: TextStyle(fontSize: 16)),
+                    child: Text(
+                      '비밀번호 재설정',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
           ),
 

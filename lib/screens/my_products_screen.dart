@@ -139,6 +139,8 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
         elevation: 0,
         title: Text(
           items.isEmpty ? '내 판매상품' : '내 판매상품 ${items.length}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),

@@ -834,12 +834,16 @@ class _VerificationCta extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
                             color: EggplantColors.textPrimary)),
                     const SizedBox(height: 3),
                     Text(desc,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontSize: 12,
                             color: EggplantColors.textSecondary)),

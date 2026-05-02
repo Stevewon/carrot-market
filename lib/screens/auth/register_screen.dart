@@ -341,8 +341,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         )
                       : const Padding(
                           padding: EdgeInsets.symmetric(vertical: 4),
-                          child:
-                              Text('가입하기', style: TextStyle(fontSize: 16)),
+                          child: Text(
+                            '가입하기',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 16),
+                          ),
                         ),
                 ),
 
@@ -352,6 +356,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onPressed: () => context.pop(),
                     child: const Text(
                       '이미 계정이 있어요 — 로그인',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: EggplantColors.primary,
                         fontSize: 13,

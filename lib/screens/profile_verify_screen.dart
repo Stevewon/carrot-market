@@ -342,9 +342,10 @@ class _StepCard extends StatelessWidget {
                   color: EggplantColors.textSecondary)),
           if (actionLabel != null) ...[
             const SizedBox(height: 14),
+            // ⚠️ height:44 고정 → 폰트 스케일 1.3x 이상에서 글자 잘림 보고 받음.
+            //    minimumSize 로 바꿔 텍스트가 박스를 넘으면 박스가 같이 늘어나게 함.
             SizedBox(
               width: double.infinity,
-              height: 44,
               child: ElevatedButton(
                 onPressed: onAction,
                 style: ElevatedButton.styleFrom(
@@ -352,13 +353,21 @@ class _StepCard extends StatelessWidget {
                       onAction == null ? const Color(0xFFE5E7EB) : accent,
                   foregroundColor:
                       onAction == null ? const Color(0xFF9CA3AF) : Colors.white,
+                  minimumSize: const Size.fromHeight(44),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
-                child: Text(actionLabel!,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 14)),
+                child: Text(
+                  actionLabel!,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.visible,
+                  softWrap: true,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 14, height: 1.2),
+                ),
               ),
             ),
           ],
@@ -480,14 +489,20 @@ Future<void> showVerificationGuard(
                       onPressed: () => Navigator.of(ctx).pop(),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        minimumSize: const Size.fromHeight(48),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('취소',
-                          style: TextStyle(
-                              color: EggplantColors.textSecondary,
-                              fontWeight: FontWeight.w600)),
+                      child: const Text(
+                        '취소',
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: EggplantColors.textSecondary,
+                            fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -501,12 +516,18 @@ Future<void> showVerificationGuard(
                         backgroundColor: EggplantColors.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        minimumSize: const Size.fromHeight(48),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('인증하러 가기',
-                          style: TextStyle(fontWeight: FontWeight.w700)),
+                      child: const Text(
+                        '인증하러 가기',
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
                 ],

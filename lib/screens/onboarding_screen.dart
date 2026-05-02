@@ -146,7 +146,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPressed: () => Navigator.pop(ctx, true),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 4),
-                  child: Text('확인하고 계속', style: TextStyle(fontSize: 16)),
+                  child: Text(
+                    '확인하고 계속',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 16),
+                  ),
                 ),
               ),
             ),
@@ -156,6 +161,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPressed: () => Navigator.pop(ctx, false),
                 child: const Text(
                   '나중에 하기',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: EggplantColors.textTertiary),
                 ),
               ),
@@ -222,6 +229,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                             child: const Text(
                               '건너뛰기',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -315,6 +324,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         children: [
                           const Text(
                             '이미 계정이 있어요?',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 13,
                               color: EggplantColors.textSecondary,
@@ -333,6 +344,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                             child: const Text(
                               '로그인',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
