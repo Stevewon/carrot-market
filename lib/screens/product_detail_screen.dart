@@ -1110,18 +1110,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   )
                 : null,
           ),
-          SliverToBoxAdapter(
-            // 태블릿/폴드 펼침에서 텍스트 본문이 너무 길게 늘어나지 않도록
-            // 600dp 로 max-width 제한하고 가운데 정렬.
-            // (이미지/영상 영역은 풀와이드 유지 — 위쪽 SliverAppBar 가 담당)
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+          SliverPadding(
+            padding: const EdgeInsets.all(20),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                       _SellerRow(product: p),
                       const Divider(height: 32),
                       Text(
@@ -1189,10 +1187,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ],
                       ),
                       const SizedBox(height: 100),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
+              ]),
             ),
           ),
         ],
