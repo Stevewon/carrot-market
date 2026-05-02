@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chewie/chewie.dart';
@@ -36,7 +37,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _loading = true;
   bool _liked = false;
 
-  // [DIAG #72] trace + Dio 우회 직접 호출 검증
+  // [DIAG #73] trace + Dio 우회 직접 호출 검증
   final List<String> _diagLog = [];
   void _addDiag(String s) {
     final ts = DateTime.now().toIso8601String().substring(11, 23);
@@ -47,12 +48,44 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _addDiag('initState() called');
-    _load();
-    _loadDirectBypass(); // [DIAG #72] Dio 우회 직접 호출도 동시에 시도
+    _addDiag('[#73] initState() called');
+    // [#73] 진입 시점 경합 회피 — 다음 프레임에서 fetch 발사
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _addDiag('[#73] postFrame fired, launching fetches...');
+      _load();
+      _loadDirectBypass(); // 메인 isolate HttpClient
+      _loadInIsolate(); // [#73] 백그라운드 isolate HttpClient
+    });
   }
 
-  // [DIAG #72] ProductService/Dio를 거치지 않고 dart:io HttpClient로 직접 호출.
+  // [#73] 백그라운드 isolate에서 HttpClient 직접 호출 — 메인 isolate 차단 여부 판별
+  Future<void> _loadInIsolate() async {
+    _addDiag('[ISO] launching background isolate...');
+    final pid = widget.productId;
+    try {
+      final result = await Isolate.run<String>(() async {
+        try {
+          final client = HttpClient();
+          client.connectionTimeout = const Duration(seconds: 10);
+          final url = Uri.parse('https://api.eggplant.life/api/products/$pid');
+          final req = await client.getUrl(url).timeout(const Duration(seconds: 12));
+          final resp = await req.close().timeout(const Duration(seconds: 12));
+          final body = await resp.transform(utf8.decoder).join();
+          client.close();
+          return 'OK status=${resp.statusCode} len=${body.length}';
+        } catch (e) {
+          return 'ISO_ERR: $e';
+        }
+      }).timeout(const Duration(seconds: 18));
+      _addDiag('[ISO] result: $result');
+    } on TimeoutException {
+      _addDiag('[ISO] outer timeout — main isolate also blocked OR isolate hang');
+    } catch (e) {
+      _addDiag('[ISO] outer error: $e');
+    }
+  }
+
+  // [DIAG #73] ProductService/Dio를 거치지 않고 dart:io HttpClient로 직접 호출.
   // 이게 응답 받으면 → ProductService/Dio 쪽 문제 확정.
   // 이것도 hang → 네트워크 자체 문제.
   Future<void> _loadDirectBypass() async {
@@ -1094,7 +1127,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     // - ProductDetailScreen.build()가 진짜 호출되는지
     // - _loading / _product 상태가 어떤 값인지
     // 화면에 직접 출력해서 100% 확정한다.
-    // [DIAG #72] _load() 단계별 진단 로그 + 분기 상태 — 화면에 누적 출력.
+    // [DIAG #73] _load() 단계별 진단 로그 + 분기 상태 — 화면에 누적 출력.
     Widget _diagBanner(String stage) => Container(
           width: double.infinity,
           color: Colors.yellow,
@@ -1103,7 +1136,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '[DIAG #72 stage=$stage]\n'
+                '[DIAG #73 stage=$stage]\n'
                 'productId=${widget.productId}\n'
                 '_loading=$_loading / _product==null? ${_product == null}\n'
                 'now=${DateTime.now().toIso8601String().substring(11, 23)}',
@@ -1122,7 +1155,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('[DIAG #72] LOADING')),
+        appBar: AppBar(title: const Text('[DIAG #73] LOADING')),
         body: SingleChildScrollView(
           child: Column(
             children: [
@@ -1137,7 +1170,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final p = _product;
     if (p == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('[DIAG #72] PRODUCT NULL')),
+        appBar: AppBar(title: const Text('[DIAG #73] PRODUCT NULL')),
         body: SingleChildScrollView(
           child: Column(
             children: [
