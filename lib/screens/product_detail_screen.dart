@@ -34,34 +34,55 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _loading = true;
   bool _liked = false;
 
+  // [DIAG #71] _load() 단계별 누적 로그 — 화면에 그대로 출력해서
+  // 어느 단계에서 hang/실패하는지 확정한다.
+  final List<String> _diagLog = [];
+  void _addDiag(String s) {
+    final ts = DateTime.now().toIso8601String().substring(11, 23);
+    _diagLog.add('$ts $s');
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
+    _addDiag('initState() called');
     _load();
   }
 
   Future<void> _load() async {
+    _addDiag('_load() start, productId=${widget.productId}');
     try {
-      final p = await context
-          .read<ProductService>()
+      _addDiag('before context.read<ProductService>()');
+      final svc = context.read<ProductService>();
+      _addDiag('got svc=$svc, calling fetchById...');
+      final p = await svc
           .fetchById(widget.productId)
           .timeout(const Duration(seconds: 15));
-      if (!mounted) return;
+      _addDiag('fetchById returned: p==null? ${p == null}');
+      if (!mounted) {
+        _addDiag('!mounted, returning early');
+        return;
+      }
       setState(() {
         _product = p;
         _liked = p?.isLiked ?? false;
       });
-    } on TimeoutException {
+      _addDiag('setState(_product=p) done');
+    } on TimeoutException catch (e) {
+      _addDiag('TimeoutException: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐')),
       );
-    } catch (_) {
+    } catch (e, st) {
+      _addDiag('CAUGHT: $e\n${st.toString().split('\n').take(2).join(' | ')}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('상품을 불러오지 못했어요')),
       );
     } finally {
+      _addDiag('finally: setting _loading=false');
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -1047,40 +1068,58 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     // - ProductDetailScreen.build()가 진짜 호출되는지
     // - _loading / _product 상태가 어떤 값인지
     // 화면에 직접 출력해서 100% 확정한다.
+    // [DIAG #71] _load() 단계별 진단 로그 + 분기 상태 — 화면에 누적 출력.
     Widget _diagBanner(String stage) => Container(
           width: double.infinity,
           color: Colors.yellow,
-          padding: const EdgeInsets.all(12),
-          child: Text(
-            '[DIAG #70 stage=$stage]\n'
-            'productId=${widget.productId}\n'
-            '_loading=$_loading\n'
-            '_product==null? ${_product == null}\n'
-            'time=${DateTime.now().toIso8601String()}',
-            style: const TextStyle(fontSize: 12, color: Colors.black, fontWeight: FontWeight.w700),
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '[DIAG #71 stage=$stage]\n'
+                'productId=${widget.productId}\n'
+                '_loading=$_loading / _product==null? ${_product == null}\n'
+                'now=${DateTime.now().toIso8601String().substring(11, 23)}',
+                style: const TextStyle(fontSize: 11, color: Colors.black, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              const Text('--- _load() trace ---',
+                  style: TextStyle(fontSize: 10, color: Colors.black54)),
+              ..._diagLog.map((line) => Text(
+                    line,
+                    style: const TextStyle(fontSize: 10, color: Colors.black87),
+                  )),
+            ],
           ),
         );
 
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('[DIAG #70] LOADING')),
-        body: Column(
-          children: [
-            _diagBanner('LOADING'),
-            const Expanded(child: Center(child: CircularProgressIndicator(color: EggplantColors.primary))),
-          ],
+        appBar: AppBar(title: const Text('[DIAG #71] LOADING')),
+        body: SingleChildScrollView(
+          child: Column(
+            children: [
+              _diagBanner('LOADING'),
+              const SizedBox(height: 16),
+              const Center(child: CircularProgressIndicator(color: EggplantColors.primary)),
+            ],
+          ),
         ),
       );
     }
     final p = _product;
     if (p == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('[DIAG #70] PRODUCT NULL')),
-        body: Column(
-          children: [
-            _diagBanner('PRODUCT_NULL'),
-            const Expanded(child: Center(child: Text('상품을 찾을 수 없어요'))),
-          ],
+        appBar: AppBar(title: const Text('[DIAG #71] PRODUCT NULL')),
+        body: SingleChildScrollView(
+          child: Column(
+            children: [
+              _diagBanner('PRODUCT_NULL'),
+              const SizedBox(height: 16),
+              const Center(child: Text('상품을 찾을 수 없어요')),
+            ],
+          ),
         ),
       );
     }
