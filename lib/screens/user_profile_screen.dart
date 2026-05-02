@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -50,15 +52,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final results = await Future.wait([
         svc.fetchUserProfile(widget.userId),
         svc.fetchUserReviews(widget.userId, limit: 20),
-      ]);
+      ]).timeout(const Duration(seconds: 20));
       final profile = results[0] as Map<String, dynamic>?;
       final reviews = (results[1] as List).cast<Review>();
       if (!mounted) return;
       if (profile == null) {
-        setState(() {
-          _loading = false;
-          _error = '사용자를 찾을 수 없어요';
-        });
+        setState(() => _error = '사용자를 찾을 수 없어요');
         return;
       }
       setState(() {
@@ -66,31 +65,47 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _stats = profile['stats'] as Map<String, dynamic>?;
         _reviews = reviews;
         _hasMore = reviews.length >= 20;
-        _loading = false;
       });
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() => _error = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐');
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = '불러오는 중 오류가 발생했어요';
-      });
+      setState(() => _error = '불러오는 중 오류가 발생했어요');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _loadMore() async {
     if (_loadingMore || !_hasMore || _reviews.isEmpty) return;
     setState(() => _loadingMore = true);
-    final more = await context.read<ProductService>().fetchUserReviews(
-          widget.userId,
-          limit: 20,
-          before: _reviews.last.createdAt,
+    try {
+      final more = await context
+          .read<ProductService>()
+          .fetchUserReviews(
+            widget.userId,
+            limit: 20,
+            before: _reviews.last.createdAt,
+          )
+          .timeout(const Duration(seconds: 15));
+      if (!mounted) return;
+      setState(() {
+        _reviews.addAll(more);
+        _hasMore = more.length >= 20;
+      });
+    } on TimeoutException {
+      // 추가 페이지 로드 실패는 토스트만, 무한 로딩 방지가 핵심.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('추가 리뷰 로딩이 늦어요. 잠시 후 다시 시도해주세요 🕐')),
         );
-    if (!mounted) return;
-    setState(() {
-      _reviews.addAll(more);
-      _hasMore = more.length >= 20;
-      _loadingMore = false;
-    });
+      }
+    } catch (_) {
+      // 무시 — 메인 로딩이 아니므로 사용자 흐름 차단하지 않음.
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
   }
 
   /// Pull the top 3 tags out of the loaded reviews — quick client-side

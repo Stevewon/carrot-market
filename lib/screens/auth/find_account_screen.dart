@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -56,19 +58,27 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
       _error = null;
     });
 
-    final res = await context
-        .read<AuthService>()
-        .recoverNickname(_walletCtl.text);
+    try {
+      final res = await context
+          .read<AuthService>()
+          .recoverNickname(_walletCtl.text)
+          .timeout(const Duration(seconds: 20));
 
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
+      if (!mounted) return;
       if (res.error != null) {
-        _error = res.error;
+        setState(() => _error = res.error);
       } else {
-        _foundNickname = res.nickname;
+        setState(() => _foundNickname = res.nickname);
       }
-    });
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() => _error = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = '계정 조회 중 문제가 생겼어요. 다시 시도해주세요.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _resetPassword() async {
@@ -78,22 +88,33 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
       _error = null;
     });
 
-    final err = await context.read<AuthService>().resetPassword(
-          walletAddress: _walletCtl.text,
-          newPassword: _pwCtl.text,
-          newPasswordConfirm: _pwConfirmCtl.text,
+    try {
+      final err = await context
+          .read<AuthService>()
+          .resetPassword(
+            walletAddress: _walletCtl.text,
+            newPassword: _pwCtl.text,
+            newPasswordConfirm: _pwConfirmCtl.text,
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (!mounted) return;
+      if (err != null) {
+        setState(() => _error = err);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('비밀번호를 새로 설정했어요 🔒')),
         );
-
-    if (!mounted) return;
-    setState(() => _loading = false);
-
-    if (err != null) {
-      setState(() => _error = err);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('비밀번호를 새로 설정했어요 🔒')),
-      );
-      context.go('/');
+        context.go('/');
+      }
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() => _error = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = '비밀번호 재설정 중 문제가 생겼어요. 다시 시도해주세요.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -81,7 +83,26 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
     });
 
     final auth = context.read<AuthService>();
-    final err = await auth.deleteAccount(password: _pwCtl.text);
+    String? err;
+    try {
+      err = await auth
+          .deleteAccount(password: _pwCtl.text)
+          .timeout(const Duration(seconds: 20));
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐';
+      });
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = '탈퇴 처리 중 문제가 생겼어요. 다시 시도해주세요.';
+      });
+      return;
+    }
 
     if (!mounted) return;
     setState(() => _loading = false);

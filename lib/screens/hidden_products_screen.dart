@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -32,21 +34,44 @@ class _HiddenProductsScreenState extends State<HiddenProductsScreen> {
     final hidden = context.read<HiddenProductsService>();
     final svc = context.read<ProductService>();
 
-    await hidden.load(force: true);
-    final ids = hidden.ids.toList();
-    final results = <Product>[];
-    // ID 별로 fetch — 보통 숨김 목록은 작아서(<100) 부담 적음.
-    for (final id in ids) {
-      final p = await svc.fetchById(id);
-      if (p != null) results.add(p);
+    try {
+      await hidden.load(force: true).timeout(const Duration(seconds: 15));
+      final ids = hidden.ids.toList();
+      final results = <Product>[];
+      // ID 별로 fetch — 보통 숨김 목록은 작아서(<100) 부담 적음.
+      // 각 fetch 에 짧은 timeout 을 줘서 한 항목이 막혀도 전체가 멈추지 않게.
+      for (final id in ids) {
+        try {
+          final p = await svc.fetchById(id).timeout(const Duration(seconds: 8));
+          if (p != null) results.add(p);
+        } on TimeoutException {
+          // 한 건 실패는 건너뜀 — 무한 로딩 방지가 핵심.
+          continue;
+        } catch (_) {
+          continue;
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _products
+          ..clear()
+          ..addAll(results);
+      });
+    } on TimeoutException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('숨긴 게시물을 불러오지 못했어요')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    if (!mounted) return;
-    setState(() {
-      _products
-        ..clear()
-        ..addAll(results);
-      _loading = false;
-    });
   }
 
   Future<void> _unhide(Product p) async {

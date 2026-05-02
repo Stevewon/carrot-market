@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -37,25 +39,27 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
     });
     try {
       final api = context.read<AuthService>().api;
-      final res = await api.dio.get('/api/referrals/me');
+      final res = await api.dio
+          .get('/api/referrals/me')
+          .timeout(const Duration(seconds: 20));
+      if (!mounted) return;
       if (res.statusCode == 200 && res.data is Map) {
         final m = Map<String, dynamic>.from(res.data as Map);
         setState(() {
           _stats = m;
           _items = (m['items'] as List?) ?? [];
-          _loading = false;
         });
       } else {
-        setState(() {
-          _error = '내 초대 내역을 불러올 수 없어요.';
-          _loading = false;
-        });
+        setState(() => _error = '내 초대 내역을 불러올 수 없어요.');
       }
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() => _error = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐');
     } catch (e) {
-      setState(() {
-        _error = '네트워크 오류: $e';
-        _loading = false;
-      });
+      if (!mounted) return;
+      setState(() => _error = '네트워크 오류: 잠시 후 다시 시도해주세요.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

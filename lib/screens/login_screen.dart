@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -40,18 +42,29 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
-    final err = await context.read<AuthService>().login(
-          nickname: _nicknameCtl.text,
-          password: _passwordCtl.text,
-        );
+    try {
+      final err = await context
+          .read<AuthService>()
+          .login(
+            nickname: _nicknameCtl.text,
+            password: _passwordCtl.text,
+          )
+          .timeout(const Duration(seconds: 20));
 
-    if (!mounted) return;
-    setState(() => _loading = false);
-
-    if (err != null) {
-      setState(() => _error = err);
-    } else {
-      context.go('/');
+      if (!mounted) return;
+      if (err != null) {
+        setState(() => _error = err);
+      } else {
+        context.go('/');
+      }
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() => _error = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = '로그인 중 문제가 생겼어요. 다시 시도해주세요.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

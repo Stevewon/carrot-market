@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
@@ -39,13 +41,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _load() async {
-    final p = await context.read<ProductService>().fetchById(widget.productId);
-    if (!mounted) return;
-    setState(() {
-      _product = p;
-      _liked = p?.isLiked ?? false;
-      _loading = false;
-    });
+    try {
+      final p = await context
+          .read<ProductService>()
+          .fetchById(widget.productId)
+          .timeout(const Duration(seconds: 15));
+      if (!mounted) return;
+      setState(() {
+        _product = p;
+        _liked = p?.isLiked ?? false;
+      });
+    } on TimeoutException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('상품을 불러오지 못했어요')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _toggleLike() async {
