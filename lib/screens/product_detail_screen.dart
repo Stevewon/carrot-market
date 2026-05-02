@@ -1,12 +1,6 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:isolate';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
@@ -16,13 +10,11 @@ import '../app/constants.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/product.dart';
-import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
 import '../services/product_service.dart';
 import '../services/moderation_service.dart';
 import '../services/hidden_products_service.dart';
-import 'profile_verify_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final String productId;
@@ -37,113 +29,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _loading = true;
   bool _liked = false;
 
-  // [DIAG #73] trace + Dio 우회 직접 호출 검증
-  final List<String> _diagLog = [];
-  void _addDiag(String s) {
-    final ts = DateTime.now().toIso8601String().substring(11, 23);
-    _diagLog.add('$ts $s');
-    if (mounted) setState(() {});
-  }
-
   @override
   void initState() {
     super.initState();
-    _addDiag('[#73] initState() called');
-    // [#73] 진입 시점 경합 회피 — 다음 프레임에서 fetch 발사
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _addDiag('[#73] postFrame fired, launching fetches...');
-      _load();
-      _loadDirectBypass(); // 메인 isolate HttpClient
-      _loadInIsolate(); // [#73] 백그라운드 isolate HttpClient
-    });
-  }
-
-  // [#73] 백그라운드 isolate에서 HttpClient 직접 호출 — 메인 isolate 차단 여부 판별
-  Future<void> _loadInIsolate() async {
-    _addDiag('[ISO] launching background isolate...');
-    final pid = widget.productId;
-    try {
-      final result = await Isolate.run<String>(() async {
-        try {
-          final client = HttpClient();
-          client.connectionTimeout = const Duration(seconds: 10);
-          final url = Uri.parse('https://api.eggplant.life/api/products/$pid');
-          final req = await client.getUrl(url).timeout(const Duration(seconds: 12));
-          final resp = await req.close().timeout(const Duration(seconds: 12));
-          final body = await resp.transform(utf8.decoder).join();
-          client.close();
-          return 'OK status=${resp.statusCode} len=${body.length}';
-        } catch (e) {
-          return 'ISO_ERR: $e';
-        }
-      }).timeout(const Duration(seconds: 18));
-      _addDiag('[ISO] result: $result');
-    } on TimeoutException {
-      _addDiag('[ISO] outer timeout — main isolate also blocked OR isolate hang');
-    } catch (e) {
-      _addDiag('[ISO] outer error: $e');
-    }
-  }
-
-  // [DIAG #73] ProductService/Dio를 거치지 않고 dart:io HttpClient로 직접 호출.
-  // 이게 응답 받으면 → ProductService/Dio 쪽 문제 확정.
-  // 이것도 hang → 네트워크 자체 문제.
-  Future<void> _loadDirectBypass() async {
-    _addDiag('[BYPASS] HttpClient direct fetch start');
-    try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 10);
-      final url = Uri.parse('https://api.eggplant.life/api/products/${widget.productId}');
-      _addDiag('[BYPASS] opening connection...');
-      final req = await client.getUrl(url).timeout(const Duration(seconds: 12));
-      _addDiag('[BYPASS] got request, closing...');
-      final resp = await req.close().timeout(const Duration(seconds: 12));
-      _addDiag('[BYPASS] response: HTTP ${resp.statusCode}');
-      final body = await resp.transform(utf8.decoder).join();
-      _addDiag('[BYPASS] body length=${body.length}');
-      client.close();
-    } on TimeoutException catch (e) {
-      _addDiag('[BYPASS] TimeoutException: $e');
-    } catch (e) {
-      _addDiag('[BYPASS] error: $e');
-    }
+    _load();
   }
 
   Future<void> _load() async {
-    _addDiag('_load() start, productId=${widget.productId}');
-    try {
-      _addDiag('before context.read<ProductService>()');
-      final svc = context.read<ProductService>();
-      _addDiag('got svc, calling fetchById...');
-      final p = await svc
-          .fetchById(widget.productId)
-          .timeout(const Duration(seconds: 15));
-      _addDiag('fetchById returned: p==null? ${p == null}');
-      if (!mounted) {
-        _addDiag('!mounted, returning early');
-        return;
-      }
-      setState(() {
-        _product = p;
-        _liked = p?.isLiked ?? false;
-      });
-      _addDiag('setState(_product=p) done');
-    } on TimeoutException catch (e) {
-      _addDiag('TimeoutException: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐')),
-      );
-    } catch (e, st) {
-      _addDiag('CAUGHT: $e | ${st.toString().split('\n').take(2).join(' | ')}');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('상품을 불러오지 못했어요')),
-      );
-    } finally {
-      _addDiag('finally: _loading=false');
-      if (mounted) setState(() => _loading = false);
-    }
+    final p = await context.read<ProductService>().fetchById(widget.productId);
+    if (!mounted) return;
+    setState(() {
+      _product = p;
+      _liked = p?.isLiked ?? false;
+      _loading = false;
+    });
   }
 
   Future<void> _toggleLike() async {
@@ -168,21 +67,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     String? buyerId;
     Map<String, dynamic>? buyer;
     if (status == 'sold') {
-      // 결제(자금이동) 단계 — 판매자도 Lv1(본인인증) 필요.
-      // 등록·예약·채팅은 자유, 거래완료(=정산) 시점에서만 차단.
-      final user = context.read<AuthService>().user;
-      if (user != null && !user.verificationLevel.canTrade) {
-        await showVerificationGuard(
-          context,
-          current: user.verificationLevel,
-          required: VerificationLevel.identity,
-          customTitle: '거래완료에는 본인 인증이 필요해요',
-          customMessage: '돈(KRW·QTA)이 오가는 단계라 1인 1계정 보장을 위해 '
-              '판매자 본인 인증이 필수입니다.\n'
-              '인증해도 채팅·통화는 익명 그대로 유지돼요.',
-        );
-        return;
-      }
       buyer = await _pickBuyer(p);
       if (buyer == null) return; // user cancelled
       buyerId = buyer['id']?.toString();
@@ -853,471 +737,146 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  /// 안전결제(에스크로) 시작 — 30,000원 미만 KRW 거래에서만 노출.
-  /// 백엔드: POST /api/products/:id/escrow → 입금자 메모 + 회사 임시계좌 반환.
-  /// 본인인증(Lv1) 미완료 시에는 가드 모달로 라우팅.
-  Future<void> _startEscrow() async {
-    final p = _product;
-    final user = context.read<AuthService>().user;
-    if (p == null || user == null) return;
-
-    if (p.sellerId == user.id) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('내가 등록한 상품이에요')),
-      );
-      return;
-    }
-
-    // Lv1 (본인인증) 가드. canTrade == verificationLevel >= 1.
-    if (!user.verificationLevel.canTrade) {
-      await showVerificationGuard(
-        context,
-        current: user.verificationLevel,
-        required: VerificationLevel.identity,
-        customMessage: '안전결제는 본인인증(Lv1) 후 이용할 수 있어요.\n'
-            '인증을 완료하고 다시 시도해주세요.',
-      );
-      return;
-    }
-
-    final auth = context.read<AuthService>();
-    Map<String, dynamic>? result;
-    try {
-      final res = await auth.api.post('/api/products/${p.id}/escrow');
-      result = res.data is Map<String, dynamic>
-          ? res.data as Map<String, dynamic>
-          : Map<String, dynamic>.from(res.data as Map);
-    } catch (e) {
-      // dio DioException → response.data.error 추출 시도
-      String msg = '안전결제를 시작하지 못했어요';
-      try {
-        final dynamic err = e;
-        // ignore: avoid_dynamic_calls
-        final data = err.response?.data;
-        if (data is Map && data['error'] is String) {
-          msg = data['error'] as String;
-        }
-      } catch (_) {}
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-      return;
-    }
-
-    if (!mounted || result == null) return;
-    final memo = result['deposit_memo']?.toString() ?? '';
-    final amount = (result['amount_krw'] is num)
-        ? (result['amount_krw'] as num).toInt()
-        : p.price;
-    final bank = result['bank_info'] is Map
-        ? Map<String, dynamic>.from(result['bank_info'] as Map)
-        : <String, dynamic>{};
-
-    await _showEscrowSheet(
-      depositMemo: memo,
-      amountKrw: amount,
-      bankName: bank['bank_name']?.toString() ?? '국민은행',
-      accountNumber: bank['account_number']?.toString() ?? '',
-      accountHolder: bank['account_holder']?.toString() ?? '(주)가지마켓',
-    );
-  }
-
-  /// 안전결제 안내 모달 — 회사 임시계좌 + 입금자 메모(고유 코드) + 복사 버튼.
-  Future<void> _showEscrowSheet({
-    required String depositMemo,
-    required int amountKrw,
-    required String bankName,
-    required String accountNumber,
-    required String accountHolder,
-  }) async {
-    final p = _product;
-    if (p == null) return;
-
-    String fmtKrw(int v) {
-      final s = v.toString();
-      final buf = StringBuffer();
-      for (int i = 0; i < s.length; i++) {
-        if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
-        buf.write(s[i]);
-      }
-      return buf.toString();
-    }
-
-    Future<void> copy(String text, String label) async {
-      await Clipboard.setData(ClipboardData(text: text));
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$label 복사됨'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: EggplantColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: EggplantColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.shield_outlined,
-                          color: EggplantColors.primary, size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    const Text('가지 안전결제',
-                        style: TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.w800)),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                // 안내 박스
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: EggplantColors.background,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text(
-                    '아래 회사 임시 계좌로 입금해주세요.\n'
-                    '판매자가 발송 처리 후 가지가 정산해 드립니다.\n'
-                    '• 30,000원 미만 거래만 자동 임시예치 가능\n'
-                    '• 입금자 메모(고유 코드) 누락 시 매칭이 늦어질 수 있어요',
-                    style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.4,
-                        color: EggplantColors.textSecondary),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                // 금액
-                _EscrowRow(
-                  label: '결제 금액',
-                  value: '${fmtKrw(amountKrw)}원',
-                  bold: true,
-                ),
-                const SizedBox(height: 10),
-                _EscrowRow(label: '은행', value: bankName),
-                const SizedBox(height: 10),
-                _EscrowRow(
-                  label: '계좌번호',
-                  value: accountNumber,
-                  trailing: TextButton.icon(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    onPressed: () => copy(accountNumber, '계좌번호'),
-                    icon: const Icon(Icons.copy, size: 14),
-                    label: const Text('복사', style: TextStyle(fontSize: 12)),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _EscrowRow(label: '예금주', value: accountHolder),
-                const SizedBox(height: 10),
-                // 입금자 메모 — 가장 중요. 강조 표시.
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: EggplantColors.primary.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: EggplantColors.primary.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.qr_code_2,
-                          color: EggplantColors.primary, size: 22),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '입금자명 (고유 메모)',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: EggplantColors.textSecondary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              depositMemo,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                fontFamily: 'monospace',
-                                letterSpacing: 1.2,
-                                color: EggplantColors.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => copy(depositMemo, '입금자 메모'),
-                        icon: const Icon(Icons.copy, size: 14),
-                        label: const Text('복사',
-                            style: TextStyle(fontSize: 12)),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('확인했어요',
-                        style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w700)),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Center(
-                  child: Text(
-                    '문의: 마이페이지 → 고객센터',
-                    style: TextStyle(
-                        fontSize: 11, color: EggplantColors.textTertiary),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    // [DIAG #70] 분기 무관하게 무조건 화면에 노란 배너부터 그린다.
-    // - ProductDetailScreen.build()가 진짜 호출되는지
-    // - _loading / _product 상태가 어떤 값인지
-    // 화면에 직접 출력해서 100% 확정한다.
-    // [DIAG #73] _load() 단계별 진단 로그 + 분기 상태 — 화면에 누적 출력.
-    Widget _diagBanner(String stage) => Container(
-          width: double.infinity,
-          color: Colors.yellow,
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '[DIAG #73 stage=$stage]\n'
-                'productId=${widget.productId}\n'
-                '_loading=$_loading / _product==null? ${_product == null}\n'
-                'now=${DateTime.now().toIso8601String().substring(11, 23)}',
-                style: const TextStyle(fontSize: 11, color: Colors.black, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              const Text('--- _load() trace ---',
-                  style: TextStyle(fontSize: 10, color: Colors.black54)),
-              ..._diagLog.map((line) => Text(
-                    line,
-                    style: const TextStyle(fontSize: 10, color: Colors.black87),
-                  )),
-            ],
-          ),
-        );
-
     if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('[DIAG #73] LOADING')),
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              _diagBanner('LOADING'),
-              const SizedBox(height: 16),
-              const Center(child: CircularProgressIndicator(color: EggplantColors.primary)),
-            ],
-          ),
-        ),
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: EggplantColors.primary)),
       );
     }
     final p = _product;
     if (p == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('[DIAG #73] PRODUCT NULL')),
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              _diagBanner('PRODUCT_NULL'),
-              const SizedBox(height: 16),
-              const Center(child: Text('상품을 찾을 수 없어요')),
-            ],
-          ),
-        ),
+        appBar: AppBar(),
+        body: const Center(child: Text('상품을 찾을 수 없어요')),
       );
     }
 
-    // [DIAG #69] 본문 자식 위젯들을 한 줄씩 try/catch로 감싸서
-    // 어떤 자식에서 어떤 예외가 나는지 화면에 직접 노출. 원인 잡으면 즉시 제거.
-    Widget _safe(String tag, Widget Function() build) {
-      try {
-        return build();
-      } catch (e, st) {
-        return Container(
-          width: double.infinity,
-          color: Colors.red.withOpacity(0.15),
-          padding: const EdgeInsets.all(8),
-          child: Text(
-            '[ERR $tag] $e\n${st.toString().split('\n').take(3).join('\n')}',
-            style: const TextStyle(fontSize: 11, color: Colors.red),
-          ),
-        );
-      }
-    }
-
-    final hasImages = p.images.isNotEmpty;
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: EggplantColors.textPrimary,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: EggplantColors.textPrimary),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: EggplantColors.textPrimary),
-            tooltip: _isMine ? '상태 변경 / 삭제' : '더보기',
-            onPressed: _isMine ? _showOwnerMenu : _showViewerMenu,
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          // [DIAG #69] 화면 최상단에 진단 배너 — build()가 실행됐다면 이게 무조건 보임.
-          Container(
-            width: double.infinity,
-            color: Colors.green.withOpacity(0.2),
-            padding: const EdgeInsets.all(8),
-            child: Text(
-              '[DIAG #69] build() OK / images=${p.images.length} / title="${p.title}" / seller="${p.sellerNickname}" / hasVideo=${p.hasVideo} / category="${p.category}"',
-              style: const TextStyle(fontSize: 11, color: Colors.black),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 360,
+            pinned: true,
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.white,
+            leading: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.4),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => context.pop(),
+              ),
+            ),
+            actions: [
+              Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  tooltip: _isMine ? '상태 변경 / 삭제' : '더보기',
+                  onPressed: _isMine ? _showOwnerMenu : _showViewerMenu,
+                ),
+              ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: _ImageCarousel(images: p.images),
             ),
           ),
-          if (hasImages)
-            _safe('ImageCarousel', () => SizedBox(
-                  width: double.infinity,
-                  height: 360,
-                  child: _ImageCarousel(images: p.images),
-                )),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _safe('SellerRow', () => _SellerRow(product: p)),
-                const Divider(height: 32),
-                _safe('Title', () => Text(
-                      p.title,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: EggplantColors.textPrimary,
-                        height: 1.3,
+          SliverToBoxAdapter(
+            // 태블릿/폴드 펼침에서 텍스트 본문이 너무 길게 늘어나지 않도록
+            // 600dp 로 max-width 제한하고 가운데 정렬.
+            // (이미지/영상 영역은 풀와이드 유지 — 위쪽 SliverAppBar 가 담당)
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SellerRow(product: p),
+                      const Divider(height: 32),
+                      Text(
+                        p.title,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: EggplantColors.textPrimary,
+                          height: 1.3,
+                        ),
                       ),
-                    )),
-                const SizedBox(height: 8),
-                _safe('CategoryTime', () => Text(
-                      '${Categories.find(p.category).label} · ${p.timeAgo}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: EggplantColors.textTertiary,
+                      const SizedBox(height: 8),
+                      Text(
+                        '${Categories.find(p.category).label} · ${p.timeAgo}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: EggplantColors.textTertiary,
+                        ),
                       ),
-                    )),
-                const SizedBox(height: 20),
-                _safe('Description', () => Text(
-                      p.description,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        color: EggplantColors.textPrimary,
-                        height: 1.7,
+                      const SizedBox(height: 20),
+                      Text(
+                        p.description,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          color: EggplantColors.textPrimary,
+                          height: 1.7,
+                        ),
                       ),
-                    )),
-                if (p.hasVideo) ...[
-                  const SizedBox(height: 20),
-                  const Text(
-                    '영상',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: EggplantColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _safe('ProductVideo', () => _ProductVideo(product: p)),
-                ],
-                const SizedBox(height: 24),
-                _safe('StatsRow', () => Row(
-                      children: [
-                        const Icon(Icons.visibility_outlined,
-                            size: 14, color: EggplantColors.textTertiary),
-                        const SizedBox(width: 4),
-                        Text('조회 ${p.viewCount}',
-                            style: const TextStyle(
-                                fontSize: 12, color: EggplantColors.textTertiary)),
-                        const SizedBox(width: 12),
-                        const Icon(Icons.favorite_border,
-                            size: 14, color: EggplantColors.textTertiary),
-                        const SizedBox(width: 4),
-                        Text('관심 ${p.likeCount}',
-                            style: const TextStyle(
-                                fontSize: 12, color: EggplantColors.textTertiary)),
-                        const SizedBox(width: 12),
-                        const Icon(Icons.chat_bubble_outline,
-                            size: 14, color: EggplantColors.textTertiary),
-                        const SizedBox(width: 4),
-                        Text('채팅 ${p.chatCount}',
-                            style: const TextStyle(
-                                fontSize: 12, color: EggplantColors.textTertiary)),
+                      if (p.hasVideo) ...[
+                        const SizedBox(height: 20),
+                        const Text(
+                          '영상',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: EggplantColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _ProductVideo(product: p),
                       ],
-                    )),
-                const SizedBox(height: 24),
-              ],
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          const Icon(Icons.visibility_outlined,
+                              size: 14, color: EggplantColors.textTertiary),
+                          const SizedBox(width: 4),
+                          Text('조회 ${p.viewCount}',
+                              style: const TextStyle(
+                                  fontSize: 12, color: EggplantColors.textTertiary)),
+                          const SizedBox(width: 12),
+                          const Icon(Icons.favorite_border,
+                              size: 14, color: EggplantColors.textTertiary),
+                          const SizedBox(width: 4),
+                          Text('관심 ${p.likeCount}',
+                              style: const TextStyle(
+                                  fontSize: 12, color: EggplantColors.textTertiary)),
+                          const SizedBox(width: 12),
+                          const Icon(Icons.chat_bubble_outline,
+                              size: 14, color: EggplantColors.textTertiary),
+                          const SizedBox(width: 4),
+                          Text('채팅 ${p.chatCount}',
+                              style: const TextStyle(
+                                  fontSize: 12, color: EggplantColors.textTertiary)),
+                        ],
+                      ),
+                      const SizedBox(height: 100),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: Container(
+      bottomSheet: Container(
         // 외부 흰색 배경/테두리/그림자는 풀와이드 유지 (자연스러운 하단 분리감).
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1361,53 +920,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         Text(p.priceFormatted,
                             style: const TextStyle(
                                 fontSize: 17, fontWeight: FontWeight.w800)),
-                        if (p.hasQtaPrice)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.token_outlined,
-                                    size: 13, color: EggplantColors.primary),
-                                const SizedBox(width: 3),
-                                Text(p.qtaPriceFormatted,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: EggplantColors.primary,
-                                      fontWeight: FontWeight.w600,
-                                    )),
-                              ],
-                            ),
-                          )
-                        else
-                          const Text('가격 제안 가능',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: EggplantColors.primary)),
+                        const Text('가격 제안 가능',
+                            style: TextStyle(
+                                fontSize: 12, color: EggplantColors.primary)),
                       ],
                     ),
                   ),
-                  // 30,000원 미만 KRW 상품 + sale 상태인 경우에만 안전결제 노출.
-                  // QTA 거래는 자동 정산이라 에스크로가 없고, 직거래(>=30k)도 미노출.
-                  if (p.qtaPrice == 0 &&
-                      p.price > 0 &&
-                      p.price < AppConfig.escrowMaxAmountKrw &&
-                      p.status == 'sale') ...[
-                    OutlinedButton.icon(
-                      onPressed: _startEscrow,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: EggplantColors.primary,
-                        side: const BorderSide(color: EggplantColors.primary),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      icon: const Icon(Icons.shield_outlined, size: 16),
-                      label: const Text('안전결제',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w700)),
-                    ),
-                    const SizedBox(width: 6),
-                  ],
                   ElevatedButton.icon(
                     onPressed: _startChat,
                     icon: const Icon(Icons.chat_bubble, color: Colors.white, size: 18),
@@ -1419,51 +937,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// 안전결제 모달 안의 한 줄 정보 행 (라벨 + 값 [+ trailing 버튼]).
-class _EscrowRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool bold;
-  final Widget? trailing;
-  const _EscrowRow({
-    required this.label,
-    required this.value,
-    this.bold = false,
-    this.trailing,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 72,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12.5,
-              color: EggplantColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: bold ? 16 : 14,
-              fontWeight: bold ? FontWeight.w800 : FontWeight.w700,
-              color: EggplantColors.textPrimary,
-              fontFamily: 'monospace',
-            ),
-          ),
-        ),
-        if (trailing != null) trailing!,
-      ],
     );
   }
 }
@@ -1624,27 +1097,6 @@ class _SellerRow extends StatelessWidget {
                   Text(product.region,
                       style: const TextStyle(
                           fontSize: 12, color: EggplantColors.textSecondary)),
-                  if (product.sellerWalletMasked != null) ...[
-                    const SizedBox(height: 2),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.account_balance_wallet_outlined,
-                            size: 11, color: EggplantColors.textTertiary),
-                        const SizedBox(width: 3),
-                        Text(
-                          product.sellerWalletMasked!,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: EggplantColors.textTertiary,
-                            fontFamily: 'monospace',
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -1752,12 +1204,9 @@ class _ProductVideoState extends State<_ProductVideo> {
 
   @override
   Widget build(BuildContext context) {
-    // 동영상 placeholder/오류 화면 높이도 화면 폭에 비례 (180 고정 → 9:16 비율).
-    final w = MediaQuery.of(context).size.width;
-    final fallbackHeight = (w * 9 / 16).clamp(180.0, 320.0).toDouble();
     if (_initError) {
       return Container(
-        height: fallbackHeight,
+        height: 180,
         decoration: BoxDecoration(
           color: EggplantColors.background,
           borderRadius: BorderRadius.circular(12),
@@ -1773,9 +1222,9 @@ class _ProductVideoState extends State<_ProductVideo> {
 
     if (widget.product.isYouTubeVideo) {
       if (_ytCtl == null) {
-        return SizedBox(
-          height: fallbackHeight,
-          child: const Center(
+        return const SizedBox(
+          height: 180,
+          child: Center(
               child: CircularProgressIndicator(color: EggplantColors.primary)),
         );
       }
@@ -1796,9 +1245,9 @@ class _ProductVideoState extends State<_ProductVideo> {
     if (_chewieCtl == null ||
         _vpCtl == null ||
         !_vpCtl!.value.isInitialized) {
-      return SizedBox(
-        height: fallbackHeight,
-        child: const Center(
+      return const SizedBox(
+        height: 180,
+        child: Center(
             child: CircularProgressIndicator(color: EggplantColors.primary)),
       );
     }
@@ -1867,35 +1316,9 @@ class _OwnerBottomBar extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                product.priceFormatted,
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-              ),
-              if (product.hasQtaPrice)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.token_outlined,
-                          size: 13, color: EggplantColors.primary),
-                      const SizedBox(width: 3),
-                      Text(
-                        product.qtaPriceFormatted,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: EggplantColors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
+          child: Text(
+            product.priceFormatted,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
           ),
         ),
         OutlinedButton.icon(
