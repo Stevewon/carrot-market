@@ -46,10 +46,14 @@ jobs:
           BUILD_NUMBER=${{ github.run_number }}
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           DATE=$(date +'%Y%m%d-%H%M')
+          # 사장님 지시: 집파일명/태그/릴리스명 모두 v1.0.<빌드번호> 한 가지 형태로 통일
+          # 예) v1.0.55  →  eggplant-v1.0.55.apk
+          VERSION_LABEL="v1.0.${BUILD_NUMBER}"
           echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
           echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "date=${DATE}" >> $GITHUB_OUTPUT
-          echo "tag=v0.1.0-build.${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+          echo "version_label=${VERSION_LABEL}" >> $GITHUB_OUTPUT
+          echo "tag=${VERSION_LABEL}" >> $GITHUB_OUTPUT
 
       - name: 🏗️ Build SINGLE universal APK
         run: |
@@ -67,15 +71,14 @@ jobs:
           cd build/app/outputs/flutter-apk
           echo "=== Files before cleanup ==="
           ls -la
-          DATE="${{ steps.build_info.outputs.date }}"
-          SHA="${{ steps.build_info.outputs.short_sha }}"
+          VERSION="${{ steps.build_info.outputs.version_label }}"
           # Defensive: remove any per-ABI APKs if they exist
           rm -f app-armeabi-v7a-release.apk
           rm -f app-arm64-v8a-release.apk
           rm -f app-x86_64-release.apk
           rm -f app-*-release.apk
-          # Rename the single universal APK
-          mv app-release.apk "eggplant-${DATE}-${SHA}.apk"
+          # 집파일명: eggplant-v1.0.55.apk (사장님 지시 형식)
+          mv app-release.apk "eggplant-${VERSION}.apk"
           echo "=== Files after cleanup (MUST be exactly ONE apk) ==="
           ls -la
           # Safety check: fail the build if more than 1 apk
@@ -88,7 +91,8 @@ jobs:
       - name: 📤 Upload APK artifact (single universal APK)
         uses: actions/upload-artifact@v4
         with:
-          name: eggplant-apk-${{ steps.build_info.outputs.short_sha }}
+          # 아티팩트 ZIP 이름도 v1.0.<빌드번호> 형식 — eggplant-v1.0.55.zip
+          name: eggplant-${{ steps.build_info.outputs.version_label }}
           path: build/app/outputs/flutter-apk/eggplant-*.apk
           retention-days: 90
 
@@ -96,13 +100,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.build_info.outputs.tag }}
-          name: 🍆 Eggplant v0.1.0 Build ${{ steps.build_info.outputs.build_number }}
+          name: 🍆 Eggplant ${{ steps.build_info.outputs.version_label }}
           body: |
-            ## 🍆 Eggplant - QR 기반 익명 중고거래 마켓
+            ## 🍆 Eggplant ${{ steps.build_info.outputs.version_label }}
 
-            ### 📥 APK 다운로드 (모바일에서 바로 설치)
-
-            아래 **`eggplant-*.apk`** 하나만 받으세요. 모든 Android 기기에서 작동합니다.
+            ### 📥 APK 다운로드
+            **`eggplant-${{ steps.build_info.outputs.version_label }}.apk`** 하나만 받으세요. 모든 Android 기기에서 작동합니다.
 
             ### 📱 설치 방법
             1. 모바일 브라우저에서 APK 파일 탭
@@ -110,8 +113,7 @@ jobs:
             3. 다운로드 완료 후 APK 탭 → 설치
 
             ### ⚙️ 빌드 정보
-            - **Commit**: `${{ steps.build_info.outputs.short_sha }}`
-            - **Build #**: ${{ steps.build_info.outputs.build_number }}
+            - **버전**: ${{ steps.build_info.outputs.version_label }}
             - **Built at**: ${{ steps.build_info.outputs.date }}
 
             ### 🔗 서버 주소
@@ -126,6 +128,7 @@ jobs:
 
       - name: ✅ Summary
         run: |
-          echo "## 🍆 빌드 성공!" >> $GITHUB_STEP_SUMMARY
+          echo "## 🍆 빌드 성공! ${{ steps.build_info.outputs.version_label }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **APK**: eggplant-${{ steps.build_info.outputs.version_label }}.apk" >> $GITHUB_STEP_SUMMARY
           echo "📥 **Release 페이지**: https://github.com/${{ github.repository }}/releases/tag/${{ steps.build_info.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
