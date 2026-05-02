@@ -1197,7 +1197,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ],
       ),
-      bottomSheet: Container(
+      bottomNavigationBar: Container(
         // 외부 흰색 배경/테두리/그림자는 풀와이드 유지 (자연스러운 하단 분리감).
         decoration: BoxDecoration(
           color: Colors.white,
