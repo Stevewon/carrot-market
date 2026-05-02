@@ -1056,147 +1056,120 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
     }
 
+    // 당근마켓 패턴 그대로: Scaffold + 일반 AppBar + ListView (Sliver 미사용).
+    // Sliver 조합으로 본문이 0높이로 collapse 되던 문제를 근본적으로 해결.
+    final hasImages = p.images.isNotEmpty;
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 360,
-            pinned: true,
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.white,
-            leading: Container(
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.4),
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => context.pop(),
-              ),
-            ),
-            actions: [
-              Container(
-                margin: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
-                  tooltip: _isMine ? '상태 변경 / 삭제' : '더보기',
-                  onPressed: _isMine ? _showOwnerMenu : _showViewerMenu,
-                ),
-              ),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: SizedBox(
-                width: double.infinity,
-                height: 360,
-                child: _ImageCarousel(images: p.images),
-              ),
-            ),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: EggplantColors.textPrimary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: EggplantColors.textPrimary),
+          onPressed: () => context.pop(),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: EggplantColors.textPrimary),
+            tooltip: _isMine ? '상태 변경 / 삭제' : '더보기',
+            onPressed: _isMine ? _showOwnerMenu : _showViewerMenu,
           ),
-          SliverToBoxAdapter(
-            // [진단용] 빨간 배경 + 최소 높이 200 강제 — 본문 sliver가 실제로
-            // 그려지는지 시각 확인용. 다음 빌드에서 제거 예정.
-            child: Container(
-              color: Colors.red.withOpacity(0.15),
-              constraints: const BoxConstraints(minHeight: 200),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          color: Colors.yellow,
-                          child: Text(
-                            '[DIAG] images=${p.images.length} title=${p.title} seller=${p.sellerNickname}',
-                            style: const TextStyle(fontSize: 12, color: Colors.black),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _SellerRow(product: p),
-                      const Divider(height: 32),
-                      Text(
-                        p.title,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: EggplantColors.textPrimary,
-                          height: 1.3,
-                        ),
+        ],
+      ),
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          if (hasImages)
+            SizedBox(
+              width: double.infinity,
+              height: 360,
+              child: _ImageCarousel(images: p.images),
+            ),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SellerRow(product: p),
+                    const Divider(height: 32),
+                    Text(
+                      p.title,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: EggplantColors.textPrimary,
+                        height: 1.3,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${Categories.find(p.category).label} · ${p.timeAgo}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: EggplantColors.textTertiary,
-                        ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${Categories.find(p.category).label} · ${p.timeAgo}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: EggplantColors.textTertiary,
                       ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      p.description,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: EggplantColors.textPrimary,
+                        height: 1.7,
+                      ),
+                    ),
+                    if (p.hasVideo) ...[
                       const SizedBox(height: 20),
-                      Text(
-                        p.description,
-                        style: const TextStyle(
+                      const Text(
+                        '영상',
+                        style: TextStyle(
                           fontSize: 15,
+                          fontWeight: FontWeight.w700,
                           color: EggplantColors.textPrimary,
-                          height: 1.7,
                         ),
                       ),
-                      if (p.hasVideo) ...[
-                        const SizedBox(height: 20),
-                        const Text(
-                          '영상',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: EggplantColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        _ProductVideo(product: p),
-                      ],
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          const Icon(Icons.visibility_outlined,
-                              size: 14, color: EggplantColors.textTertiary),
-                          const SizedBox(width: 4),
-                          Text('조회 ${p.viewCount}',
-                              style: const TextStyle(
-                                  fontSize: 12, color: EggplantColors.textTertiary)),
-                          const SizedBox(width: 12),
-                          const Icon(Icons.favorite_border,
-                              size: 14, color: EggplantColors.textTertiary),
-                          const SizedBox(width: 4),
-                          Text('관심 ${p.likeCount}',
-                              style: const TextStyle(
-                                  fontSize: 12, color: EggplantColors.textTertiary)),
-                          const SizedBox(width: 12),
-                          const Icon(Icons.chat_bubble_outline,
-                              size: 14, color: EggplantColors.textTertiary),
-                          const SizedBox(width: 4),
-                          Text('채팅 ${p.chatCount}',
-                              style: const TextStyle(
-                                  fontSize: 12, color: EggplantColors.textTertiary)),
-                        ],
-                      ),
-                      const SizedBox(height: 100),
+                      const SizedBox(height: 10),
+                      _ProductVideo(product: p),
+                    ],
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        const Icon(Icons.visibility_outlined,
+                            size: 14, color: EggplantColors.textTertiary),
+                        const SizedBox(width: 4),
+                        Text('조회 ${p.viewCount}',
+                            style: const TextStyle(
+                                fontSize: 12, color: EggplantColors.textTertiary)),
+                        const SizedBox(width: 12),
+                        const Icon(Icons.favorite_border,
+                            size: 14, color: EggplantColors.textTertiary),
+                        const SizedBox(width: 4),
+                        Text('관심 ${p.likeCount}',
+                            style: const TextStyle(
+                                fontSize: 12, color: EggplantColors.textTertiary)),
+                        const SizedBox(width: 12),
+                        const Icon(Icons.chat_bubble_outline,
+                            size: 14, color: EggplantColors.textTertiary),
+                        const SizedBox(width: 4),
+                        Text('채팅 ${p.chatCount}',
+                            style: const TextStyle(
+                                fontSize: 12, color: EggplantColors.textTertiary)),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
               ),
             ),
           ),
         ],
       ),
-      bottomSheet: Container(
+      bottomNavigationBar: Container(
         // 외부 흰색 배경/테두리/그림자는 풀와이드 유지 (자연스러운 하단 분리감).
         decoration: BoxDecoration(
           color: Colors.white,
