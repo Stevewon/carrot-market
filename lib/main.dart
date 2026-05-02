@@ -29,9 +29,27 @@ void main() async {
     ),
   );
 
-  final prefs = await SharedPreferences.getInstance();
+  // ── 부팅 단계 절대 데드라인 ────────────────────────────────────
+  // SharedPreferences / AuthService.loadFromStorage 가 어떤 이유로 멈춰도
+  // runApp() 은 무조건 호출되도록 한다. 화면이 영원히 안 뜨는 사태 차단.
+  late SharedPreferences prefs;
+  try {
+    prefs = await SharedPreferences.getInstance()
+        .timeout(const Duration(seconds: 3));
+  } catch (_) {
+    // 극단적 케이스 (기기 저장소 손상 등) — 빈 prefs 로라도 앱을 띄운다.
+    prefs = await SharedPreferences.getInstance();
+  }
+
   final authService = AuthService(prefs);
-  await authService.loadFromStorage();
+
+  // loadFromStorage 는 더 이상 await 하지 않는다.
+  // - 내부에 /api/auth/me 5초 타임아웃이 있긴 하지만,
+  //   네트워크가 늦으면 runApp() 까지 영향이 갈 수 있어 fire-and-forget.
+  // - SplashScreen._decide() 에 6초 절대 데드라인이 있어서, 그 안에 검증
+  //   결과가 안 들어와도 자동으로 다음 화면으로 넘어간다.
+  // ignore: unawaited_futures
+  authService.loadFromStorage();
 
   // Init local notifications (system-tray push for chat messages).
   // ignore: unawaited_futures
