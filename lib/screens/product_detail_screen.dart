@@ -1059,8 +1059,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     // 미디어(이미지/영상) 영역 높이 — 화면 폭의 100%(최대 480dp).
     // 태블릿/폴드 가로 모드에서는 너무 커지지 않게 480 으로 상한.
     // 작은 폰(폴드 닫힘 등)에서도 정사각형(1:1)을 유지하면서 비율감 살림.
+    // 이미지가 0장이면 상단 영역을 작게 줄여 셀러/제목/설명이 즉시 보이도록 함.
     final mediaSize = MediaQuery.of(context).size;
-    final mediaHeight = mediaSize.width.clamp(280.0, 480.0).toDouble();
+    final hasImages = p.images.isNotEmpty;
+    final mediaHeight = hasImages
+        ? mediaSize.width.clamp(280.0, 480.0).toDouble()
+        : kToolbarHeight; // 이미지 없을 때: 일반 AppBar 높이만 사용
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -1068,15 +1072,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             expandedHeight: mediaHeight,
             pinned: true,
             backgroundColor: Colors.white,
-            foregroundColor: Colors.white,
+            foregroundColor: hasImages ? Colors.white : EggplantColors.textPrimary,
             leading: Container(
               margin: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.4),
+                color: hasImages ? Colors.black.withOpacity(0.4) : Colors.transparent,
                 shape: BoxShape.circle,
               ),
               child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: Icon(
+                  Icons.arrow_back,
+                  color: hasImages ? Colors.white : EggplantColors.textPrimary,
+                ),
                 onPressed: () => context.pop(),
               ),
             ),
@@ -1084,19 +1091,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               Container(
                 margin: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
+                  color: hasImages ? Colors.black.withOpacity(0.4) : Colors.transparent,
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: hasImages ? Colors.white : EggplantColors.textPrimary,
+                  ),
                   tooltip: _isMine ? '상태 변경 / 삭제' : '더보기',
                   onPressed: _isMine ? _showOwnerMenu : _showViewerMenu,
                 ),
               ),
             ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: _ImageCarousel(images: p.images),
-            ),
+            flexibleSpace: hasImages
+                ? FlexibleSpaceBar(
+                    background: _ImageCarousel(images: p.images),
+                  )
+                : null,
           ),
           SliverToBoxAdapter(
             // 태블릿/폴드 펼침에서 텍스트 본문이 너무 길게 늘어나지 않도록
