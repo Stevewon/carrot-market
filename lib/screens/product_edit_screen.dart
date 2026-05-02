@@ -69,8 +69,10 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
     setState(() {
       _original = p;
       _titleCtl.text = p.title;
-      _priceCtl.text = p.price.toString();
-      _qtaPriceCtl.text = p.qtaPrice > 0 ? p.qtaPrice.toString() : '';
+      _priceCtl.text = _ThousandsSeparatorFormatter._withCommas(p.price.toString());
+      _qtaPriceCtl.text = p.qtaPrice > 0
+          ? _ThousandsSeparatorFormatter._withCommas(p.qtaPrice.toString())
+          : '';
       _descCtl.text = p.description;
       _category = p.category;
       // Only pre-fill YouTube URLs (not uploaded /uploads/ videos).
@@ -238,7 +240,10 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
             TextFormField(
               controller: _priceCtl,
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                _ThousandsSeparatorFormatter(),
+              ],
               decoration: const InputDecoration(
                 labelText: '가격',
                 hintText: '0 (나눔하려면 0원)',
@@ -255,12 +260,15 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
             TextFormField(
               controller: _qtaPriceCtl,
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                _ThousandsSeparatorFormatter(),
+              ],
               decoration: const InputDecoration(
                 labelText: 'QTA 결제 (선택)',
                 hintText: '0 = 사용 안 함 / 거래완료 시 자동 차감',
                 prefixIcon: Icon(Icons.token_outlined, size: 20),
-                helperText: '예) 5000 → 거래완료 토글하면 구매자 잔액 5,000 QTA 가 자동 이체돼요',
+                helperText: '예) 5,000 → 거래완료 토글하면 구매자 잔액 5,000 QTA 가 자동 이체돼요',
               ),
             ),
             const SizedBox(height: 16),
@@ -377,5 +385,46 @@ class _Banner extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// 입력 도중 천단위마다 콤마(,)를 자동 삽입하는 InputFormatter.
+/// - 항상 digitsOnly 와 함께 사용 (콤마 외 비숫자 문자가 들어오지 않음을 가정)
+/// - 0 으로 시작하는 입력은 1글자로 정규화 ("0", "00" → "0")
+/// - 빈 문자열은 그대로 유지
+/// - 백엔드 전송 시에는 호출부에서 ',' 를 제거하고 int 로 변환
+class _ThousandsSeparatorFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final raw = newValue.text.replaceAll(',', '');
+    if (raw.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+    final normalized = digits.replaceFirst(RegExp(r'^0+(?=\d)'), '');
+    final formatted = _withCommas(normalized);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  static String _withCommas(String digits) {
+    final buf = StringBuffer();
+    final n = digits.length;
+    for (var i = 0; i < n; i++) {
+      final remain = n - i;
+      buf.write(digits[i]);
+      if (remain > 1 && remain % 3 == 1) {
+        buf.write(',');
+      }
+    }
+    return buf.toString();
   }
 }

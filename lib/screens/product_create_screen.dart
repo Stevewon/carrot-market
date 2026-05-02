@@ -74,9 +74,11 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
     try {
       final picker = ImagePicker();
       if (source == _PickSource.camera) {
+        // 상품 사진은 무조건 후면 카메라(셀카 모드 방지)
         final picked = await picker.pickImage(
           source: ImageSource.camera,
           imageQuality: 80,
+          preferredCameraDevice: CameraDevice.rear,
         );
         if (picked != null) {
           setState(() => _images.add(File(picked.path)));
@@ -124,9 +126,11 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
     try {
       final picker = ImagePicker();
       if (source == _PickSource.camera) {
+        // 상품 영상도 무조건 후면 카메라(셀카 모드 방지)
         final picked = await picker.pickVideo(
           source: ImageSource.camera,
           maxDuration: const Duration(seconds: 60),
+          preferredCameraDevice: CameraDevice.rear,
         );
         if (picked != null) await _setVideoFile(File(picked.path));
       } else if (source == _PickSource.gallery) {
@@ -380,7 +384,10 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
             TextFormField(
               controller: _priceCtl,
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                _ThousandsSeparatorFormatter(),
+              ],
               decoration: const InputDecoration(
                 labelText: '가격',
                 hintText: '0 (나눔하려면 0원)',
@@ -395,12 +402,15 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
             TextFormField(
               controller: _qtaPriceCtl,
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                _ThousandsSeparatorFormatter(),
+              ],
               decoration: const InputDecoration(
                 labelText: 'QTA 결제 (선택)',
                 hintText: '0 = 사용 안 함 / 거래완료 시 자동 차감',
                 prefixIcon: Icon(Icons.token_outlined, size: 20),
-                helperText: '예) 5000 → 거래완료 토글하면 구매자 잔액 5,000 QTA 가 자동 이체돼요',
+                helperText: '예) 5,000 → 거래완료 토글하면 구매자 잔액 5,000 QTA 가 자동 이체돼요',
               ),
             ),
             const SizedBox(height: 16),
@@ -859,5 +869,48 @@ class _VideoPreviewCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 입력 도중 천단위마다 콤마(,)를 자동 삽입하는 InputFormatter.
+/// - 항상 digitsOnly 와 함께 사용 (콤마 외 비숫자 문자가 들어오지 않음을 가정)
+/// - 0 으로 시작하는 입력은 1글자로 정규화 ("0", "00" → "0")
+/// - 빈 문자열은 그대로 유지
+/// - 백엔드 전송 시에는 호출부에서 ',' 를 제거하고 int 로 변환
+class _ThousandsSeparatorFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final raw = newValue.text.replaceAll(',', '');
+    if (raw.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+    // 숫자만 남긴 뒤 정수로 변환 (앞쪽 0 제거)
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+    // 앞쪽 0 제거하되 "0" 한 글자는 허용
+    final normalized = digits.replaceFirst(RegExp(r'^0+(?=\d)'), '');
+    final formatted = _withCommas(normalized);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  static String _withCommas(String digits) {
+    final buf = StringBuffer();
+    final n = digits.length;
+    for (var i = 0; i < n; i++) {
+      final remain = n - i;
+      buf.write(digits[i]);
+      if (remain > 1 && remain % 3 == 1) {
+        buf.write(',');
+      }
+    }
+    return buf.toString();
   }
 }
