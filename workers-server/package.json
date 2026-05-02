@@ -13,7 +13,8 @@
     "r2:create": "wrangler r2 bucket create eggplant-uploads",
     "secret:jwt": "wrangler secret put JWT_SECRET",
     "tail": "wrangler tail",
-    "types": "wrangler types"
+    "types": "wrangler types",
+    "postinstall": "node ./scripts/auto-fix-deploy.mjs || true"
   },
   "dependencies": {
     "hono": "^4.6.14",
