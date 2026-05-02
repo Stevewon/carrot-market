@@ -175,11 +175,21 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
     // Trigger chat connection once logged in so socket is ready
     // to receive incoming call signals. We also warm the block cache
     // here so feed / chat filtering works before the user navigates.
+    //
+    // [FIX] didChangeDependencies는 자식 push 시에도 재호출되므로,
+    // 메인 isolate를 점유하지 않도록 다음 프레임 + microtask로 양보한다.
+    // 이전엔 첫 상세 진입 시 ChatService.connect() + fetchBlocks()가
+    // 동기적으로 발사돼 ProductDetailScreen._load()의 await가 hang됐다.
     if (!_chatConnectRequested && auth.isLoggedIn) {
       _chatConnectRequested = true;
-      context.read<ChatService>().connect();
-      // ignore: unawaited_futures
-      context.read<ModerationService>().fetchBlocks();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.microtask(() {
+          if (!mounted) return;
+          context.read<ChatService>().connect();
+          // ignore: unawaited_futures
+          context.read<ModerationService>().fetchBlocks();
+        });
+      });
     }
 
     if (_callService != call) {
