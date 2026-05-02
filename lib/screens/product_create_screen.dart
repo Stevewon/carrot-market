@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -262,17 +263,29 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
         ) ??
         0;
 
-    final err = await context.read<ProductService>().createProduct(
-          title: _titleCtl.text.trim(),
-          description: _descCtl.text.trim(),
-          price: price,
-          qtaPrice: qtaPrice,
-          category: _category,
-          region: auth.user!.region!,
-          imageFiles: _images,
-          youtubeUrl: _youtubeCtl.text.trim(),
-          videoFile: _videoFile,
-        );
+    // 절대 데드라인 — 영상·이미지 업로드는 5분(서버 timeout)이지만
+    // 사용자 입장에서 무한로딩 인식 방지. 5분 30초 시점엔 무조건 풀고 안내.
+    String? err;
+    try {
+      err = await context
+          .read<ProductService>()
+          .createProduct(
+            title: _titleCtl.text.trim(),
+            description: _descCtl.text.trim(),
+            price: price,
+            qtaPrice: qtaPrice,
+            category: _category,
+            region: auth.user!.region!,
+            imageFiles: _images,
+            youtubeUrl: _youtubeCtl.text.trim(),
+            videoFile: _videoFile,
+          )
+          .timeout(const Duration(minutes: 5, seconds: 30));
+    } on TimeoutException {
+      err = '업로드가 너무 오래 걸려요. 사진/영상 크기를 줄이거나 Wi-Fi에서 다시 시도해주세요.';
+    } catch (e) {
+      err = '등록 중 오류: $e';
+    }
 
     if (!mounted) return;
     setState(() => _submitting = false);

@@ -56,6 +56,9 @@ dependencies:
   # Local notifications (foreground/background push without Firebase)
   flutter_local_notifications: ^17.2.3
 
+  # 앱 버전·빌드번호 동적 조회 (앱 정보 화면, 디버그 표시 등)
+  package_info_plus: ^8.0.0
+
   # Note: Screen security (FLAG_SECURE) is implemented natively in
   # MainActivity.kt via MethodChannel (lib/services/secure_screen.dart).
   # This avoids the flutter_windowmanager plugin which has AGP namespace

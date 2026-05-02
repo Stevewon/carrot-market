@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/responsive.dart';
@@ -23,6 +24,11 @@ class MyTab extends StatefulWidget {
 }
 
 class _MyTabState extends State<MyTab> {
+  /// 앱 버전 표기 — 사장님 지시 형식 'v1.0.<빌드번호>'.
+  /// 예) 빌드 #55 → 'v1.0.55'
+  /// GitHub Actions 의 --build-number=N 이 PackageInfo.buildNumber 로 들어옴.
+  String _appVersionLabel = 'v…';
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +43,21 @@ class _MyTabState extends State<MyTab> {
       // 오늘 둘러보기 채굴 현황도 함께 로드.
       qta.loadBrowseMining();
     });
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      // 사장님 지시 표기 형식: v1.0.<빌드번호>
+      // 예) buildNumber='55'  →  'v1.0.55'
+      // buildNumber 가 비어있으면 (개발 중) 'v1.0.0' 으로 폴백.
+      final b = info.buildNumber.isEmpty ? '0' : info.buildNumber;
+      setState(() {
+        _appVersionLabel = 'v1.0.$b';
+      });
+    } catch (_) {/* 못 읽어도 'v…' 그대로 — 앱 동작에는 영향 없음 */}
   }
 
   Future<void> _refresh() async {
@@ -237,12 +258,12 @@ class _MyTabState extends State<MyTab> {
             _MenuTile(
               icon: Icons.info_outline,
               title: '앱 정보',
-              trailing: 'v0.1.0',
+              trailing: _appVersionLabel,
               onTap: () {
                 showAboutDialog(
                   context: context,
                   applicationName: 'Eggplant 🍆',
-                  applicationVersion: '0.1.0',
+                  applicationVersion: _appVersionLabel,
                   applicationLegalese: '© 2026 Eggplant Team\n익명으로 안전한 중고거래',
                 );
               },
