@@ -28,7 +28,9 @@ import '../screens/profile_verify_screen.dart';
 
 GoRouter createRouter(AuthService auth) {
   return GoRouter(
-    initialLocation: '/splash',
+    // 처음부터 로그인 상태에 맞는 화면으로 바로 보낸다.
+    // (splash 위젯의 비동기 로직에 의존하지 않음 — 무한 splash 차단)
+    initialLocation: auth.isLoggedIn ? '/' : '/onboarding',
     refreshListenable: auth,
     redirect: (context, state) {
       final loggedIn = auth.isLoggedIn;
@@ -37,9 +39,11 @@ GoRouter createRouter(AuthService auth) {
           path == '/onboarding' ||
           path == '/register' ||
           path == '/find';
-      final onSplash = path == '/splash';
 
-      if (onSplash) return null;
+      // splash 경로는 더 이상 안 쓴다. 들어와도 즉시 알맞은 화면으로 redirect.
+      if (path == '/splash') {
+        return loggedIn ? '/' : '/onboarding';
+      }
       if (!loggedIn && !onAuthPages) return '/onboarding';
       if (loggedIn && onAuthPages) return '/';
       return null;
