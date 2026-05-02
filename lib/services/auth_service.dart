@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -201,6 +203,9 @@ class AuthService extends ChangeNotifier {
     String? referrerNickname,
   }) async {
     try {
+      // 절대 데드라인: 어떤 비동기가 막혀도 20초 안에 무조건 끝낸다.
+      // (dio receiveTimeout=15s 가 이미 있지만, 응답 후 _saveSession 등의
+      //  단계까지 포함해 마지막 안전망으로 한 번 더 감싼다.)
       final res = await api.post('/api/auth/register', data: {
         'wallet_address': walletAddress.trim(),
         'nickname': nickname.trim(),
@@ -210,14 +215,20 @@ class AuthService extends ChangeNotifier {
         'region': region,
         if (referrerNickname != null && referrerNickname.isNotEmpty)
           'referrer_nickname': referrerNickname.trim(),
-      });
+      }).timeout(const Duration(seconds: 20));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final data = res.data as Map<String, dynamic>;
-        await _saveSession(
-          token: data['token'] as String,
-          user: User.fromJson(data['user'] as Map<String, dynamic>),
-        );
+        try {
+          await _saveSession(
+            token: data['token'] as String,
+            user: User.fromJson(data['user'] as Map<String, dynamic>),
+          ).timeout(const Duration(seconds: 5));
+        } catch (e) {
+          // 세션 저장 실패해도 메모리 상태는 _saveSession 이 먼저 갱신했으므로
+          // 가입 자체는 성공으로 본다. 다음 콜드스타트에서 재로그인 안내.
+          debugPrint('[auth] _saveSession warning: $e');
+        }
         if (data['qta_bonus'] is Map) {
           _pendingQtaBonus = Map<String, dynamic>.from(data['qta_bonus'] as Map);
         }
@@ -229,7 +240,12 @@ class AuthService extends ChangeNotifier {
         return RegisterResult(error: null, referral: ref);
       }
       return RegisterResult(
-          error: _errorOf(res.data) ?? '가입 실패', referral: null);
+          error: _errorOf(res.data) ?? '가입 실패 (status=${res.statusCode})',
+          referral: null);
+    } on TimeoutException {
+      return RegisterResult(
+          error: '서버 응답이 너무 느려요. 네트워크를 확인하고 다시 시도해주세요.',
+          referral: null);
     } catch (e) {
       return RegisterResult(error: _parseError(e), referral: null);
     }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -54,15 +56,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _error = null;
     });
 
-    final result = await context.read<AuthService>().register(
-          walletAddress: _walletCtl.text,
-          nickname: _nicknameCtl.text,
-          password: _pwCtl.text,
-          passwordConfirm: _pwConfirmCtl.text,
-          referrerNickname: _referrerCtl.text.trim().isEmpty
-              ? null
-              : _referrerCtl.text.trim(),
-        );
+    // 가입 요청 절대 데드라인 — 25초 안에 무조건 빙글빙글 풀린다.
+    // (AuthService.register 가 이미 20초 timeout 을 갖지만, UI 단에서
+    //  한 번 더 안전망을 건다. 어떤 일이 있어도 사용자 입장에서 무한 로딩 X.)
+    RegisterResult result;
+    try {
+      result = await context
+          .read<AuthService>()
+          .register(
+            walletAddress: _walletCtl.text,
+            nickname: _nicknameCtl.text,
+            password: _pwCtl.text,
+            passwordConfirm: _pwConfirmCtl.text,
+            referrerNickname: _referrerCtl.text.trim().isEmpty
+                ? null
+                : _referrerCtl.text.trim(),
+          )
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      result = RegisterResult(
+        error: '응답이 너무 느려요. 네트워크 상태를 확인하고 다시 시도해주세요.',
+        referral: null,
+      );
+    } catch (e) {
+      result = RegisterResult(error: '가입 중 오류: $e', referral: null);
+    }
 
     if (!mounted) return;
     setState(() => _loading = false);
