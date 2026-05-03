@@ -682,6 +682,25 @@ app.patch('/:id', authMiddleware, async (c) => {
     updates.push('category = ?');
     params.push((body.category as string).trim());
   }
+  if (typeof body.region === 'string' && (body.region as string).trim()) {
+    const newRegion = (body.region as string).trim();
+    updates.push('region = ?');
+    params.push(newRegion);
+    // region 변경 시 작성자의 현재 lat/lng 도 같이 갱신 (거리 필터 일관성).
+    // users.lat/lng 컬럼이 없는 환경(0012 마이그레이션 미적용)에서는 좌표 없이 진행.
+    try {
+      const seller = await c.env.DB
+        .prepare('SELECT lat, lng FROM users WHERE id = ?')
+        .bind(user.id)
+        .first<{ lat: number | null; lng: number | null }>();
+      updates.push('lat = ?');
+      params.push((seller?.lat ?? null) as unknown as number);
+      updates.push('lng = ?');
+      params.push((seller?.lng ?? null) as unknown as number);
+    } catch (e) {
+      console.error('[products.patch] users.lat/lng 조회 실패 (무시):', e);
+    }
+  }
   if (typeof body.youtube_url === 'string') {
     const raw = (body.youtube_url as string).trim();
     if (raw === '') {

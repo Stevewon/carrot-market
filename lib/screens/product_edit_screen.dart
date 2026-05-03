@@ -7,6 +7,7 @@ import '../app/constants.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/product.dart';
+import '../services/auth_service.dart';
 import '../services/product_service.dart';
 
 /// Edit an existing product.
@@ -34,6 +35,7 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
   final _youtubeCtl = TextEditingController();
 
   String _category = 'digital';
+  String _region = '';
   Product? _original;
   bool _loading = true;
   bool _submitting = false;
@@ -75,12 +77,24 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
           : '';
       _descCtl.text = p.description;
       _category = p.category;
+      _region = p.region;
       // Only pre-fill YouTube URLs (not uploaded /uploads/ videos).
       if (p.videoUrl.startsWith('http')) {
         _youtubeCtl.text = p.videoUrl;
       }
       _loading = false;
     });
+  }
+
+  /// 동네 변경 — `/region` 화면으로 이동하고 돌아오면 AuthService.user.region 가
+  /// 이미 갱신된 상태이므로 그 값을 _region 에 반영. 당근마켓과 동일한 흐름.
+  Future<void> _changeRegion() async {
+    await context.push('/region');
+    if (!mounted) return;
+    final newRegion = context.read<AuthService>().user?.region ?? '';
+    if (newRegion.isNotEmpty && newRegion != _region) {
+      setState(() => _region = newRegion);
+    }
   }
 
   Future<void> _submit() async {
@@ -106,6 +120,9 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
     if (newPrice != _original!.price) data['price'] = newPrice;
     if (newQtaPrice != _original!.qtaPrice) data['qta_price'] = newQtaPrice;
     if (_category != _original!.category) data['category'] = _category;
+    if (_region.isNotEmpty && _region != _original!.region) {
+      data['region'] = _region;
+    }
 
     final originalYt = _original!.videoUrl.startsWith('http')
         ? _original!.videoUrl
@@ -126,6 +143,7 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
           price: data['price'] as int?,
           qtaPrice: data['qta_price'] as int?,
           category: data['category'] as String?,
+          region: data['region'] as String?,
           youtubeUrl: data['youtube_url'] as String?,
         );
     if (!mounted) return;
@@ -138,7 +156,8 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('상품을 수정했어요 ✨')),
     );
-    context.pop();
+    // 상세화면에서 즉시 반영(_loadDetail) 트리거하기 위해 true 반환
+    context.pop(true);
   }
 
   @override
@@ -233,6 +252,57 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                     ),
                   )
                   .toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // Region (당근마켓 스타일 — 동네 + 변경 버튼)
+            const Text('동네',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _submitting ? null : _changeRegion,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 14),
+                decoration: BoxDecoration(
+                  color: EggplantColors.background,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: EggplantColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined,
+                        size: 20, color: EggplantColors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _region.isEmpty ? '동네를 설정해주세요' : _region,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: _region.isEmpty
+                              ? EggplantColors.textSecondary
+                              : EggplantColors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Text(
+                      '변경',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: EggplantColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right,
+                        size: 18, color: EggplantColors.primary),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
 

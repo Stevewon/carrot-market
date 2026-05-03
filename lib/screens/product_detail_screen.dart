@@ -450,6 +450,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             const Divider(height: 1),
             ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('수정'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final p = _product;
+                if (p == null) return;
+                final result = await context.push<bool>('/product/${p.id}/edit');
+                if (result == true && mounted) {
+                  // 수정 완료 → 즉시 반영
+                  _loadDetail();
+                }
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
               title: const Text('삭제', style: TextStyle(color: Colors.red)),
               onTap: () async {
@@ -758,6 +773,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
         child: Row(
           children: [
+            // 좌측: 찜(하트) — 당근마켓 기준. 본인 매물은 카운트만 회색으로 표시.
+            _LikeButton(
+              liked: _liked,
+              count: _product?.likeCount ?? 0,
+              isMine: _isMine,
+              onTap: _toggleLike,
+            ),
+            const SizedBox(width: 12),
+            // 좌측 하트와 가격 사이 세로 구분선
+            Container(
+              width: 1,
+              height: 32,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1087,6 +1117,59 @@ class _PhotoViewerState extends State<_PhotoViewer> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// 하단바 좌측 찜(하트) 버튼 — 당근마켓 기준.
+/// - 타인 매물: 활성 (탭 시 toggleLike), liked=true 면 빨간 하트, false 면 회색 외곽선
+/// - 본인 매물: 비활성(터치 무시), 회색 외곽선 + 카운트만 표시
+class _LikeButton extends StatelessWidget {
+  final bool liked;
+  final int count;
+  final bool isMine;
+  final VoidCallback onTap;
+
+  const _LikeButton({
+    required this.liked,
+    required this.count,
+    required this.isMine,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = isMine
+        ? Colors.grey
+        : (liked ? Colors.red : Colors.grey.shade700);
+    final icon = (!isMine && liked)
+        ? Icons.favorite
+        : Icons.favorite_border;
+
+    return InkWell(
+      onTap: isMine ? null : onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 26, color: iconColor),
+            if (count > 0) ...[
+              const SizedBox(height: 2),
+              Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

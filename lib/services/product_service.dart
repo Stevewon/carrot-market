@@ -275,6 +275,7 @@ class ProductService extends ChangeNotifier {
     int? price,
     int? qtaPrice,
     String? category,
+    String? region,
     String? youtubeUrl,
   }) async {
     try {
@@ -284,6 +285,7 @@ class ProductService extends ChangeNotifier {
       if (price != null) data['price'] = price;
       if (qtaPrice != null) data['qta_price'] = qtaPrice;
       if (category != null) data['category'] = category;
+      if (region != null) data['region'] = region;
       // Empty string means "clear YouTube URL" (server understands this).
       if (youtubeUrl != null) data['youtube_url'] = youtubeUrl;
 
