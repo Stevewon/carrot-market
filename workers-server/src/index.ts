@@ -28,7 +28,6 @@ import alertsRoutes from './routes/alerts';
 import hiddenRoutes from './routes/hidden';
 import withdrawalsRoutes from './routes/withdrawals';
 import referralsRoutes from './routes/referrals';
-import adminRoutes from './routes/admin';
 
 // Re-export the Durable Object class so Wrangler can bind it
 export { ChatHub } from './chat-hub';
@@ -56,9 +55,11 @@ const HEALTH = {
   runtime: 'cloudflare-workers',
   message: '🍆 Eggplant API is running',
 };
-app.get('/', (c) => c.json(HEALTH));
 app.get('/api', (c) => c.json(HEALTH));
 app.get('/api/health', (c) => c.json(HEALTH));
+
+// ---------- Root ----------
+app.get('/', (c) => c.json(HEALTH));
 
 // ---------- REST routes ----------
 app.route('/api/auth', authRoutes);
@@ -70,7 +71,6 @@ app.route('/api/alerts', alertsRoutes);
 app.route('/api/hidden', hiddenRoutes);
 app.route('/api/withdrawals', withdrawalsRoutes);
 app.route('/api/referrals', referralsRoutes);
-app.route('/api/admin', adminRoutes);
 
 // ---------- R2 uploads passthrough ----------
 // Serves /uploads/<key> from the R2 bucket with basic caching.

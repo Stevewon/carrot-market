@@ -15,15 +15,16 @@ compatibility_date = "2025-01-15"
 compatibility_flags = ["nodejs_compat"]
 
 # --------------------------------------------------------------------
-# Custom Domain Routing (api.eggplant.life -> this Worker)
+# Custom Domain Routing
 # --------------------------------------------------------------------
 # DNS 레코드와 Custom Domain 매핑은 Cloudflare Dashboard 에서 직접 관리한다.
 # wrangler 에게 자동 생성을 맡기지 않는다 — API token 에 zone:edit 권한이
 # 없을 경우 도메인이 끊어질 수 있기 때문.
-# 따라서 아래 routes 블록은 의도적으로 비활성화 상태.
-# routes = [
-#   { pattern = "api.eggplant.life", custom_domain = true }
-# ]
+#
+# 사장님이 Cloudflare Dashboard 에서 수동으로 추가해야 할 도메인:
+#   1. api.eggplant.life     → eggplant-api Worker (이미 연결됨)
+#
+# 어드민은 Cloudflare 가 아닌 Firebase(qrchat-b7a67) 위에서 별도 구축한다.
 
 # --------------------------------------------------------------------
 # D1 Database binding

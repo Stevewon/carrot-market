@@ -14,19 +14,9 @@ export interface Env {
    * 비어 있으면 admin 라우트는 모두 403. (보안 fail-closed)
    *
    * Legacy: 기존 사용자 JWT + 화이트리스트 방식 (앱 내 어드민 화면용).
+   * 웹 어드민은 Firebase(qrchat-b7a67) 위에서 별도 구축.
    */
   ADMIN_USER_IDS?: string;
-  /**
-   * 별도 어드민 토큰 (32자 hex 권장).
-   *   wrangler secret put ADMIN_TOKEN
-   *
-   * 웹 어드민(admin.eggplant.life) 에서 사용:
-   *   Authorization: Admin <ADMIN_TOKEN>
-   *
-   * 사용자 JWT 와 완전 분리 — 사용자 폰 분실해도 어드민 권한은 안전.
-   * 비어 있으면 /api/admin/* 은 모두 503 (admin disabled).
-   */
-  ADMIN_TOKEN?: string;
 }
 
 export interface AuthPayload {
