@@ -1094,7 +1094,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     // [MARKET_DETAIL] body widget build start — UI 분기 진단.
-    debugPrint('[MARKET_DETAIL] body widget build start');
+    debugPrint('[MARKET_DETAIL] body widget build start (build#80)');
     final bool isEmptyState = p.title.trim().isEmpty &&
         p.description.trim().isEmpty &&
         p.images.isEmpty;
