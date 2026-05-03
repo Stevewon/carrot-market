@@ -30,6 +30,8 @@ class ProfileVerifyScreen extends StatelessWidget {
     }
     final lv = user.verificationLevel;
 
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('프로필 인증'),
@@ -38,80 +40,83 @@ class ProfileVerifyScreen extends StatelessWidget {
           onPressed: () => context.pop(),
         ),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: Responsive.maxContentWidth),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-            children: [
-              _CurrentLevelCard(level: lv),
-              const SizedBox(height: 24),
-              const _SectionTitle('인증 단계'),
-              const SizedBox(height: 8),
-              _StepCard(
-                step: 0,
-                title: '익명 가입',
-                description: '닉네임·지갑주소·비밀번호로 가입하면 자동 완료.\n'
-                    '둘러보기 · 채팅 · 통화 · 상품 등록 가능.',
-                achieved: true,
-                actionLabel: null,
-                onAction: null,
-              ),
-              const SizedBox(height: 12),
-              _StepCard(
-                step: 1,
-                title: '본인 인증',
-                description: '실명 휴대폰 본인인증을 통해 1인 1계정을 보장.\n'
-                    'KRW · QTA 결제, 상품 구매가 활성화돼요.\n\n'
-                    '⚠️ 휴대폰 번호 자체는 저장하지 않으며, '
-                    '본인인증 토큰(CI)의 SHA-256 해시만 저장됩니다.',
-                achieved: lv.value >= 1,
-                actionLabel: lv.value >= 1 ? '완료됨' : '본인 인증 시작',
-                onAction: lv.value >= 1
-                    ? null
-                    : () => _startIdentityVerification(context),
-              ),
-              const SizedBox(height: 12),
-              _StepCard(
-                step: 2,
-                title: '계좌 등록 (출금)',
-                description: 'QTA → KRW 출금을 위해 본인 명의 계좌를 등록.\n'
-                    '5,000 QTA 단위로 출금 가능 (최소 5,000).\n\n'
-                    '⚠️ 계좌번호 자체는 저장하지 않고 (은행+계좌)의 '
-                    'SHA-256 해시만 저장합니다.',
-                achieved: lv.value >= 2,
-                actionLabel: lv.value >= 2
-                    ? '완료됨'
-                    : (lv.value >= 1 ? '계좌 등록' : '본인 인증 후 가능'),
-                onAction: (lv.value >= 1 && lv.value < 2)
-                    ? () => _showDummyDialog(
-                          context,
-                          title: '계좌 등록',
-                          message: '실서비스에서는 1원 인증 절차가 진행됩니다.\n'
-                              '현재는 더미 화면입니다.',
-                        )
-                    : null,
-              ),
-              const SizedBox(height: 28),
-              const _SectionTitle('익명성 정책'),
-              const SizedBox(height: 8),
-              _PolicyBox(
-                icon: Icons.chat_bubble_outline,
-                text: '채팅 / 음성통화는 인증 단계와 무관하게 항상 닉네임만 노출됩니다.',
-              ),
-              const SizedBox(height: 8),
-              _PolicyBox(
-                icon: Icons.lock_outline,
-                text: '본인인증 정보는 거래 자격 확인 용도로만 쓰이며, '
-                    '거래 상대방·다른 사용자에게 절대 노출되지 않습니다.',
-              ),
-              const SizedBox(height: 8),
-              _PolicyBox(
-                icon: Icons.shield_moon_outlined,
-                text: '같은 사람이 여러 계정으로 인증을 통과할 수 없도록 '
-                    'CI 해시에 UNIQUE 제약이 걸립니다.',
-              ),
-            ],
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Responsive.maxContentWidth),
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, bottomInset + 40),
+              children: [
+                _CurrentLevelCard(level: lv),
+                const SizedBox(height: 24),
+                const _SectionTitle('인증 단계'),
+                const SizedBox(height: 8),
+                _StepCard(
+                  step: 0,
+                  title: '익명 가입',
+                  description: '닉네임·지갑주소·비밀번호로 가입하면 자동 완료.\n'
+                      '둘러보기 · 채팅 · 통화 · 상품 등록 가능.',
+                  achieved: true,
+                  actionLabel: null,
+                  onAction: null,
+                ),
+                const SizedBox(height: 12),
+                _StepCard(
+                  step: 1,
+                  title: '본인 인증',
+                  description: '실명 휴대폰 본인인증을 통해 1인 1계정을 보장.\n'
+                      'KRW · QTA 결제, 상품 구매가 활성화돼요.\n\n'
+                      '⚠️ 휴대폰 번호 자체는 저장하지 않으며, '
+                      '본인인증 토큰(CI)의 SHA-256 해시만 저장됩니다.',
+                  achieved: lv.value >= 1,
+                  actionLabel: lv.value >= 1 ? '완료됨' : '본인 인증 시작',
+                  onAction: lv.value >= 1
+                      ? null
+                      : () => _startIdentityVerification(context),
+                ),
+                const SizedBox(height: 12),
+                _StepCard(
+                  step: 2,
+                  title: '계좌 등록 (출금)',
+                  description: 'QTA → KRW 출금을 위해 본인 명의 계좌를 등록.\n'
+                      '5,000 QTA 단위로 출금 가능 (최소 5,000).\n\n'
+                      '⚠️ 계좌번호 자체는 저장하지 않고 (은행+계좌)의 '
+                      'SHA-256 해시만 저장합니다.',
+                  achieved: lv.value >= 2,
+                  actionLabel: lv.value >= 2
+                      ? '완료됨'
+                      : (lv.value >= 1 ? '계좌 등록' : '본인 인증 후 가능'),
+                  onAction: (lv.value >= 1 && lv.value < 2)
+                      ? () => _showDummyDialog(
+                            context,
+                            title: '계좌 등록',
+                            message: '실서비스에서는 1원 인증 절차가 진행됩니다.\n'
+                                '현재는 더미 화면입니다.',
+                          )
+                      : null,
+                ),
+                const SizedBox(height: 28),
+                const _SectionTitle('익명성 정책'),
+                const SizedBox(height: 8),
+                _PolicyBox(
+                  icon: Icons.chat_bubble_outline,
+                  text: '채팅 / 음성통화는 인증 단계와 무관하게 항상 닉네임만 노출됩니다.',
+                ),
+                const SizedBox(height: 8),
+                _PolicyBox(
+                  icon: Icons.lock_outline,
+                  text: '본인인증 정보는 거래 자격 확인 용도로만 쓰이며, '
+                      '거래 상대방·다른 사용자에게 절대 노출되지 않습니다.',
+                ),
+                const SizedBox(height: 8),
+                _PolicyBox(
+                  icon: Icons.shield_moon_outlined,
+                  text: '같은 사람이 여러 계정으로 인증을 통과할 수 없도록 '
+                      'CI 해시에 UNIQUE 제약이 걸립니다.',
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
         ),
       ),
