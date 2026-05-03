@@ -124,3 +124,51 @@ export const adminMiddleware: MiddlewareHandler<{
   }
   await next();
 };
+
+/**
+ * 별도 어드민 토큰 미들웨어 (웹 어드민 admin.eggplant.life 전용).
+ *
+ * 사용자 JWT 와 완전 분리:
+ *   - 헤더: `Authorization: Admin <ADMIN_TOKEN>`
+ *   - Workers Secrets 의 ADMIN_TOKEN 과 정확히 일치해야 통과
+ *   - 미설정 시 503 (fail-closed)
+ *
+ * 등록:
+ *   wrangler secret put ADMIN_TOKEN
+ *   # → 32자 이상 hex/base64 랜덤 문자열 권장
+ *
+ * 보안 권고:
+ *   - PC 전용 (모바일 차단은 클라이언트 가드)
+ *   - HTTPS 필수 (Workers 는 기본)
+ *   - 토큰 노출 시 즉시 secret 교체
+ */
+export const requireAdminToken: MiddlewareHandler<{
+  Bindings: Env;
+  Variables: Variables;
+}> = async (c, next) => {
+  const expected = (c.env.ADMIN_TOKEN || '').trim();
+  if (!expected) {
+    // fail-closed: 토큰 미설정 시 어드민 비활성
+    return c.json({ error: 'admin disabled' }, 503);
+  }
+
+  const header = c.req.header('authorization') || c.req.header('Authorization') || '';
+  const token = header.startsWith('Admin ') ? header.slice(6).trim() : '';
+  if (!token) {
+    return c.json({ error: 'admin token required' }, 401);
+  }
+
+  // timing-safe compare (charCode XOR) — 단순 === 비교는 timing attack 가능성
+  if (token.length !== expected.length) {
+    return c.json({ error: 'invalid admin token' }, 401);
+  }
+  let diff = 0;
+  for (let i = 0; i < token.length; i++) {
+    diff |= token.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  if (diff !== 0) {
+    return c.json({ error: 'invalid admin token' }, 401);
+  }
+
+  await next();
+};
