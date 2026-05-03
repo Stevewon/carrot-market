@@ -15,8 +15,8 @@
   <div class="pc-guard-card">
     <div class="pc-guard-emoji">🖥️</div>
     <h1>PC 전용 페이지</h1>
-    <p>Eggplant 어드민은 보안상 PC 환경(1024px 이상)에서만 접근할 수 있어요.</p>
-    <p class="muted">데스크탑 또는 노트북 브라우저에서 다시 접속해주세요.</p>
+    <p>Eggplant 어드민은 보안상 PC 환경(1024px 이상)에서만<br/>접근할 수 있어요.</p>
+    <p class="muted small">데스크탑 또는 노트북 브라우저에서 다시 접속해주세요.</p>
   </div>
 </div>
 
@@ -31,8 +31,8 @@
       <button type="submit">접속</button>
     </form>
     <div id="loginError" class="error-box hidden"></div>
-    <div class="footer-note muted small">
-      토큰은 세션에만 저장됩니다(탭 닫으면 자동 삭제).
+    <div class="footer-note muted tiny">
+      토큰은 세션에만 저장되며, 탭을 닫으면 자동으로 삭제됩니다.
     </div>
   </div>
 </div>
@@ -40,15 +40,18 @@
 <!-- 메인 어드민 콘솔 -->
 <div id="appView" class="app-wrap hidden">
   <aside class="sidebar">
-    <div class="sidebar-logo">🍆 Eggplant<br/><span>Admin Console</span></div>
+    <div class="sidebar-logo">
+      🍆 Eggplant
+      <span>Admin Console</span>
+    </div>
     <nav>
-      <a href="#/dashboard" data-route="dashboard">📊 대시보드</a>
-      <a href="#/users"     data-route="users">👤 사용자 관리</a>
-      <a href="#/products"  data-route="products">📦 상품 관리</a>
-      <a href="#/qkey"      data-route="qkey">💰 QKEY 원장</a>
-      <a href="#/notices"   data-route="notices">📢 공지/푸시</a>
-      <a href="#/reports"   data-route="reports">🚨 신고 처리</a>
-      <a href="#/audit"     data-route="audit">📜 감사 로그</a>
+      <a href="#/dashboard" data-route="dashboard">📊&nbsp;&nbsp;대시보드</a>
+      <a href="#/users"     data-route="users">👤&nbsp;&nbsp;사용자 관리</a>
+      <a href="#/products"  data-route="products">📦&nbsp;&nbsp;상품 관리</a>
+      <a href="#/qkey"      data-route="qkey">💰&nbsp;&nbsp;QKEY 원장</a>
+      <a href="#/notices"   data-route="notices">📢&nbsp;&nbsp;공지/푸시</a>
+      <a href="#/reports"   data-route="reports">🚨&nbsp;&nbsp;신고 처리</a>
+      <a href="#/audit"     data-route="audit">📜&nbsp;&nbsp;감사 로그</a>
     </nav>
     <div class="sidebar-foot">
       <button id="logoutBtn" class="btn-ghost">로그아웃</button>
@@ -59,7 +62,7 @@
     <header class="topbar">
       <div id="pageTitle" class="page-title">대시보드</div>
       <div class="topbar-actions">
-        <span class="badge ok" id="pingBadge">●</span>
+        <span class="badge ok" id="pingBadge">● Online</span>
         <span class="muted small" id="serverTime"></span>
       </div>
     </header>
@@ -79,7 +82,6 @@
 <script src="./pages/reports.js"></script>
 <script src="./pages/audit.js"></script>
 <script>
-  // 부팅
   AdminApp.boot();
 </script>
 </body>

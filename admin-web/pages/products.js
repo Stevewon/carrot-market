@@ -102,7 +102,7 @@
       tableWrap.innerHTML = '';
       tableWrap.appendChild(tbl);
 
-      const pager = el('div', { style: 'margin-top:12px;display:flex;gap:8px' });
+      const pager = el('div', { class: 'pager' });
       const prev = el('button', { class: 'btn' }, '◀ 이전');
       const next = el('button', { class: 'btn' }, '다음 ▶');
       prev.addEventListener('click', () => {
@@ -111,7 +111,7 @@
       next.addEventListener('click', () => {
         if ((data.items || []).length === state.limit) { state.offset += state.limit; load(); }
       });
-      pager.append(prev, next, el('span', { class: 'muted small' }, ` offset ${state.offset}`));
+      pager.append(prev, next, el('span', { class: 'muted small info' }, `offset ${state.offset} · limit ${state.limit}`));
       tableWrap.appendChild(pager);
     }
 

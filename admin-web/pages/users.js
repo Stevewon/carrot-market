@@ -109,7 +109,7 @@
     }
 
     function pager(data, reload) {
-      const wrap = el('div', { style: 'margin-top:12px;display:flex;gap:8px;align-items:center' });
+      const wrap = el('div', { class: 'pager' });
       const prev = el('button', { class: 'btn' }, '◀ 이전');
       const next = el('button', { class: 'btn' }, '다음 ▶');
       prev.addEventListener('click', () => {
@@ -118,7 +118,7 @@
       next.addEventListener('click', () => {
         if ((data.items || []).length === state.limit) { state.offset += state.limit; reload(); }
       });
-      const info = el('span', { class: 'muted small' }, `offset ${state.offset} • limit ${state.limit}`);
+      const info = el('span', { class: 'muted small info' }, `offset ${state.offset} · limit ${state.limit}`);
       wrap.append(prev, next, info);
       return wrap;
     }
