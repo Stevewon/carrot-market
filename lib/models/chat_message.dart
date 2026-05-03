@@ -105,6 +105,17 @@ class ChatMessage {
   final bool isMine;
   final PriceOfferInfo? offer;
 
+  /// 상대방이 이 메시지를 읽었는지 (당근식 '1' 표시용).
+  ///
+  /// 정책 (D1 저장 0건, 0022 휘발성 정책 준수):
+  ///   - 내가 보낸 메시지(isMine=true)에만 의미 있음.
+  ///   - 처음에는 false (= '1' 회색 표시).
+  ///   - peer 가 채팅방을 보면 WebSocket 으로 read_receipt 가 와서
+  ///     ChatService 가 sent_at <= read_at 인 모든 내 메시지를
+  ///     `isRead=true` 로 copyWith 한다.
+  ///   - 휘발성: 앱을 재시작하면 메시지 자체가 사라지므로 isRead 도 함께 휘발.
+  final bool isRead;
+
   ChatMessage({
     required this.id,
     required this.roomId,
@@ -115,6 +126,7 @@ class ChatMessage {
     required this.sentAt,
     this.isMine = false,
     this.offer,
+    this.isRead = false,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
@@ -133,10 +145,16 @@ class ChatMessage {
       sentAt: DateTime.tryParse(json['sent_at'] ?? '') ?? DateTime.now(),
       isMine: currentUserId != null && senderId == currentUserId,
       offer: type == 'price_offer' ? PriceOfferInfo.tryParse(json) : null,
+      isRead: false,
     );
   }
 
-  ChatMessage copyWith({PriceOfferInfo? offer, String? text, String? type}) {
+  ChatMessage copyWith({
+    PriceOfferInfo? offer,
+    String? text,
+    String? type,
+    bool? isRead,
+  }) {
     return ChatMessage(
       id: id,
       roomId: roomId,
@@ -147,6 +165,7 @@ class ChatMessage {
       sentAt: sentAt,
       isMine: isMine,
       offer: offer ?? this.offer,
+      isRead: isRead ?? this.isRead,
     );
   }
 

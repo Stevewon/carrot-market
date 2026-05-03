@@ -591,10 +591,14 @@ class _MessageBubble extends StatelessWidget {
 
     final mine = message.isMine;
     final time = DateFormat('HH:mm').format(message.sentAt);
-    // For my own messages: was this seen by the peer yet?
+    // 당근식 읽음 표시 우선순위:
+    //   1) 메시지 단위 `isRead` (read_receipt 수신 시 ChatService 가 갱신) — 정확.
+    //   2) 방 단위 `peerLastReadAt` >= sent_at (fallback, 과거 메시지/리스트 진입 직전).
+    // 둘 다 false 면 회색 '1' 을 보여줘서 "아직 안 읽음" 을 표시.
     final read = mine &&
-        peerLastReadAt != null &&
-        !message.sentAt.isAfter(peerLastReadAt!);
+        (message.isRead ||
+            (peerLastReadAt != null &&
+                !message.sentAt.isAfter(peerLastReadAt!)));
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -613,6 +617,17 @@ class _MessageBubble extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 10,
                       color: EggplantColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                else
+                  // 당근마켓식 회색 '1' — 상대가 아직 읽지 않은 내 메시지.
+                  // read_receipt 수신 시 isRead=true 로 바뀌어 사라진다.
+                  const Text(
+                    '1',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFFFFB300), // 카카오/당근식 옅은 황색
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -767,6 +782,8 @@ class _PriceOfferCard extends StatelessWidget {
     final time = DateFormat('HH:mm').format(message.sentAt);
     final accent = _accentForStatus(offer.status);
     final bg = _bgForStatus(offer.status);
+    // 가격제안도 일반 메시지와 동일하게 읽음 표시 (메시지 단위 isRead 우선).
+    final read = mine && message.isRead;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -775,12 +792,36 @@ class _PriceOfferCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (mine) ...[
-            Text(
-              time,
-              style: const TextStyle(
-                fontSize: 10,
-                color: EggplantColors.textTertiary,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (read)
+                  const Text(
+                    '읽음',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: EggplantColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                else
+                  const Text(
+                    '1',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFFFFB300),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                Text(
+                  time,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: EggplantColors.textTertiary,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(width: 4),
           ],

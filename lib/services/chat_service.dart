@@ -481,6 +481,22 @@ class ChatService extends ChangeNotifier {
         final idx = _rooms.indexWhere((r) => r.id == roomId);
         if (idx >= 0) {
           _rooms[idx] = _rooms[idx].copyWith(peerLastReadAt: readAt);
+        }
+
+        // 당근식 '1' 표시: 내가 보낸 메시지 중 sent_at <= read_at 인 것을
+        // isRead=true 로 갱신. 휘발성 정책 준수 (D1 저장 0건, 메모리 only).
+        final list = _roomMessages[roomId];
+        if (list != null && list.isNotEmpty) {
+          var changed = false;
+          for (var i = 0; i < list.length; i++) {
+            final m = list[i];
+            if (m.isMine && !m.isRead && !m.sentAt.isAfter(readAt)) {
+              list[i] = m.copyWith(isRead: true);
+              changed = true;
+            }
+          }
+          if (changed) notifyListeners();
+        } else {
           notifyListeners();
         }
         break;
