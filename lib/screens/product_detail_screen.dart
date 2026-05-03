@@ -577,12 +577,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildImageSection(item),
-          const SizedBox(height: 16),
-          _buildTitleSection(item),
-          const SizedBox(height: 16),
-          _buildPriceSection(item),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           _buildSellerSection(item),
+          const SizedBox(height: 20),
+          _buildTitleSection(item),
           const SizedBox(height: 16),
           _buildDescriptionSection(item),
         ],
@@ -593,41 +591,46 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget _buildImageSection(MarketItem item) {
     if (item.imageUrls.isEmpty) {
       return Container(
-        height: 240,
+        height: 280,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Colors.grey.shade200,
+          color: Colors.grey.shade100,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade300),
         ),
         alignment: Alignment.center,
-        child: const Text(
-          '이미지 없음',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.black54,
-          ),
+        child: Icon(
+          Icons.image_outlined,
+          size: 56,
+          color: Colors.grey.shade400,
         ),
       );
     }
 
     return SizedBox(
-      height: 240,
+      height: 320,
       child: PageView.builder(
         itemCount: item.imageUrls.length,
         itemBuilder: (context, index) {
+          final raw = item.imageUrls[index];
+          final url = raw.startsWith('http')
+              ? raw
+              : '${AppConfig.apiBase}${raw.startsWith('/') ? '' : '/'}$raw';
           return ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              item.imageUrls[index],
+            child: CachedNetworkImage(
+              imageUrl: url,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey.shade200,
-                  alignment: Alignment.center,
-                  child: const Text('이미지 로드 실패'),
-                );
-              },
+              width: double.infinity,
+              placeholder: (_, __) => Container(color: Colors.grey.shade100),
+              errorWidget: (_, __, ___) => Container(
+                color: Colors.grey.shade100,
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.broken_image_outlined,
+                  size: 48,
+                  color: Colors.grey.shade400,
+                ),
+              ),
             ),
           );
         },
@@ -646,39 +649,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Widget _buildPriceSection(MarketItem item) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${_formatPrice(item.priceKrw)}원',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            item.priceQta != null ? '${item.priceQta} QTA' : 'QTA 환산값 없음',
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.deepPurple,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildSellerSection(MarketItem item) {
     return Container(
@@ -764,12 +735,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _buildBottomBar() {
     final item = _item;
-    final status = item?.status ?? '판매중';
+    if (item == null) {
+      return const SizedBox.shrink();
+    }
 
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border(
@@ -785,70 +758,64 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE9FFF2),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                status,
-                style: const TextStyle(
-                  color: Color(0xFF16A34A),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    item != null ? '${_formatPrice(item.priceKrw)}원' : '-',
+                    '${_formatPrice(item.priceKrw)}원',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       color: Colors.black,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    item?.priceQta != null ? '${item!.priceQta} QTA' : '',
-                    style: const TextStyle(
-                      color: Colors.deepPurple,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
+                  if (item.priceQta != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '${item.priceQta} QTA',
+                      style: const TextStyle(
+                        color: Colors.deepPurple,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(width: 12),
-            OutlinedButton(
-              onPressed: item == null
-                  ? null
-                  : () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('상품상세 버튼 클릭')),
-                      );
-                    },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.deepPurple),
-                foregroundColor: Colors.deepPurple,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              child: const Text(
-                '상품상세',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
+            _isMine
+                ? OutlinedButton.icon(
+                    onPressed: _showOwnerMenu,
+                    icon: const Icon(Icons.tune, size: 18),
+                    label: const Text('관리'),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.deepPurple),
+                      foregroundColor: Colors.deepPurple,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  )
+                : ElevatedButton.icon(
+                    onPressed: _startChat,
+                    icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                    label: const Text('채팅하기'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
           ],
         ),
       ),
