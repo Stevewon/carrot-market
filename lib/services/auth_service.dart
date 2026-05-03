@@ -112,17 +112,22 @@ class AuthService extends ChangeNotifier {
       // 401 with code=token_revoked/device_mismatch, it will call _localLogout
       // for us. We still handle other 401s (e.g. raw "Unauthorized") here.
       //
-      // Short per-call timeout so a slow network never delays app cold-start
-      // by more than ~5s — if the call times out we just keep the cached
-      // session and move on; the next real API request will re-check.
+      // [FIX] /api/auth/me 검증은 main()에서 fire-and-forget으로 발사되는데,
+      // 같은 Dio 인스턴스(api.dio)를 쓰면 사용자가 화면 진입 직후 발사하는
+      // fetchById 등이 인터셉터 onError 큐에서 직렬화돼 hang된다.
+      // → 검증용 raw Dio를 별도로 만들어 메인 앱 요청과 큐 분리.
       try {
-        final res = await api.dio.get(
-          '/api/auth/me',
-          options: Options(
-            sendTimeout: const Duration(seconds: 5),
-            receiveTimeout: const Duration(seconds: 5),
+        final verifyDio = Dio(
+          BaseOptions(
+            baseUrl: api.dio.options.baseUrl,
+            connectTimeout: const Duration(seconds: 3),
+            sendTimeout: const Duration(seconds: 3),
+            receiveTimeout: const Duration(seconds: 3),
+            headers: {'Authorization': 'Bearer $_token'},
           ),
         );
+        final res = await verifyDio.get('/api/auth/me');
+        verifyDio.close(force: true);
         if (res.statusCode == 200) {
           final data = res.data as Map<String, dynamic>;
           final u = data['user'] as Map<String, dynamic>?;
