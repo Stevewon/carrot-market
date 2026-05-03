@@ -301,24 +301,32 @@ class AuthService extends ChangeNotifier {
     required String password,
   }) async {
     try {
+      // 절대 데드라인: register 와 마찬가지로 20초 안에 무조건 끝낸다.
+      // (네트워크가 멈춰도 로그인 버튼 로딩이 무한히 돌지 않게)
       final res = await api.post('/api/auth/login', data: {
         'nickname': nickname.trim(),
         'password': password,
         'device_uuid': deviceUuid,
-      });
+      }).timeout(const Duration(seconds: 20));
 
       if (res.statusCode == 200) {
         final data = res.data as Map<String, dynamic>;
-        await _saveSession(
-          token: data['token'] as String,
-          user: User.fromJson(data['user'] as Map<String, dynamic>),
-        );
+        try {
+          await _saveSession(
+            token: data['token'] as String,
+            user: User.fromJson(data['user'] as Map<String, dynamic>),
+          ).timeout(const Duration(seconds: 5));
+        } catch (e) {
+          debugPrint('[auth] login _saveSession warning: $e');
+        }
         if (data['qta_bonus'] is Map) {
           _pendingQtaBonus = Map<String, dynamic>.from(data['qta_bonus'] as Map);
         }
         return null;
       }
       return _errorOf(res.data) ?? '로그인 실패';
+    } on TimeoutException {
+      return '서버 응답이 너무 느려요. 네트워크를 확인하고 다시 시도해주세요.';
     } catch (e) {
       return _parseError(e);
     }

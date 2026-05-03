@@ -13,8 +13,14 @@ String? validateWalletAddress(String? v) {
 
 String? validateNickname(String? v) {
   final s = (v ?? '').trim();
+  if (s.isEmpty) return '닉네임을 입력해주세요';
   if (s.length < 2) return '닉네임은 2자 이상이어야 해요';
   if (s.length > 12) return '닉네임은 12자 이하여야 해요';
+  // 한글/영문/숫자/밑줄만 허용 — 공백/특수문자/이모지 차단
+  final re = RegExp(r'^[가-힣a-zA-Z0-9_]{2,12}$');
+  if (!re.hasMatch(s)) {
+    return '한글·영문·숫자·_ 만 사용 가능해요 (공백·특수문자 금지)';
+  }
   return null;
 }
 
@@ -22,6 +28,12 @@ String? validatePassword(String? v) {
   if (v == null || v.isEmpty) return '비밀번호를 입력해주세요';
   if (v.length < 8) return '비밀번호는 8자 이상이어야 해요';
   if (v.length > 64) return '비밀번호는 64자 이하여야 해요';
+  // 영문 + 숫자 혼합 강제 — "12345678", "aaaaaaaa" 같은 약한 비번 차단
+  final hasLetter = RegExp(r'[a-zA-Z]').hasMatch(v);
+  final hasDigit = RegExp(r'[0-9]').hasMatch(v);
+  if (!hasLetter || !hasDigit) {
+    return '영문과 숫자를 모두 포함해야 해요';
+  }
   return null;
 }
 
