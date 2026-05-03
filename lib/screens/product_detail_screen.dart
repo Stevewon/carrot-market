@@ -1028,4 +1028,99 @@ class _ImageCarouselState extends State<_ImageCarousel> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                           
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${_index + 1} / ${widget.images.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+}
+
+class _PhotoViewer extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+  const _PhotoViewer({required this.images, required this.initialIndex});
+
+  @override
+  State<_PhotoViewer> createState() => _PhotoViewerState();
+}
+
+class _PhotoViewerState extends State<_PhotoViewer> {
+  late final PageController _ctl;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+    _ctl = PageController(initialPage: _index);
+  }
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          '${_index + 1} / ${widget.images.length}',
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+        ),
+      ),
+      body: PageView.builder(
+        controller: _ctl,
+        itemCount: widget.images.length,
+        onPageChanged: (i) => setState(() => _index = i),
+        itemBuilder: (_, i) {
+          final url = widget.images[i];
+          return Center(
+            child: Hero(
+              tag: 'product-img-$i-$url',
+              child: InteractiveViewer(
+                minScale: 1.0,
+                maxScale: 4.0,
+                child: CachedNetworkImage(
+                  imageUrl: url,
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                  errorWidget: (_, __, ___) => const Icon(
+                    Icons.broken_image,
+                    color: Colors.white54,
+                    size: 48,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
