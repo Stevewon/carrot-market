@@ -50,11 +50,12 @@ dependencies:
   # Dart SDK 표준 라이브러리에는 sha256 이 없어서 별도 패키지 필요.
   crypto: ^3.0.3
 
-  # Agora RTM (실시간 메시징/시그널링).
-  # 큐알쳇과 같은 App ID 공유, 채널명 prefix(eggplant_*)로 네임스페이스 분리.
-  # 1차 푸시 단계: SDK 셋업 + 토큰 기반 로그인까지만. 실제 메시지/통화 연동은
-  # 2차(채팅) / 3차(백그라운드 통화) 단계에서 추가.
-  agora_rtm: ^1.5.8
+  # Agora RTM 패키지는 2차 푸시(실제 메시지 송수신)에서 추가한다.
+  # - 1차 푸시는 토큰 발급/UID 변환만 사용하므로 SDK 자체는 불필요.
+  # - agora_rtm 1.5.8 은 Kotlin 1.7~1.8 시대 코드라 가지의 Kotlin 2.1.0 /
+  #   AGP 8.9.1 / compileSdk 36 환경에서 compileReleaseKotlin 실패함.
+  # - 2차 단계에서 Kotlin 2.x 호환 버전(예: agora_rtm 2.x) 또는 native
+  #   Agora SDK 직접 통합으로 대체할 예정.
 
   # WebRTC for anonymous voice calls (P2P)
   flutter_webrtc: ^0.12.0
