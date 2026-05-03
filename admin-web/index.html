@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1280" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Eggplant Admin</title>
+<link rel="stylesheet" href="./style.css" />
+<link rel="icon" href="data:," />
+</head>
+<body>
+
+<!-- PC 전용 가드: 화면 폭 < 1024px 면 표시 -->
+<div id="pcGuard" class="pc-guard hidden">
+  <div class="pc-guard-card">
+    <div class="pc-guard-emoji">🖥️</div>
+    <h1>PC 전용 페이지</h1>
+    <p>Eggplant 어드민은 보안상 PC 환경(1024px 이상)에서만 접근할 수 있어요.</p>
+    <p class="muted">데스크탑 또는 노트북 브라우저에서 다시 접속해주세요.</p>
+  </div>
+</div>
+
+<!-- 로그인 화면 (토큰 입력) -->
+<div id="loginView" class="login-wrap hidden">
+  <div class="login-card">
+    <div class="login-logo">🍆 <strong>Eggplant Admin</strong></div>
+    <h2>운영자 인증</h2>
+    <p class="muted small">발급받으신 어드민 토큰을 입력해주세요.</p>
+    <form id="loginForm">
+      <input id="adminToken" type="password" placeholder="ADMIN_TOKEN" autocomplete="off" required />
+      <button type="submit">접속</button>
+    </form>
+    <div id="loginError" class="error-box hidden"></div>
+    <div class="footer-note muted small">
+      토큰은 세션에만 저장됩니다(탭 닫으면 자동 삭제).
+    </div>
+  </div>
+</div>
+
+<!-- 메인 어드민 콘솔 -->
+<div id="appView" class="app-wrap hidden">
+  <aside class="sidebar">
+    <div class="sidebar-logo">🍆 Eggplant<br/><span>Admin Console</span></div>
+    <nav>
+      <a href="#/dashboard" data-route="dashboard">📊 대시보드</a>
+      <a href="#/users"     data-route="users">👤 사용자 관리</a>
+      <a href="#/products"  data-route="products">📦 상품 관리</a>
+      <a href="#/qkey"      data-route="qkey">💰 QKEY 원장</a>
+      <a href="#/notices"   data-route="notices">📢 공지/푸시</a>
+      <a href="#/reports"   data-route="reports">🚨 신고 처리</a>
+      <a href="#/audit"     data-route="audit">📜 감사 로그</a>
+    </nav>
+    <div class="sidebar-foot">
+      <button id="logoutBtn" class="btn-ghost">로그아웃</button>
+      <div class="muted tiny" id="apiBase"></div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div id="pageTitle" class="page-title">대시보드</div>
+      <div class="topbar-actions">
+        <span class="badge ok" id="pingBadge">●</span>
+        <span class="muted small" id="serverTime"></span>
+      </div>
+    </header>
+    <section id="pageRoot" class="page-root"></section>
+  </main>
+</div>
+
+<!-- 로딩/토스트 -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="./app.js"></script>
+<script src="./pages/dashboard.js"></script>
+<script src="./pages/users.js"></script>
+<script src="./pages/products.js"></script>
+<script src="./pages/qkey.js"></script>
+<script src="./pages/notices.js"></script>
+<script src="./pages/reports.js"></script>
+<script src="./pages/audit.js"></script>
+<script>
+  // 부팅
+  AdminApp.boot();
+</script>
+</body>
+</html>
