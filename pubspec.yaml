@@ -50,6 +50,12 @@ dependencies:
   flutter_webrtc: ^0.12.0
   permission_handler: ^11.3.1
 
+  # 통화 발신음(뚜루루루) / 수신음 재생.
+  # - 발신음: assets/sounds/ringback.mp3 (CC0, 30KB, bigsoundbank.com #1614)
+  # - 수신음: 단말 OS 기본 벨소리 (flutter_ringtone_player 가 처리)
+  audioplayers: ^6.1.0
+  flutter_ringtone_player: ^4.0.0+3
+
   # GPS 좌표 (동네 인증 + 거리 필터에 사용). 정확한 좌표는 검증 직후 폐기됨.
   geolocator: ^13.0.1
 
@@ -94,6 +100,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/sounds/
 
 flutter_launcher_icons:
   android: true

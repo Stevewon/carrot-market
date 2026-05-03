@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
@@ -60,6 +62,14 @@ class CallService extends ChangeNotifier {
   String? _lastError;
   String? get lastError => _lastError;
 
+  // --- Ringtones (뚜루루루 발신음 + OS 기본 수신 벨) ---
+  // 발신음(ringback): assets/sounds/ringback.mp3 (CC0, 1사이클 5초, 무한 루프)
+  // 수신음(ringtone): flutter_ringtone_player.playRingtone() — 단말 OS 기본 벨
+  // 둘 다 _teardown / 상태 전이 시 반드시 stop 호출.
+  AudioPlayer? _ringbackPlayer;
+  bool _ringbackPlaying = false;
+  bool _osRingtonePlaying = false;
+
   // --- WebRTC ---
   RTCPeerConnection? _pc;
   MediaStream? _localStream;
@@ -86,7 +96,7 @@ class CallService extends ChangeNotifier {
 
   /// Attach WebSocket event listeners via the ChatService event bus.
   void _attachListeners() {
-    _subs.add(chat.on('call_incoming', (data) {
+    _subs.add(chat.on('call_incoming', (data) async {
       if (_state != CallState.idle) {
         // Already busy - auto-reject.
         chat.emit('call_response', {
@@ -102,6 +112,8 @@ class CallService extends ChangeNotifier {
       _isCaller = false;
       _state = CallState.incoming;
       notifyListeners();
+      // 수신자: OS 기본 벨소리 재생 시작 (acceptCall/rejectCall 또는 _teardown 시 정지)
+      await _startOsRingtone();
     }));
 
     _subs.add(chat.on('call_response', (data) async {
@@ -113,6 +125,7 @@ class CallService extends ChangeNotifier {
         return;
       }
       if (_isCaller) {
+        // 상대 수락 → connecting 단계 진입. 발신음은 connected 까지 계속 재생.
         _state = CallState.connecting;
         notifyListeners();
         await _createAndSendOffer();
@@ -200,6 +213,8 @@ class CallService extends ChangeNotifier {
       'call_id': _activeCallId,
       'caller_nickname': auth.user?.nickname ?? '익명',
     });
+    // 발신자: "뚜루루루" 발신음 시작 (상대 수락 → connected 진입 시 정지)
+    await _startRingback();
   }
 
   /// Callee accepts the incoming call.
@@ -210,6 +225,8 @@ class CallService extends ChangeNotifier {
       await rejectCall(reason: '마이크 권한이 필요해요');
       return;
     }
+    // 수신자가 수락 → OS 벨소리 즉시 정지
+    await _stopOsRingtone();
     _state = CallState.connecting;
     notifyListeners();
 
@@ -299,6 +316,86 @@ class CallService extends ChangeNotifier {
     }
   }
 
+  // ── Ringtones ──────────────────────────────────────────────────────────
+  /// 발신자 측: 상대 응답 전까지 "뚜루루루" 발신음 무한 루프 재생.
+  /// 같은 통화 사이클 안에서 중복 호출돼도 안전 (이미 재생 중이면 무시).
+  Future<void> _startRingback() async {
+    if (_ringbackPlaying) return;
+    _ringbackPlaying = true;
+    try {
+      _ringbackPlayer ??= AudioPlayer();
+      await _ringbackPlayer!.setReleaseMode(ReleaseMode.loop);
+      // call: speakerphone (외부 스피커, 통화 컨텍스트)
+      await _ringbackPlayer!.setAudioContext(
+        const AudioContext(
+          android: AudioContextAndroid(
+            isSpeakerphoneOn: true,
+            stayAwake: true,
+            contentType: AndroidContentType.music,
+            usageType: AndroidUsageType.voiceCommunication,
+            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playAndRecord,
+            options: {
+              AVAudioSessionOptions.defaultToSpeaker,
+              AVAudioSessionOptions.allowBluetooth,
+            },
+          ),
+        ),
+      );
+      await _ringbackPlayer!.play(AssetSource('sounds/ringback.mp3'));
+    } catch (e) {
+      debugPrint('[call] ringback start failed: $e');
+      _ringbackPlaying = false;
+    }
+  }
+
+  Future<void> _stopRingback() async {
+    if (!_ringbackPlaying) return;
+    _ringbackPlaying = false;
+    try {
+      await _ringbackPlayer?.stop();
+    } catch (e) {
+      debugPrint('[call] ringback stop failed: $e');
+    }
+  }
+
+  /// 수신자 측: 단말 OS 기본 벨소리 재생 (사용자가 자기 폰에 설정한 벨).
+  /// 사용자가 익숙한 소리이고 사일런트 모드도 OS 가 알아서 처리.
+  Future<void> _startOsRingtone() async {
+    if (_osRingtonePlaying) return;
+    _osRingtonePlaying = true;
+    try {
+      await FlutterRingtonePlayer().play(
+        android: AndroidSounds.ringtone,
+        ios: IosSounds.electronic,
+        looping: true,
+        volume: 1.0,
+        asAlarm: false,
+      );
+    } catch (e) {
+      debugPrint('[call] os ringtone start failed: $e');
+      _osRingtonePlaying = false;
+    }
+  }
+
+  Future<void> _stopOsRingtone() async {
+    if (!_osRingtonePlaying) return;
+    _osRingtonePlaying = false;
+    try {
+      await FlutterRingtonePlayer().stop();
+    } catch (e) {
+      debugPrint('[call] os ringtone stop failed: $e');
+    }
+  }
+
+  /// 모든 사운드 즉시 정지 (연결 성공/통화 종료/dispose 시 호출).
+  Future<void> _stopAllRingtones() async {
+    await _stopRingback();
+    await _stopOsRingtone();
+  }
+
   Future<void> _setupPeerConnection() async {
     _pc = await createPeerConnection(_rtcConfig);
 
@@ -327,6 +424,8 @@ class CallService extends ChangeNotifier {
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
         _state = CallState.connected;
         _connectedAt = DateTime.now();
+        // 양측 모두 통화 연결 → 발신음/수신 벨소리 즉시 정지
+        _stopAllRingtones();
         notifyListeners();
       } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
@@ -388,6 +487,8 @@ class CallService extends ChangeNotifier {
   }
 
   Future<void> _teardown({required CallState stateAfter}) async {
+    // 발신음/수신 벨소리 즉시 정지 (가장 먼저 — 끊긴 후에도 들리면 안 됨)
+    await _stopAllRingtones();
     try {
       await _localStream?.dispose();
     } catch (_) {}
@@ -428,6 +529,11 @@ class CallService extends ChangeNotifier {
     }
     _subs.clear();
     _teardown(stateAfter: CallState.idle);
+    // AudioPlayer 인스턴스 정리 (메모리 누수 방지)
+    try {
+      _ringbackPlayer?.dispose();
+    } catch (_) {}
+    _ringbackPlayer = null;
     super.dispose();
   }
 }
