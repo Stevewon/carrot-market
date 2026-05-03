@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/user.dart';
+import 'agora_service.dart';
 import 'api_client.dart';
 
 /// Wallet-based authentication service.
@@ -44,6 +45,15 @@ class AuthService extends ChangeNotifier {
   Map<String, dynamic>? get pendingQtaBonus => _pendingQtaBonus;
   void consumeQtaBonus() {
     _pendingQtaBonus = null;
+  }
+
+  /// Optional: AgoraService 가 등록되면 로그인 성공 시 자동으로
+  /// prepare(walletAddress) 호출, 로그아웃 시 teardown() 호출.
+  /// main.dart 에서 ChangeNotifierProxyProvider 로 주입한다.
+  AgoraService? _agora;
+  // ignore: use_setters_to_change_properties
+  void attachAgora(AgoraService agora) {
+    _agora = agora;
   }
 
   AuthService(this.prefs) {
@@ -612,6 +622,16 @@ class AuthService extends ChangeNotifier {
     await prefs.setInt(_kQtaBalance, user.qtaBalance);
 
     notifyListeners();
+
+    // Agora 1차: 로그인 성공 시 토큰 발급 + UID 캐싱 (실제 RTM 연결은 2차에서).
+    // 실패해도 앱 동작에 영향 X (fire-and-forget).
+    final wallet = user.walletAddress;
+    if (_agora != null && wallet != null && wallet.isNotEmpty) {
+      // ignore: discarded_futures
+      _agora!.prepare(walletAddress: wallet).catchError((Object e) {
+        debugPrint('[auth] agora prepare warning: $e');
+      });
+    }
   }
 
   /// 잔액만 갱신 (보너스 수령 직후, ledger 새로고침 후 등).
@@ -633,6 +653,15 @@ class AuthService extends ChangeNotifier {
     await prefs.remove(_kNickname);
     // Keep device_uuid (stable device identity) + wallet (for login convenience)
     // + region (for immediate feed).
+
+    // Agora 1차: 로그아웃 시 토큰 갱신 타이머/UID 정리 (fire-and-forget).
+    if (_agora != null) {
+      // ignore: discarded_futures
+      _agora!.teardown().catchError((Object e) {
+        debugPrint('[auth] agora teardown warning: $e');
+      });
+    }
+
     notifyListeners();
   }
 

@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Env, UserRow, UserPublic, Variables } from '../types';
 import { authMiddleware } from '../jwt';
 import { regionCenter, haversineKm, REGION_VERIFY_RADIUS_KM } from '../regions';
+import { buildAgoraToken, walletToAgoraUid } from '../utils/agoraToken';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -617,6 +618,106 @@ app.get('/search', authMiddleware, async (c) => {
     .bind(like, me.id, q)
     .all<{ id: string; nickname: string; manner_score: number; region: string | null }>();
   return c.json({ users: results || [] });
+});
+
+/**
+ * GET /api/users/agora/token?kind=rtm|rtc&uid=<int>&channel=<string>
+ *
+ * Agora 토큰 발급 (HMAC-SHA256 서명, App Certificate 사용).
+ *
+ * 정책:
+ *   1) 인증된 사용자만 발급 가능 (authMiddleware).
+ *   2) uid 파라미터는 무시하고, 서버에서 wallet_address 로부터 결정론적
+ *      재계산. 클라이언트가 다른 사람 UID 를 위장 발급하는 것을 차단.
+ *   3) 채널명에 'eggplant_' prefix 강제. 큐알쳇 트래픽과 섞이지 않도록.
+ *   4) AGORA_APP_CERTIFICATE 가 미설정이면 503 (fail-closed).
+ *   5) 만료 시각: now + 3600s (1시간). 클라이언트가 만료 5분 전 자동 갱신.
+ *
+ * 응답: { token, uid, expire_at, channel? }
+ */
+app.get('/agora/token', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+  const env = c.env;
+
+  if (!env.AGORA_APP_ID || !env.AGORA_APP_CERTIFICATE) {
+    return c.json(
+      { error: 'Agora not configured', code: 'agora_unconfigured' },
+      503,
+    );
+  }
+
+  const kindRaw = (c.req.query('kind') || 'rtm').toLowerCase();
+  if (kindRaw !== 'rtm' && kindRaw !== 'rtc') {
+    return c.json({ error: 'kind must be rtm or rtc' }, 400);
+  }
+  const kind = kindRaw as 'rtm' | 'rtc';
+
+  const channel = (c.req.query('channel') || '').trim();
+  if (kind === 'rtc') {
+    if (!channel) {
+      return c.json({ error: 'channel is required for rtc' }, 400);
+    }
+    // 큐알쳇 트래픽 분리: Eggplant 클라이언트는 반드시 'eggplant_' prefix 만 사용.
+    if (!channel.startsWith('eggplant_')) {
+      return c.json(
+        { error: 'channel must start with eggplant_', code: 'bad_channel' },
+        400,
+      );
+    }
+    if (channel.length > 64) {
+      return c.json({ error: 'channel too long' }, 400);
+    }
+  }
+
+  // 서버에서 직접 wallet_address 조회 → UID 재계산 (위장 차단)
+  const row = await env.DB
+    .prepare('SELECT wallet_address FROM users WHERE id = ?')
+    .bind(me.id)
+    .first<{ wallet_address: string | null }>();
+  if (!row || !row.wallet_address) {
+    return c.json(
+      { error: '지갑주소가 등록되지 않은 계정이에요', code: 'no_wallet' },
+      400,
+    );
+  }
+
+  const uid = await walletToAgoraUid(row.wallet_address);
+  const expireAt = Math.floor(Date.now() / 1000) + 3600;
+
+  // 캐시 컬럼 갱신 (best-effort, 실패해도 토큰 발급은 진행)
+  try {
+    await env.DB
+      .prepare('UPDATE users SET agora_uid = ? WHERE id = ? AND (agora_uid IS NULL OR agora_uid != ?)')
+      .bind(uid, me.id, uid)
+      .run();
+  } catch (e) {
+    // agora_uid 컬럼이 없는 환경(미마이그레이션) 무시
+    console.log('[agora] uid cache update skipped:', e);
+  }
+
+  let token: string;
+  try {
+    token = await buildAgoraToken({
+      appId: env.AGORA_APP_ID,
+      appCertificate: env.AGORA_APP_CERTIFICATE,
+      uid,
+      channel: kind === 'rtc' ? channel : undefined,
+      expireAt,
+      kind,
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log('[agora] token build error:', msg);
+    return c.json({ error: 'token build failed' }, 500);
+  }
+
+  return c.json({
+    token,
+    uid,
+    expire_at: expireAt,
+    channel: kind === 'rtc' ? channel : null,
+    kind,
+  });
 });
 
 export default app;

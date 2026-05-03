@@ -17,6 +17,21 @@ export interface Env {
    * 웹 어드민은 Firebase(qrchat-b7a67) 위에서 별도 구축.
    */
   ADMIN_USER_IDS?: string;
+
+  /**
+   * Agora App ID (큐알쳇과 공유). vars 로 주입.
+   *   wrangler.toml [vars] AGORA_APP_ID = "..."
+   * 클라이언트에서도 같은 값을 --dart-define 으로 주입받는다.
+   */
+  AGORA_APP_ID?: string;
+
+  /**
+   * Agora App Certificate (HMAC-SHA256 서명 키). 절대 클라이언트에 노출 X.
+   *   wrangler secret put AGORA_APP_CERTIFICATE
+   * 사장님이 Firebase Secret Manager 에서 직접 조회 후 등록.
+   * 비어있으면 토큰 발급 라우트는 503 반환 (fail-closed).
+   */
+  AGORA_APP_CERTIFICATE?: string;
 }
 
 export interface AuthPayload {

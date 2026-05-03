@@ -46,6 +46,16 @@ dependencies:
   intl: ^0.19.0
   jwt_decoder: ^2.0.1
 
+  # SHA-256 해시 (지갑주소 → Agora UID 결정론적 변환에 사용).
+  # Dart SDK 표준 라이브러리에는 sha256 이 없어서 별도 패키지 필요.
+  crypto: ^3.0.3
+
+  # Agora RTM (실시간 메시징/시그널링).
+  # 큐알쳇과 같은 App ID 공유, 채널명 prefix(eggplant_*)로 네임스페이스 분리.
+  # 1차 푸시 단계: SDK 셋업 + 토큰 기반 로그인까지만. 실제 메시지/통화 연동은
+  # 2차(채팅) / 3차(백그라운드 통화) 단계에서 추가.
+  agora_rtm: ^1.5.8
+
   # WebRTC for anonymous voice calls (P2P)
   flutter_webrtc: ^0.12.0
   permission_handler: ^11.3.1

@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app/app_router.dart';
 import 'app/responsive.dart';
 import 'app/theme.dart';
+import 'services/agora_service.dart';
 import 'services/auth_service.dart';
 import 'services/product_service.dart';
 import 'services/chat_service.dart';
@@ -68,6 +69,22 @@ class EggplantApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthService>.value(value: authService),
+        // Agora 1차: 토큰 발급/UID 캐싱 + 자동 갱신 타이머.
+        // AuthService.attachAgora 로 로그인/로그아웃 훅에 자동 연결한다.
+        // 실제 RTM/RTC 연결은 2차/3차에서 추가.
+        ChangeNotifierProvider<AgoraService>(
+          create: (_) {
+            final agora = AgoraService();
+            authService.attachAgora(agora);
+            // 앱 시작 시 이미 로그인된 상태(자동 로그인)면 즉시 prepare.
+            final wallet = authService.user?.walletAddress;
+            if (wallet != null && wallet.isNotEmpty) {
+              // ignore: discarded_futures
+              agora.prepare(walletAddress: wallet);
+            }
+            return agora;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => ProductService(authService)),
         ChangeNotifierProvider(create: (_) => ChatService(authService)),
         ChangeNotifierProvider(create: (_) => ModerationService(authService)),
