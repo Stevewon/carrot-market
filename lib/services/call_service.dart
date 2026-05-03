@@ -96,7 +96,7 @@ class CallService extends ChangeNotifier {
 
   /// Attach WebSocket event listeners via the ChatService event bus.
   void _attachListeners() {
-    _subs.add(chat.on('call_incoming', (data) async {
+    _subs.add(chat.on('call_incoming', (data) {
       if (_state != CallState.idle) {
         // Already busy - auto-reject.
         chat.emit('call_response', {
@@ -113,7 +113,9 @@ class CallService extends ChangeNotifier {
       _state = CallState.incoming;
       notifyListeners();
       // 수신자: OS 기본 벨소리 재생 시작 (acceptCall/rejectCall 또는 _teardown 시 정지)
-      await _startOsRingtone();
+      // chat.on() 은 동기 핸들러를 받음 — fire-and-forget 으로 호출.
+      // ignore: discarded_futures
+      _startOsRingtone();
     }));
 
     _subs.add(chat.on('call_response', (data) async {
@@ -319,31 +321,17 @@ class CallService extends ChangeNotifier {
   // ── Ringtones ──────────────────────────────────────────────────────────
   /// 발신자 측: 상대 응답 전까지 "뚜루루루" 발신음 무한 루프 재생.
   /// 같은 통화 사이클 안에서 중복 호출돼도 안전 (이미 재생 중이면 무시).
+  ///
+  /// AudioContext 는 의도적으로 설정하지 않음 — audioplayers 6.x 에서
+  /// 플랫폼별 enum 명칭(AndroidContentType / AVAudioSessionOptions 등) 이
+  /// 패키지 마이너 버전마다 미묘하게 달라 컴파일 호환성 위험이 있음.
+  /// 기본 컨텍스트(미디어/스피커) 로도 발신음 재생에는 문제 없음.
   Future<void> _startRingback() async {
     if (_ringbackPlaying) return;
     _ringbackPlaying = true;
     try {
       _ringbackPlayer ??= AudioPlayer();
       await _ringbackPlayer!.setReleaseMode(ReleaseMode.loop);
-      // call: speakerphone (외부 스피커, 통화 컨텍스트)
-      await _ringbackPlayer!.setAudioContext(
-        const AudioContext(
-          android: AudioContextAndroid(
-            isSpeakerphoneOn: true,
-            stayAwake: true,
-            contentType: AndroidContentType.music,
-            usageType: AndroidUsageType.voiceCommunication,
-            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
-          ),
-          iOS: AudioContextIOS(
-            category: AVAudioSessionCategory.playAndRecord,
-            options: {
-              AVAudioSessionOptions.defaultToSpeaker,
-              AVAudioSessionOptions.allowBluetooth,
-            },
-          ),
-        ),
-      );
       await _ringbackPlayer!.play(AssetSource('sounds/ringback.mp3'));
     } catch (e) {
       debugPrint('[call] ringback start failed: $e');
