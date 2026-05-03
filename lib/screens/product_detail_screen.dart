@@ -1052,75 +1052,254 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: EggplantColors.primary)),
-      );
-    }
+  // ============================================================
+  // 사장님 정답 구조 그대로:
+  //   Scaffold(
+  //     appBar: ...,
+  //     body: SafeArea(child: _buildDetailBody()),
+  //     bottomNavigationBar: _buildBottomActionBar(),
+  //   )
+  // 본문은 항상 뭔가 보이게 — null/empty 분기로 본문 통째 비우기 절대 금지.
+  // 로그 라벨은 [GAJI_DETAIL] 로 통일.
+  // ============================================================
+
+  Widget _buildDetailBody() {
+    debugPrint('[GAJI_DETAIL] build start');
     final p = _product;
-    if (p == null) {
-      return Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          foregroundColor: EggplantColors.textPrimary,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: EggplantColors.textPrimary),
-            onPressed: () => context.pop(),
-          ),
-        ),
-        body: const Center(child: Text('상품을 찾을 수 없어요')),
+
+    // 1) 로딩 분기
+    debugPrint('[GAJI_DETAIL] entered loading branch = $_loading');
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: EggplantColors.primary),
       );
     }
 
-    // [MARKET_DETAIL] _safe: catch 시 절대 빈 위젯 반환 금지 — 사장님 정책 3번.
-    // 데이터 일부가 비어도 본문은 항상 살아 있어야 한다. 예외 발생 시
-    // 이유를 보이는 placeholder 텍스트로 대체한다(= UI가 죽지 않음).
-    Widget _safe(String tag, Widget Function() build) {
+    // 2) 진짜 null 인 경우만 안내 — 빈 위젯/SizedBox 절대 반환 금지.
+    debugPrint('[GAJI_DETAIL] item null = ${p == null}');
+    if (p == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            '상품 정보를 불러오지 못했습니다',
+            style: TextStyle(
+              fontSize: 15,
+              color: EggplantColors.textPrimary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 3) 데이터 진단 로그 (사장님 지시 8종)
+    debugPrint('[GAJI_DETAIL] title = ${p.title}');
+    debugPrint('[GAJI_DETAIL] description length = ${p.description.length}');
+    debugPrint('[GAJI_DETAIL] image count = ${p.images.length}');
+    debugPrint('[GAJI_DETAIL] price = ${p.price}');
+    debugPrint('[GAJI_DETAIL] qtaPrice = ${p.qtaPrice}');
+
+    // 4) 일부 비어도 본문 전체를 비우지 않는다 — placeholder 사용.
+    final bool hasImages = p.images.isNotEmpty;
+    final String safeTitle =
+        p.title.trim().isEmpty ? '제목 없음' : p.title;
+    final String safeDescription =
+        p.description.trim().isEmpty ? '설명 없음' : p.description;
+    final String safeSeller =
+        p.sellerNickname.trim().isEmpty ? '판매자' : p.sellerNickname;
+
+    // empty-state 분기 진단 (단, 진입해도 본문은 항상 살림)
+    final bool isEmptyState = p.title.trim().isEmpty &&
+        p.description.trim().isEmpty &&
+        !hasImages;
+    debugPrint('[GAJI_DETAIL] entered empty branch = $isEmptyState');
+
+    // _safe: 자식 빌드 예외 시 빈 위젯 반환 금지 — 가시 텍스트 fallback.
+    Widget safe(String tag, Widget Function() build) {
       try {
         return build();
       } catch (e) {
-        debugPrint('[MARKET_DETAIL] safe-build error tag=$tag err=$e');
+        debugPrint('[GAJI_DETAIL] safe-build error tag=$tag err=$e');
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Text(
             '($tag 표시 오류)',
-            style: const TextStyle(fontSize: 13, color: EggplantColors.textTertiary),
+            style: const TextStyle(
+              fontSize: 13,
+              color: EggplantColors.textTertiary,
+            ),
           ),
         );
       }
     }
 
-    // [MARKET_DETAIL] body widget build start — UI 분기 진단.
-    debugPrint('[MARKET_DETAIL] body widget build start (build#80)');
-    final bool isEmptyState = p.title.trim().isEmpty &&
-        p.description.trim().isEmpty &&
-        p.images.isEmpty;
-    debugPrint('[MARKET_DETAIL] empty-state branch entered=$isEmptyState');
+    debugPrint('[GAJI_DETAIL] body widget rendered = true');
 
-    final hasImages = p.images.isNotEmpty;
-    final String safeTitle = p.title.trim().isEmpty ? '제목 없음' : p.title;
-    final String safeDescription =
-        p.description.trim().isEmpty ? '설명 없음' : p.description;
-    // 하단바 높이(고정 액션 영역)를 본문 bottom padding에 더해 겹침 방지.
-    final double bottomBarReservePad =
-        24 + MediaQuery.of(context).padding.bottom;
+    // 5) 본문 = 스크롤 + bottom padding 120 (하단바 겹침 방지)
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 이미지 영역 — 없으면 회색 박스 + "이미지 없음".
+          hasImages
+              ? safe('ImageCarousel', () => SizedBox(
+                    width: double.infinity,
+                    height: 320,
+                    child: _ImageCarousel(images: p.images),
+                  ))
+              : Container(
+                  width: double.infinity,
+                  height: 220,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F2F2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.image_outlined,
+                        size: 48,
+                        color: EggplantColors.textTertiary,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '이미지 없음',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: EggplantColors.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+          const SizedBox(height: 16),
 
-    // ===== 정답 A 구조 =====
-    // Scaffold
-    //   body: Column(
-    //     children: [
-    //       Expanded(
-    //         child: SingleChildScrollView(
-    //           padding: EdgeInsets.only(bottom: 하단바높이+여백),
-    //           child: 본문
-    //         ),
-    //       ),
-    //     ],
-    //   ),
-    //   bottomNavigationBar: 하단고정바
+          // 판매자 영역 — 닉네임 비어도 기본값 표시.
+          safe(
+            'SellerRow',
+            () => p.sellerNickname.trim().isEmpty
+                ? Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Color(0xFFEEEEEE),
+                        child: Icon(Icons.person,
+                            color: EggplantColors.textTertiary),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        safeSeller,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: EggplantColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  )
+                : _SellerRow(product: p),
+          ),
+          const Divider(height: 32),
+
+          // 제목 — 빈 문자열이면 "제목 없음".
+          safe(
+            'Title',
+            () => Text(
+              safeTitle,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: EggplantColors.textPrimary,
+                height: 1.3,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // 카테고리/시간 — try/catch 로 보호.
+          safe(
+            'CategoryTime',
+            () => Text(
+              '${Categories.find(p.category).label} · ${p.timeAgo}',
+              style: const TextStyle(
+                fontSize: 13,
+                color: EggplantColors.textTertiary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 설명 — 빈 문자열이면 "설명 없음".
+          safe(
+            'Description',
+            () => Text(
+              safeDescription,
+              style: const TextStyle(
+                fontSize: 15,
+                color: EggplantColors.textPrimary,
+                height: 1.7,
+              ),
+            ),
+          ),
+
+          if (p.hasVideo) ...[
+            const SizedBox(height: 20),
+            const Text(
+              '영상',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: EggplantColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            safe('ProductVideo', () => _ProductVideo(product: p)),
+          ],
+
+          const SizedBox(height: 20),
+
+          // 통계 라인.
+          safe(
+            'StatsRow',
+            () => Row(
+              children: [
+                const Icon(Icons.visibility_outlined,
+                    size: 14, color: EggplantColors.textTertiary),
+                const SizedBox(width: 4),
+                Text('조회 ${p.viewCount}',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: EggplantColors.textTertiary)),
+                const SizedBox(width: 12),
+                const Icon(Icons.favorite_border,
+                    size: 14, color: EggplantColors.textTertiary),
+                const SizedBox(width: 4),
+                Text('관심 ${p.likeCount}',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: EggplantColors.textTertiary)),
+                const SizedBox(width: 12),
+                const Icon(Icons.chat_bubble_outline,
+                    size: 14, color: EggplantColors.textTertiary),
+                const SizedBox(width: 4),
+                Text('채팅 ${p.chatCount}',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: EggplantColors.textTertiary)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = _product;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -1129,227 +1308,140 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: EggplantColors.textPrimary),
+          icon: const Icon(Icons.arrow_back,
+              color: EggplantColors.textPrimary),
           onPressed: () => context.pop(),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: EggplantColors.textPrimary),
-            tooltip: _isMine ? '상태 변경 / 삭제' : '더보기',
-            onPressed: _isMine ? _showOwnerMenu : _showViewerMenu,
+          if (!_loading && p != null)
+            IconButton(
+              icon: const Icon(Icons.more_vert,
+                  color: EggplantColors.textPrimary),
+              tooltip: _isMine ? '상태 변경 / 삭제' : '더보기',
+              onPressed: _isMine ? _showOwnerMenu : _showViewerMenu,
+            ),
+        ],
+      ),
+      body: SafeArea(
+        child: _buildDetailBody(),
+      ),
+      bottomNavigationBar: (_loading || p == null)
+          ? null
+          : _buildBottomActionBar(p),
+    );
+  }
+
+  // 하단 액션바 — body 안에 안 넣고 Scaffold.bottomNavigationBar 로 분리.
+  Widget _buildBottomActionBar(Product p) {
+    return Container(
+      // 외부 흰색 배경/테두리/그림자는 풀와이드 유지 (자연스러운 하단 분리감).
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: const Border(top: BorderSide(color: EggplantColors.border)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(bottom: bottomBarReservePad),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 이미지 영역 — 없으면 placeholder. 본문 통째로 사라지지 않게.
-                  hasImages
-                      ? _safe('ImageCarousel', () => SizedBox(
-                            width: double.infinity,
-                            height: 360,
-                            child: _ImageCarousel(images: p.images),
-                          ))
-                      : Container(
-                          width: double.infinity,
-                          height: 220,
-                          color: const Color(0xFFF5F5F5),
-                          child: const Center(
-                            child: Icon(
-                              Icons.image_outlined,
-                              size: 48,
-                              color: EggplantColors.textTertiary,
-                            ),
-                          ),
+      padding: EdgeInsets.only(
+        // 제스처바 영역만큼 bottom 추가.
+        bottom: MediaQuery.of(context).padding.bottom,
+      ),
+      // 내부 액션 영역만 600dp 가운데 정렬 — 태블릿/폴드 대응.
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: _isMine
+                ? _OwnerBottomBar(product: p, onMenu: _showOwnerMenu)
+                : Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          _liked ? Icons.favorite : Icons.favorite_border,
+                          color: _liked
+                              ? EggplantColors.primary
+                              : EggplantColors.textSecondary,
+                          size: 28,
                         ),
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _safe('SellerRow', () => _SellerRow(product: p)),
-                        const Divider(height: 32),
-                        _safe('Title', () => Text(
-                              safeTitle,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                color: EggplantColors.textPrimary,
-                                height: 1.3,
-                              ),
-                            )),
-                        const SizedBox(height: 8),
-                        _safe('CategoryTime', () => Text(
-                              '${Categories.find(p.category).label} · ${p.timeAgo}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: EggplantColors.textTertiary,
-                              ),
-                            )),
-                        const SizedBox(height: 20),
-                        _safe('Description', () => Text(
-                              safeDescription,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                color: EggplantColors.textPrimary,
-                                height: 1.7,
-                              ),
-                            )),
-                        if (p.hasVideo) ...[
-                          const SizedBox(height: 20),
-                          const Text(
-                            '영상',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: EggplantColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          _safe('ProductVideo', () => _ProductVideo(product: p)),
-                        ],
-                        const SizedBox(height: 24),
-                        _safe('StatsRow', () => Row(
-                              children: [
-                                const Icon(Icons.visibility_outlined,
-                                    size: 14, color: EggplantColors.textTertiary),
-                                const SizedBox(width: 4),
-                                Text('조회 ${p.viewCount}',
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        color: EggplantColors.textTertiary)),
-                                const SizedBox(width: 12),
-                                const Icon(Icons.favorite_border,
-                                    size: 14, color: EggplantColors.textTertiary),
-                                const SizedBox(width: 4),
-                                Text('관심 ${p.likeCount}',
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        color: EggplantColors.textTertiary)),
-                                const SizedBox(width: 12),
-                                const Icon(Icons.chat_bubble_outline,
-                                    size: 14, color: EggplantColors.textTertiary),
-                                const SizedBox(width: 4),
-                                Text('채팅 ${p.chatCount}',
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        color: EggplantColors.textTertiary)),
-                              ],
-                            )),
-                        const SizedBox(height: 24),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        // 외부 흰색 배경/테두리/그림자는 풀와이드 유지 (자연스러운 하단 분리감).
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: const Border(top: BorderSide(color: EggplantColors.border)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        padding: EdgeInsets.only(
-          // 제스처바 영역만큼 bottom 추가.
-          bottom: MediaQuery.of(context).padding.bottom,
-        ),
-        // 내부 액션 영역만 600dp 가운데 정렬 — 태블릿/폴드 대응.
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: _isMine ? _OwnerBottomBar(product: p, onMenu: _showOwnerMenu)
-                  : Row(
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _liked ? Icons.favorite : Icons.favorite_border,
-                      color: _liked ? EggplantColors.primary : EggplantColors.textSecondary,
-                      size: 28,
-                    ),
-                    onPressed: _toggleLike,
-                  ),
-                  Container(height: 32, width: 1, color: EggplantColors.border),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(p.priceFormatted,
-                            style: const TextStyle(
-                                fontSize: 17, fontWeight: FontWeight.w800)),
-                        if (p.hasQtaPrice)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.token_outlined,
-                                    size: 13, color: EggplantColors.primary),
-                                const SizedBox(width: 3),
-                                Text(p.qtaPriceFormatted,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: EggplantColors.primary,
-                                      fontWeight: FontWeight.w600,
-                                    )),
-                              ],
-                            ),
-                          )
-                        else
-                          const Text('가격 제안 가능',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: EggplantColors.primary)),
-                      ],
-                    ),
-                  ),
-                  // 30,000원 미만 KRW 상품 + sale 상태인 경우에만 안전결제 노출.
-                  // QTA 거래는 자동 정산이라 에스크로가 없고, 직거래(>=30k)도 미노출.
-                  if (p.qtaPrice == 0 &&
-                      p.price > 0 &&
-                      p.price < AppConfig.escrowMaxAmountKrw &&
-                      p.status == 'sale') ...[
-                    OutlinedButton.icon(
-                      onPressed: _startEscrow,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: EggplantColors.primary,
-                        side: const BorderSide(color: EggplantColors.primary),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        visualDensity: VisualDensity.compact,
+                        onPressed: _toggleLike,
                       ),
-                      icon: const Icon(Icons.shield_outlined, size: 16),
-                      label: const Text('안전결제',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w700)),
-                    ),
-                    const SizedBox(width: 6),
-                  ],
-                  ElevatedButton.icon(
-                    onPressed: _startChat,
-                    icon: const Icon(Icons.chat_bubble, color: Colors.white, size: 18),
-                    label: const Text('채팅하기', style: TextStyle(fontSize: 15)),
+                      Container(
+                          height: 32, width: 1, color: EggplantColors.border),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(p.priceFormatted,
+                                style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800)),
+                            if (p.hasQtaPrice)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.token_outlined,
+                                        size: 13,
+                                        color: EggplantColors.primary),
+                                    const SizedBox(width: 3),
+                                    Text(p.qtaPriceFormatted,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: EggplantColors.primary,
+                                          fontWeight: FontWeight.w600,
+                                        )),
+                                  ],
+                                ),
+                              )
+                            else
+                              const Text('가격 제안 가능',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: EggplantColors.primary)),
+                          ],
+                        ),
+                      ),
+                      // 30,000원 미만 KRW 상품 + sale 상태인 경우에만 안전결제 노출.
+                      // QTA 거래는 자동 정산이라 에스크로가 없고, 직거래(>=30k)도 미노출.
+                      if (p.qtaPrice == 0 &&
+                          p.price > 0 &&
+                          p.price < AppConfig.escrowMaxAmountKrw &&
+                          p.status == 'sale') ...[
+                        OutlinedButton.icon(
+                          onPressed: _startEscrow,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: EggplantColors.primary,
+                            side: const BorderSide(
+                                color: EggplantColors.primary),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 12),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: const Icon(Icons.shield_outlined, size: 16),
+                          label: const Text('안전결제',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700)),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      ElevatedButton.icon(
+                        onPressed: _startChat,
+                        icon: const Icon(Icons.chat_bubble,
+                            color: Colors.white, size: 18),
+                        label: const Text('채팅하기',
+                            style: TextStyle(fontSize: 15)),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
           ),
         ),
       ),
