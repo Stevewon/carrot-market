@@ -47,6 +47,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           .fetchById(widget.productId)
           .timeout(const Duration(seconds: 15));
       if (!mounted) return;
+      // [MARKET_DETAIL] 데이터 도착 직후 즉시 로그 — 데이터/UI 분리 진단.
+      if (p == null) {
+        debugPrint('[MARKET_DETAIL] item loaded id=${widget.productId} -> NULL');
+      } else {
+        debugPrint('[MARKET_DETAIL] item loaded id=${p.id}');
+        debugPrint('[MARKET_DETAIL] title=${p.title}');
+        debugPrint('[MARKET_DETAIL] description length=${p.description.length}');
+        debugPrint('[MARKET_DETAIL] image count=${p.images.length}');
+        debugPrint('[MARKET_DETAIL] price=${p.price} qta=${p.qtaPrice}');
+        debugPrint('[MARKET_DETAIL] seller=${p.sellerNickname} (${p.sellerId})');
+      }
       setState(() {
         _product = p;
         _liked = p?.isLiked ?? false;
@@ -1064,15 +1075,52 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
     }
 
+    // [MARKET_DETAIL] _safe: catch 시 절대 빈 위젯 반환 금지 — 사장님 정책 3번.
+    // 데이터 일부가 비어도 본문은 항상 살아 있어야 한다. 예외 발생 시
+    // 이유를 보이는 placeholder 텍스트로 대체한다(= UI가 죽지 않음).
     Widget _safe(String tag, Widget Function() build) {
       try {
         return build();
-      } catch (_) {
-        return const SizedBox.shrink();
+      } catch (e) {
+        debugPrint('[MARKET_DETAIL] safe-build error tag=$tag err=$e');
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            '($tag 표시 오류)',
+            style: const TextStyle(fontSize: 13, color: EggplantColors.textTertiary),
+          ),
+        );
       }
     }
 
+    // [MARKET_DETAIL] body widget build start — UI 분기 진단.
+    debugPrint('[MARKET_DETAIL] body widget build start');
+    final bool isEmptyState = p.title.trim().isEmpty &&
+        p.description.trim().isEmpty &&
+        p.images.isEmpty;
+    debugPrint('[MARKET_DETAIL] empty-state branch entered=$isEmptyState');
+
     final hasImages = p.images.isNotEmpty;
+    final String safeTitle = p.title.trim().isEmpty ? '제목 없음' : p.title;
+    final String safeDescription =
+        p.description.trim().isEmpty ? '설명 없음' : p.description;
+    // 하단바 높이(고정 액션 영역)를 본문 bottom padding에 더해 겹침 방지.
+    final double bottomBarReservePad =
+        24 + MediaQuery.of(context).padding.bottom;
+
+    // ===== 정답 A 구조 =====
+    // Scaffold
+    //   body: Column(
+    //     children: [
+    //       Expanded(
+    //         child: SingleChildScrollView(
+    //           padding: EdgeInsets.only(bottom: 하단바높이+여백),
+    //           child: 본문
+    //         ),
+    //       ),
+    //     ],
+    //   ),
+    //   bottomNavigationBar: 하단고정바
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -1092,88 +1140,113 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: EdgeInsets.zero,
+      body: Column(
         children: [
-          if (hasImages)
-            _safe('ImageCarousel', () => SizedBox(
-                  width: double.infinity,
-                  height: 360,
-                  child: _ImageCarousel(images: p.images),
-                )),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _safe('SellerRow', () => _SellerRow(product: p)),
-                const Divider(height: 32),
-                _safe('Title', () => Text(
-                      p.title,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: EggplantColors.textPrimary,
-                        height: 1.3,
-                      ),
-                    )),
-                const SizedBox(height: 8),
-                _safe('CategoryTime', () => Text(
-                      '${Categories.find(p.category).label} · ${p.timeAgo}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: EggplantColors.textTertiary,
-                      ),
-                    )),
-                const SizedBox(height: 20),
-                _safe('Description', () => Text(
-                      p.description,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        color: EggplantColors.textPrimary,
-                        height: 1.7,
-                      ),
-                    )),
-                if (p.hasVideo) ...[
-                  const SizedBox(height: 20),
-                  const Text(
-                    '영상',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: EggplantColors.textPrimary,
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: bottomBarReservePad),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 이미지 영역 — 없으면 placeholder. 본문 통째로 사라지지 않게.
+                  hasImages
+                      ? _safe('ImageCarousel', () => SizedBox(
+                            width: double.infinity,
+                            height: 360,
+                            child: _ImageCarousel(images: p.images),
+                          ))
+                      : Container(
+                          width: double.infinity,
+                          height: 220,
+                          color: const Color(0xFFF5F5F5),
+                          child: const Center(
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 48,
+                              color: EggplantColors.textTertiary,
+                            ),
+                          ),
+                        ),
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _safe('SellerRow', () => _SellerRow(product: p)),
+                        const Divider(height: 32),
+                        _safe('Title', () => Text(
+                              safeTitle,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: EggplantColors.textPrimary,
+                                height: 1.3,
+                              ),
+                            )),
+                        const SizedBox(height: 8),
+                        _safe('CategoryTime', () => Text(
+                              '${Categories.find(p.category).label} · ${p.timeAgo}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: EggplantColors.textTertiary,
+                              ),
+                            )),
+                        const SizedBox(height: 20),
+                        _safe('Description', () => Text(
+                              safeDescription,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: EggplantColors.textPrimary,
+                                height: 1.7,
+                              ),
+                            )),
+                        if (p.hasVideo) ...[
+                          const SizedBox(height: 20),
+                          const Text(
+                            '영상',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: EggplantColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          _safe('ProductVideo', () => _ProductVideo(product: p)),
+                        ],
+                        const SizedBox(height: 24),
+                        _safe('StatsRow', () => Row(
+                              children: [
+                                const Icon(Icons.visibility_outlined,
+                                    size: 14, color: EggplantColors.textTertiary),
+                                const SizedBox(width: 4),
+                                Text('조회 ${p.viewCount}',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: EggplantColors.textTertiary)),
+                                const SizedBox(width: 12),
+                                const Icon(Icons.favorite_border,
+                                    size: 14, color: EggplantColors.textTertiary),
+                                const SizedBox(width: 4),
+                                Text('관심 ${p.likeCount}',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: EggplantColors.textTertiary)),
+                                const SizedBox(width: 12),
+                                const Icon(Icons.chat_bubble_outline,
+                                    size: 14, color: EggplantColors.textTertiary),
+                                const SizedBox(width: 4),
+                                Text('채팅 ${p.chatCount}',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: EggplantColors.textTertiary)),
+                              ],
+                            )),
+                        const SizedBox(height: 24),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  _safe('ProductVideo', () => _ProductVideo(product: p)),
                 ],
-                const SizedBox(height: 24),
-                _safe('StatsRow', () => Row(
-                      children: [
-                        const Icon(Icons.visibility_outlined,
-                            size: 14, color: EggplantColors.textTertiary),
-                        const SizedBox(width: 4),
-                        Text('조회 ${p.viewCount}',
-                            style: const TextStyle(
-                                fontSize: 12, color: EggplantColors.textTertiary)),
-                        const SizedBox(width: 12),
-                        const Icon(Icons.favorite_border,
-                            size: 14, color: EggplantColors.textTertiary),
-                        const SizedBox(width: 4),
-                        Text('관심 ${p.likeCount}',
-                            style: const TextStyle(
-                                fontSize: 12, color: EggplantColors.textTertiary)),
-                        const SizedBox(width: 12),
-                        const Icon(Icons.chat_bubble_outline,
-                            size: 14, color: EggplantColors.textTertiary),
-                        const SizedBox(width: 4),
-                        Text('채팅 ${p.chatCount}',
-                            style: const TextStyle(
-                                fontSize: 12, color: EggplantColors.textTertiary)),
-                      ],
-                    )),
-                const SizedBox(height: 24),
-              ],
+              ),
             ),
           ),
         ],
