@@ -172,8 +172,10 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
   CallService? _callService;
   CallState _lastState = CallState.idle;
   bool _chatConnectRequested = false;
+  bool _coldStartHandled = false;
   StreamSubscription<String>? _notifTapSub;
   StreamSubscription<Map<String, dynamic>>? _callkitAcceptSub;
+  StreamSubscription<Map<String, dynamic>>? _msgOpenedSub;
 
   @override
   void initState() {
@@ -218,6 +220,34 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
     });
   }
 
+  /// ★ 5차 푸시: FCM 메시지 알림 tap → 채팅방 자동 라우팅.
+  ///   PushService.onMessageOpened 가 room_id 를 흘려준다.
+  ///   백그라운드 + 콜드 스타트(getInitialMessage) 모두 같은 Stream 으로 들어온다.
+  void _attachMessageOpened(BuildContext ctx) {
+    if (_msgOpenedSub != null) return;
+    final push = ctx.read<PushService>();
+    _msgOpenedSub = push.onMessageOpened.listen((data) {
+      final roomId = data['room_id']?.toString() ?? '';
+      if (roomId.isEmpty) return;
+      // 익명 정책: 닉네임은 ChatScreen 진입 후 서버에서 재조회.
+      try {
+        widget.router.push('/chat/$roomId');
+      } catch (e) {
+        debugPrint('[push-msg] router push failed: $e');
+      }
+    });
+
+    // 콜드 스타트 — 앱 종료 상태에서 알림 tap 으로 부팅된 경우, listener 가
+    // attach 된 다음 프레임에 한 번 호출하면 getInitialMessage() 가 깨운다.
+    if (!_coldStartHandled) {
+      _coldStartHandled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // ignore: discarded_futures
+        push.handleColdStartFromNotification();
+      });
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -252,6 +282,10 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
 
     // CallKit accept 이벤트 → /call 라우팅 (한 번만 attach).
     _attachCallkitAccept(context);
+
+    // ★ 5차 푸시: FCM 메시지 알림 tap → /chat/<roomId> 라우팅 (한 번만 attach).
+    //   콜드 스타트 처리도 이 안에서 1회만 호출됨.
+    _attachMessageOpened(context);
   }
 
   void _onCallChange() {
@@ -272,6 +306,7 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
     _callService?.removeListener(_onCallChange);
     _notifTapSub?.cancel();
     _callkitAcceptSub?.cancel();
+    _msgOpenedSub?.cancel();
     super.dispose();
   }
 

@@ -125,6 +125,13 @@ class PushService extends ChangeNotifier {
       StreamController.broadcast();
   Stream<Map<String, dynamic>> get onCallAccepted => _callAcceptCtrl.stream;
 
+  /// ★ 5차 푸시: 메시지 알림 tap → 채팅방 자동 라우팅용.
+  /// data['room_id'], data['sender_id']?, data['sender_nickname']? 포함.
+  /// main.dart 의 _IncomingCallOverlay 가 listen 해서 router.push('/chat/<roomId>') 수행.
+  final StreamController<Map<String, dynamic>> _messageOpenedCtrl =
+      StreamController.broadcast();
+  Stream<Map<String, dynamic>> get onMessageOpened => _messageOpenedCtrl.stream;
+
   StreamSubscription<RemoteMessage>? _onMessageSub;
   StreamSubscription<RemoteMessage>? _onMessageOpenedSub;
   StreamSubscription<dynamic>? _callkitEventSub;
@@ -230,8 +237,38 @@ class PushService extends ChangeNotifier {
         'call_id': data['call_id']?.toString() ?? '',
         'from_user_id': data['from_user_id']?.toString() ?? '',
       });
+      return;
     }
-    // 'message' 는 라우팅을 chat_screen 측에서 room_id 로 처리.
+    // ★ 5차 푸시: 일반 메시지 알림 tap → 채팅방 자동 라우팅.
+    //  서버는 chat-hub.ts 에서 data: { type:'message', room_id } 형태로 보낸다.
+    //  Stream 에 event 흘려서 main.dart 의 router.push('/chat/<roomId>') 가
+    //  채팅방으로 이동하도록 한다.
+    if (type == 'message') {
+      final roomId = data['room_id']?.toString() ?? '';
+      if (roomId.isNotEmpty) {
+        _messageOpenedCtrl.add({
+          'room_id': roomId,
+          'sender_id': data['sender_id']?.toString() ?? '',
+          'sender_nickname': data['sender_nickname']?.toString() ?? '익명',
+        });
+      }
+    }
+  }
+
+  /// ★ 5차 푸시: 콜드 스타트(앱 종료 상태) 처리.
+  ///   사용자가 종료된 앱의 푸시 알림을 tap → OS 가 앱을 새로 부팅 →
+  ///   FirebaseMessaging.instance.getInitialMessage() 로 그 알림을 가져올 수 있음.
+  ///   main.dart 가 부팅 후 한 번만 호출 → 채팅방/통화화면 자동 진입.
+  Future<void> handleColdStartFromNotification() async {
+    try {
+      final RemoteMessage? msg =
+          await FirebaseMessaging.instance.getInitialMessage();
+      if (msg == null) return; // 일반 부팅 — 노티 tap 아님.
+      // 동일 핸들러로 위임. listener 가 이미 attach 된 시점이어야 한다.
+      await _handleOpenedFromPush(msg);
+    } catch (e) {
+      debugPrint('[push] cold-start initial message failed: $e');
+    }
   }
 
   /// 서버에 FCM 토큰 등록. AuthService 토큰이 있을 때만 동작.
@@ -281,6 +318,7 @@ class PushService extends ChangeNotifier {
     _onMessageOpenedSub?.cancel();
     _callkitEventSub?.cancel();
     _callAcceptCtrl.close();
+    _messageOpenedCtrl.close();
     super.dispose();
   }
 }
