@@ -82,6 +82,21 @@ PUBLIC_UPLOAD_URL = ""
 AGORA_APP_ID = "66ee6650c8b244b1941fac87eae3fc9a"
 
 # --------------------------------------------------------------------
+# FCM (Firebase Cloud Messaging) — 3차 푸시
+# --------------------------------------------------------------------
+# 사장님 결정 (c): Firebase 프로젝트 신규 생성 후 키 등록 예정.
+# 키 등록 전까지는 placeholder 모드 — sendFcm 이 silent skip.
+#
+# 사장님이 Firebase 프로젝트 만든 후 등록할 secret:
+#   1) wrangler secret put FCM_SERVICE_ACCOUNT_JSON
+#      → Firebase 콘솔 → 프로젝트 설정 → 서비스 계정 → "새 비공개 키 생성"
+#         → 다운로드된 JSON 파일 전체 내용을 그대로 붙여넣기
+#   2) wrangler secret put FCM_PROJECT_ID
+#      → Firebase 콘솔 → 프로젝트 설정 → "프로젝트 ID" (예: "eggplant-app")
+#
+# 둘 다 등록되어야 푸시 발송 활성화. 하나라도 비어 있으면 silent skip.
+
+# --------------------------------------------------------------------
 # Observability
 # --------------------------------------------------------------------
 [observability]

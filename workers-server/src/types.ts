@@ -32,6 +32,16 @@ export interface Env {
    * 비어있으면 토큰 발급 라우트는 503 반환 (fail-closed).
    */
   AGORA_APP_CERTIFICATE?: string;
+
+  /**
+   * FCM (Firebase Cloud Messaging) — 3차 푸시.
+   * 사장님 결정 (c): Firebase 프로젝트 신규 생성 후 키 등록 예정.
+   *   wrangler secret put FCM_SERVICE_ACCOUNT_JSON  # 서비스 계정 JSON 전체
+   *   wrangler secret put FCM_PROJECT_ID            # eggplant-app 등
+   * 둘 다 미등록 시 placeholder 모드 — silent skip (앱 빌드/실행은 정상).
+   */
+  FCM_SERVICE_ACCOUNT_JSON?: string;
+  FCM_PROJECT_ID?: string;
 }
 
 export interface AuthPayload {

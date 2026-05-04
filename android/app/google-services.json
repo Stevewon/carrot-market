@@ -1,0 +1,39 @@
+{
+  "_comment": "★★★ PLACEHOLDER — 사장님이 Firebase 콘솔에서 발급받은 진짜 google-services.json 으로 교체 필요 ★★★",
+  "_instructions": [
+    "1) https://console.firebase.google.com 접속 (Google 계정 로그인)",
+    "2) 프로젝트 추가 → 이름: eggplant-app (또는 원하는 이름)",
+    "3) Google Analytics: 사용 안 함 권장",
+    "4) Android 앱 추가 → 패키지 이름: com.eggplant.market (정확히)",
+    "5) google-services.json 다운로드 → 이 파일을 그대로 덮어쓰기",
+    "6) git commit + push → GitHub Actions 빌드 → APK 에 진짜 키 포함됨"
+  ],
+  "_placeholder_mode": "이 더미 파일은 빌드만 통과시키며, 앱 실행 시 FCM 토큰 발급은 silent fail. 푸시 발송은 워커 서버 측에서도 silent skip.",
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "eggplant-placeholder",
+    "storage_bucket": "eggplant-placeholder.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "com.eggplant.market"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyPLACEHOLDER_REPLACE_WITH_REAL_KEY_FROM_FIREBASE_CONSOLE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

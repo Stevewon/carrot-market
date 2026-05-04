@@ -2,6 +2,11 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
+    // ★★★ 3차 푸시 — FCM google-services plugin (placeholder 모드)
+    // android/app/google-services.json 을 읽어 Firebase 설정을 빌드에 주입한다.
+    // placeholder json 도 같은 형식이라 빌드 성공. 사장님이 진짜 파일로
+    // 교체만 하면 즉시 활성화.
+    id "com.google.gms.google-services"
 }
 
 def localProperties = new Properties()

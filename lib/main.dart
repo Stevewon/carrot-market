@@ -16,6 +16,7 @@ import 'services/chat_service.dart';
 import 'services/call_service.dart';
 import 'services/moderation_service.dart';
 import 'services/notification_service.dart';
+import 'services/push_service.dart';
 import 'services/search_history_service.dart';
 import 'services/keyword_alert_service.dart';
 import 'services/hidden_products_service.dart';
@@ -56,19 +57,33 @@ void main() async {
   // ignore: unawaited_futures
   NotificationService.instance.init();
 
-  runApp(EggplantApp(authService: authService));
+  // ★★★ 3차 푸시 — FCM + CallKit (placeholder 모드).
+  // Firebase 미초기화 / 토큰 발급 실패 시 silent fallback (앱 실행에는 영향 없음).
+  final pushService = PushService(auth: authService);
+  // ignore: unawaited_futures
+  pushService.init();
+
+  runApp(EggplantApp(authService: authService, pushService: pushService));
 }
 
 class EggplantApp extends StatelessWidget {
   final AuthService authService;
+  final PushService pushService;
 
-  const EggplantApp({super.key, required this.authService});
+  const EggplantApp({
+    super.key,
+    required this.authService,
+    required this.pushService,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthService>.value(value: authService),
+        // ★ 3차 푸시 — FCM 토큰 등록 + CallKit 수신 이벤트 라우팅.
+        // Firebase 미초기화 시에도 silent fallback (placeholder 모드).
+        ChangeNotifierProvider<PushService>.value(value: pushService),
         // Agora 1차: 토큰 발급/UID 캐싱 + 자동 갱신 타이머.
         // AuthService.attachAgora 로 로그인/로그아웃 훅에 자동 연결한다.
         // 실제 RTM/RTC 연결은 2차/3차에서 추가.
@@ -158,6 +173,7 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
   CallState _lastState = CallState.idle;
   bool _chatConnectRequested = false;
   StreamSubscription<String>? _notifTapSub;
+  StreamSubscription<Map<String, dynamic>>? _callkitAcceptSub;
 
   @override
   void initState() {
@@ -179,6 +195,25 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
         }
       } catch (e) {
         debugPrint('[notif] router push failed: $e');
+      }
+    });
+  }
+
+  /// CallKit (백그라운드/앱종료 상태에서 수신한) 받기 버튼 → 통화 화면으로 라우팅.
+  /// PushService.onCallAccepted 가 call_id, from_user_id 를 흘려준다.
+  void _attachCallkitAccept(BuildContext ctx) {
+    if (_callkitAcceptSub != null) return;
+    final push = ctx.read<PushService>();
+    _callkitAcceptSub = push.onCallAccepted.listen((data) {
+      final fromUserId = data['from_user_id']?.toString() ?? '';
+      if (fromUserId.isEmpty) return;
+      // 익명: 닉네임은 서버에서 다시 받아오므로 placeholder.
+      final peer = Uri.encodeComponent('익명');
+      try {
+        widget.router.push(
+            '/call?peerId=$fromUserId&peer=$peer&incoming=1&fromPush=1');
+      } catch (e) {
+        debugPrint('[callkit] router push failed: $e');
       }
     });
   }
@@ -214,6 +249,9 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
       _callService = call;
       _callService!.addListener(_onCallChange);
     }
+
+    // CallKit accept 이벤트 → /call 라우팅 (한 번만 attach).
+    _attachCallkitAccept(context);
   }
 
   void _onCallChange() {
@@ -233,6 +271,7 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
   void dispose() {
     _callService?.removeListener(_onCallChange);
     _notifTapSub?.cancel();
+    _callkitAcceptSub?.cancel();
     super.dispose();
   }
 

@@ -720,4 +720,52 @@ app.get('/agora/token', authMiddleware, async (c) => {
   });
 });
 
+/**
+ * POST /api/users/me/push-token  (3차 푸시 — placeholder 모드)
+ *
+ * Body: { fcm_token: string, platform?: 'android'|'ios' }
+ *
+ * 정책:
+ *  - FCM 토큰만 저장. 푸시 본문/이력은 D1 에 절대 저장 X (0022 휘발성).
+ *  - 토큰은 OS 가 발급한 디바이스 식별자라 Google 계정과 무관 (익명성 유지).
+ *  - placeholder 모드: Firebase 프로젝트 미생성 상태에서도 라우트는 정상 동작.
+ *    클라이언트는 토큰 발급 실패 시 빈 문자열을 보내며, 서버는 NULL 로 갱신.
+ *  - iOS APNs 는 코드베이스에 빌드 자체가 없어 별도 처리 X (Android only).
+ */
+app.post('/me/push-token', authMiddleware, async (c) => {
+  const me = c.get('user');
+  if (!me) return c.json({ error: 'unauthorized' }, 401);
+
+  let body: { fcm_token?: string; platform?: string };
+  try {
+    body = (await c.req.json()) as typeof body;
+  } catch {
+    return c.json({ error: 'invalid_body' }, 400);
+  }
+  const env = c.env as Env;
+
+  // 빈 문자열 / null → 토큰 폐기 (logout / 푸시 거부 시).
+  const raw = (body.fcm_token ?? '').trim();
+  const token = raw.length === 0 ? null : raw;
+
+  // 길이 제한 (FCM 토큰은 보통 ~163자, 최대 ~250자).
+  if (token && token.length > 512) {
+    return c.json({ error: 'token_too_long' }, 400);
+  }
+
+  const now = new Date().toISOString();
+  try {
+    await env.DB.prepare(
+      'UPDATE users SET fcm_token = ?, push_updated_at = ?, updated_at = ? WHERE id = ?',
+    )
+      .bind(token, token ? now : null, now, me.id)
+      .run();
+  } catch (e) {
+    // 0024 마이그레이션 미적용 환경 → silent skip.
+    console.log('[push-token] update skipped:', e);
+    return c.json({ ok: true, applied: false });
+  }
+  return c.json({ ok: true, applied: true });
+});
+
 export default app;

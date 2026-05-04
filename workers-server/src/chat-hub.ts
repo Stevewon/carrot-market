@@ -32,6 +32,7 @@
  */
 
 import type { Env } from './types';
+import { sendFcm } from './utils/fcm';
 
 interface AttachedMeta {
   userId: string;
@@ -297,7 +298,7 @@ export class ChatHub {
         // peer 가 방 화면에 없을 수도 있으니 chat-list 뱃지/미리보기용 푸시도 발송.
         const peerId = tokens.find((t) => t.length >= 30 && t !== meta.userId);
         if (peerId) {
-          this.sendToUser(peerId, {
+          const delivered = this.sendToUser(peerId, {
             type: 'room_updated',
             room_id,
             last_message: text,
@@ -305,6 +306,19 @@ export class ChatHub {
             last_sender_nickname: meta.nickname || '익명',
             last_message_at: sentAt,
           });
+          // ★★★ 3차 푸시: WebSocket 으로 전달 못 함 (앱 종료/백그라운드/네트워크 끊김)
+          //  → FCM 으로 시스템 푸시 발송. peer 가 폰을 켜고 있으면 트레이에 표시.
+          //  익명성: 메시지 본문/닉네임은 push body 에 절대 포함 안 함.
+          //  Firebase 키 미등록(placeholder) 환경에서는 sendFcm 이 silent skip.
+          if (!delivered) {
+            // ignore: discarded_futures - DO 응답 지연 방지 (fire-and-forget)
+            this.sendOfflinePush(peerId, {
+              title: '새 메시지',
+              body: '새 메시지가 도착했어요',
+              data: { type: 'message', room_id },
+              isCall: false,
+            });
+          }
         }
         return;
       }
@@ -395,6 +409,23 @@ export class ChatHub {
           caller_nickname,
         });
         if (!delivered) {
+          // ★★★ 3차 푸시: peer 가 백그라운드/앱 종료 상태일 때
+          //  CallKit (Android: flutter_callkit_incoming, iOS: CallKit) 으로
+          //  전화 수신 UI 를 띄우기 위해 FCM high-priority 푸시 발송.
+          //  앱이 켜져있으면 sendOfflinePush 결과와 무관하게 결국 WebSocket 으로
+          //  call_incoming 이 다시 라우팅되도록, 클라이언트가 푸시 tap → 앱 부팅 →
+          //  WebSocket 재연결 + call_id 로 시그널링 재시도.
+          //  Firebase 키 미등록(placeholder) 환경에서는 silent skip 후 call_failed.
+          this.sendOfflinePush(to_user_id, {
+            title: '전화가 와요',
+            body: '눌러서 받기',
+            data: {
+              type: 'call_invite',
+              call_id,
+              from_user_id: meta.userId,
+            },
+            isCall: true,
+          });
           this.sendSafe(ws, {
             type: 'call_failed',
             call_id,
@@ -486,6 +517,54 @@ export class ChatHub {
       }
     }
     return delivered;
+  }
+
+  /**
+   * 오프라인 peer 에게 FCM 시스템 푸시 발송.
+   *
+   * 정책:
+   *  - 익명성: title/body 에 닉네임/메시지 본문 포함 0건 (generic 만).
+   *  - 휘발성: 푸시 이력 D1 저장 0건. 토큰 invalid 시 NULL 처리.
+   *  - placeholder: Firebase 키 미등록 시 sendFcm 이 silent skip → return false.
+   *  - fire-and-forget: WebSocket 응답 지연 안 시키도록 await 안 함.
+   */
+  private sendOfflinePush(
+    peerUserId: string,
+    opts: {
+      title: string;
+      body: string;
+      data: Record<string, string>;
+      isCall: boolean;
+    },
+  ): void {
+    // ignore: discarded_futures - 의도적 fire-and-forget.
+    void (async () => {
+      try {
+        const row = await this.env.DB.prepare(
+          'SELECT fcm_token FROM users WHERE id = ?',
+        )
+          .bind(peerUserId)
+          .first<{ fcm_token: string | null }>();
+        const token = row?.fcm_token;
+        if (!token) return; // 미등록 디바이스 — skip.
+
+        const ok = await sendFcm(this.env, {
+          fcmToken: token,
+          title: opts.title,
+          body: opts.body,
+          data: opts.data,
+          isCall: opts.isCall,
+        });
+        if (!ok) {
+          // 발송 실패 (placeholder 모드 OR 토큰 invalid). 토큰 무효 처리는
+          // 너무 공격적으로 하면 정상 토큰까지 지울 수 있어, sendFcm 내부에서
+          // UNREGISTERED 만 로그로 남기는 수준으로 유지.
+        }
+      } catch (e) {
+        // 0024 마이그레이션 미적용 / DB 일시 오류 → silent skip.
+        console.log('[push] offline send skipped:', e);
+      }
+    })();
   }
 
   /** Tell all sockets (caller + peer) that a room has been permanently deleted. */
