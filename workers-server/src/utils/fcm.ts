@@ -172,6 +172,13 @@ export async function sendFcm(
       priority: opts.isCall ? 'HIGH' : 'NORMAL',
       notification: {
         channel_id: opts.isCall ? 'eggplant_calls' : 'eggplant_messages',
+        // ★ 5차 푸시 핫픽스: Android 알림 탭 → 앱 인텐트 트리거.
+        //  click_action 라벨이 있어야 firebase_messaging plugin 이
+        //  onMessageOpenedApp 이벤트를 발생시켜 _handleOpenedFromPush →
+        //  router.push('/chat/<roomId>') 까지 라우팅됨.
+        //  (라벨 이름은 historic — Android FCM HTTP v1 표준 키이며
+        //   AndroidManifest 의 intent-filter 와 매칭되는 단순 문자열.)
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
         // 통화는 ringing UI 가 떠야 하므로 high priority + sound default.
         ...(opts.isCall ? { sound: 'default', visibility: 'PUBLIC' } : {}),
       },
