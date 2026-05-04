@@ -105,7 +105,11 @@ Future<void> _showIncomingCall(Map<String, dynamic> data) async {
 /// 포그라운드 / 앱 실행 중 푸시·통화 수신 통합 매니저.
 class PushService extends ChangeNotifier {
   final AuthService auth;
-  final ApiClient _api = ApiClient.instance;
+  // ApiClient 는 AuthService 가 들고 있는 인스턴스를 공유한다.
+  // (1) 로그인 토큰이 setToken() 으로 자동 주입되어 별도 헤더 처리 불필요
+  // (2) 401 token_revoked 인터셉터도 그대로 적용
+  // → push_service 내부에서는 _api 로 호출만 하면 됨.
+  ApiClient get _api => auth.api;
 
   PushService({required this.auth}) {
     auth.addListener(_onAuthChanged);
