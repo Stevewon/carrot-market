@@ -42,6 +42,14 @@ export interface Env {
    */
   FCM_SERVICE_ACCOUNT_JSON?: string;
   FCM_PROJECT_ID?: string;
+
+  /**
+   * 어드민 보호용 공유 토큰. `Authorization: Admin <ADMIN_TOKEN>` 헤더로 전달.
+   *   wrangler secret put ADMIN_TOKEN
+   * 비어있으면 admin 라우트는 모두 401/403 (fail-closed).
+   * jwt.ts 의 requireAdminToken 미들웨어에서 사용.
+   */
+  ADMIN_TOKEN?: string;
 }
 
 export interface AuthPayload {
