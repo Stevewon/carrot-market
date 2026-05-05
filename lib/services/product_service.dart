@@ -220,11 +220,17 @@ class ProductService extends ChangeNotifier {
     }
   }
 
+  /// ★ 7차 푸시 (이슈 1): 찜 탭 마지막 에러 메시지 — 빈 목록과 에러를 분기하기 위함.
+  /// null 이면 "에러 없음 (정상 빈 목록)", 비어있지 않으면 에러 화면 + 재시도 버튼 노출.
+  String? _myLikesError;
+  String? get myLikesError => _myLikesError;
+
   /// Reload the user's liked products into the cache.
   /// Returns the list for convenience.
   Future<List<Product>> fetchMyLikes({bool silent = false}) async {
     if (!silent) {
       _myLikesLoading = true;
+      _myLikesError = null;
       notifyListeners();
     }
     try {
@@ -233,9 +239,14 @@ class ProductService extends ChangeNotifier {
           .map((e) => Product.fromJson(e as Map<String, dynamic>))
           .toList();
       _myLikesLoaded = true;
+      _myLikesError = null;
     } catch (e) {
       debugPrint('fetchMyLikes error: $e');
-      _myLikes = [];
+      // ★ 이슈 1: 에러 시에도 _myLikesLoaded=true 로 set 해야 다음 진입 때
+      //  silent=true 로 가서 무한 빈화면 루프 방지. _myLikesError 로 에러 노출.
+      _myLikesLoaded = true;
+      _myLikesError = '찜한 상품을 불러올 수 없어요';
+      // _myLikes 는 기존 캐시 유지 (네트워크 일시 오류 시 화면 깜빡임 방지).
     } finally {
       _myLikesLoading = false;
       notifyListeners();

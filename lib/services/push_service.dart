@@ -132,6 +132,15 @@ class PushService extends ChangeNotifier {
       StreamController.broadcast();
   Stream<Map<String, dynamic>> get onMessageOpened => _messageOpenedCtrl.stream;
 
+  /// ★ 7차 푸시 (이슈 3): foreground 에서 FCM message 수신 시에도
+  /// ChatService 에 합성 방을 추가하기 위한 stream.
+  /// _handleForeground 가 type=='message' 일 때 흘려준다 (라우팅은 안 함).
+  /// main.dart 가 listen 해서 chat.applyIncomingPushMessage(...) 호출.
+  final StreamController<Map<String, dynamic>> _messageReceivedCtrl =
+      StreamController.broadcast();
+  Stream<Map<String, dynamic>> get onMessageReceived =>
+      _messageReceivedCtrl.stream;
+
   StreamSubscription<RemoteMessage>? _onMessageSub;
   StreamSubscription<RemoteMessage>? _onMessageOpenedSub;
   StreamSubscription<dynamic>? _callkitEventSub;
@@ -224,9 +233,23 @@ class PushService extends ChangeNotifier {
     if (type == 'call_invite') {
       // 포그라운드라도 사용자가 다른 화면에 있을 수 있으니 CallKit UI 띄움.
       await _showIncomingCall(data);
+      return;
     }
-    // type == 'message' 는 포그라운드면 화면이 이미 갱신됨 (WebSocket).
-    // 트레이 알림이 중복되지 않도록 추가 액션 X.
+    // ★ 7차 푸시 (이슈 3): type == 'message' 면 ChatService 에 합성 방 추가
+    //  요청을 stream 으로 흘려보낸다. WS 가 살아있으면 곧 동일 메시지가 'message'
+    //  이벤트로 들어와 dedup 되지만, WS 가 끊긴 상태에서는 이 경로가 유일한
+    //  메인탭 뱃지/채팅 목록 갱신 트리거. 라우팅은 하지 않음 (사용자 흐름 보존).
+    if (type == 'message') {
+      final roomId = data['room_id']?.toString() ?? '';
+      if (roomId.isNotEmpty) {
+        _messageReceivedCtrl.add({
+          'room_id': roomId,
+          'sender_id': data['sender_id']?.toString() ?? '',
+          'sender_nickname': data['sender_nickname']?.toString() ?? '',
+          'text': data['text']?.toString() ?? '',
+        });
+      }
+    }
   }
 
   Future<void> _handleOpenedFromPush(RemoteMessage message) async {
@@ -319,6 +342,7 @@ class PushService extends ChangeNotifier {
     _callkitEventSub?.cancel();
     _callAcceptCtrl.close();
     _messageOpenedCtrl.close();
+    _messageReceivedCtrl.close();
     super.dispose();
   }
 }

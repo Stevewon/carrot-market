@@ -66,6 +66,56 @@ class _LikesTabState extends State<LikesTab> {
         child: CircularProgressIndicator(color: EggplantColors.primary),
       );
     }
+    // ★ 7차 푸시 (이슈 1): 에러 상태 분기 — 사용자에게 재시도 버튼 노출.
+    //  네트워크 일시 오류 시 빈 화면 고착 방지.
+    if (svc.myLikesError != null && items.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 120),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('⚠️', style: TextStyle(fontSize: 56)),
+                const SizedBox(height: 12),
+                Text(
+                  svc.myLikesError ?? '불러올 수 없어요',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: EggplantColors.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '잠시 후 다시 시도해주세요',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: EggplantColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () => svc.fetchMyLikes(silent: false),
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('다시 시도'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: EggplantColors.primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(140, 44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
     if (items.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),

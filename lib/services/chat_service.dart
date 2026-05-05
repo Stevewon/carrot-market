@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_app_badger/flutter_app_badger.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as ws_status;
 
@@ -336,6 +337,10 @@ class ChatService extends ChangeNotifier {
     // 시스템 알림(푸시) 도 정리.
     // ignore: discarded_futures
     NotificationService.instance.cancelForRoom(roomId);
+    // ★ 7차 푸시: 런처 아이콘 뱃지 동기화 (totalUnread 기준).
+    //  채팅방 진입 시 unread=0 → 바탕화면 아이콘 뱃지도 함께 갱신.
+    // ignore: discarded_futures
+    _syncLauncherBadge();
     // peer 에게 직접 read_receipt 를 emit (서버는 그대로 forward 함).
     if (_connected) {
       emit('read_receipt', {
@@ -343,6 +348,91 @@ class ChatService extends ChangeNotifier {
         'read_at': DateTime.now().toUtc().toIso8601String(),
       });
     }
+  }
+
+  /// ★ 7차 푸시: 런처 아이콘 뱃지(바탕화면 아이콘 위 숫자) 동기화.
+  ///   totalUnread 가 0 이면 뱃지 제거, 그 이상이면 해당 숫자로 표시.
+  ///   Samsung/Xiaomi/LG/Huawei 등 OEM 런처가 자동으로 해석.
+  ///   FCM 이 띄운 시스템 알림과 별개로 직접 제어 — 채팅방 들어가서 읽었는데
+  ///   바탕화면 뱃지가 그대로 남는 문제(이슈 2) 해결용.
+  Future<void> _syncLauncherBadge() async {
+    try {
+      final count = totalUnread;
+      final supported = await FlutterAppBadger.isAppBadgeSupported();
+      if (!supported) return;
+      if (count <= 0) {
+        await FlutterAppBadger.removeBadge();
+      } else {
+        await FlutterAppBadger.updateBadgeCount(count);
+      }
+    } catch (e) {
+      debugPrint('[chat] launcher badge sync failed: $e');
+    }
+  }
+
+  /// ★ 7차 푸시: FCM 푸시 수신(foreground/background/cold-start) 시 호출.
+  ///   WS 가 끊긴 상태에서도 푸시 payload 의 room_id 만으로 합성 방을 _rooms 에
+  ///   넣고 unread+1 처리 → 메인탭 채팅 뱃지 + 런처 아이콘 뱃지 즉시 갱신.
+  ///   사용자가 바탕화면 아이콘을 탭해서 앱을 켜도 미읽음 방이 보이고 자동
+  ///   진입 로직(_maybeAutoEnterUnreadRoom)이 동작한다.
+  ///
+  ///   동일 메시지의 중복 처리 방지: 같은 roomId 면 unread 만 +1 하고
+  ///   lastMessage 갱신 (synth 합성은 1회만).
+  void applyIncomingPushMessage({
+    required String roomId,
+    String? senderId,
+    String? senderNickname,
+    String? text,
+    DateTime? sentAt,
+  }) {
+    final me = auth.user?.id;
+    if (me == null) return;
+    if (roomId.isEmpty) return;
+
+    final now = sentAt ?? DateTime.now();
+    final preview = (text == null || text.isEmpty) ? '새 메시지' : text;
+
+    var idx = _rooms.indexWhere((r) => r.id == roomId);
+    if (idx < 0) {
+      // 합성 방 생성 — _extractPeerFromRoomId 로 peer 추출.
+      final extracted = _extractPeerFromRoomId(roomId, me);
+      if (extracted == null) return; // me 가 roomId 에 없으면 무시.
+      final peerNick = (senderNickname != null && senderNickname.isNotEmpty)
+          ? senderNickname
+          : '익명';
+      _rooms.insert(
+        0,
+        ChatRoom(
+          id: roomId,
+          peerId: extracted.peerId,
+          peerNickname: peerNick,
+          peerMannerScore: 36,
+          productId: extracted.productId,
+          productTitle: null,
+          productThumb: null,
+          lastMessage: preview,
+          lastSenderId: senderId,
+          lastMessageAt: now,
+          createdAt: now,
+          unreadCount: 1,
+          peerLastReadAt: null,
+        ),
+      );
+    } else {
+      // 기존 방 — 활성 방이면 unread 유지, 아니면 +1.
+      final inRoom = _activeRoomId == roomId;
+      final newUnread = inRoom ? 0 : (_rooms[idx].unreadCount + 1);
+      _rooms[idx] = _rooms[idx].copyWith(
+        lastMessage: preview,
+        lastSenderId: senderId,
+        lastMessageAt: now,
+        unreadCount: newUnread,
+      );
+      _rooms.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
+    }
+    notifyListeners();
+    // ignore: discarded_futures
+    _syncLauncherBadge();
   }
 
   /// 채팅 내역만 비우기. 휘발성이라 서버에 지울 게 없고, peer 에게 broadcast 만 발송.
@@ -491,6 +581,11 @@ class ChatService extends ChangeNotifier {
           );
           // Re-sort desc by last_message_at.
           _rooms.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
+
+          // ★ 7차 푸시: WS 로 메시지 받았을 때도 런처 아이콘 뱃지 동기화.
+          //  fromPeer && !inRoom 이면 unread+1 → 바탕화면 뱃지도 갱신.
+          // ignore: discarded_futures
+          _syncLauncherBadge();
 
           // If we're inside this room, immediately mark-as-read on the server
           // so the peer sees the "읽음" indicator without delay.

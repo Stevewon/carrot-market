@@ -180,6 +180,7 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
   StreamSubscription<String>? _notifTapSub;
   StreamSubscription<Map<String, dynamic>>? _callkitAcceptSub;
   StreamSubscription<Map<String, dynamic>>? _msgOpenedSub;
+  StreamSubscription<Map<String, dynamic>>? _msgReceivedSub;
 
   @override
   void initState() {
@@ -279,6 +280,30 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
     });
   }
 
+  /// ★ 7차 푸시 (이슈 3): foreground FCM 메시지 수신 → ChatService 합성 방 추가.
+  ///   PushService.onMessageReceived 가 room_id/sender 정보를 흘려준다.
+  ///   라우팅은 안 함 (사용자가 다른 화면 보는 중일 수 있음). 메인탭 채팅 뱃지 +
+  ///   런처 아이콘 뱃지 + 채팅 목록 즉시 갱신용.
+  void _attachMessageReceived(BuildContext ctx) {
+    if (_msgReceivedSub != null) return;
+    final push = ctx.read<PushService>();
+    _msgReceivedSub = push.onMessageReceived.listen((data) {
+      final roomId = data['room_id']?.toString() ?? '';
+      if (roomId.isEmpty) return;
+      try {
+        final chat = ctx.read<ChatService>();
+        chat.applyIncomingPushMessage(
+          roomId: roomId,
+          senderId: data['sender_id']?.toString(),
+          senderNickname: data['sender_nickname']?.toString(),
+          text: data['text']?.toString(),
+        );
+      } catch (e) {
+        debugPrint('[push-msg-recv] applyIncomingPushMessage failed: $e');
+      }
+    });
+  }
+
   /// ★ 5차 푸시: FCM 메시지 알림 tap → 채팅방 자동 라우팅.
   ///   PushService.onMessageOpened 가 room_id 를 흘려준다.
   ///   백그라운드 + 콜드 스타트(getInitialMessage) 모두 같은 Stream 으로 들어온다.
@@ -288,6 +313,21 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
     _msgOpenedSub = push.onMessageOpened.listen((data) {
       final roomId = data['room_id']?.toString() ?? '';
       if (roomId.isEmpty) return;
+      // ★ 7차 푸시 (이슈 3): 알림 탭 → 채팅방 진입 직전,
+      //  WS 가 끊긴 상태였더라도 ChatService 에 합성 방을 즉시 추가.
+      //  사용자가 바탕화면 아이콘으로 켜는 경우(자동 라우팅 X) 에도
+      //  메인탭 뱃지/채팅 목록에 반영되도록 동일 로직을 _handleForeground 에서도 호출.
+      try {
+        final chat = ctx.read<ChatService>();
+        chat.applyIncomingPushMessage(
+          roomId: roomId,
+          senderId: data['sender_id']?.toString(),
+          senderNickname: data['sender_nickname']?.toString(),
+          text: data['text']?.toString(),
+        );
+      } catch (e) {
+        debugPrint('[push-msg] applyIncomingPushMessage failed: $e');
+      }
       // 익명 정책: 닉네임은 ChatScreen 진입 후 서버에서 재조회.
       try {
         widget.router.push('/chat/$roomId');
@@ -371,6 +411,10 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
     // ★ 5차 푸시: FCM 메시지 알림 tap → /chat/<roomId> 라우팅 (한 번만 attach).
     //   콜드 스타트 처리도 이 안에서 1회만 호출됨.
     _attachMessageOpened(context);
+
+    // ★ 7차 푸시 (이슈 3): foreground FCM 'message' 수신 → ChatService 합성 방
+    //   추가 (라우팅 X). 메인탭 뱃지/런처 뱃지/채팅 목록 즉시 갱신용.
+    _attachMessageReceived(context);
   }
 
   void _onCallChange() {
@@ -393,6 +437,7 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
     _notifTapSub?.cancel();
     _callkitAcceptSub?.cancel();
     _msgOpenedSub?.cancel();
+    _msgReceivedSub?.cancel();
     super.dispose();
   }
 
