@@ -101,6 +101,106 @@ class ChatService extends ChangeNotifier {
         : '${pair[0]}_${pair[1]}';
   }
 
+  /// ★ 6차 푸시: roomId 패턴(`userA_userB[_productId]`)에서 본인이 아닌
+  ///   userId 를 peerId 로 추출. 휘발성 정책상 서버 DB 에 방 정보가 없어서
+  ///   클라이언트가 결정적으로 peerId 를 도출해야 한다.
+  ///
+  ///   roomId 형식:
+  ///     - 'aaa_bbb'             (유저 둘만)
+  ///     - 'aaa_bbb_productId'   (상품 첨부)
+  ///   userId 자체에 '_' 가 들어갈 수 있는지 — Eggplant 의 user.id 는
+  ///   wallet address 또는 uuid 라 '_' 미포함. 따라서 split('_') 안전.
+  ///
+  ///   me 가 토큰 둘 중 하나에 포함돼 있어야 정상. 못 찾으면 null 반환 →
+  ///   호출자가 합성 방 생성 포기.
+  ({String peerId, String? productId})? _extractPeerFromRoomId(
+    String roomId,
+    String me,
+  ) {
+    final parts = roomId.split('_');
+    if (parts.length < 2) return null;
+    final a = parts[0];
+    final b = parts[1];
+    final productId = parts.length >= 3 ? parts.sublist(2).join('_') : null;
+    if (a == me) {
+      return (peerId: b, productId: productId);
+    }
+    if (b == me) {
+      return (peerId: a, productId: productId);
+    }
+    return null;
+  }
+
+  /// ★ 6차 푸시: WS 'message' 이벤트로 처음 들어오는 방을 메모리에 즉석 생성.
+  ///   서버 DB 에는 채팅방 자체가 없으므로 (휘발성), 메시지 payload 만으로
+  ///   ChatRoom 을 합성한다. productTitle/productThumb 은 빈 값 — 방 진입 시
+  ///   ChatScreen 이 productId 로 ProductService 를 통해 별도 조회한다.
+  ChatRoom? _synthesizeRoomFromMessage(
+    ChatMessage chatMsg,
+    Map<String, dynamic> rawMsg,
+  ) {
+    final me = auth.user?.id;
+    if (me == null) return null;
+    final extracted = _extractPeerFromRoomId(chatMsg.roomId, me);
+    if (extracted == null) return null;
+    // 내가 보낸 메시지의 echo 면 sender_nickname 은 내 닉네임 → peerNickname 으로
+    // 쓰면 안 됨. 그 경우엔 '익명' 으로 시작 (peer 응답이 오면 갱신됨).
+    final fromPeer = !chatMsg.isMine;
+    final peerNickname =
+        fromPeer ? chatMsg.senderNickname : '익명';
+    return ChatRoom(
+      id: chatMsg.roomId,
+      peerId: extracted.peerId,
+      peerNickname: peerNickname,
+      peerMannerScore: 36,
+      productId: extracted.productId,
+      productTitle: null,
+      productThumb: null,
+      lastMessage: chatMsg.text,
+      lastSenderId: chatMsg.senderId,
+      lastMessageAt: chatMsg.sentAt,
+      createdAt: chatMsg.sentAt,
+      unreadCount: 0, // 호출자 쪽(message case)에서 +1 처리
+      peerLastReadAt: null,
+    );
+  }
+
+  /// ★ 6차 푸시: WS 'room_updated' 이벤트로 처음 들어오는 방을 합성.
+  ///   payload 에 last_sender_id/last_sender_nickname/last_message 등이 있음.
+  ChatRoom? _synthesizeRoomFromUpdate(
+    String roomId,
+    Map<String, dynamic> rawMsg,
+  ) {
+    final me = auth.user?.id;
+    if (me == null) return null;
+    final extracted = _extractPeerFromRoomId(roomId, me);
+    if (extracted == null) return null;
+    final lastSenderId = rawMsg['last_sender_id']?.toString();
+    final lastSenderNickname =
+        rawMsg['last_sender_nickname']?.toString() ?? '익명';
+    // 마지막 sender 가 peer 면 그 닉네임으로, 본인이면 '익명' 시작.
+    final peerNickname =
+        (lastSenderId != null && lastSenderId != me) ? lastSenderNickname : '익명';
+    final lastAt = DateTime.tryParse(
+            rawMsg['last_message_at']?.toString() ?? '') ??
+        DateTime.now();
+    return ChatRoom(
+      id: roomId,
+      peerId: extracted.peerId,
+      peerNickname: peerNickname,
+      peerMannerScore: 36,
+      productId: extracted.productId,
+      productTitle: null,
+      productThumb: null,
+      lastMessage: rawMsg['last_message']?.toString() ?? '',
+      lastSenderId: lastSenderId,
+      lastMessageAt: lastAt,
+      createdAt: lastAt,
+      unreadCount: 0,
+      peerLastReadAt: null,
+    );
+  }
+
   /// Open (or recreate locally) a chat room with a peer. Does NOT touch the DB.
   /// Returns a synthetic ChatRoom that lives only in memory.
   Future<ChatRoom?> openRoomWithPeer({
@@ -352,7 +452,19 @@ class ChatService extends ChangeNotifier {
         _roomMessages[chatMsg.roomId]!.add(chatMsg);
 
         // Bump local room preview.
-        final idx = _rooms.indexWhere((r) => r.id == chatMsg.roomId);
+        var idx = _rooms.indexWhere((r) => r.id == chatMsg.roomId);
+        if (idx < 0) {
+          // ★ 6차 푸시: 휘발성 정책상 서버에 채팅방 목록이 없으므로,
+          //  WS 로 처음 들어온 message 이벤트가 곧 "방 생성" 신호다.
+          //  payload 의 sender_id, sender_nickname, room_id 로 합성 방을
+          //  즉석에서 만들어 _rooms 에 추가 → 채팅 목록 탭에 즉시 노출.
+          //  fetchRooms 는 휘발성이라 빈 작업이므로 의존하면 안 됨.
+          final synthesized = _synthesizeRoomFromMessage(chatMsg, msg);
+          if (synthesized != null) {
+            _rooms.insert(0, synthesized);
+            idx = 0;
+          }
+        }
         if (idx >= 0) {
           // If the message is from the peer and we're NOT viewing this room,
           // bump the unread badge. If we ARE viewing it, leave unread at 0
@@ -388,9 +500,6 @@ class ChatService extends ChangeNotifier {
             // ignore: discarded_futures
             markRoomAsRead(chatMsg.roomId);
           }
-        } else {
-          // Room showed up via WS before we fetched rooms list — refresh.
-          fetchRooms(silent: true);
         }
         notifyListeners();
         break;
@@ -399,7 +508,17 @@ class ChatService extends ChangeNotifier {
       case 'room_updated': {
         final roomId = msg['room_id']?.toString();
         if (roomId == null) break;
-        final idx = _rooms.indexWhere((r) => r.id == roomId);
+        var idx = _rooms.indexWhere((r) => r.id == roomId);
+        if (idx < 0) {
+          // ★ 6차 푸시: 위 'message' 와 동일 — 휘발성 정책상 fetchRooms 빈 작업.
+          //  room_updated payload 자체가 last_sender_id/last_sender_nickname 을
+          //  들고 오므로 합성 방 생성에 충분.
+          final synthesized = _synthesizeRoomFromUpdate(roomId, msg);
+          if (synthesized != null) {
+            _rooms.insert(0, synthesized);
+            idx = 0;
+          }
+        }
         if (idx >= 0) {
           _rooms[idx] = _rooms[idx].copyWith(
             lastMessage: msg['last_message']?.toString() ?? '',
@@ -409,8 +528,6 @@ class ChatService extends ChangeNotifier {
           );
           _rooms.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
           notifyListeners();
-        } else {
-          fetchRooms(silent: true);
         }
         break;
       }
