@@ -168,11 +168,15 @@ class _IncomingCallOverlay extends StatefulWidget {
   State<_IncomingCallOverlay> createState() => _IncomingCallOverlayState();
 }
 
-class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
+class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
+    with WidgetsBindingObserver {
   CallService? _callService;
   CallState _lastState = CallState.idle;
   bool _chatConnectRequested = false;
   bool _coldStartHandled = false;
+  // ★ 당근식 자동 진입: 부팅 후 1회만 (UX — 사용자가 의도적으로 다른 화면
+  //   보고 있는데 또 빼앗아 가면 안 됨).
+  bool _autoEnterUnreadDone = false;
   StreamSubscription<String>? _notifTapSub;
   StreamSubscription<Map<String, dynamic>>? _callkitAcceptSub;
   StreamSubscription<Map<String, dynamic>>? _msgOpenedSub;
@@ -180,6 +184,10 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
   @override
   void initState() {
     super.initState();
+    // 앱 라이프사이클(백그라운드 ↔ 포어그라운드) 감지를 위해 observer 등록.
+    // 웜 스타트(resumed) 시 미읽음 채팅방 자동 진입 트리거.
+    WidgetsBinding.instance.addObserver(this);
+
     // When a chat / keyword notification is tapped, deep-link to the right screen.
     // payload 형식:
     //   - 채팅 메시지   → roomId 그대로
@@ -199,6 +207,57 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
         debugPrint('[notif] router push failed: $e');
       }
     });
+  }
+
+  /// ★ 5차 푸시 보강 — 당근마켓 동등 자동 진입 로직.
+  ///   트리거: 콜드 스타트 (FCM getInitialMessage 가 null = 노티 탭 아닌 경우)
+  ///         + 웜 스타트 (AppLifecycleState.resumed)
+  ///   분기: 미읽음 방 0개 → 라우팅 안 함
+  ///         미읽음 방 1개 → /chat/<roomId> 자동 진입
+  ///         미읽음 방 2+개 → /?tab=2 (채팅 목록 탭)
+  ///   제외: 이미 채팅방/목록/통화 화면 보고 있으면 자동 라우팅 안 함
+  ///   1회 제한: _autoEnterUnreadDone 플래그로 부팅 후 1회만.
+  void _maybeAutoEnterUnreadRoom() {
+    if (_autoEnterUnreadDone) return;
+    if (!mounted) return;
+    final auth = context.read<AuthService>();
+    if (!auth.isLoggedIn) return;
+
+    // 현재 보고 있는 화면 검사 — 의도적인 사용자 흐름 깨지 않게.
+    final currentPath = widget.router
+        .routerDelegate.currentConfiguration.uri.toString();
+    final isOnChatScreen = currentPath.startsWith('/chat/');
+    final isOnChatList =
+        currentPath == '/' || currentPath.startsWith('/?tab=2');
+    final isOnCall = currentPath.startsWith('/call');
+    if (isOnChatScreen || isOnCall) return;
+
+    final chat = context.read<ChatService>();
+    final unreadRooms =
+        chat.rooms.where((r) => r.unreadCount > 0).toList();
+    if (unreadRooms.isEmpty) return;
+
+    // 한 세션에서 1회만 발동.
+    _autoEnterUnreadDone = true;
+
+    try {
+      if (unreadRooms.length == 1) {
+        // 미읽음 방 1개 → 그 방으로 직진 (당근식).
+        final r = unreadRooms.first;
+        widget.router.push('/chat/${r.id}');
+      } else {
+        // 미읽음 방 2개 이상 → 채팅 목록 탭으로 진입.
+        // 이미 홈에 있는데 다른 탭 보고 있으면 채팅 탭으로 바꿔준다.
+        if (isOnChatList) {
+          // 홈 루트에 있으면 탭만 바꿔서 push.
+          widget.router.go('/?tab=2');
+        } else {
+          widget.router.go('/?tab=2');
+        }
+      }
+    } catch (e) {
+      debugPrint('[auto-enter] router push failed: $e');
+    }
   }
 
   /// CallKit (백그라운드/앱종료 상태에서 수신한) 받기 버튼 → 통화 화면으로 라우팅.
@@ -239,11 +298,37 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
 
     // 콜드 스타트 — 앱 종료 상태에서 알림 tap 으로 부팅된 경우, listener 가
     // attach 된 다음 프레임에 한 번 호출하면 getInitialMessage() 가 깨운다.
+    // 노티 탭이 아니라 일반 부팅이면 _autoEnterUnreadDone 플래그가 false 이므로
+    // 잠깐 기다렸다가(초기 ChatService.connect 후 rooms 로딩 시간) 미읽음 방
+    // 자동 진입 로직 시도.
     if (!_coldStartHandled) {
       _coldStartHandled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         // ignore: discarded_futures
         push.handleColdStartFromNotification();
+        // 노티 탭이면 _handleOpenedFromPush 가 먼저 /chat/<roomId> 로 push 해서
+        // _autoEnterUnreadDone 가 true 가 되거나 isOnChatScreen 체크에서 걸러진다.
+        // 일반 부팅이면 ChatService.rooms 가 채워질 때까지 ~1.5초 대기 후 시도.
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (!mounted) return;
+          _maybeAutoEnterUnreadRoom();
+        });
+      });
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // ★ 웜 스타트 — 앱이 백그라운드에서 포어그라운드로 복귀할 때.
+    //  당근식 자동 진입: 미읽음 방 1개면 직진, 2+개면 채팅 목록 탭.
+    //  부팅 후 1회 제한(_autoEnterUnreadDone)이 false 일 때만 실행.
+    if (state == AppLifecycleState.resumed) {
+      // ChatService 가 백그라운드 동안 끊긴 WebSocket 을 재연결하고
+      // rooms unread 카운트를 갱신할 시간을 약간 준다.
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (!mounted) return;
+        _maybeAutoEnterUnreadRoom();
       });
     }
   }
@@ -303,6 +388,7 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _callService?.removeListener(_onCallChange);
     _notifTapSub?.cancel();
     _callkitAcceptSub?.cancel();
