@@ -76,6 +76,17 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="eggplant" />
             </intent-filter>
+
+            <!-- ★ 5차 푸시 핫픽스: FCM 알림 탭 → MainActivity 인텐트 라우팅.
+                 서버(workers-server/src/utils/fcm.ts)가 보낸
+                 click_action: 'FLUTTER_NOTIFICATION_CLICK' 와 매칭되어,
+                 Android 가 알림 탭 시 이 액티비티로 인텐트를 보내고
+                 firebase_messaging plugin 이 onMessageOpenedApp 이벤트를 발생시킴.
+                 → PushService._handleOpenedFromPush → router.push('/chat/<roomId>') -->
+            <intent-filter>
+                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <meta-data

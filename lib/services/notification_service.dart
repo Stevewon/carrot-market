@@ -99,6 +99,26 @@ class NotificationService {
           importance: Importance.high,
         ),
       );
+      // ★ 5차 푸시 핫픽스: 서버(fcm.ts)가 보내는 channel_id 와 매칭되는 채널.
+      //  서버 payload: channel_id='eggplant_messages' (일반) / 'eggplant_calls' (통화)
+      //  채널 사전 생성 안 하면 Android 가 fallback default 채널로 표시 → 사용자가
+      //  채널별 음소거 설정 못함 + 일부 OEM 에서 알림 동작 불일치.
+      await android?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'eggplant_messages',
+          'Eggplant 메시지',
+          description: '새 채팅 메시지 푸시 알림',
+          importance: Importance.high,
+        ),
+      );
+      await android?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'eggplant_calls',
+          'Eggplant 전화',
+          description: '음성 통화 수신 알림',
+          importance: Importance.max,
+        ),
+      );
     }
   }
 
