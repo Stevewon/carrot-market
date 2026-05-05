@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as ws_status;
 
@@ -11,6 +12,7 @@ import '../models/chat_room.dart';
 import 'auth_service.dart';
 import 'launcher_badge.dart';
 import 'notification_service.dart';
+import 'push_service.dart' show kPendingPushQueueKey;
 
 /// 휘발성 채팅 서비스 — 사생활 보호 모드 (telegram secret chat 스타일).
 ///
@@ -430,6 +432,56 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
     // ignore: discarded_futures
     _syncLauncherBadge();
+  }
+
+  /// ★ v1.0.107: SharedPreferences pending push 큐를 일괄 복원.
+  ///   firebaseBackgroundHandler 가 background isolate 에서 채워둔 푸시들을
+  ///   앱 부팅/재개 시 main isolate 에서 읽어 _rooms 에 합성 방으로 추가.
+  ///
+  ///   호출 시점:
+  ///   - cold start: main.dart 가 _attachMessageOpened 직후 호출
+  ///   - warm resume: AppLifecycleState.resumed 에서 호출
+  ///
+  ///   처리 후 큐 비움 + 런처 뱃지 totalUnread 기준으로 재동기화.
+  Future<void> applyPendingPushMessages() async {
+    final me = auth.user?.id;
+    if (me == null) return;
+    try {
+      final sp = await SharedPreferences.getInstance();
+      final raw = sp.getString(kPendingPushQueueKey);
+      if (raw == null || raw.isEmpty || raw == '[]') return;
+
+      List<dynamic> list;
+      try {
+        list = (jsonDecode(raw) as List?) ?? <dynamic>[];
+      } catch (_) {
+        list = <dynamic>[];
+      }
+      if (list.isEmpty) {
+        await sp.remove(kPendingPushQueueKey);
+        return;
+      }
+
+      // 도착 순으로 처리 (오래된 것부터). applyIncomingPushMessage 가 dedup 처리.
+      for (final e in list) {
+        if (e is! Map) continue;
+        final roomId = e['room_id']?.toString() ?? '';
+        if (roomId.isEmpty) continue;
+        applyIncomingPushMessage(
+          roomId: roomId,
+          senderId: e['sender_id']?.toString(),
+          senderNickname: e['sender_nickname']?.toString(),
+          text: e['text']?.toString(),
+        );
+      }
+
+      // 큐 비움 + 런처 뱃지 재동기화 (totalUnread 기준).
+      await sp.remove(kPendingPushQueueKey);
+      // ignore: discarded_futures
+      _syncLauncherBadge();
+    } catch (e) {
+      debugPrint('[chat] applyPendingPushMessages failed: $e');
+    }
   }
 
   /// 채팅 내역만 비우기. 휘발성이라 서버에 지울 게 없고, peer 에게 broadcast 만 발송.

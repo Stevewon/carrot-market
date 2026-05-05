@@ -29,16 +29,25 @@ import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/entities/android_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 import 'auth_service.dart';
+import 'launcher_badge.dart';
+
+/// ★ 7차 푸시(이슈 1/2/3 통합): background isolate 와 main isolate 가 공유하는
+/// pending push 큐 SharedPreferences 키. JSON 배열 (최대 50개).
+/// firebaseBackgroundHandler 가 채워두고, 앱 부팅/재개 시 ChatService 가 비움.
+const String kPendingPushQueueKey = 'pending_push_messages_v1';
+const int kPendingPushQueueMax = 50;
 
 /// Top-level entry-point — FCM SDK 가 isolate 에서 직접 호출한다.
 /// 클래스 메서드로 만들면 isolate 진입점으로 등록할 수 없으니 반드시 top-level.
 @pragma('vm:entry-point')
 Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
   // ★ 백그라운드/앱 종료 상태에서만 호출됨. UI thread 가 없으므로
-  //   가능한 작업은 (1) CallKit 시스템 UI 띄우기, (2) 로컬 푸시 표시 정도.
+  //   가능한 작업은 (1) CallKit 시스템 UI, (2) SharedPreferences 큐 저장,
+  //   (3) MethodChannel 으로 native 런처 뱃지 갱신.
   try {
     // Firebase 가 초기화 안 되어 있을 수 있음 (placeholder 모드 / cold start).
     if (Firebase.apps.isEmpty) {
@@ -53,11 +62,68 @@ Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
     final type = data['type']?.toString();
     if (type == 'call_invite') {
       await _showIncomingCall(data);
+      return;
     }
-    // type == 'message' 의 경우 OS 가 이미 trayNotification 을 띄워줌
-    // (FCM HTTP v1 의 notification 필드 효과). 추가 작업 불필요.
+    // ★ v1.0.107: type == 'message' 일 때 SharedPreferences pending 큐에 추가.
+    //   background isolate 는 ChatService 인스턴스 접근 불가 → 큐에 넣어두면
+    //   다음 앱 부팅/재개 시 main.dart 가 chat.applyPendingPushMessages() 로
+    //   일괄 복원. 메인탭 뱃지/채팅 목록/런처 뱃지 모두 즉시 동기화됨.
+    if (type == 'message') {
+      await _enqueuePendingPush(data);
+    }
   } catch (e) {
     debugPrint('[push-bg] handler error: $e');
+  }
+}
+
+/// ★ v1.0.107: background isolate 에서 pending 큐에 푸시 추가 + 런처 뱃지 갱신.
+///   같은 room_id + sent_at 조합은 dedup. 큐 길이 = 런처 뱃지 숫자 (대략적).
+Future<void> _enqueuePendingPush(Map<String, dynamic> data) async {
+  try {
+    final roomId = data['room_id']?.toString() ?? '';
+    if (roomId.isEmpty) return;
+
+    final sp = await SharedPreferences.getInstance();
+    final raw = sp.getString(kPendingPushQueueKey) ?? '[]';
+    List<dynamic> list;
+    try {
+      list = (jsonDecode(raw) as List?) ?? <dynamic>[];
+    } catch (_) {
+      list = <dynamic>[];
+    }
+
+    final entry = <String, dynamic>{
+      'room_id': roomId,
+      'sender_id': data['sender_id']?.toString() ?? '',
+      'sender_nickname': data['sender_nickname']?.toString() ?? '',
+      'text': data['text']?.toString() ?? '',
+      'received_at': DateTime.now().toUtc().toIso8601String(),
+    };
+
+    // dedup: 같은 room_id + received_at(초 단위) 중복 push 방지.
+    final isDup = list.any((e) {
+      if (e is! Map) return false;
+      return e['room_id'] == roomId &&
+          e['received_at']?.toString().substring(0, 19) ==
+              entry['received_at']!.toString().substring(0, 19);
+    });
+    if (!isDup) {
+      list.add(entry);
+      // 최대 길이 초과 시 오래된 것부터 drop.
+      while (list.length > kPendingPushQueueMax) {
+        list.removeAt(0);
+      }
+      await sp.setString(kPendingPushQueueKey, jsonEncode(list));
+    }
+
+    // ★ v1.0.107: background isolate 에서도 native MethodChannel 호출 가능.
+    //   pending 큐 길이 만큼 런처 뱃지 표시. 단말 OEM 런처가 자동 해석.
+    //   (앱이 부팅되면 ChatService 가 totalUnread 기준으로 다시 갱신함)
+    try {
+      await LauncherBadge.set(list.length);
+    } catch (_) {/* silent */}
+  } catch (e) {
+    debugPrint('[push-bg] enqueue failed: $e');
   }
 }
 

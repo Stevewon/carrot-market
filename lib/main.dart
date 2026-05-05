@@ -241,21 +241,14 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
     // 한 세션에서 1회만 발동.
     _autoEnterUnreadDone = true;
 
+    // ★ v1.0.107 (사장님 직역 정책): 미읽음 방이 1개든 5개든 무조건 가장 최근
+    //  메시지 받은 방으로 직진. 이전 정책(1개=직진, 2+개=목록)은 폐기.
+    //  ChatService 의 rooms 는 이미 lastMessageAt desc 로 정렬돼 있음.
     try {
-      if (unreadRooms.length == 1) {
-        // 미읽음 방 1개 → 그 방으로 직진 (당근식).
-        final r = unreadRooms.first;
-        widget.router.push('/chat/${r.id}');
-      } else {
-        // 미읽음 방 2개 이상 → 채팅 목록 탭으로 진입.
-        // 이미 홈에 있는데 다른 탭 보고 있으면 채팅 탭으로 바꿔준다.
-        if (isOnChatList) {
-          // 홈 루트에 있으면 탭만 바꿔서 push.
-          widget.router.go('/?tab=2');
-        } else {
-          widget.router.go('/?tab=2');
-        }
-      }
+      // unreadRooms 도 _rooms 정렬을 그대로 따라가므로 first 가 가장 최근 방.
+      unreadRooms.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
+      final r = unreadRooms.first;
+      widget.router.push('/chat/${r.id}');
     } catch (e) {
       debugPrint('[auto-enter] router push failed: $e');
     }
@@ -346,6 +339,17 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         // ignore: discarded_futures
         push.handleColdStartFromNotification();
+        // ★ v1.0.107: cold start 시 SharedPreferences pending push 큐 복원.
+        //  background isolate(firebaseBackgroundHandler)가 받아둔 메시지를
+        //  _rooms 에 합성 방으로 일괄 추가 → 메인탭 뱃지/채팅 목록/런처 뱃지
+        //  즉시 동기화. 노티 탭이 아니라 아이콘만 탭한 경우에도 작동.
+        try {
+          final chat = context.read<ChatService>();
+          // ignore: discarded_futures
+          chat.applyPendingPushMessages();
+        } catch (e) {
+          debugPrint('[push-pending] cold-start failed: $e');
+        }
         // 노티 탭이면 _handleOpenedFromPush 가 먼저 /chat/<roomId> 로 push 해서
         // _autoEnterUnreadDone 가 true 가 되거나 isOnChatScreen 체크에서 걸러진다.
         // 일반 부팅이면 ChatService.rooms 가 채워질 때까지 ~1.5초 대기 후 시도.
@@ -361,9 +365,20 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     // ★ 웜 스타트 — 앱이 백그라운드에서 포어그라운드로 복귀할 때.
-    //  당근식 자동 진입: 미읽음 방 1개면 직진, 2+개면 채팅 목록 탭.
+    //  v1.0.107 정책: 미읽음 방 1+개면 무조건 가장 최근 방 직진.
     //  부팅 후 1회 제한(_autoEnterUnreadDone)이 false 일 때만 실행.
     if (state == AppLifecycleState.resumed) {
+      // ★ v1.0.107: warm resume 에도 SharedPreferences pending 큐 복원.
+      //  앱이 백그라운드 상태일 때 firebaseBackgroundHandler 가 받아 큐에 쌓은
+      //  푸시들을 _rooms 에 합성 방으로 추가 → 사용자가 앱 복귀 직후
+      //  메인탭 뱃지/채팅 목록 즉시 보임.
+      try {
+        final chat = context.read<ChatService>();
+        // ignore: discarded_futures
+        chat.applyPendingPushMessages();
+      } catch (e) {
+        debugPrint('[push-pending] warm-resume failed: $e');
+      }
       // ChatService 가 백그라운드 동안 끊긴 WebSocket 을 재연결하고
       // rooms unread 카운트를 갱신할 시간을 약간 준다.
       Future.delayed(const Duration(milliseconds: 800), () {
