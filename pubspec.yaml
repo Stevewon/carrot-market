@@ -82,10 +82,11 @@ dependencies:
   # Local notifications (foreground/background push without Firebase)
   flutter_local_notifications: ^17.2.3
 
-  # ★ 7차 푸시 — 런처 아이콘 뱃지 숫자 제어 (Samsung/Xiaomi/LG/Huawei OEM 호환).
-  # 채팅방 진입 시 totalUnread 0 → setBadgeCount(0) 으로 바탕화면 뱃지 정리.
-  # FCM 이 띄운 시스템 알림과 별개로 런처 아이콘 위 숫자를 직접 제어.
-  flutter_app_badger: ^1.5.0
+  # ★ 7차 푸시 — 런처 아이콘 뱃지(바탕화면 아이콘 숫자) 직접 제어.
+  # flutter_app_badger 1.5.0 은 AGP 8.x namespace 비호환 → 사용 불가.
+  # 대체: MainActivity.kt 의 MethodChannel 'eggplant.market/launcher_badge' 로
+  #       OEM intent broadcast 직접 전송 (Samsung/Sony/Xiaomi/Huawei/LG/HTC).
+  # Wrapper: lib/services/launcher_badge.dart
 
   # 앱 버전·빌드번호 동적 조회 (앱 정보 화면, 디버그 표시 등)
   package_info_plus: ^8.0.0

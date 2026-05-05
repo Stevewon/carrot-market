@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_app_badger/flutter_app_badger.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as ws_status;
 
@@ -10,6 +9,7 @@ import '../app/constants.dart';
 import '../models/chat_message.dart';
 import '../models/chat_room.dart';
 import 'auth_service.dart';
+import 'launcher_badge.dart';
 import 'notification_service.dart';
 
 /// 휘발성 채팅 서비스 — 사생활 보호 모드 (telegram secret chat 스타일).
@@ -355,16 +355,13 @@ class ChatService extends ChangeNotifier {
   ///   Samsung/Xiaomi/LG/Huawei 등 OEM 런처가 자동으로 해석.
   ///   FCM 이 띄운 시스템 알림과 별개로 직접 제어 — 채팅방 들어가서 읽었는데
   ///   바탕화면 뱃지가 그대로 남는 문제(이슈 2) 해결용.
+  ///
+  ///   구현: flutter_app_badger 1.5.0 이 AGP 8.x namespace 비호환 → 가지(Eggplant)
+  ///   는 MainActivity.kt 의 native MethodChannel 'eggplant.market/launcher_badge' 로
+  ///   OEM intent broadcast 직접 전송. lib/services/launcher_badge.dart 가 wrapper.
   Future<void> _syncLauncherBadge() async {
     try {
-      final count = totalUnread;
-      final supported = await FlutterAppBadger.isAppBadgeSupported();
-      if (!supported) return;
-      if (count <= 0) {
-        await FlutterAppBadger.removeBadge();
-      } else {
-        await FlutterAppBadger.updateBadgeCount(count);
-      }
+      await LauncherBadge.set(totalUnread);
     } catch (e) {
       debugPrint('[chat] launcher badge sync failed: $e');
     }
