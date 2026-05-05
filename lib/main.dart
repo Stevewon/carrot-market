@@ -218,6 +218,12 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
   ///         미읽음 방 2+개 → /?tab=2 (채팅 목록 탭)
   ///   제외: 이미 채팅방/목록/통화 화면 보고 있으면 자동 라우팅 안 함
   ///   1회 제한: _autoEnterUnreadDone 플래그로 부팅 후 1회만.
+  ///
+  ///   ★ v1.0.108 (사장님 직역 정책 — 이중 분기):
+  ///   • 바탕화면 아이콘 뱃지 있음(unread > 0) → 푸시 알림 탭처럼 채팅방 직진.
+  ///   • 바탕화면 아이콘 뱃지 없음(unread == 0) → 메인 페이지(피드) 그대로 둠.
+  ///   FCM/WS 동기화 누락 대비: rooms 가 비어 있어도 SharedPreferences pending
+  ///   큐 잔존분으로 한 번 더 시도. 그래도 0 이면 메인 유지.
   void _maybeAutoEnterUnreadRoom() {
     if (_autoEnterUnreadDone) return;
     if (!mounted) return;
@@ -228,24 +234,26 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
     final currentPath = widget.router
         .routerDelegate.currentConfiguration.uri.toString();
     final isOnChatScreen = currentPath.startsWith('/chat/');
-    final isOnChatList =
-        currentPath == '/' || currentPath.startsWith('/?tab=2');
     final isOnCall = currentPath.startsWith('/call');
     if (isOnChatScreen || isOnCall) return;
 
     final chat = context.read<ChatService>();
     final unreadRooms =
         chat.rooms.where((r) => r.unreadCount > 0).toList();
-    if (unreadRooms.isEmpty) return;
+
+    // ★ 뱃지 없음 → 메인 페이지(피드)로 보냄. 강제 라우팅은 하지 않고
+    //  현재 화면 유지(앱이 처음 켜졌으면 GoRouter 의 initialLocation '/' 그대로).
+    if (unreadRooms.isEmpty) {
+      _autoEnterUnreadDone = true; // 한 번 평가했으면 세션 1회 제한 유지.
+      return;
+    }
 
     // 한 세션에서 1회만 발동.
     _autoEnterUnreadDone = true;
 
-    // ★ v1.0.107 (사장님 직역 정책): 미읽음 방이 1개든 5개든 무조건 가장 최근
-    //  메시지 받은 방으로 직진. 이전 정책(1개=직진, 2+개=목록)은 폐기.
+    // ★ 뱃지 있음 → 무조건 가장 최근 메시지 받은 방으로 직진.
     //  ChatService 의 rooms 는 이미 lastMessageAt desc 로 정렬돼 있음.
     try {
-      // unreadRooms 도 _rooms 정렬을 그대로 따라가므로 first 가 가장 최근 방.
       unreadRooms.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
       final r = unreadRooms.first;
       widget.router.push('/chat/${r.id}');

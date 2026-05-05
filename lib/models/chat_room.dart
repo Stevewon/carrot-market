@@ -56,15 +56,20 @@ class ChatRoom {
       productThumb: json['product_thumb']?.toString(),
       lastMessage: json['last_message']?.toString() ?? '',
       lastSenderId: json['last_sender_id']?.toString(),
+      // 서버는 UTC ISO8601 로 보냄. 반드시 .toLocal() 로 KST(한국시간) 변환.
       lastMessageAt:
-          DateTime.tryParse(json['last_message_at']?.toString() ?? '') ?? DateTime.now(),
+          (DateTime.tryParse(json['last_message_at']?.toString() ?? '')
+                  ?.toLocal()) ??
+              DateTime.now(),
       createdAt:
-          DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+          (DateTime.tryParse(json['created_at']?.toString() ?? '')
+                  ?.toLocal()) ??
+              DateTime.now(),
       unreadCount: (json['unread_count'] is num)
           ? (json['unread_count'] as num).toInt()
           : 0,
       peerLastReadAt: peerLastReadStr != null
-          ? DateTime.tryParse(peerLastReadStr)
+          ? DateTime.tryParse(peerLastReadStr)?.toLocal()
           : null,
     );
   }

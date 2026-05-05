@@ -66,7 +66,9 @@ class PriceOfferInfo {
         status: nested['status']?.toString() ?? 'pending',
         buyerId: nested['buyer_id']?.toString() ?? '',
         sellerId: nested['seller_id']?.toString() ?? '',
-        respondedAt: DateTime.tryParse(nested['responded_at']?.toString() ?? ''),
+        respondedAt:
+            DateTime.tryParse(nested['responded_at']?.toString() ?? '')
+                ?.toLocal(),
       );
     }
     final flatId = json['offer_id']?.toString();
@@ -142,7 +144,9 @@ class ChatMessage {
       senderNickname: json['sender_nickname'] ?? '익명',
       text: json['text'] ?? '',
       type: type,
-      sentAt: DateTime.tryParse(json['sent_at'] ?? '') ?? DateTime.now(),
+      // 서버는 UTC ISO8601 로 보냄. 반드시 .toLocal() 로 KST(한국시간) 변환.
+      sentAt: (DateTime.tryParse(json['sent_at'] ?? '')?.toLocal()) ??
+          DateTime.now(),
       isMine: currentUserId != null && senderId == currentUserId,
       offer: type == 'price_offer' ? PriceOfferInfo.tryParse(json) : null,
       isRead: false,

@@ -184,8 +184,10 @@ class ChatService extends ChangeNotifier {
     // 마지막 sender 가 peer 면 그 닉네임으로, 본인이면 '익명' 시작.
     final peerNickname =
         (lastSenderId != null && lastSenderId != me) ? lastSenderNickname : '익명';
+    // 서버는 UTC ISO8601 로 보냄. 반드시 .toLocal() 로 KST(한국시간) 변환.
     final lastAt = DateTime.tryParse(
-            rawMsg['last_message_at']?.toString() ?? '') ??
+                rawMsg['last_message_at']?.toString() ?? '')
+            ?.toLocal() ??
         DateTime.now();
     return ChatRoom(
       id: roomId,
@@ -668,7 +670,9 @@ class ChatService extends ChangeNotifier {
             lastMessage: msg['last_message']?.toString() ?? '',
             lastSenderId: msg['last_sender_id']?.toString(),
             lastMessageAt:
-                DateTime.tryParse(msg['last_message_at']?.toString() ?? '') ?? DateTime.now(),
+                DateTime.tryParse(msg['last_message_at']?.toString() ?? '')
+                        ?.toLocal() ??
+                    DateTime.now(),
           );
           _rooms.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
           notifyListeners();
@@ -718,8 +722,9 @@ class ChatService extends ChangeNotifier {
               offer: m.offer!.copyWith(
                 status: newStatus,
                 respondedAt: DateTime.tryParse(
-                      msg['updated_at']?.toString() ?? '',
-                    ) ??
+                          msg['updated_at']?.toString() ?? '',
+                        )
+                        ?.toLocal() ??
                     DateTime.now(),
               ),
             );
@@ -737,7 +742,7 @@ class ChatService extends ChangeNotifier {
         final roomId = msg['room_id']?.toString();
         final readAtStr = msg['read_at']?.toString();
         if (roomId == null || readAtStr == null) break;
-        final readAt = DateTime.tryParse(readAtStr);
+        final readAt = DateTime.tryParse(readAtStr)?.toLocal();
         if (readAt == null) break;
         final idx = _rooms.indexWhere((r) => r.id == roomId);
         if (idx >= 0) {
