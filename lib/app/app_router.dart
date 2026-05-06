@@ -25,6 +25,7 @@ import '../screens/qta_withdraw_screen.dart';
 import '../screens/referrals_screen.dart';
 import '../screens/account_delete_screen.dart';
 import '../screens/profile_verify_screen.dart';
+import '../screens/profile_edit_screen.dart';
 
 GoRouter createRouter(AuthService auth) {
   return GoRouter(
@@ -137,6 +138,11 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(
         path: '/profile/verify',
         builder: (_, __) => const ProfileVerifyScreen(),
+      ),
+      // ★ v1.0.112: 프로필 등록 / 닉네임 수정.
+      GoRoute(
+        path: '/profile/edit',
+        builder: (_, __) => const ProfileEditScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

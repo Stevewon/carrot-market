@@ -480,6 +480,46 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ================================================================
+  // ★ v1.0.112: Nickname update (프로필 편집)
+  //   서버 PUT /api/users/me 가 이미 nickname 변경을 지원 (2~12자, 중복 차단).
+  //   변경 성공 시 로컬 _user 갱신 + SharedPreferences 동기화.
+  //   채팅(`sendMessage` → `sender_nickname`)·통화(`startCall` → `caller_nickname`)
+  //   는 모두 `auth.user!.nickname` 을 즉시 참조하므로, 변경 직후부터 자동 연동.
+  //
+  //   반환: null = 성공, 그 외 = 사용자에게 보여줄 에러 메시지.
+  // ================================================================
+  Future<String?> updateNickname(String nickname) async {
+    if (_user == null) return '로그인이 필요해요';
+    final trimmed = nickname.trim();
+    if (trimmed.length < 2 || trimmed.length > 12) {
+      return '닉네임은 2~12자여야 해요';
+    }
+    if (trimmed == _user!.nickname) {
+      return null; // 동일 닉네임 — no-op.
+    }
+    try {
+      final res = await api.put('/api/users/me', data: {'nickname': trimmed});
+      // 성공: 서버가 user 객체 반환 → 그대로 반영.
+      if (res.statusCode == 200 && res.data is Map) {
+        final data = res.data as Map<String, dynamic>;
+        final userJson = data['user'];
+        if (userJson is Map<String, dynamic>) {
+          _user = User.fromJson(userJson);
+        } else {
+          _user = _user!.copyWith(nickname: trimmed);
+        }
+        await prefs.setString(_kNickname, _user!.nickname);
+        notifyListeners();
+        return null;
+      }
+      // 그 외 응답 → 에러 메시지 추출.
+      return _errorOf(res.data) ?? '닉네임 변경 실패';
+    } catch (e) {
+      return _parseError(e);
+    }
+  }
+
   /// 동네 인증 — GPS 좌표를 서버에 보내고 region 중심점에서 4km 안인지 검증.
   /// 통과 시 region 과 region_verified_at 이 업데이트된다.
   /// 사생활: 정확한 GPS 는 서버 검증 직후 폐기되고 DB 에 저장되지 않는다.

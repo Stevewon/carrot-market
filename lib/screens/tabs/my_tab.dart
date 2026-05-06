@@ -124,6 +124,21 @@ class _MyTabState extends State<MyTab> {
                                       fontSize: 18,
                                       fontWeight: FontWeight.w800)),
                             ),
+                            // ★ v1.0.112: 닉네임 옆 편집(연필) 아이콘 — 탭하면
+                            //   프로필 편집 화면으로 이동. 채팅·통화는
+                            //   auth.user!.nickname 을 즉시 참조하므로
+                            //   변경 직후부터 자동 연동된다.
+                            const SizedBox(width: 4),
+                            InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () => context.push('/profile/edit'),
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(Icons.edit_outlined,
+                                    size: 16,
+                                    color: EggplantColors.textSecondary),
+                              ),
+                            ),
                             const SizedBox(width: 6),
                             _VerificationBadge(level: user.verificationLevel),
                           ],
@@ -184,6 +199,15 @@ class _MyTabState extends State<MyTab> {
               icon: Icons.chat_bubble_outline,
               title: '채팅',
               onTap: () => context.go('/?tab=2'),
+            ),
+            // ★ v1.0.112: 프로필 등록/수정 — 닉네임 변경. 채팅·통화에
+            //   즉시 자동 연동됨 (auth.user!.nickname 직접 참조).
+            _MenuTile(
+              icon: Icons.person_outline,
+              title: '프로필 등록 / 닉네임 수정',
+              subtitle: '채팅·통화에 표시될 내 닉네임 설정',
+              trailing: user.nickname,
+              onTap: () => context.push('/profile/edit'),
             ),
             _MenuTile(
               icon: Icons.location_on_outlined,
