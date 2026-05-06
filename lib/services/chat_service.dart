@@ -345,6 +345,18 @@ class ChatService extends ChangeNotifier {
     //  을 일괄 정리. roomId.hashCode 단일 cancel 만으로 누락되던 케이스 보강.
     // ignore: discarded_futures
     NotificationService.instance.cancelAllChatNotifications();
+    // ★ v1.0.110 (이슈 2): SharedPreferences pending push 큐도 함께 비우기.
+    //  background isolate(_enqueuePendingPush)가 LauncherBadge.set(list.length)
+    //  로 큐 길이 기준 뱃지를 표시하므로, 큐를 비우지 않으면 다음 백그라운드
+    //  푸시 1건 더 받았을 때 뱃지가 누적된 길이로 다시 표시됨.
+    // ignore: discarded_futures
+    _clearPendingPushQueue();
+    // ★ v1.0.110 (이슈 2): 채팅방 진입 → 무조건 뱃지 0 으로 강제. totalUnread 가
+    //  WS 동기화 지연으로 0 이 아닐 가능성 대비. _syncLauncherBadge 도 직후 호출.
+    try {
+      // ignore: discarded_futures
+      LauncherBadge.set(0);
+    } catch (_) {}
     // ★ 7차 푸시: 런처 아이콘 뱃지 동기화 (totalUnread 기준).
     //  채팅방 진입 시 unread=0 → 바탕화면 아이콘 뱃지도 함께 갱신.
     // ignore: discarded_futures
@@ -355,6 +367,18 @@ class ChatService extends ChangeNotifier {
         'room_id': roomId,
         'read_at': DateTime.now().toUtc().toIso8601String(),
       });
+    }
+  }
+
+  /// ★ v1.0.110 (이슈 2): SharedPreferences pending push 큐를 완전 비움.
+  ///   background isolate 가 채워둔 큐 길이를 0 으로 만들어, 다음 백그라운드
+  ///   푸시 도착 전까지 뱃지가 누적되지 않도록 보장.
+  Future<void> _clearPendingPushQueue() async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      await sp.remove(kPendingPushQueueKey);
+    } catch (e) {
+      debugPrint('[chat] clear pending queue failed: $e');
     }
   }
 
@@ -674,6 +698,20 @@ class ChatService extends ChangeNotifier {
           //  fromPeer && !inRoom 이면 unread+1 → 바탕화면 뱃지도 갱신.
           // ignore: discarded_futures
           _syncLauncherBadge();
+
+          // ★ v1.0.110 (이슈 2): 방 안에서 메시지 송수신 시에도 chat_messages
+          //  채널의 시스템 알림을 즉시 일괄 정리. 이전 메시지에 대해 떠 있던
+          //  FCM 푸시가 채팅 중에도 사라지지 않던 문제 보강.
+          if (inRoom) {
+            // ignore: discarded_futures
+            NotificationService.instance.cancelAllChatNotifications();
+            // ignore: discarded_futures
+            _clearPendingPushQueue();
+            try {
+              // ignore: discarded_futures
+              LauncherBadge.set(0);
+            } catch (_) {}
+          }
 
           // If we're inside this room, immediately mark-as-read on the server
           // so the peer sees the "읽음" indicator without delay.

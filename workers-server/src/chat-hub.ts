@@ -312,10 +312,23 @@ export class ChatHub {
           //  Firebase 키 미등록(placeholder) 환경에서는 sendFcm 이 silent skip.
           if (!delivered) {
             // ignore: discarded_futures - DO 응답 지연 방지 (fire-and-forget)
+            // ★ v1.0.110 (이슈 3): FCM data 필드에 text/sender 정보 포함.
+            //  data 영역은 OS 알림 트레이에 노출되지 않는 메타데이터(클라이언트만
+            //  읽음) → 익명성 정책 위반 X. 클라이언트 applyIncomingPushMessage
+            //  가 이 text 를 합성 ChatMessage 로 채팅방에 추가 → 푸시 받은
+            //  사용자가 채팅방 진입 시 첫 메시지 정상 표시.
+            //  (title/body 는 그대로 generic 유지 — 익명성 보존)
             this.sendOfflinePush(peerId, {
               title: '새 메시지',
               body: '새 메시지가 도착했어요',
-              data: { type: 'message', room_id },
+              data: {
+                type: 'message',
+                room_id,
+                text,
+                sender_id: meta.userId,
+                sender_nickname: meta.nickname || '익명',
+                sent_at: sentAt,
+              },
               isCall: false,
             });
           }
