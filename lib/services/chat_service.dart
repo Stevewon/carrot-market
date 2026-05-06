@@ -470,10 +470,14 @@ class ChatService extends ChangeNotifier {
     //  들고 와도 중복 표시 X.
     if (text != null && text.isNotEmpty && senderId != null && senderId.isNotEmpty) {
       final list = _roomMessages.putIfAbsent(roomId, () => <ChatMessage>[]);
+      // ★ v1.0.111 (이슈 3): 5초 윈도우가 너무 광범위해서 사용자가 빠르게
+      //  같은 단어를 여러 번 보낼 때(예: "ㅋㅋ", "ㅋㅋ", "ㅋㅋ") 두/세번째
+      //  메시지가 첫 메시지와 중복으로 오인되어 사라지던 버그 수정.
+      //  → sentAt 정밀 일치(±200ms) 또는 동일 메시지 id 기준으로만 dedup.
       final dup = list.any((m) =>
           m.senderId == senderId &&
           m.text == text &&
-          (m.sentAt.difference(now).inSeconds).abs() <= 5);
+          (m.sentAt.difference(now).inMilliseconds).abs() <= 200);
       if (!dup) {
         list.add(ChatMessage(
           id: 'push_${now.microsecondsSinceEpoch}',

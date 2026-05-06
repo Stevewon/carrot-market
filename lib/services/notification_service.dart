@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -220,22 +221,36 @@ class NotificationService {
   ///
   ///   getActiveNotifications() 로 현재 표시 중인 알림 enumerate 후
   ///   해당 채널('chat_messages') 알림을 일괄 cancel.
+  ///
+  ///   ★ v1.0.111 (이슈 1 보강): flutter_local_notifications 의 cancel 은
+  ///   플러그인 본인이 띄운 알림만 정리한다. FCM notification payload 가 OS 에
+  ///   직접 띄운 알림은 잡히지 않으므로, native MethodChannel 로
+  ///   NotificationManager.cancelAll() 을 호출해 트레이를 강제 정리.
   Future<void> cancelAllChatNotifications() async {
+    // 1) flutter_local_notifications 가 띄운 chat_messages 채널 알림 정리.
     try {
       final androidImpl = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
-      if (androidImpl == null) return;
-      final active = await androidImpl.getActiveNotifications();
-      for (final n in active) {
-        // chat_messages 채널 알림만 정리 (call/keyword 알림은 보존).
-        if (n.channelId == 'chat_messages' && n.id != null) {
-          try {
-            await _plugin.cancel(n.id!);
-          } catch (_) {}
+      if (androidImpl != null) {
+        final active = await androidImpl.getActiveNotifications();
+        for (final n in active) {
+          // chat_messages 채널 알림만 정리 (call/keyword 알림은 보존).
+          if (n.channelId == 'chat_messages' && n.id != null) {
+            try {
+              await _plugin.cancel(n.id!);
+            } catch (_) {}
+          }
         }
       }
     } catch (e) {
-      debugPrint('[notif] cancelAllChatNotifications failed: $e');
+      debugPrint('[notif] cancelAllChatNotifications (plugin) failed: $e');
+    }
+    // 2) ★ v1.0.111: FCM 이 띄운 OS 트레이 알림까지 native 로 일괄 정리.
+    try {
+      const ch = MethodChannel('eggplant.market/notification_cleanup');
+      await ch.invokeMethod<bool>('cancelAll');
+    } catch (e) {
+      debugPrint('[notif] native cancelAll failed: $e');
     }
   }
 }

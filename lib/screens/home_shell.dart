@@ -44,6 +44,23 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
+  /// ★ v1.0.111 (이슈 2): '/'?tab=N 으로 재이동 시 GoRouter 가 같은 라우트라
+  ///  HomeShell 을 새로 만들지 않을 수 있다. didUpdateWidget 으로 initialTab
+  ///  변경을 감지해 _currentIndex 를 동기화 → 찜한 상품 메뉴 → /?tab=1 이
+  ///  실제로 찜 탭으로 전환되도록 보장.
+  @override
+  void didUpdateWidget(covariant HomeShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTab != oldWidget.initialTab &&
+        widget.initialTab != _currentIndex) {
+      // 다음 프레임에 setState — build 도중 setState 금지.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _currentIndex = widget.initialTab);
+      });
+    }
+  }
+
   /// 가입/로그인 응답에 포함된 `qta_bonus` 가 있으면 1회 안내 스낵바.
   void _showQtaBonusIfAny(AuthService auth) {
     final bonus = auth.pendingQtaBonus;

@@ -1,5 +1,7 @@
 package com.eggplant.market
 
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
@@ -13,6 +15,11 @@ class MainActivity: FlutterActivity() {
     //   flutter_app_badger 1.5.0 이 AGP 8.x namespace 비호환 → MethodChannel 직접 구현.
     //   Samsung/Sony/Xiaomi/Huawei/LG 런처 OEM intent broadcast 직접 전송.
     private val BADGE_CHANNEL = "eggplant.market/launcher_badge"
+    // ★ v1.0.111 (이슈 1): FCM 서버 푸시 알림 native 정리 채널.
+    //   flutter_local_notifications 의 cancelAll() 은 플러그인이 띄운 알림만
+    //   정리하므로, FCM notification payload 가 OS 에 직접 띄운 알림이 그대로
+    //   남는다. NotificationManager.cancelAll() 을 native 에서 직접 호출.
+    private val NOTIF_CHANNEL = "eggplant.market/notification_cleanup"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -59,6 +66,25 @@ class MainActivity: FlutterActivity() {
                         // 시도 자체가 실패 안 함 (intent 보내는 행위는 항상 성공),
                         // 실제 표시 여부는 OEM 런처 설정에 달림 → 항상 true 반환.
                         result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        // ★ v1.0.111 (이슈 1): FCM notification payload 가 띄운 시스템 알림을
+        //  native NotificationManager.cancelAll() 로 일괄 정리. 채팅방 진입 시
+        //  호출해서 푸시 트레이를 깨끗하게 정리한다.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NOTIF_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "cancelAll" -> {
+                        try {
+                            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                            nm.cancelAll()
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
                     }
                     else -> result.notImplemented()
                 }
