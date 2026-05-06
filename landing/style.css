@@ -622,29 +622,34 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .steps p { font-size: 14px; color: var(--text-2); margin: 0; line-height: 1.6; }
 
 /* ===================== Trust ===================== */
-/* ★ 사장님 보고 (왼쪽 쏠림 수정 v2):
- *   .trust 가 풀폭 배경 wrapper, .trust-grid 가 안쪽 가운데 정렬 컨테이너.
- *   margin-inline: auto + width: min(100%, var(--max)) 로 강제 가운데 정렬.
- *   box-sizing 명시로 padding 포함 폭 계산. *::before/after 와 무관하게 정확히 가운데.
+/* ★ 사장님 보고 (왼쪽 쏠림 수정 v3 — 정밀 진단 후 근본 해결):
+ *   v1/v2 에서 .section + .trust 의 margin/max-width 가 충돌해 carda 정렬축이
+ *   다른 섹션과 어긋났음. 구조를 명확히 분리:
+ *   - .trust-wrap : 풀폭(100%) 배경 wrapper. max-width 없음.
+ *   - .trust-inner : 다른 .section 과 동일한 max-width(1180px) + 좌우 padding.
+ *                    가운데 정렬은 margin-inline: auto 로 보장.
+ *   - .trust-grid  : 카드 그리드. width: 100% 로 부모 폭 100% 채움.
+ *   결과: Hero/Features/QTA/How/FAQ 섹션과 정확히 같은 정렬축에 카드들이 정렬됨.
  */
-.trust {
+.trust-wrap {
   background: var(--bg-soft);
   margin: 24px 0;
   width: 100%;
-  display: block;
   box-sizing: border-box;
 }
-.trust .trust-grid {
-  width: min(100%, var(--max));
+.trust-inner {
+  max-width: var(--max);
+  width: 100%;
   margin-inline: auto;
-  margin-block: 0;
   padding: 56px 18px;
+  box-sizing: border-box;
+}
+.trust-grid {
+  width: 100%;
   display: grid;
   grid-template-columns: 1fr;
   gap: 14px;
   box-sizing: border-box;
-  justify-items: stretch;
-  align-items: stretch;
 }
 .trust-card {
   background: #fff;
@@ -806,7 +811,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 @media (min-width: 720px) {
   .features { grid-template-columns: repeat(2, 1fr); gap: 18px; }
   .steps    { grid-template-columns: repeat(3, 1fr); gap: 18px; }
-  .trust .trust-grid { grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .trust-grid { grid-template-columns: repeat(2, 1fr); gap: 18px; }
   .qta-card { grid-template-columns: 1.4fr 1fr; padding: 44px 32px; }
   .download .dl-card { grid-template-columns: 1.5fr 1fr; padding: 44px 36px; }
   .hero { padding: 56px 18px 64px; }
@@ -838,8 +843,8 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   .steps { gap: 22px; }
   .steps li { padding: 28px; }
 
-  .trust .trust-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; }
-  .trust .trust-grid { padding: 72px 24px; }
+  .trust-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .trust-inner { padding: 72px 24px; }
 
   .section { padding: 84px 24px; }
 
