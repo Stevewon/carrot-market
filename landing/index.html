@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#6E3CC4" />
+<meta name="description" content="Eggplant 🍆 — QR 코드로 만나는 완전 익명 중고거래 마켓. 전화번호도, 실명도, 이메일도 필요 없어요." />
+<meta name="keywords" content="가지마켓, 이그플랜트, eggplant, 중고거래, QR마켓, 익명거래, QTA, 가지토큰" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Eggplant 🍆 — QR로 만나는 완전 익명 중고거래" />
+<meta property="og:description" content="전화번호도 실명도 필요 없는 가지마켓. 휘발성 채팅 + QTA 토큰 채굴 + 동네 거래." />
+<meta property="og:image" content="/assets/eggplant-mascot.png" />
+<meta property="og:url" content="https://eggplant.life/" />
+<meta name="twitter:card" content="summary_large_image" />
+<title>Eggplant 🍆 — 완전 익명 중고거래 마켓</title>
+<link rel="icon" type="image/png" href="/assets/eggplant-mascot.png" />
+<link rel="apple-touch-icon" href="/assets/eggplant-mascot.png" />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<!-- ===================== Navigation ===================== -->
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="#top" class="nav-brand" aria-label="Eggplant 홈">
+      <img src="/assets/eggplant-mascot.png" alt="" class="nav-logo" />
+      <span class="nav-title">Eggplant <span class="nav-emoji">🍆</span></span>
+    </a>
+    <nav class="nav-links" aria-label="주요 메뉴">
+      <a href="#features">기능</a>
+      <a href="#qta">QTA 토큰</a>
+      <a href="#how">사용법</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="nav-cta" href="#download">앱 받기</a>
+    <button class="nav-burger" id="burger" aria-label="메뉴 열기" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="nav-drawer" id="drawer" hidden>
+    <a href="#features">기능</a>
+    <a href="#qta">QTA 토큰</a>
+    <a href="#how">사용법</a>
+    <a href="#faq">FAQ</a>
+    <a href="#download" class="drawer-cta">앱 받기</a>
+  </div>
+</header>
+
+<!-- ===================== Hero ===================== -->
+<section class="hero" id="top">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="hero-inner">
+    <div class="hero-text">
+      <span class="badge">🇰🇷 한국 동네 기반 · QR 완전 익명</span>
+      <h1>전화번호도, 실명도 없이<br/>
+        <span class="grad">QR 하나로 거래하세요</span>
+      </h1>
+      <p class="hero-sub">
+        Eggplant은 <b>QR 코드 한 번</b>으로 채팅·거래가 시작되는
+        완전 익명 중고거래 마켓입니다. 메시지는 <b>서버에도 기기에도 남지 않고</b>,
+        거래만으로 <b>QTA 토큰</b>이 쌓입니다.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn primary" href="https://github.com/Stevewon/carrot-market/releases/latest" target="_blank" rel="noopener">
+          <span class="btn-emoji">📥</span> 안드로이드 APK 받기
+        </a>
+        <a class="btn ghost" href="#features">기능 둘러보기</a>
+      </div>
+      <ul class="hero-stats" aria-label="핵심 수치">
+        <li><b>0</b><span>개인정보 수집</span></li>
+        <li><b>0초</b><span>채팅 보존 시간</span></li>
+        <li><b>+500</b><span>가입 QTA 보너스</span></li>
+      </ul>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="phone">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="phone-app">
+            <div class="phone-app-bar">
+              <span class="phone-dot"></span><span class="phone-dot"></span><span class="phone-dot"></span>
+              <span class="phone-app-title">🍆 가지마켓</span>
+            </div>
+            <div class="phone-card">
+              <div class="phone-card-img"></div>
+              <div class="phone-card-body">
+                <div class="phone-card-title">서울 마포 · 따끈한 새 책</div>
+                <div class="phone-card-price">15,000원</div>
+                <div class="phone-card-meta">❤️ 12 · 💬 3 · 36.5℃</div>
+              </div>
+            </div>
+            <div class="phone-card alt">
+              <div class="phone-card-img alt"></div>
+              <div class="phone-card-body">
+                <div class="phone-card-title">QR 채팅으로 시작</div>
+                <div class="phone-card-price">+10 QTA</div>
+                <div class="phone-card-meta">⚡ 휘발성 메시지</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="floating-mascot" role="img" aria-label="가지 마스코트">
+        <img src="/assets/eggplant-mascot.png" alt="" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== Features ===================== -->
+<section class="section" id="features">
+  <div class="section-head">
+    <h2>왜 <span class="grad">Eggplant 🍆</span> 인가요?</h2>
+    <p>다른 마켓과 다른 6가지 차별화 포인트</p>
+  </div>
+  <div class="features">
+    <article class="feature">
+      <div class="feature-icon">🔐</div>
+      <h3>완전 익명 가입</h3>
+      <p>전화번호·이메일·실명 <b>일체 수집 안 함</b>. 닉네임 + 기기 UUID 만으로 즉시 시작.</p>
+    </article>
+    <article class="feature">
+      <div class="feature-icon">📲</div>
+      <h3>QR 한 번에 연결</h3>
+      <p>판매자 QR을 스캔하면 <b>채팅방·거래 시작</b>. 친구 추가, 전화번호 교환 모두 불필요.</p>
+    </article>
+    <article class="feature">
+      <div class="feature-icon">💨</div>
+      <h3>휘발성 채팅 (QRChat)</h3>
+      <p>메시지는 <b>서버에도 기기에도 저장 X</b>. 화면을 벗어나면 대화는 즉시 증발합니다.</p>
+    </article>
+    <article class="feature">
+      <div class="feature-icon">🪙</div>
+      <h3>QTA 토큰 채굴</h3>
+      <p>가입 +500, 출석 +10/일, 거래 완료 시 양쪽 +10. 5,000 QTA 부터 <b>지갑 출금</b>까지.</p>
+    </article>
+    <article class="feature">
+      <div class="feature-icon">🏘️</div>
+      <h3>동네 기반 거래</h3>
+      <p>GPS 기반 동네 인증. 반경 2~10 km로 거리 필터링, 매너온도(36.5℃)로 신뢰도 표시.</p>
+    </article>
+    <article class="feature">
+      <div class="feature-icon">🛡️</div>
+      <h3>스크린샷 차단</h3>
+      <p>Android FLAG_SECURE 적용. 거래 채팅이 캡처돼 외부에 유출될 위험을 원천 차단.</p>
+    </article>
+  </div>
+</section>
+
+<!-- ===================== QTA 토큰 섹션 ===================== -->
+<section class="section qta" id="qta">
+  <div class="qta-card">
+    <div class="qta-text">
+      <span class="badge purple">🪙 QTA Token</span>
+      <h2>거래만으로 <span class="grad">자산</span>이 쌓입니다</h2>
+      <p>Eggplant 안에서 활동하는 것만으로 QTA 토큰이 쌓이고,
+        쌓인 QTA는 <b>퀀타리움 지갑</b>으로 실제 출금이 가능합니다.</p>
+      <ul class="qta-list">
+        <li><span>🎁</span><div><b>회원가입 보너스</b><i>+500 QTA</i></div></li>
+        <li><span>📅</span><div><b>출석 보너스</b><i>+10 QTA · 하루 3번</i></div></li>
+        <li><span>🤝</span><div><b>거래 완료 보상</b><i>판매자 +10 / 구매자 +10</i></div></li>
+        <li><span>🔍</span><div><b>둘러보기 채굴</b><i>10개 상품 둘러보면 보너스</i></div></li>
+        <li><span>💸</span><div><b>지갑 출금</b><i>5,000 QTA 부터 5,000 단위</i></div></li>
+      </ul>
+    </div>
+    <div class="qta-vis" aria-hidden="true">
+      <div class="qta-coin">
+        <div class="qta-coin-face">QTA</div>
+      </div>
+      <div class="qta-bar">
+        <div class="qta-bar-fill"></div>
+        <span class="qta-bar-label">채굴 진행도 7 / 10</span>
+      </div>
+      <div class="qta-balance">
+        <span>현재 잔액</span>
+        <b>12,540 <em>QTA</em></b>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== How it works ===================== -->
+<section class="section" id="how">
+  <div class="section-head">
+    <h2>3단계로 끝나는 <span class="grad">거래 시작</span></h2>
+    <p>회원가입부터 첫 채팅까지 1분이면 충분합니다.</p>
+  </div>
+  <ol class="steps">
+    <li>
+      <div class="step-num">1</div>
+      <h3>닉네임 입력 → 가입</h3>
+      <p>이메일·전화번호 입력 0건. 닉네임 한 줄로 즉시 가지마켓 입성.</p>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <h3>상품 등록 또는 QR 스캔</h3>
+      <p>사진을 올려 상품을 등록하거나, 마음에 드는 상품의 QR을 스캔하세요.</p>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <h3>휘발성 채팅 → 거래 → QTA</h3>
+      <p>대화는 흔적 없이 사라지고, 거래 완료 시 양쪽 모두 QTA 가 쌓입니다.</p>
+    </li>
+  </ol>
+</section>
+
+<!-- ===================== Tech / Trust ===================== -->
+<section class="section trust">
+  <div class="trust-grid">
+    <div class="trust-card">
+      <div class="trust-icon">⚡</div>
+      <h3>Cloudflare Edge</h3>
+      <p>전 세계 어디서든 <b>50ms 이내</b> 응답. Workers + D1 + R2 풀스택 엣지 인프라.</p>
+    </div>
+    <div class="trust-card">
+      <div class="trust-icon">🔒</div>
+      <h3>End-to-End 보안</h3>
+      <p>JWT 인증 · HTTPS only · WebSocket TLS · 메시지 즉시 폐기 정책.</p>
+    </div>
+    <div class="trust-card">
+      <div class="trust-icon">🛰️</div>
+      <h3>실시간 채팅·통화</h3>
+      <p>Durable Objects + WebRTC 시그널링으로 1:1 채팅과 음성 통화 모두 지원.</p>
+    </div>
+    <div class="trust-card">
+      <div class="trust-icon">📱</div>
+      <h3>크로스플랫폼</h3>
+      <p>Flutter 기반 안드로이드 / iOS 동일 UX. 한 번 만들면 모든 기기에서 동작.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== Download CTA ===================== -->
+<section class="section download" id="download">
+  <div class="dl-card">
+    <div class="dl-text">
+      <h2>지금 바로 <span class="grad">가지마켓</span>을 시작하세요</h2>
+      <p>Android APK 를 받아 설치하면 <b>가입 즉시 +500 QTA</b> 가 지급됩니다.</p>
+      <div class="dl-ctas">
+        <a class="btn primary big" href="https://github.com/Stevewon/carrot-market/releases/latest" target="_blank" rel="noopener">
+          📥 Android APK 다운로드
+        </a>
+        <a class="btn ghost big" href="#faq">설치 도움말</a>
+      </div>
+      <p class="dl-note">iOS 버전은 곧 공개됩니다. 🍎</p>
+    </div>
+    <div class="dl-mascot" aria-hidden="true">
+      <img src="/assets/eggplant-mascot.png" alt="" />
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FAQ ===================== -->
+<section class="section" id="faq">
+  <div class="section-head">
+    <h2>자주 묻는 질문</h2>
+    <p>설치·사용·QTA 관련해 가장 많이 받는 질문 모음</p>
+  </div>
+  <div class="faq">
+    <details>
+      <summary>정말로 전화번호 없이 가입되나요?</summary>
+      <p>네. 닉네임만 입력하면 기기 UUID 와 함께 즉시 가입됩니다. 전화번호·이메일·실명을 묻는 화면 자체가 없습니다.</p>
+    </details>
+    <details>
+      <summary>채팅 메시지는 어디에 저장되나요?</summary>
+      <p>저장되지 않습니다. 메시지는 WebSocket 으로 실시간 전송되고 화면을 벗어나는 즉시 메모리에서 폐기됩니다. 서버 DB·기기 캐시 모두 보관 0건입니다.</p>
+    </details>
+    <details>
+      <summary>QTA 토큰은 어떻게 출금하나요?</summary>
+      <p>잔액이 5,000 QTA 이상이면 마이페이지 → 지갑카드 → 출금 메뉴에서 퀀타리움 지갑으로 송금 신청할 수 있습니다. 5,000 단위로만 신청 가능합니다.</p>
+    </details>
+    <details>
+      <summary>APK 설치 시 "알 수 없는 출처" 경고가 떠요.</summary>
+      <p>Android 정책상 Google Play 외부 APK 설치 시 한 번 허용해주셔야 합니다. 설정 → 앱 → 브라우저(Chrome 등) → "알 수 없는 앱 설치 허용" 토글 ON 후 설치하시면 됩니다.</p>
+    </details>
+    <details>
+      <summary>거래 사기가 발생하면 어떻게 되나요?</summary>
+      <p>매너온도 시스템과 신고 기능이 내장되어 있습니다. 신고된 사용자는 자동으로 노출이 줄고, 반복 신고 시 계정이 차단됩니다.</p>
+    </details>
+    <details>
+      <summary>iOS 버전은 언제 나오나요?</summary>
+      <p>App Store 심사 준비 중입니다. 출시되면 본 페이지에서 가장 먼저 공지드리겠습니다.</p>
+    </details>
+  </div>
+</section>
+
+<!-- ===================== Footer ===================== -->
+<footer class="foot">
+  <div class="foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/eggplant-mascot.png" alt="" />
+      <div>
+        <b>Eggplant 🍆</b>
+        <span>QR 기반 완전 익명 중고거래 마켓</span>
+      </div>
+    </div>
+    <div class="foot-cols">
+      <div>
+        <h4>제품</h4>
+        <a href="#features">기능</a>
+        <a href="#qta">QTA 토큰</a>
+        <a href="#download">앱 다운로드</a>
+      </div>
+      <div>
+        <h4>지원</h4>
+        <a href="#faq">FAQ</a>
+        <a href="https://api.eggplant.life/" target="_blank" rel="noopener">API 상태</a>
+        <a href="mailto:support@eggplant.life">문의 메일</a>
+      </div>
+      <div>
+        <h4>법적 고지</h4>
+        <a href="#">이용약관</a>
+        <a href="#">개인정보처리방침</a>
+        <a href="#">사업자정보</a>
+      </div>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <span>© 2026 Eggplant. All rights reserved.</span>
+    <span>Built on ⚡ Cloudflare Workers + D1 + R2</span>
+  </div>
+</footer>
+
+<script src="/main.js" defer></script>
+</body>
+</html>
