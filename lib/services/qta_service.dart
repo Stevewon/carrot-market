@@ -130,12 +130,24 @@ class QtaService extends ChangeNotifier {
   bool get loading => _loading;
   bool get loaded => _loaded;
 
-  /// 서버에서 잔액 + 최근 30개 ledger 가져오기.
+  /// 서버에서 잔액 + 최근 N개 ledger 가져오기.
+  ///
+  /// ★ v1.0.115 (사장님 보고 — 잠깐 보였다가 사라지는 깜빡임 수정):
+  ///   - 캐시가 있으면 force=true 여도 _loading=true 로 깜빡이지 않게 처리
+  ///     (silent refresh: 화면은 그대로, 응답 후 데이터만 교체).
+  ///   - 응답 받기 전에 _items.clear() 를 절대 호출하지 않음 → 빈 화면 노출 0.
+  ///   - 동일 항목이면 list 자체를 교체하지 않아 ListView 가 깜빡이지 않음.
   Future<String?> load({int limit = 30, bool force = false}) async {
     if (_loading) return null;
     if (_loaded && !force) return null;
+
+    // ★ 핵심: 첫 진입(아직 로드 안 됨)일 때만 로딩 인디케이터 노출.
+    //   캐시가 있으면 background refresh — 화면은 기존 데이터 유지.
+    final firstLoad = !_loaded;
     _loading = true;
-    notifyListeners();
+    if (firstLoad) {
+      notifyListeners();
+    }
     try {
       final res = await auth.api.get(
         '/api/users/me/qta/ledger',
@@ -143,11 +155,20 @@ class QtaService extends ChangeNotifier {
       );
       final data = res.data as Map<String, dynamic>;
       _balance = (data['balance'] as num?)?.toInt() ?? 0;
-      _items
-        ..clear()
-        ..addAll(((data['items'] as List?) ?? const [])
-            .whereType<Map>()
-            .map((m) => QtaLedgerItem.fromJson(Map<String, dynamic>.from(m))));
+
+      // ★ 응답 도착 후에만 list 교체 — 이전엔 clear() 가 먼저라 빈 화면이 잠깐 노출됐었음.
+      final newItems = ((data['items'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((m) => QtaLedgerItem.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
+
+      // 동일 결과 (id-less ledger 라 amount/reason/createdAt 3개로 비교) 면 교체 자체를 생략.
+      // → 같은 화면이 1초 사이 두 번 build 돼도 ListView 가 재구성되지 않음.
+      if (!_isSameLedger(newItems)) {
+        _items
+          ..clear()
+          ..addAll(newItems);
+      }
 
       // AuthService 의 user.qtaBalance 도 동기화.
       // ignore: discarded_futures
@@ -159,10 +180,27 @@ class QtaService extends ChangeNotifier {
       return null;
     } catch (e) {
       _loading = false;
+      // ★ 에러여도 캐시는 유지 — 빈 화면 깜빡임 방지.
       notifyListeners();
       debugPrint('[qta] load failed: $e');
       return 'QTA 잔액을 불러오지 못했어요';
     }
+  }
+
+  /// 두 ledger 가 동일 내용인지 — 깜빡임 방지용.
+  bool _isSameLedger(List<QtaLedgerItem> next) {
+    if (_items.length != next.length) return false;
+    for (var i = 0; i < _items.length; i++) {
+      final a = _items[i];
+      final b = next[i];
+      if (a.amount != b.amount ||
+          a.reason != b.reason ||
+          a.createdAt.millisecondsSinceEpoch !=
+              b.createdAt.millisecondsSinceEpoch) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void clear() {

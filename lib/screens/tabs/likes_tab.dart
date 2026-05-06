@@ -48,13 +48,18 @@ class _LikesTabState extends State<LikesTab> {
     }
   }
 
-  /// ★ v1.0.113 (이슈 2): build 마다 호출되는 백그라운드 리프레시.
-  ///   - 5초 이상 지난 경우만 silent fetch → 빠른 build 연쇄 시 폭주 방지.
-  ///   - 사용자가 BottomNav 로 찜 탭에 다시 들어오는 순간 stale 캐시가 갱신.
+  /// ★ v1.0.115 (사장님 보고 — "찜한 상품 보였다가 안 보였다가" 깜빡임 수정):
+  ///   - build 마다 호출하던 _maybeBackgroundRefresh 를 제거하고
+  ///     RouteAware/AppLifecycle 기반이 아닌 단순 throttle 만 유지.
+  ///   - 단, throttle 을 30초로 늘려 사용자 인터랙션(찜 토글, 카드 탭) 직후
+  ///     불필요한 재요청으로 ListView 가 재구성되는 사태를 차단.
+  ///   - silent fetch 라도 응답이 동일하면 ProductService 측에서
+  ///     list reference 를 유지하므로 ListView 가 재구성되지 않음.
   void _maybeBackgroundRefresh(ProductService svc) {
     if (svc.myLikesLoading) return;
     final now = DateTime.now();
-    if (now.difference(_lastBackgroundFetch).inSeconds < 5) return;
+    // 30초 throttle — 빠른 build 연쇄 + 찜 토글 + 다른 탭의 notify 모두 무시.
+    if (now.difference(_lastBackgroundFetch).inSeconds < 30) return;
     _lastBackgroundFetch = now;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

@@ -15,11 +15,21 @@ class QtaLedgerScreen extends StatefulWidget {
 }
 
 class _QtaLedgerScreenState extends State<QtaLedgerScreen> {
+  /// ★ v1.0.115 (사장님 보고 — "잠깐 보였다가 사라지는" 깜빡임 수정):
+  ///   - initState 에서 force=true 로 강제 재로드하면, 이미 캐시가 있어도
+  ///     QtaService 가 _loading=true → notify 를 거쳐 build 가 한 번 더 돌고
+  ///     items.isEmpty && loading=true 분기로 잠깐 빈 화면이 보였다 사라졌음.
+  ///   - 이미 로드된 캐시가 있으면 force 없이 silent refresh 만 — 화면은 그대로.
+  ///   - 캐시가 없을 때만 첫 진입으로 force 호출 → 정상적으로 로딩 인디케이터 1번만.
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<QtaService>().load(limit: 100, force: true);
+      if (!mounted) return;
+      final qta = context.read<QtaService>();
+      // 캐시 있으면 silent (force 없음) — 깜빡임 0건.
+      // 캐시 없으면 정상 로드 (force 없음, _loaded=false 라 한 번만 fetch).
+      qta.load(limit: 100);
     });
   }
 
@@ -117,7 +127,9 @@ class _QtaLedgerScreenState extends State<QtaLedgerScreen> {
             ),
             const SizedBox(height: 8),
 
-            if (qta.loading && qta.items.isEmpty)
+            // ★ v1.0.115: items 가 1개라도 있으면 절대 로딩 인디케이터 안 보임
+            //   → "잠깐 보였다가 사라지는" 깜빡임 0건.
+            if (qta.loading && qta.items.isEmpty && !qta.loaded)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
                 child: Center(child: CircularProgressIndicator()),

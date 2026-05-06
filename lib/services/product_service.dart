@@ -227,31 +227,80 @@ class ProductService extends ChangeNotifier {
 
   /// Reload the user's liked products into the cache.
   /// Returns the list for convenience.
+  ///
+  /// ★ v1.0.115 (사장님 보고 — 찜한 상품 보였다가 안 보였다가 깜빡임 수정):
+  ///   - 동시 호출 차단: 이미 로딩 중이면 즉시 캐시 반환 (중복 fetch 방지).
+  ///   - silent=true 일 땐 fetch 시작 시 notifyListeners() 호출 안 함
+  ///     → build 도중 fetch 가 발사돼도 ListView 가 다시 그려지지 않음.
+  ///   - 응답 동일하면 list 자체를 교체하지 않아 ListView 재구성 0건.
   Future<List<Product>> fetchMyLikes({bool silent = false}) async {
+    // ★ 동시 호출 차단 — build 마다 호출돼도 단일 진입만 허용.
+    if (_myLikesLoading) return _myLikes;
+
+    _myLikesLoading = true;
     if (!silent) {
-      _myLikesLoading = true;
       _myLikesError = null;
       notifyListeners();
     }
+    bool dataChanged = false;
+    bool errorChanged = false;
     try {
       final res = await auth.api.get('/api/products/my/likes');
-      _myLikes = (res.data['products'] as List? ?? [])
+      final fetched = (res.data['products'] as List? ?? [])
           .map((e) => Product.fromJson(e as Map<String, dynamic>))
           .toList();
-      _myLikesLoaded = true;
-      _myLikesError = null;
+
+      // ★ 동일 결과면 list 교체 생략 — ListView 가 재구성되지 않아 깜빡임 0.
+      if (!_isSameProductList(_myLikes, fetched)) {
+        _myLikes = fetched;
+        dataChanged = true;
+      }
+      if (!_myLikesLoaded) {
+        _myLikesLoaded = true;
+        dataChanged = true;
+      }
+      if (_myLikesError != null) {
+        _myLikesError = null;
+        errorChanged = true;
+      }
     } catch (e) {
       debugPrint('fetchMyLikes error: $e');
       // ★ 이슈 1: 에러 시에도 _myLikesLoaded=true 로 set 해야 다음 진입 때
       //  silent=true 로 가서 무한 빈화면 루프 방지. _myLikesError 로 에러 노출.
-      _myLikesLoaded = true;
-      _myLikesError = '찜한 상품을 불러올 수 없어요';
+      if (!_myLikesLoaded) {
+        _myLikesLoaded = true;
+        dataChanged = true;
+      }
+      final newErr = '찜한 상품을 불러올 수 없어요';
+      if (_myLikesError != newErr) {
+        _myLikesError = newErr;
+        errorChanged = true;
+      }
       // _myLikes 는 기존 캐시 유지 (네트워크 일시 오류 시 화면 깜빡임 방지).
     } finally {
       _myLikesLoading = false;
-      notifyListeners();
+      // ★ v1.0.115 (사장님 보고 — 깜빡임 수정):
+      //   silent=true 일 때는 데이터가 실제로 바뀐 경우에만 notify.
+      //   동일 응답 반복 시 ListView 가 절대 재구성되지 않음 → 깜빡임 0건.
+      //   non-silent 일 땐 로딩 표시 해제를 위해 항상 notify.
+      if (!silent || dataChanged || errorChanged) {
+        notifyListeners();
+      }
     }
     return _myLikes;
+  }
+
+  /// 두 상품 list 가 동일한지 (id + isLiked + status 비교).
+  bool _isSameProductList(List<Product> a, List<Product> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id ||
+          a[i].isLiked != b[i].isLiked ||
+          a[i].status != b[i].status) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// Reload the user's own uploaded products into the cache.
