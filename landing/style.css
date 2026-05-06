@@ -622,14 +622,29 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .steps p { font-size: 14px; color: var(--text-2); margin: 0; line-height: 1.6; }
 
 /* ===================== Trust ===================== */
-.trust { background: var(--bg-soft); margin: 24px 0; }
+/* ★ 사장님 보고 (왼쪽 쏠림 수정 v2):
+ *   .trust 가 풀폭 배경 wrapper, .trust-grid 가 안쪽 가운데 정렬 컨테이너.
+ *   margin-inline: auto + width: min(100%, var(--max)) 로 강제 가운데 정렬.
+ *   box-sizing 명시로 padding 포함 폭 계산. *::before/after 와 무관하게 정확히 가운데.
+ */
+.trust {
+  background: var(--bg-soft);
+  margin: 24px 0;
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
+}
 .trust .trust-grid {
-  max-width: var(--max);
-  margin: 0 auto;
+  width: min(100%, var(--max));
+  margin-inline: auto;
+  margin-block: 0;
   padding: 56px 18px;
   display: grid;
   grid-template-columns: 1fr;
   gap: 14px;
+  box-sizing: border-box;
+  justify-items: stretch;
+  align-items: stretch;
 }
 .trust-card {
   background: #fff;
