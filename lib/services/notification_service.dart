@@ -213,4 +213,29 @@ class NotificationService {
       await _plugin.cancel(roomId.hashCode);
     } catch (_) {}
   }
+
+  /// ★ v1.0.109 (이슈 1): 채팅방 진입 시 그동안 쌓인 FCM 푸시 알림
+  ///   ('chat_messages' 채널) 을 모두 한 번에 정리. roomId.hashCode 단일 cancel
+  ///   만으로는 서버 FCM 이 띄운 시스템 알림이 그대로 남는 케이스가 있어 추가.
+  ///
+  ///   getActiveNotifications() 로 현재 표시 중인 알림 enumerate 후
+  ///   해당 채널('chat_messages') 알림을 일괄 cancel.
+  Future<void> cancelAllChatNotifications() async {
+    try {
+      final androidImpl = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (androidImpl == null) return;
+      final active = await androidImpl.getActiveNotifications();
+      for (final n in active) {
+        // chat_messages 채널 알림만 정리 (call/keyword 알림은 보존).
+        if (n.channelId == 'chat_messages' && n.id != null) {
+          try {
+            await _plugin.cancel(n.id!);
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      debugPrint('[notif] cancelAllChatNotifications failed: $e');
+    }
+  }
 }

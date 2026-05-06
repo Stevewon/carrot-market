@@ -341,6 +341,10 @@ class ChatService extends ChangeNotifier {
     // 시스템 알림(푸시) 도 정리.
     // ignore: discarded_futures
     NotificationService.instance.cancelForRoom(roomId);
+    // ★ v1.0.109 (이슈 1): chat_messages 채널의 모든 알림(=FCM 서버푸시 포함)
+    //  을 일괄 정리. roomId.hashCode 단일 cancel 만으로 누락되던 케이스 보강.
+    // ignore: discarded_futures
+    NotificationService.instance.cancelAllChatNotifications();
     // ★ 7차 푸시: 런처 아이콘 뱃지 동기화 (totalUnread 기준).
     //  채팅방 진입 시 unread=0 → 바탕화면 아이콘 뱃지도 함께 갱신.
     // ignore: discarded_futures
@@ -431,6 +435,39 @@ class ChatService extends ChangeNotifier {
       );
       _rooms.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
     }
+
+    // ★ v1.0.109 (이슈 2): 푸시 payload 의 본문(text)을 채팅방 메시지 리스트
+    //  (_roomMessages[roomId])에도 합성 메시지로 추가. 휘발성 정책상 서버에
+    //  메시지가 저장되지 않아 loadHistory 가 빈 작업 → 푸시 받은 사용자가
+    //  채팅방 진입 시 첫 메시지가 안 보이던 버그 수정.
+    //
+    //  중복 방지: 같은 (senderId + sentAt + text) 조합이 이미 _roomMessages
+    //  에 있으면 추가하지 않음. WS 'message' 이벤트가 동일 메시지를 한 번 더
+    //  들고 와도 중복 표시 X.
+    if (text != null && text.isNotEmpty && senderId != null && senderId.isNotEmpty) {
+      final list = _roomMessages.putIfAbsent(roomId, () => <ChatMessage>[]);
+      final dup = list.any((m) =>
+          m.senderId == senderId &&
+          m.text == text &&
+          (m.sentAt.difference(now).inSeconds).abs() <= 5);
+      if (!dup) {
+        list.add(ChatMessage(
+          id: 'push_${now.microsecondsSinceEpoch}',
+          roomId: roomId,
+          senderId: senderId,
+          senderNickname: (senderNickname != null && senderNickname.isNotEmpty)
+              ? senderNickname
+              : '익명',
+          text: text,
+          type: 'text',
+          sentAt: now,
+          isMine: senderId == me,
+          offer: null,
+          isRead: false,
+        ));
+      }
+    }
+
     notifyListeners();
     // ignore: discarded_futures
     _syncLauncherBadge();
