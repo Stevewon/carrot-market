@@ -32,11 +32,32 @@ class AuthService extends ChangeNotifier {
   static const _kMannerScore = 'manner_score';
   static const _kQtaBalance = 'qta_balance';
 
+  /// ★ v1.0.113: 프로필 사진(로컬 base64) — 사장님 정책상 닉네임만 외부 노출,
+  ///   사진은 단말 SharedPreferences 에 저장해 본인 화면에만 표시.
+  ///   서버 DB 마이그레이션 없이 즉시 작동. 추후 서버 동기화 옵션 추가 가능.
+  static const _kProfileImageB64 = 'profile_image_b64';
+
   final SharedPreferences prefs;
   final ApiClient api = ApiClient();
 
   String? _token;
   User? _user;
+
+  /// ★ v1.0.113: 로컬 프로필 사진 (base64). 없으면 null → 기본 가지 마스코트 사용.
+  String? _profileImageB64;
+  String? get profileImageB64 => _profileImageB64;
+
+  /// 프로필 사진 등록/교체. base64 문자열을 SharedPreferences 에 저장.
+  /// notifyListeners() 후 모든 화면이 자동으로 새 사진 표시.
+  Future<void> setProfileImageB64(String? b64) async {
+    _profileImageB64 = (b64 != null && b64.isNotEmpty) ? b64 : null;
+    if (_profileImageB64 == null) {
+      await prefs.remove(_kProfileImageB64);
+    } else {
+      await prefs.setString(_kProfileImageB64, _profileImageB64!);
+    }
+    notifyListeners();
+  }
 
   /// 마지막 가입/로그인 직후 받은 QTA 보너스 정보.
   /// UI 가 한 번 읽고 `consumeQtaBonus()` 로 비우는 식으로 1회성으로 사용.
@@ -103,6 +124,8 @@ class AuthService extends ChangeNotifier {
     final userId = prefs.getString(_kUserId);
     final nickname = prefs.getString(_kNickname);
     final deviceUuidStr = prefs.getString(_kDeviceUuid);
+    // ★ v1.0.113: 로컬 프로필 사진 복원.
+    _profileImageB64 = prefs.getString(_kProfileImageB64);
 
     if (_token != null && userId != null && nickname != null && deviceUuidStr != null) {
       _user = User(

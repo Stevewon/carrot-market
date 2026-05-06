@@ -21,22 +21,56 @@ class LikesTab extends StatefulWidget {
 }
 
 class _LikesTabState extends State<LikesTab> {
+  /// ★ v1.0.113 (이슈 2): IndexedStack 으로 다른 탭과 함께 살아있어서
+  ///   initState 가 1회만 실행됨 → 한두 번 본 뒤 갱신이 안 됐음.
+  ///   build() 마다 dependencies 변화를 감지해 강제 fetch 하도록 수정.
+  ///
+  ///   - dependOnInheritedWidgetOfExactType 가 호출되는 build 단계에서
+  ///     ProductService 를 watch 하므로, 좋아요/찜 해제 등 어떤 변화든
+  ///     자동으로 다시 그려진다.
+  ///   - 추가로 didChangeDependencies 에서 1회 silent fetch 를 걸어
+  ///     탭 진입 직후에도 stale 캐시를 강제로 갱신.
+  bool _firstFetchScheduled = false;
+  DateTime _lastBackgroundFetch = DateTime.fromMillisecondsSinceEpoch(0);
+
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_firstFetchScheduled) {
+      _firstFetchScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final svc = context.read<ProductService>();
+        // 첫 진입: 화면이 비어있으면 로딩 표시, 캐시가 있으면 silent.
+        svc.fetchMyLikes(silent: svc.myLikesLoaded);
+        _lastBackgroundFetch = DateTime.now();
+      });
+    }
+  }
+
+  /// ★ v1.0.113 (이슈 2): build 마다 호출되는 백그라운드 리프레시.
+  ///   - 5초 이상 지난 경우만 silent fetch → 빠른 build 연쇄 시 폭주 방지.
+  ///   - 사용자가 BottomNav 로 찜 탭에 다시 들어오는 순간 stale 캐시가 갱신.
+  void _maybeBackgroundRefresh(ProductService svc) {
+    if (svc.myLikesLoading) return;
+    final now = DateTime.now();
+    if (now.difference(_lastBackgroundFetch).inSeconds < 5) return;
+    _lastBackgroundFetch = now;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final svc = context.read<ProductService>();
-      svc.fetchMyLikes(silent: svc.myLikesLoaded);
+      if (!mounted) return;
+      svc.fetchMyLikes(silent: true);
     });
   }
 
   Future<void> _refresh() =>
-      context.read<ProductService>().fetchMyLikes(silent: true);
+      context.read<ProductService>().fetchMyLikes(silent: false);
 
   @override
   Widget build(BuildContext context) {
     final svc = context.watch<ProductService>();
     final items = svc.myLikes;
+    // ★ v1.0.113 (이슈 2): build 마다 background-stale 갱신 트리거.
+    _maybeBackgroundRefresh(svc);
 
     return Scaffold(
       appBar: AppBar(

@@ -1,5 +1,5 @@
 // ============================================================
-// profile_edit_screen.dart — 프로필 등록 / 닉네임 수정 (v1.0.112)
+// profile_edit_screen.dart — 프로필 등록 / 닉네임 수정 (v1.0.113)
 // ============================================================
 // 정책:
 //   1) 서버 PUT /api/users/me 가 닉네임 변경을 지원 (2~12자, 중복 차단).
@@ -7,11 +7,18 @@
 //   3) ChatService.sendMessage / CallService.startCall 은 auth.user!.nickname
 //      을 즉시 참조 → 변경 직후부터 채팅·통화 닉네임 자동 연동.
 //   4) 익명성 정책: 본인인증과 무관하게 닉네임만 사용 (전화번호/실명 X).
+//   5) ★ v1.0.113: 프로필 사진 등록/교체 (로컬 base64 저장).
+//      - 미등록 → 기본 가지(eggplant-mascot) 표시
+//      - 등록 시 → 사진으로 교체, 본인 화면(MY/채팅 헤더)에만 노출
 // ============================================================
+
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme.dart';
@@ -28,6 +35,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   late final TextEditingController _nicknameCtl;
   bool _saving = false;
   String? _errorText;
+  // ★ v1.0.113: 사진 선택 상태 — 저장 전 임시 base64.
+  //   null = 변경 없음(기존 사진 유지), '' = 사진 삭제, 그 외 = 새 사진.
+  String? _pendingImageB64;
+  bool _imageDirty = false;
+  bool _pickingImage = false;
 
   @override
   void initState() {
@@ -35,6 +47,45 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     final currentNick = context.read<AuthService>().user?.nickname ?? '';
     _nicknameCtl = TextEditingController(text: currentNick);
     _nicknameCtl.addListener(_onChanged);
+  }
+
+  /// ★ v1.0.113: 사진 선택 (갤러리). 1024px 이내로 리사이즈 + 75% JPEG 압축
+  ///   → base64 저장 시 SharedPreferences 용량(보통 200KB 이하)이 충분.
+  Future<void> _pickImage() async {
+    if (_pickingImage || _saving) return;
+    setState(() => _pickingImage = true);
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 75,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      final b64 = base64Encode(bytes);
+      if (!mounted) return;
+      setState(() {
+        _pendingImageB64 = b64;
+        _imageDirty = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('사진을 불러올 수 없어요: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _pickingImage = false);
+    }
+  }
+
+  /// 등록된 사진을 삭제 → 기본 가지 마스코트로 복귀.
+  void _removeImage() {
+    setState(() {
+      _pendingImageB64 = '';
+      _imageDirty = true;
+    });
   }
 
   @override
@@ -69,7 +120,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
     final auth = context.read<AuthService>();
     final current = auth.user?.nickname;
-    if (value == current) {
+    final nicknameChanged = value != current;
+
+    if (!nicknameChanged && !_imageDirty) {
       // 변경 없음 — 그냥 닫기.
       if (mounted) context.pop();
       return;
@@ -80,7 +133,16 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       _errorText = null;
     });
 
-    final err = await auth.updateNickname(value);
+    // ★ v1.0.113: 사진 변경은 로컬 저장 — 서버 호출 불필요, 즉시 성공 처리.
+    if (_imageDirty) {
+      final b64 = _pendingImageB64;
+      await auth.setProfileImageB64((b64 != null && b64.isNotEmpty) ? b64 : null);
+    }
+
+    String? err;
+    if (nicknameChanged) {
+      err = await auth.updateNickname(value);
+    }
 
     if (!mounted) return;
     setState(() => _saving = false);
@@ -91,10 +153,13 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     }
 
     // 성공 — 안내 후 닫기.
+    final msg = nicknameChanged
+        ? '프로필이 저장됐어요. 채팅·통화에 바로 반영돼요 ✨'
+        : '프로필 사진이 저장됐어요 ✨';
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('닉네임이 변경됐어요. 채팅·통화에 바로 반영돼요 ✨'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text(msg),
+        duration: const Duration(seconds: 2),
       ),
     );
     context.pop();
@@ -102,7 +167,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthService>().user;
+    final auth = context.watch<AuthService>();
+    final user = auth.user;
     if (user == null) {
       return const Scaffold(
         body: Center(child: Text('로그인이 필요해요')),
@@ -130,26 +196,76 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             children: [
-              // 마스코트 + 안내.
+              // ★ v1.0.113: 프로필 사진 + 등록/변경/삭제 버튼.
+              //   - _pendingImageB64 == null  → 기존 사진 그대로 노출
+              //   - _pendingImageB64 == ''    → 사진 삭제 (기본 가지)
+              //   - _pendingImageB64 != null  → 새로 고른 사진 미리보기
               Center(
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: EggplantColors.background,
-                    border: Border.all(
-                        color: EggplantColors.primary, width: 2),
-                  ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/eggplant-mascot.png',
-                      fit: BoxFit.cover,
-                    ),
+                child: GestureDetector(
+                  onTap: _pickingImage ? null : _pickImage,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _AvatarPreview(
+                        currentB64: auth.profileImageB64,
+                        pendingB64: _pendingImageB64,
+                        size: 96,
+                      ),
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: EggplantColors.primary,
+                            border: Border.all(
+                                color: Colors.white, width: 2),
+                          ),
+                          child: const Icon(Icons.camera_alt,
+                              color: Colors.white, size: 16),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              Center(
+                child: Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _pickingImage || _saving ? null : _pickImage,
+                      icon: const Icon(Icons.photo_library_outlined,
+                          size: 16),
+                      label: Text(
+                        (auth.profileImageB64 != null &&
+                                _pendingImageB64 != '')
+                            ? '사진 변경'
+                            : '사진 등록',
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: EggplantColors.primary,
+                      ),
+                    ),
+                    if ((auth.profileImageB64 != null &&
+                            _pendingImageB64 != '') ||
+                        (_pendingImageB64 != null &&
+                            _pendingImageB64!.isNotEmpty))
+                      TextButton.icon(
+                        onPressed: _saving ? null : _removeImage,
+                        icon: const Icon(Icons.delete_outline, size: 16),
+                        label: const Text('기본 가지로 변경'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: EggplantColors.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
               const Center(
                 child: Text(
                   '채팅·통화에 표시될 내 닉네임을 설정하세요',
@@ -283,5 +399,61 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         ),
       ),
     );
+  }
+}
+
+/// ★ v1.0.113: 프로필 사진 미리보기.
+///   우선순위: pendingB64(편집 중) > currentB64(저장됨) > 기본 가지.
+class _AvatarPreview extends StatelessWidget {
+  final String? currentB64;
+  final String? pendingB64;
+  final double size;
+  const _AvatarPreview({
+    required this.currentB64,
+    required this.pendingB64,
+    this.size = 96,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Widget child;
+    final pending = pendingB64;
+    if (pending != null && pending.isEmpty) {
+      // 사용자가 "기본 가지로 변경" 누른 상태.
+      child = Image.asset('assets/images/eggplant-mascot.png',
+          fit: BoxFit.cover);
+    } else {
+      final b64 = (pending != null && pending.isNotEmpty)
+          ? pending
+          : currentB64;
+      if (b64 != null && b64.isNotEmpty) {
+        try {
+          final bytes = _decode(b64);
+          child = Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+        } catch (_) {
+          child = Image.asset('assets/images/eggplant-mascot.png',
+              fit: BoxFit.cover);
+        }
+      } else {
+        child = Image.asset('assets/images/eggplant-mascot.png',
+            fit: BoxFit.cover);
+      }
+    }
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: EggplantColors.background,
+        border: Border.all(color: EggplantColors.primary, width: 2),
+      ),
+      child: ClipOval(child: SizedBox.expand(child: child)),
+    );
+  }
+
+  static Uint8List _decode(String b64) {
+    final i = b64.indexOf(',');
+    final raw = (i >= 0) ? b64.substring(i + 1) : b64;
+    return base64Decode(raw);
   }
 }

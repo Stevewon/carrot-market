@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -97,17 +100,16 @@ class _MyTabState extends State<MyTab> {
               padding: const EdgeInsets.all(20),
               child: Row(
                 children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: EggplantColors.background,
-                      border: Border.all(color: EggplantColors.primary, width: 2),
-                    ),
-                    child: ClipOval(
-                      child: Image.asset('assets/images/eggplant-mascot.png',
-                          fit: BoxFit.cover),
+                  // ★ v1.0.113 (이슈 1): 닉네임 왼쪽 프로필 사진.
+                  //   - 사진 미등록 → 기본 가지(eggplant-mascot) 표시
+                  //   - 사진 등록 → 등록한 사진으로 교체
+                  //   - 탭하면 프로필 편집 화면으로 이동 (사진 등록/변경)
+                  InkWell(
+                    onTap: () => context.push('/profile/edit'),
+                    borderRadius: BorderRadius.circular(32),
+                    child: _ProfileAvatar(
+                      base64: auth.profileImageB64,
+                      size: 64,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -323,6 +325,51 @@ class _MyTabState extends State<MyTab> {
         ),
       ),
     );
+  }
+}
+
+/// ★ v1.0.113 (이슈 1): 닉네임 왼쪽 프로필 아바타.
+///   - base64 가 비어있으면 기본 가지(eggplant-mascot) 표시.
+///   - 등록된 사진이 있으면 ClipOval 로 보여줌.
+///   - 디코딩 실패 시 기본 가지로 폴백.
+class _ProfileAvatar extends StatelessWidget {
+  final String? base64;
+  final double size;
+  const _ProfileAvatar({required this.base64, this.size = 64});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget child;
+    final b64 = base64;
+    if (b64 != null && b64.isNotEmpty) {
+      try {
+        final bytes = _decodeBase64(b64);
+        child = Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+      } catch (_) {
+        child = Image.asset('assets/images/eggplant-mascot.png',
+            fit: BoxFit.cover);
+      }
+    } else {
+      child = Image.asset('assets/images/eggplant-mascot.png',
+          fit: BoxFit.cover);
+    }
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: EggplantColors.background,
+        border: Border.all(color: EggplantColors.primary, width: 2),
+      ),
+      child: ClipOval(child: SizedBox.expand(child: child)),
+    );
+  }
+
+  static Uint8List _decodeBase64(String b64) {
+    // data:image/...;base64, 접두사 제거 후 디코드.
+    final i = b64.indexOf(',');
+    final raw = (i >= 0) ? b64.substring(i + 1) : b64;
+    return base64Decode(raw);
   }
 }
 
