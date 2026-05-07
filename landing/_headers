@@ -19,3 +19,16 @@
 
 /index.html
   Cache-Control: public, max-age=60, must-revalidate
+
+# 어드민 콘솔 — no-cache 강제 + 검색엔진 차단 + iframe 금지
+/admin/*
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+
+/admin/admin.css
+  Cache-Control: public, max-age=300, must-revalidate
+
+/admin/admin.js
+  Cache-Control: public, max-age=300, must-revalidate

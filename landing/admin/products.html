@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>상품 · Eggplant Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar" id="sidebar"></aside>
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1>🛍️ 상품 관리</h1>
+        <div id="header-me"></div>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <input type="search" id="q" placeholder="제목/ID 검색" />
+          <select id="status">
+            <option value="">전체 상태</option>
+            <option value="sale">판매중</option>
+            <option value="reserved">예약중</option>
+            <option value="sold">거래완료/숨김</option>
+          </select>
+          <button id="search-btn">검색</button>
+        </div>
+        <div class="table-wrap" id="table-area">
+          <div class="loading">불러오는 중</div>
+        </div>
+        <div class="pager" id="pager"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 상품 강제 숨김 모달 -->
+  <div class="modal-backdrop" id="hide-modal">
+    <div class="modal">
+      <h2>상품 강제 숨김</h2>
+      <p style="color:#6b7280; font-size: 13px; margin-bottom: 12px;">
+        대상: <b id="hide-target"></b><br/>
+        상태가 'sold' 로 전환되어 피드/검색에서 제외됩니다. (영구 삭제 아님)
+      </p>
+      <div class="form-row">
+        <label for="hide-reason">숨김 사유</label>
+        <input type="text" id="hide-reason" maxlength="200" placeholder="예: 신고된 부적절 게시물" />
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-secondary" onclick="AdminApp.closeModal('hide-modal')">취소</button>
+        <button type="button" class="btn-warning" id="hide-confirm">숨기기</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+  <script>
+    (function () {
+      if (!AdminApp.requireAuth()) return;
+      AdminApp.renderSidebar(document.getElementById('sidebar'));
+      AdminApp.renderHeaderMe(document.getElementById('header-me'));
+
+      const tableArea = document.getElementById('table-area');
+      const pagerEl = document.getElementById('pager');
+      let offset = 0;
+      const limit = 50;
+      let currentTotal = 0;
+      let hideTargetId = null;
+
+      async function load() {
+        AdminApp.showLoading(tableArea);
+        const q = document.getElementById('q').value.trim();
+        const status = document.getElementById('status').value;
+        const params = new URLSearchParams();
+        if (q) params.set('q', q);
+        if (status) params.set('status', status);
+        params.set('limit', String(limit));
+        params.set('offset', String(offset));
+        try {
+          const res = await AdminApp.api('/api/admin/products?' + params.toString());
+          currentTotal = res.total || 0;
+          renderTable(res.products || []);
+          renderPager();
+        } catch (e) {
+          AdminApp.showError(tableArea, e.message);
+        }
+      }
+
+      function renderTable(rows) {
+        if (rows.length === 0) {
+          AdminApp.showEmpty(tableArea, '조건에 맞는 상품이 없어요');
+          return;
+        }
+        const esc = AdminApp.escapeHtml;
+        const statusPill = (s) => `<span class="pill pill-${esc(s)}">${esc(s)}</span>`;
+        tableArea.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>제목</th>
+                <th>가격(KRW)</th>
+                <th>QTA</th>
+                <th>카테고리</th>
+                <th>지역</th>
+                <th>상태</th>
+                <th>판매자</th>
+                <th>조회/찜/대화</th>
+                <th>등록일</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(p => `
+                <tr>
+                  <td class="ellipsis"><b>${esc(p.title)}</b><br/><code style="font-size:11px;color:#6b7280">${AdminApp.shortId(p.id)}</code></td>
+                  <td>${AdminApp.fmtNum(p.price)}</td>
+                  <td>${p.qta_price > 0 ? AdminApp.fmtNum(p.qta_price) : '-'}</td>
+                  <td>${esc(p.category || '-')}</td>
+                  <td>${esc(p.region || '-')}</td>
+                  <td>${statusPill(p.status)}</td>
+                  <td>${esc(p.seller_nickname || AdminApp.shortId(p.seller_id))}</td>
+                  <td>${AdminApp.fmtNum(p.view_count)}/${AdminApp.fmtNum(p.like_count)}/${AdminApp.fmtNum(p.chat_count)}</td>
+                  <td>${AdminApp.fmtDate(p.created_at)}</td>
+                  <td>
+                    ${p.status !== 'sold'
+                      ? `<button class="btn-sm btn-warning" data-action="hide" data-id="${esc(p.id)}" data-title="${esc(p.title)}">숨기기</button>`
+                      : '-'}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      }
+
+      function renderPager() {
+        const start = currentTotal === 0 ? 0 : offset + 1;
+        const end = Math.min(offset + limit, currentTotal);
+        pagerEl.innerHTML = `
+          <button class="btn-sm btn-secondary" id="prev-btn" ${offset === 0 ? 'disabled' : ''}>이전</button>
+          <span class="info">${start}–${end} / 전체 ${AdminApp.fmtNum(currentTotal)}</span>
+          <button class="btn-sm btn-secondary" id="next-btn" ${offset + limit >= currentTotal ? 'disabled' : ''}>다음</button>
+        `;
+        const prev = document.getElementById('prev-btn');
+        const next = document.getElementById('next-btn');
+        if (prev) prev.addEventListener('click', () => { offset = Math.max(0, offset - limit); load(); });
+        if (next) next.addEventListener('click', () => { offset += limit; load(); });
+      }
+
+      tableArea.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        if (btn.dataset.action === 'hide') {
+          hideTargetId = btn.dataset.id;
+          document.getElementById('hide-target').textContent = btn.dataset.title;
+          document.getElementById('hide-reason').value = '';
+          AdminApp.openModal('hide-modal');
+        }
+      });
+
+      document.getElementById('hide-confirm').addEventListener('click', async () => {
+        if (!hideTargetId) return;
+        const reason = document.getElementById('hide-reason').value.trim() || '운영자 강제 숨김';
+        try {
+          await AdminApp.api('/api/admin/products/' + encodeURIComponent(hideTargetId) + '/hide', {
+            method: 'POST',
+            body: { reason },
+          });
+          AdminApp.closeModal('hide-modal');
+          load();
+        } catch (e) { alert('실패: ' + e.message); }
+      });
+
+      document.getElementById('search-btn').addEventListener('click', () => { offset = 0; load(); });
+      document.getElementById('q').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { offset = 0; load(); }
+      });
+      document.getElementById('status').addEventListener('change', () => { offset = 0; load(); });
+
+      load();
+    })();
+  </script>
+</body>
+</html>

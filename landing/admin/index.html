@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>대시보드 · Eggplant Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar" id="sidebar"></aside>
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1>📊 대시보드</h1>
+        <div id="header-me"></div>
+      </div>
+
+      <div id="stats-area">
+        <div class="loading">통계 불러오는 중</div>
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <h2>빠른 작업</h2>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <a href="withdrawals.html" class="btn btn-warning">💸 출금 대기 처리</a>
+          <a href="reports.html" class="btn btn-danger">🚨 신고 큐 확인</a>
+          <a href="users.html" class="btn btn-secondary">👥 사용자 검색</a>
+          <a href="products.html" class="btn btn-secondary">🛍️ 상품 검색</a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="admin.js"></script>
+  <script>
+    (function () {
+      if (!AdminApp.requireAuth()) return;
+      AdminApp.renderSidebar(document.getElementById('sidebar'));
+      AdminApp.renderHeaderMe(document.getElementById('header-me'));
+
+      const area = document.getElementById('stats-area');
+
+      AdminApp.api('/api/admin/stats').then((s) => {
+        const fmt = AdminApp.fmtNum;
+        area.innerHTML = `
+          <div class="stats-grid">
+            <div class="stat">
+              <div class="label">전체 사용자</div>
+              <div class="value">${fmt(s.users.total)}</div>
+              <div class="sub">오늘 가입 +${fmt(s.users.new_today)} · 정지 ${fmt(s.users.banned)}</div>
+            </div>
+            <div class="stat">
+              <div class="label">상품</div>
+              <div class="value">${fmt(s.products.total)}</div>
+              <div class="sub">판매중 ${fmt(s.products.active)} · 거래완료 ${fmt(s.products.sold)}</div>
+            </div>
+            <div class="stat">
+              <div class="label">출금 대기</div>
+              <div class="value" style="color:${s.withdrawals.pending > 0 ? 'var(--warning)' : 'inherit'}">
+                ${fmt(s.withdrawals.pending)}
+              </div>
+              <div class="sub">완료 ${fmt(s.withdrawals.completed)}</div>
+            </div>
+            <div class="stat">
+              <div class="label">신고 처리 대기</div>
+              <div class="value" style="color:${s.reports.pending > 0 ? 'var(--danger)' : 'inherit'}">
+                ${fmt(s.reports.pending)}
+              </div>
+              <div class="sub">전체 ${fmt(s.reports.total)}</div>
+            </div>
+            <div class="stat">
+              <div class="label">QTA 총 잔액 (조회 전용)</div>
+              <div class="value">${fmt(s.qta.total_balance)}</div>
+              <div class="sub">사용자 보유 합계 (조작 불가)</div>
+            </div>
+          </div>
+        `;
+      }).catch((e) => {
+        AdminApp.showError(area, '통계 로드 실패: ' + e.message);
+      });
+    })();
+  </script>
+</body>
+</html>
