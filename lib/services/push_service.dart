@@ -128,16 +128,25 @@ Future<void> _enqueuePendingPush(Map<String, dynamic> data) async {
 }
 
 /// CallKit 으로 시스템 전화 수신 UI 띄우기 (Android: full-screen intent).
+/// ★ v1.0.124 핫픽스 (2026-05-07):
+///   1) nameCaller: '익명' 하드코딩 → 서버에서 보낸 caller_nickname 사용
+///   2) isCustomNotification: true → false (기본 시스템 통화 UI = 헤드업/풀스크린 정상)
+///   3) handle 에 닉네임 노출 (user_id 대신 — 사장님 지시: 닉네임 표시)
 Future<void> _showIncomingCall(Map<String, dynamic> data) async {
   final callId = data['call_id']?.toString() ?? '';
   final fromUserId = data['from_user_id']?.toString() ?? '';
+  // 서버 chat-hub.ts 가 caller_nickname 을 데이터에 실어 보냄.
+  // 빈 값/누락 대비 fallback 으로만 '익명' 사용.
+  final callerNickname = (data['caller_nickname']?.toString().trim().isNotEmpty ?? false)
+      ? data['caller_nickname']!.toString().trim()
+      : '익명';
   if (callId.isEmpty) return;
 
   final params = CallKitParams(
     id: callId,
-    nameCaller: '익명',
-    appName: 'Eggplant',
-    handle: fromUserId, // 익명: user_id 만 (지갑주소/닉네임 노출 X)
+    nameCaller: callerNickname,
+    appName: '가지마켓',
+    handle: callerNickname, // 닉네임을 통화 헤더에 표시
     type: 0, // 0 = audio call (1 = video)
     duration: 30000, // 30 초 안에 안 받으면 자동 종료
     textAccept: '받기',
@@ -150,15 +159,21 @@ Future<void> _showIncomingCall(Map<String, dynamic> data) async {
     extra: <String, dynamic>{
       'call_id': callId,
       'from_user_id': fromUserId,
+      'caller_nickname': callerNickname,
     },
     android: const AndroidParams(
-      isCustomNotification: true,
+      // ★ false 로 변경: Android 기본 통화 알림 사용 → 헤드업/풀스크린 자동 트리거.
+      // true 인 경우 커스텀 노티 사용 → 잠금화면에서 받기/거절 버튼이 안 뜨고
+      // 작은 노티 줄로만 표시되어 사장님이 보신 화면 같이 깨짐.
+      isCustomNotification: false,
       isShowLogo: false,
       ringtonePath: 'system_ringtone_default',
       backgroundColor: '#7B2CBF', // Eggplant primary
       actionColor: '#FFB300',
       incomingCallNotificationChannelName: '전화 수신',
       missedCallNotificationChannelName: '부재중 전화',
+      // 잠금화면 위에 풀스크린 인텐트로 띄움 (USE_FULL_SCREEN_INTENT 권한 필요).
+      isShowCallID: false,
     ),
   );
   try {
