@@ -561,7 +561,10 @@ app.get('/reports', async (c) => {
   const rs = await c.env.DB
     .prepare(
       `SELECT r.id, r.reporter_id, r.reported_id, r.product_id, r.reason,
-              r.detail, r.status, r.handled_by, r.handled_at, r.admin_note,
+              r.detail, r.status,
+              NULL AS handled_by,
+              r.resolved_at AS handled_at,
+              r.resolved_note AS admin_note,
               r.created_at,
               ur.nickname AS reporter_nickname,
               ud.nickname AS reported_nickname
@@ -610,10 +613,10 @@ async function handleReport(
   await c.env.DB
     .prepare(
       `UPDATE user_reports
-          SET status = ?, handled_by = ?, handled_at = datetime('now'), admin_note = ?
+          SET status = ?, resolved_at = datetime('now'), resolved_note = ?
         WHERE id = ?`,
     )
-    .bind(newStatus, me.id, note, id)
+    .bind(newStatus, note, id)
     .run();
 
   await audit(c, `report_${newStatus}`, 'report', String(id), note);
