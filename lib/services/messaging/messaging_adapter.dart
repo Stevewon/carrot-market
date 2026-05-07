@@ -142,9 +142,12 @@ abstract class CallingAdapter {
   Future<void> init(MessagingIdentity identity);
 
   /// 발신 — peer 의 Universal User ID(=지갑주소 매핑된 user_id).
+  /// peerWalletAddress 는 Agora 채널명 산정에 필요 (sorted wallet pair).
+  /// 비어 있으면 어댑터가 silent fail 해야 한다.
   Future<void> startCall({
     required String peerUserId,
     required String peerNickname,
+    String peerWalletAddress = '',
   });
 
   /// 수신 수락.

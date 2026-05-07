@@ -10,6 +10,7 @@ import '../models/chat_message.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
 import '../services/permission_service.dart';
+import '../services/product_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String roomId;
@@ -383,7 +384,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return null;
   }
 
-  void _startVoiceCall(BuildContext context) {
+  Future<void> _startVoiceCall(BuildContext context) async {
     final auth = context.read<AuthService>();
     final peerId = _derivePeerUserId(auth.user?.id);
     if (peerId == null || peerId.isEmpty) {
@@ -392,8 +393,21 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       return;
     }
+    // ★ Agora 채널명은 양쪽 지갑주소 sorted pair 로 결정 → 발신측이 상대 wallet
+    //  을 갖고 들어가야 수신측과 동일 채널에 join 가능. 채팅 화면은 wallet 캐시가
+    //  없으니 프로필 API 로 1회 조회 후 라우팅.
+    String peerWallet = '';
+    try {
+      final prof =
+          await context.read<ProductService>().fetchUserProfile(peerId);
+      peerWallet = prof?['wallet_address']?.toString() ?? '';
+    } catch (_) {/* fallback: 빈 wallet 그대로 진행, CallService 가 에러 처리 */}
+    if (!context.mounted) return;
+    final qWallet = Uri.encodeComponent(peerWallet);
     context.push(
-      '/call?peerId=$peerId&peer=${Uri.encodeComponent(widget.peerNickname)}',
+      '/call?peerId=$peerId'
+      '&peer=${Uri.encodeComponent(widget.peerNickname)}'
+      '&peerWallet=$qWallet',
     );
   }
 
