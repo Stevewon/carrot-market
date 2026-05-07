@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>감사 로그 · Eggplant Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar" id="sidebar"></aside>
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1>📜 감사 로그</h1>
+        <div id="header-me"></div>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <span style="color: var(--text-soft); font-size: 13px;">
+            모든 어드민 액션이 시간순으로 기록됩니다 (login / ban / unban / hide_product / report_resolve 등)
+          </span>
+          <button class="btn-secondary" id="refresh-btn" style="margin-left:auto;">↻ 새로고침</button>
+        </div>
+        <div class="table-wrap" id="table-area">
+          <div class="loading">불러오는 중</div>
+        </div>
+        <div class="pager" id="pager"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="admin.js"></script>
+  <script>
+    (function () {
+      if (!AdminApp.requireAuth()) return;
+      AdminApp.renderSidebar(document.getElementById('sidebar'));
+      AdminApp.renderHeaderMe(document.getElementById('header-me'));
+
+      const tableArea = document.getElementById('table-area');
+      const pagerEl = document.getElementById('pager');
+      let offset = 0;
+      const limit = 100;
+
+      async function load() {
+        AdminApp.showLoading(tableArea);
+        const params = new URLSearchParams();
+        params.set('limit', String(limit));
+        params.set('offset', String(offset));
+        try {
+          const res = await AdminApp.api('/api/admin/audit?' + params.toString());
+          renderTable(res.logs || []);
+          renderPager(res.logs ? res.logs.length : 0);
+        } catch (e) {
+          AdminApp.showError(tableArea, e.message);
+        }
+      }
+
+      function renderTable(rows) {
+        if (rows.length === 0) {
+          AdminApp.showEmpty(tableArea, '기록이 없어요');
+          return;
+        }
+        const esc = AdminApp.escapeHtml;
+        tableArea.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>시각</th>
+                <th>어드민</th>
+                <th>액션</th>
+                <th>대상 유형</th>
+                <th>대상 ID</th>
+                <th>상세</th>
+                <th>IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(l => `
+                <tr>
+                  <td>${AdminApp.fmtDate(l.created_at)}</td>
+                  <td>${esc(l.admin_username || AdminApp.shortId(l.admin_id))}</td>
+                  <td><code>${esc(l.action)}</code></td>
+                  <td>${esc(l.target_type || '-')}</td>
+                  <td><code>${esc(l.target_id ? AdminApp.shortId(l.target_id) : '-')}</code></td>
+                  <td class="ellipsis" title="${esc(l.detail || '')}">${esc(l.detail || '-')}</td>
+                  <td>${esc(l.ip || '-')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      }
+
+      function renderPager(rowCount) {
+        const start = offset + 1;
+        const end = offset + rowCount;
+        pagerEl.innerHTML = `
+          <button class="btn-sm btn-secondary" id="prev-btn" ${offset === 0 ? 'disabled' : ''}>이전</button>
+          <span class="info">${rowCount === 0 ? 0 : start}–${end} 표시 (최대 ${limit}건)</span>
+          <button class="btn-sm btn-secondary" id="next-btn" ${rowCount < limit ? 'disabled' : ''}>다음</button>
+        `;
+        const prev = document.getElementById('prev-btn');
+        const next = document.getElementById('next-btn');
+        if (prev) prev.addEventListener('click', () => { offset = Math.max(0, offset - limit); load(); });
+        if (next) next.addEventListener('click', () => { offset += limit; load(); });
+      }
+
+      document.getElementById('refresh-btn').addEventListener('click', load);
+      load();
+    })();
+  </script>
+</body>
+</html>

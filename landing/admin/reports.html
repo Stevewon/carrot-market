@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>신고 처리 · Eggplant Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar" id="sidebar"></aside>
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1>🚨 신고 처리</h1>
+        <div id="header-me"></div>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <select id="status">
+            <option value="pending">대기</option>
+            <option value="reviewing">검토중</option>
+            <option value="resolved">처리완료</option>
+            <option value="dismissed">반려</option>
+            <option value="all">전체</option>
+          </select>
+          <button class="btn-secondary" id="refresh-btn" style="margin-left:auto;">↻ 새로고침</button>
+        </div>
+        <div class="table-wrap" id="table-area">
+          <div class="loading">불러오는 중</div>
+        </div>
+        <div class="pager" id="pager"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 처리 모달 -->
+  <div class="modal-backdrop" id="handle-modal">
+    <div class="modal">
+      <h2 id="handle-title">신고 처리</h2>
+      <p style="color:#6b7280; font-size: 13px; margin-bottom: 12px;" id="handle-target"></p>
+      <div class="form-row">
+        <label for="handle-note">처리 메모 (감사 기록용)</label>
+        <textarea id="handle-note" rows="3" maxlength="500" placeholder="예: 부적절 사진 게시 확인 → 상품 숨김 + 사용자 경고"></textarea>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-secondary" onclick="AdminApp.closeModal('handle-modal')">취소</button>
+        <button type="button" id="handle-confirm">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+  <script>
+    (function () {
+      if (!AdminApp.requireAuth()) return;
+      AdminApp.renderSidebar(document.getElementById('sidebar'));
+      AdminApp.renderHeaderMe(document.getElementById('header-me'));
+
+      const tableArea = document.getElementById('table-area');
+      const pagerEl = document.getElementById('pager');
+      let offset = 0;
+      const limit = 50;
+      let currentTotal = 0;
+      let handleId = null;
+      let handleAction = null; // 'resolve' | 'dismiss'
+
+      async function load() {
+        AdminApp.showLoading(tableArea);
+        const status = document.getElementById('status').value;
+        const params = new URLSearchParams();
+        params.set('status', status);
+        params.set('limit', String(limit));
+        params.set('offset', String(offset));
+        try {
+          const res = await AdminApp.api('/api/admin/reports?' + params.toString());
+          currentTotal = res.total || 0;
+          renderTable(res.reports || []);
+          renderPager();
+        } catch (e) {
+          AdminApp.showError(tableArea, e.message);
+        }
+      }
+
+      function renderTable(rows) {
+        if (rows.length === 0) {
+          AdminApp.showEmpty(tableArea, '조건에 맞는 신고가 없어요');
+          return;
+        }
+        const esc = AdminApp.escapeHtml;
+        tableArea.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>접수 시각</th>
+                <th>신고자</th>
+                <th>피신고자</th>
+                <th>사유</th>
+                <th>상세</th>
+                <th>상품</th>
+                <th>상태</th>
+                <th>처리</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td>${AdminApp.fmtDate(r.created_at)}</td>
+                  <td>${esc(r.reporter_nickname || AdminApp.shortId(r.reporter_id))}</td>
+                  <td><b>${esc(r.reported_nickname || AdminApp.shortId(r.reported_id))}</b></td>
+                  <td>${esc(r.reason)}</td>
+                  <td class="ellipsis" title="${esc(r.detail || '')}">${esc(r.detail || '-')}</td>
+                  <td>${r.product_id ? `<code>${AdminApp.shortId(r.product_id)}</code>` : '-'}</td>
+                  <td><span class="pill pill-${esc(r.status)}">${esc(r.status)}</span></td>
+                  <td>
+                    ${r.status === 'pending' || r.status === 'reviewing' ? `
+                      <button class="btn-sm btn-success" data-action="resolve" data-id="${esc(r.id)}" data-target="${esc(r.reported_nickname || '')}">처리완료</button>
+                      <button class="btn-sm btn-secondary" data-action="dismiss" data-id="${esc(r.id)}" data-target="${esc(r.reported_nickname || '')}">반려</button>
+                    ` : (r.admin_note ? `<span style="font-size:11px;color:#6b7280">메모: ${esc(r.admin_note)}</span>` : '-')}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      }
+
+      function renderPager() {
+        const start = currentTotal === 0 ? 0 : offset + 1;
+        const end = Math.min(offset + limit, currentTotal);
+        pagerEl.innerHTML = `
+          <button class="btn-sm btn-secondary" id="prev-btn" ${offset === 0 ? 'disabled' : ''}>이전</button>
+          <span class="info">${start}–${end} / 전체 ${AdminApp.fmtNum(currentTotal)}</span>
+          <button class="btn-sm btn-secondary" id="next-btn" ${offset + limit >= currentTotal ? 'disabled' : ''}>다음</button>
+        `;
+        const prev = document.getElementById('prev-btn');
+        const next = document.getElementById('next-btn');
+        if (prev) prev.addEventListener('click', () => { offset = Math.max(0, offset - limit); load(); });
+        if (next) next.addEventListener('click', () => { offset += limit; load(); });
+      }
+
+      tableArea.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        handleId = btn.dataset.id;
+        handleAction = btn.dataset.action;
+        document.getElementById('handle-title').textContent =
+          handleAction === 'resolve' ? '신고 처리 완료' : '신고 반려';
+        document.getElementById('handle-target').innerHTML =
+          '신고 ID: <b>' + AdminApp.shortId(handleId) + '</b> · 피신고자: <b>' +
+          AdminApp.escapeHtml(btn.dataset.target || '') + '</b>';
+        document.getElementById('handle-note').value = '';
+        AdminApp.openModal('handle-modal');
+      });
+
+      document.getElementById('handle-confirm').addEventListener('click', async () => {
+        if (!handleId || !handleAction) return;
+        const note = document.getElementById('handle-note').value.trim();
+        try {
+          await AdminApp.api('/api/admin/reports/' + encodeURIComponent(handleId) + '/' + handleAction, {
+            method: 'POST',
+            body: { note },
+          });
+          AdminApp.closeModal('handle-modal');
+          load();
+        } catch (e) { alert('실패: ' + e.message); }
+      });
+
+      document.getElementById('refresh-btn').addEventListener('click', load);
+      document.getElementById('status').addEventListener('change', () => { offset = 0; load(); });
+      load();
+    })();
+  </script>
+</body>
+</html>

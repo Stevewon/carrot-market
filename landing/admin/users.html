@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>사용자 · Eggplant Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar" id="sidebar"></aside>
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1>👥 사용자 관리</h1>
+        <div id="header-me"></div>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <input type="search" id="q" placeholder="닉네임/ID/지갑주소 검색" />
+          <select id="banned">
+            <option value="">전체</option>
+            <option value="0">활성만</option>
+            <option value="1">정지만</option>
+          </select>
+          <button id="search-btn">검색</button>
+        </div>
+        <div class="table-wrap" id="table-area">
+          <div class="loading">불러오는 중</div>
+        </div>
+        <div class="pager" id="pager"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 사용자 정지 모달 -->
+  <div class="modal-backdrop" id="ban-modal">
+    <div class="modal">
+      <h2>사용자 정지</h2>
+      <p style="color:#6b7280; font-size: 13px; margin-bottom: 12px;">
+        대상: <b id="ban-target"></b><br/>
+        정지된 사용자는 즉시 로그아웃되며 재로그인이 차단됩니다. (영구 삭제 아님 — 언제든 해제 가능)
+      </p>
+      <div class="form-row">
+        <label for="ban-reason">정지 사유</label>
+        <input type="text" id="ban-reason" maxlength="200" placeholder="예: 반복적 욕설/사기 신고 누적" />
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-secondary" onclick="AdminApp.closeModal('ban-modal')">취소</button>
+        <button type="button" class="btn-danger" id="ban-confirm">정지하기</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+  <script>
+    (function () {
+      if (!AdminApp.requireAuth()) return;
+      AdminApp.renderSidebar(document.getElementById('sidebar'));
+      AdminApp.renderHeaderMe(document.getElementById('header-me'));
+
+      const tableArea = document.getElementById('table-area');
+      const pagerEl = document.getElementById('pager');
+      let offset = 0;
+      const limit = 50;
+      let currentTotal = 0;
+      let banTargetId = null;
+
+      async function load() {
+        AdminApp.showLoading(tableArea);
+        const q = document.getElementById('q').value.trim();
+        const banned = document.getElementById('banned').value;
+        const params = new URLSearchParams();
+        if (q) params.set('q', q);
+        if (banned !== '') params.set('banned', banned);
+        params.set('limit', String(limit));
+        params.set('offset', String(offset));
+
+        try {
+          const res = await AdminApp.api('/api/admin/users?' + params.toString());
+          currentTotal = res.total || 0;
+          renderTable(res.users || []);
+          renderPager();
+        } catch (e) {
+          AdminApp.showError(tableArea, e.message);
+        }
+      }
+
+      function renderTable(rows) {
+        if (rows.length === 0) {
+          AdminApp.showEmpty(tableArea, '조건에 맞는 사용자가 없어요');
+          return;
+        }
+        const esc = AdminApp.escapeHtml;
+        const head = `
+          <table>
+            <thead>
+              <tr>
+                <th>닉네임</th>
+                <th>ID</th>
+                <th>지갑주소</th>
+                <th>지역</th>
+                <th>매너</th>
+                <th>QTA</th>
+                <th>인증</th>
+                <th>상태</th>
+                <th>가입일</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(u => `
+                <tr>
+                  <td><b>${esc(u.nickname)}</b></td>
+                  <td><code>${AdminApp.shortId(u.id)}</code></td>
+                  <td class="ellipsis"><code>${esc(u.wallet_address || '')}</code></td>
+                  <td>${esc(u.region || '-')}</td>
+                  <td>${u.manner_score ?? 36.5}°</td>
+                  <td>${AdminApp.fmtNum(u.qta_balance)}</td>
+                  <td>L${u.verification_level ?? 0}</td>
+                  <td>${u.is_banned
+                    ? `<span class="pill pill-banned">정지</span>`
+                    : `<span class="pill pill-active">활성</span>`}</td>
+                  <td>${AdminApp.fmtDate(u.created_at)}</td>
+                  <td>
+                    ${u.is_banned
+                      ? `<button class="btn-sm btn-success" data-action="unban" data-id="${esc(u.id)}">해제</button>`
+                      : `<button class="btn-sm btn-danger" data-action="ban" data-id="${esc(u.id)}" data-nick="${esc(u.nickname)}">정지</button>`}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+        tableArea.innerHTML = head;
+      }
+
+      function renderPager() {
+        const start = currentTotal === 0 ? 0 : offset + 1;
+        const end = Math.min(offset + limit, currentTotal);
+        pagerEl.innerHTML = `
+          <button class="btn-sm btn-secondary" id="prev-btn" ${offset === 0 ? 'disabled' : ''}>이전</button>
+          <span class="info">${start}–${end} / 전체 ${AdminApp.fmtNum(currentTotal)}</span>
+          <button class="btn-sm btn-secondary" id="next-btn" ${offset + limit >= currentTotal ? 'disabled' : ''}>다음</button>
+        `;
+        const prev = document.getElementById('prev-btn');
+        const next = document.getElementById('next-btn');
+        if (prev) prev.addEventListener('click', () => { offset = Math.max(0, offset - limit); load(); });
+        if (next) next.addEventListener('click', () => { offset += limit; load(); });
+      }
+
+      tableArea.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const id = btn.dataset.id;
+        if (action === 'ban') {
+          banTargetId = id;
+          document.getElementById('ban-target').textContent = btn.dataset.nick + ' (' + AdminApp.shortId(id) + ')';
+          document.getElementById('ban-reason').value = '';
+          AdminApp.openModal('ban-modal');
+        } else if (action === 'unban') {
+          if (!AdminApp.confirmDanger('이 사용자의 정지를 해제할까요?')) return;
+          AdminApp.api('/api/admin/users/' + encodeURIComponent(id) + '/unban', { method: 'POST' })
+            .then(() => load())
+            .catch((e) => alert('실패: ' + e.message));
+        }
+      });
+
+      document.getElementById('ban-confirm').addEventListener('click', async () => {
+        if (!banTargetId) return;
+        const reason = document.getElementById('ban-reason').value.trim() || '운영자 정지';
+        try {
+          await AdminApp.api('/api/admin/users/' + encodeURIComponent(banTargetId) + '/ban', {
+            method: 'POST',
+            body: { reason },
+          });
+          AdminApp.closeModal('ban-modal');
+          load();
+        } catch (e) { alert('실패: ' + e.message); }
+      });
+
+      document.getElementById('search-btn').addEventListener('click', () => { offset = 0; load(); });
+      document.getElementById('q').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { offset = 0; load(); }
+      });
+      document.getElementById('banned').addEventListener('change', () => { offset = 0; load(); });
+
+      load();
+    })();
+  </script>
+</body>
+</html>

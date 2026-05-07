@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>출금 신청 · Eggplant Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar" id="sidebar"></aside>
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1>💸 출금 신청 처리</h1>
+        <div id="header-me"></div>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <span style="color: var(--text-soft); font-size: 13px;">
+            대기(requested) → 처리시작(processing) → 송금완료(completed) 또는 거부(rejected+환불)
+          </span>
+          <button class="btn-secondary" id="refresh-btn" style="margin-left:auto;">↻ 새로고침</button>
+        </div>
+        <div class="table-wrap" id="table-area">
+          <div class="loading">불러오는 중</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 거부 모달 -->
+  <div class="modal-backdrop" id="reject-modal">
+    <div class="modal">
+      <h2>출금 거부 + 환불</h2>
+      <p style="color:#6b7280; font-size: 13px; margin-bottom: 12px;">
+        대상 신청: <b id="reject-target"></b><br/>
+        거부 사유는 사용자에게 노출됩니다.
+      </p>
+      <div class="form-row">
+        <label for="reject-reason">거부 사유</label>
+        <input type="text" id="reject-reason" maxlength="200" placeholder="예: 본인인증 미완료" />
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-secondary" onclick="AdminApp.closeModal('reject-modal')">취소</button>
+        <button type="button" class="btn-danger" id="reject-confirm">거부하고 환불</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 완료 모달 (tx_hash) -->
+  <div class="modal-backdrop" id="complete-modal">
+    <div class="modal">
+      <h2>송금 완료 처리</h2>
+      <p style="color:#6b7280; font-size: 13px; margin-bottom: 12px;">
+        대상 신청: <b id="complete-target"></b><br/>
+        외부 송금이 끝난 트랜잭션 해시를 입력하세요.
+      </p>
+      <div class="form-row">
+        <label for="tx-hash">트랜잭션 해시 (tx_hash)</label>
+        <input type="text" id="tx-hash" placeholder="0x..." />
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-secondary" onclick="AdminApp.closeModal('complete-modal')">취소</button>
+        <button type="button" class="btn-success" id="complete-confirm">완료 처리</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+  <script>
+    (function () {
+      if (!AdminApp.requireAuth()) return;
+      AdminApp.renderSidebar(document.getElementById('sidebar'));
+      AdminApp.renderHeaderMe(document.getElementById('header-me'));
+
+      const tableArea = document.getElementById('table-area');
+      let rejectId = null;
+      let completeId = null;
+
+      async function load() {
+        AdminApp.showLoading(tableArea);
+        try {
+          const res = await AdminApp.api('/api/admin/withdrawals/pending');
+          renderTable(res.rows || []);
+        } catch (e) {
+          AdminApp.showError(tableArea, e.message);
+        }
+      }
+
+      function renderTable(rows) {
+        if (rows.length === 0) {
+          AdminApp.showEmpty(tableArea, '대기중인 출금 신청이 없어요');
+          return;
+        }
+        const esc = AdminApp.escapeHtml;
+        tableArea.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>신청 시각</th>
+                <th>사용자</th>
+                <th>지갑주소</th>
+                <th>금액 (QTA)</th>
+                <th>상태</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(w => `
+                <tr>
+                  <td>${AdminApp.fmtDate(w.requested_at)}</td>
+                  <td><b>${esc(w.user_nickname || '')}</b><br/><code style="font-size:11px;color:#6b7280">${AdminApp.shortId(w.user_id)}</code></td>
+                  <td class="ellipsis"><code>${esc(w.wallet_address)}</code></td>
+                  <td><b>${AdminApp.fmtNum(w.amount)}</b></td>
+                  <td><span class="pill pill-${esc(w.status)}">${esc(w.status)}</span></td>
+                  <td>
+                    ${w.status === 'requested' ? `
+                      <button class="btn-sm" data-action="process" data-id="${esc(w.id)}">처리시작</button>
+                      <button class="btn-sm btn-danger" data-action="reject" data-id="${esc(w.id)}" data-amount="${esc(String(w.amount))}">거부+환불</button>
+                    ` : ''}
+                    ${w.status === 'processing' ? `
+                      <button class="btn-sm btn-success" data-action="complete" data-id="${esc(w.id)}" data-amount="${esc(String(w.amount))}">완료처리</button>
+                    ` : ''}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      }
+
+      tableArea.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const id = btn.dataset.id;
+        if (action === 'process') {
+          if (!AdminApp.confirmDanger('이 신청을 \"처리중\" 상태로 전환할까요?')) return;
+          try {
+            await AdminApp.api('/api/withdrawals/admin/' + encodeURIComponent(id) + '/process', { method: 'POST' });
+            load();
+          } catch (e) { alert('실패: ' + e.message); }
+        } else if (action === 'reject') {
+          rejectId = id;
+          document.getElementById('reject-target').textContent =
+            AdminApp.shortId(id) + ' (' + AdminApp.fmtNum(btn.dataset.amount) + ' QTA)';
+          document.getElementById('reject-reason').value = '';
+          AdminApp.openModal('reject-modal');
+        } else if (action === 'complete') {
+          completeId = id;
+          document.getElementById('complete-target').textContent =
+            AdminApp.shortId(id) + ' (' + AdminApp.fmtNum(btn.dataset.amount) + ' QTA)';
+          document.getElementById('tx-hash').value = '';
+          AdminApp.openModal('complete-modal');
+        }
+      });
+
+      document.getElementById('reject-confirm').addEventListener('click', async () => {
+        if (!rejectId) return;
+        const reason = document.getElementById('reject-reason').value.trim() || '운영자 거부';
+        try {
+          await AdminApp.api('/api/withdrawals/admin/' + encodeURIComponent(rejectId) + '/reject', {
+            method: 'POST',
+            body: { reason },
+          });
+          AdminApp.closeModal('reject-modal');
+          load();
+        } catch (e) { alert('실패: ' + e.message); }
+      });
+
+      document.getElementById('complete-confirm').addEventListener('click', async () => {
+        if (!completeId) return;
+        const tx = document.getElementById('tx-hash').value.trim();
+        if (!tx) { alert('tx_hash 를 입력해주세요'); return; }
+        try {
+          await AdminApp.api('/api/withdrawals/admin/' + encodeURIComponent(completeId) + '/complete', {
+            method: 'POST',
+            body: { tx_hash: tx },
+          });
+          AdminApp.closeModal('complete-modal');
+          load();
+        } catch (e) { alert('실패: ' + e.message); }
+      });
+
+      document.getElementById('refresh-btn').addEventListener('click', load);
+      load();
+    })();
+  </script>
+</body>
+</html>
