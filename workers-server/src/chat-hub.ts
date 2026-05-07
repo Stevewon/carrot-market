@@ -455,7 +455,36 @@ export class ChatHub {
       }
 
       case 'call_response': {
+        // ★ v1.0.124: 거절(accepted=false) 인 경우 발신자에게도 call_cancel 효과를
+        //  주고, 백그라운드 CallKit 이 떠있던 발신자 단말도 즉시 닫아야 함.
+        //  하지만 발신자측은 이미 chat.on('call_response') 에서 자체 teardown 함.
+        //  여기서는 단순히 응답을 발신자에게 relay 만 하고, 추가로 발신자가
+        //  이미 끊은 뒤 거절이 들어왔을 가능성 대비해 to_user_id 에게도 call_cancel
+        //  보낸다 (수신자 자기 자신 — CallKit UI 종료 보장).
         this.relayTo(msg, meta, 'call_response', ['accepted']);
+        const accepted = msg.accepted === true;
+        if (!accepted) {
+          // 거절: 양쪽 단말 모두 CallKit 닫기.
+          const cidR = String(msg.call_id || '');
+          const peerR = String(msg.to_user_id || '');
+          if (cidR && peerR) {
+            // 발신자에게도 call_cancel — 발신자가 백그라운드에서 ringback 만 듣고
+            // 있었다면 즉시 종료되도록.
+            this.sendToUser(peerR, {
+              type: 'call_cancel',
+              call_id: cidR,
+              from_user_id: meta.userId,
+              reason: 'rejected',
+            });
+            // 거절자 본인 단말이 여러 개일 때 다른 단말의 CallKit 도 닫기.
+            this.sendToUser(meta.userId, {
+              type: 'call_cancel',
+              call_id: cidR,
+              from_user_id: meta.userId,
+              reason: 'rejected',
+            });
+          }
+        }
         return;
       }
       case 'webrtc_offer': {
@@ -471,7 +500,52 @@ export class ChatHub {
         return;
       }
       case 'call_end': {
-        this.relayTo(msg, meta, 'call_end', []);
+        // ★ v1.0.124 핵심 핫픽스 (사장님 2026-05-07 보고):
+        //   발신자가 통화를 끊었을 때, 수신측이 백그라운드/앱 종료 상태이면
+        //   WebSocket 으로는 도달 못 하므로 그 단말의 벨소리(CallKit UI)가
+        //   30초 타임아웃까지 절대 안 꺼짐 → "전화벨 무한 울림" 사장님 신고.
+        //   해결: 1) WebSocket 으로 call_cancel relay (online 단말 즉시 종료)
+        //         2) FCM data-only 푸시로 call_cancel 발사 (offline/background 단말
+        //            의 background isolate 가 받아서 FlutterCallkitIncoming.endCall(callId)
+        //            호출 → CallKit 시스템 UI 강제 종료)
+        const cid = String(msg.call_id || '');
+        const peer = String(msg.to_user_id || '');
+        if (!cid || !peer) return;
+
+        // (1) 온라인 단말에는 WS 로 즉시 통보.
+        const onlineDelivered = this.sendToUser(peer, {
+          type: 'call_cancel',
+          call_id: cid,
+          from_user_id: meta.userId,
+          reason: 'caller_ended',
+        });
+
+        // (2) 오프라인 단말에도 FCM 으로 취소 통보 (CallKit UI 닫기 위해).
+        //     온라인 단말이면 이미 (1)에서 처리됐지만, 멀티디바이스 상황에선
+        //     다른 디바이스도 닫아야 하므로 항상 발사.
+        if (!onlineDelivered) {
+          this.sendOfflinePush(peer, {
+            // notification 영역은 비우고 data-only 로 보내야 OS 가 알림 안 띄움.
+            // (notification 이 있으면 새 알림 + 기존 알림 동시 표시될 수 있음)
+            title: '',
+            body: '',
+            data: {
+              type: 'call_cancel',
+              call_id: cid,
+              from_user_id: meta.userId,
+              reason: 'caller_ended',
+            },
+            isCall: true, // high priority — background isolate 즉시 깨움
+          });
+        }
+
+        // 자기(발신자) 다른 디바이스도 정리.
+        this.sendToUser(meta.userId, {
+          type: 'call_cancel',
+          call_id: cid,
+          from_user_id: meta.userId,
+          reason: 'caller_ended',
+        });
         return;
       }
 

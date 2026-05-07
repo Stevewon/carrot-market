@@ -64,6 +64,14 @@ Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
       await _showIncomingCall(data);
       return;
     }
+    // ★ v1.0.124 핵심 핫픽스 (2026-05-07 사장님 보고):
+    //   발신자가 통화 끊으면 서버가 call_cancel data-only 푸시를 발사한다.
+    //   background isolate 가 이걸 받아 FlutterCallkitIncoming.endCall(callId)
+    //   를 호출 → 잠금화면/홈화면에 떠있던 통화 UI 와 벨소리 즉시 종료.
+    if (type == 'call_cancel') {
+      await _dismissIncomingCall(data);
+      return;
+    }
     // ★ v1.0.107: type == 'message' 일 때 SharedPreferences pending 큐에 추가.
     //   background isolate 는 ChatService 인스턴스 접근 불가 → 큐에 넣어두면
     //   다음 앱 부팅/재개 시 main.dart 가 chat.applyPendingPushMessages() 로
@@ -73,6 +81,23 @@ Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
     }
   } catch (e) {
     debugPrint('[push-bg] handler error: $e');
+  }
+}
+
+/// ★ v1.0.124: 발신자가 끊었을 때 수신측 단말의 CallKit UI 강제 종료.
+///   data['call_id'] 로 식별. 단말에 CallKit 이 떠있지 않으면 silent no-op.
+Future<void> _dismissIncomingCall(Map<String, dynamic> data) async {
+  final callId = data['call_id']?.toString() ?? '';
+  if (callId.isEmpty) return;
+  try {
+    await FlutterCallkitIncoming.endCall(callId);
+  } catch (e) {
+    // 알려진 callId 가 없을 수 있음 (사용자가 이미 받았거나 거절). silent.
+    debugPrint('[push-bg] dismiss call failed: $e');
+    // 안전장치: 어떤 통화든 모두 닫기 (구버전 OS 동작 차이 방어).
+    try {
+      await FlutterCallkitIncoming.endAllCalls();
+    } catch (_) {}
   }
 }
 
