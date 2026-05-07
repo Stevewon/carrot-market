@@ -430,12 +430,17 @@ export class ChatHub {
           //  WebSocket 재연결 + call_id 로 시그널링 재시도.
           //  Firebase 키 미등록(placeholder) 환경에서는 silent skip 후 call_failed.
           this.sendOfflinePush(to_user_id, {
-            title: '전화가 와요',
-            body: '눌러서 받기',
+            // ★ v1.0.124 (2026-05-07): 닉네임을 알림 제목/본문에 노출.
+            //   클라이언트 _showIncomingCall 가 data.caller_nickname 을
+            //   CallKitParams.nameCaller/handle 로 사용 → 헤드업/풀스크린에서
+            //   "익명" 대신 실제 닉네임 표시.
+            title: caller_nickname,
+            body: '전화가 와요',
             data: {
               type: 'call_invite',
               call_id,
               from_user_id: meta.userId,
+              caller_nickname,
             },
             isCall: true,
           });
