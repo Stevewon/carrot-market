@@ -7,13 +7,8 @@
   'use strict';
 
   const API_BASE = (function () {
-    // 같은 도메인이면 상대경로, 아니면 api 서브도메인
-    const host = location.host;
-    if (host === 'eggplant.life' || host.endsWith('.eggplant.life')) {
-      return 'https://api.eggplant.life';
-    }
-    // 로컬/Pages 도메인 등 — 풀 URL 으로 접근
-    return 'https://api.eggplant.life';
+    // eggplant.life 는 Pages, /api/* 라우트 미설정 상태이므로 Workers 직접 도메인으로 호출
+    return 'https://eggplant-api.hbcu00987.workers.dev';
   })();
 
   const TOKEN_KEY = 'eggplant_admin_token';
