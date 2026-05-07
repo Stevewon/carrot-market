@@ -182,10 +182,12 @@ class EggplantBuiltinCallingAdapter implements CallingAdapter {
   Future<void> startCall({
     required String peerUserId,
     required String peerNickname,
+    String peerWalletAddress = '',
   }) =>
       _call.startCall(
         peerUserId: peerUserId,
         peerNickname: peerNickname,
+        peerWalletAddress: peerWalletAddress,
       );
 
   @override

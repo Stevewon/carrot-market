@@ -13,12 +13,14 @@ import '../services/call_service.dart';
 class CallScreen extends StatefulWidget {
   final String peerUserId;
   final String peerNickname;
+  final String peerWalletAddress; // Agora 채널명 산정에 사용 (sorted wallet pair)
   final bool startImmediately; // true = outgoing; false = incoming (already set)
 
   const CallScreen({
     super.key,
     required this.peerUserId,
     required this.peerNickname,
+    this.peerWalletAddress = '',
     this.startImmediately = true,
   });
 
@@ -52,6 +54,7 @@ class _CallScreenState extends State<CallScreen> {
           await call.startCall(
             peerUserId: widget.peerUserId,
             peerNickname: widget.peerNickname,
+            peerWalletAddress: widget.peerWalletAddress,
           );
         } catch (e) {
           if (mounted) {

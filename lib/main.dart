@@ -118,13 +118,19 @@ class EggplantApp extends StatelessWidget {
             return qta;
           },
         ),
-        ChangeNotifierProxyProvider<ChatService, CallService>(
+        // CallService 는 ChatService(WebSocket 시그널링) + AgoraService(미디어 토큰)
+        // 두 의존성을 모두 필요로 하므로 ProxyProvider2 로 묶는다.
+        // - chat: call_invite/response/cancel/end 시그널 전달
+        // - agora: 채널명 생성 + RTC 토큰 발급 (HMAC-SHA256 v006)
+        ChangeNotifierProxyProvider2<ChatService, AgoraService, CallService>(
           create: (ctx) => CallService(
             auth: authService,
             chat: ctx.read<ChatService>(),
+            agora: ctx.read<AgoraService>(),
           ),
-          update: (ctx, chat, previous) =>
-              previous ?? CallService(auth: authService, chat: chat),
+          update: (ctx, chat, agora, previous) =>
+              previous ??
+              CallService(auth: authService, chat: chat, agora: agora),
         ),
       ],
       child: Consumer<AuthService>(

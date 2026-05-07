@@ -108,6 +108,11 @@ GoRouter createRouter(AuthService auth) {
         builder: (_, state) => CallScreen(
           peerUserId: state.uri.queryParameters['peerId'] ?? '',
           peerNickname: state.uri.queryParameters['peer'] ?? '익명',
+          // ★ Agora 채널명 산정에 양쪽 지갑주소가 필요 (sorted pair).
+          //  발신자: 상대방 프로필 → /call?peerWallet=0x... 로 전달.
+          //  수신자: incoming=1 일 때는 CallService 가 이미 시그널링 페이로드에서
+          //          caller_wallet 을 _peerWalletAddress 로 들고 있어 비어 있어도 OK.
+          peerWalletAddress: state.uri.queryParameters['peerWallet'] ?? '',
           startImmediately: state.uri.queryParameters['incoming'] != '1',
         ),
       ),

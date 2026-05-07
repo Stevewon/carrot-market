@@ -238,12 +238,13 @@ class QRChatCallingAdapter implements CallingAdapter {
   Future<void> startCall({
     required String peerUserId,
     required String peerNickname,
+    String peerWalletAddress = '',
   }) async {
     _peerUserId = peerUserId;
     _peerNickname = peerNickname;
     _state = CallSessionState.outgoing;
     _changes.add(null);
-    // TODO(qrchat-sdk): await _voice.invite(peerUserId);
+    // TODO(qrchat-sdk): await _voice.invite(peerUserId, walletAddress: peerWalletAddress);
     throw UnsupportedError('QRChat SDK 미연결');
   }
 
