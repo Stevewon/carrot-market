@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -174,6 +175,21 @@ class CallService extends ChangeNotifier {
       final reason = data['message']?.toString() ?? '통화 실패';
       _setError(reason);
       await _teardown(stateAfter: CallState.ended);
+    }));
+
+    // ★ v1.0.124 핫픽스: 발신자가 끊었을 때(=수신자에게 도달한 call_cancel) 즉시
+    //   CallKit UI 강제 종료. 서버 chat-hub.ts 가 발신측 call_end/call_response(rejected)
+    //   수신 시 상대에게 'call_cancel' 을 broadcast 한다.
+    _subs.add(chat.on('call_cancel', (data) async {
+      final cid = data['call_id']?.toString();
+      if (cid == null) return;
+      // 활성 통화든 아니든(백그라운드 CallKit only) 무조건 끊기.
+      try {
+        await FlutterCallkitIncoming.endCall(cid);
+      } catch (_) {}
+      if (cid == _activeCallId) {
+        await _teardown(stateAfter: CallState.ended);
+      }
     }));
   }
 
@@ -477,6 +493,13 @@ class CallService extends ChangeNotifier {
   Future<void> _teardown({required CallState stateAfter}) async {
     // 발신음/수신 벨소리 즉시 정지 (가장 먼저 — 끊긴 후에도 들리면 안 됨)
     await _stopAllRingtones();
+    // ★ v1.0.124 핫픽스: 백그라운드에서 떠있던 CallKit 시스템 통화 UI 도 강제 종료.
+    //   _teardown 진입 시점이면 통화는 어떤 형태로든 끝난 것이므로 UI 도 닫혀야 함.
+    if (_activeCallId != null) {
+      try {
+        await FlutterCallkitIncoming.endCall(_activeCallId!);
+      } catch (_) {}
+    }
     try {
       await _localStream?.dispose();
     } catch (_) {}
