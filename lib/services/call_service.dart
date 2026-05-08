@@ -314,14 +314,15 @@ class CallService extends ChangeNotifier {
     notifyListeners();
 
     // Agora 엔진은 미리 초기화 (joinChannel 은 상대 수락 시).
-    // ★ P1-#10 (v1.0.127): 엔진 초기화 실패 시 outgoing 상태 그대로 두지 않고
-    //   강제 복구 후 사용자에게 안내.
+    // ★ v1.0.131: 엔진 초기화 실패 시에도 통화 invite 는 발사.
+    //   상대가 받으면 _joinAgoraChannel 시점에 다시 한 번 _ensureEngine() 시도됨.
+    //   첫 시도 실패 = 일시적 OEM/하드웨어 이슈일 수 있으니 토스트 띄우지 않고
+    //   진행. 진짜로 채널 join 까지 실패하면 그때 사용자에게 알림.
     try {
       await _ensureEngine();
     } catch (e) {
-      debugPrint('[call] startCall: engine init failed: $e');
-      await _forceReset();
-      throw '통화 엔진 초기화 실패';
+      debugPrint('[call] startCall: engine pre-init failed (will retry on join): $e');
+      // throw 하지 않음 — invite 진행, 채널 join 시점에 재시도.
     }
 
     chat.emit('call_invite', {
@@ -364,21 +365,20 @@ class CallService extends ChangeNotifier {
     _state = CallState.connecting;
     notifyListeners();
 
-    // 1) 엔진 초기화
+    // 1) 엔진 초기화 (실패해도 _joinAgoraChannel 안에서 한 번 더 시도).
     try {
       await _ensureEngine();
     } catch (e) {
-      debugPrint('[call] acceptCall: engine init failed: $e');
-      await rejectCall(reason: '통화 엔진 초기화 실패');
-      return;
+      debugPrint('[call] acceptCall: engine pre-init failed (will retry on join): $e');
+      // throw 하지 않음 — _joinAgoraChannel() 안에서 재시도.
     }
 
     // 2) 수신자 먼저 채널 join (성공 시에만 발신자에게 accepted 알림).
     final joined = await _joinAgoraChannel();
     if (!joined) {
       // join 실패 — 발신자에게 수락 신호 보내지 않음 (자동 timeout 으로 처리).
-      // 사용자에게 안내 후 종료.
-      await rejectCall(reason: '통화 연결 실패');
+      // ★ v1.0.131: 사용자 친화 메시지로 변경 ('통화 엔진 초기화 실패' 토스트 제거).
+      await rejectCall(reason: '연결을 시도했어요. 잠시 후 다시 걸어주세요.');
       return;
     }
 
@@ -553,8 +553,21 @@ class CallService extends ChangeNotifier {
     if (!AgoraService.isConfigured) {
       throw 'Agora 설정이 누락되었어요';
     }
+    // ★ v1.0.131: 각 await 호출을 한 줄씩 try/catch 로 격리.
+    //   목표: initialize() 실패가 아닌, 다른 보조 호출(enableAudio, disableVideo,
+    //   setDefaultAudioRouteToSpeakerphone, setEnableSpeakerphone) 중 하나가
+    //   throw 해서 전체가 실패하던 케이스를 막는다.
+    //   진짜 치명적인 호출은 createAgoraRtcEngine() + initialize() 둘 뿐.
+    //   나머지는 best-effort 로 호출하고 실패해도 통화 자체는 진행한다.
     try {
       _engine = createAgoraRtcEngine();
+    } catch (e) {
+      debugPrint('[call] createAgoraRtcEngine failed: $e');
+      _engine = null;
+      _engineInitialized = false;
+      rethrow;
+    }
+    try {
       // ★ v1.0.130 P0-#1: RtcEngineContext 의 audioScenario 제거.
       //   Communication profile 과 audioScenarioChatroom 조합이 일부 안드로이드
       //   기기에서 initialize() 자체를 throw 하게 만들어 "통화 엔진 초기화 실패"
@@ -565,30 +578,46 @@ class CallService extends ChangeNotifier {
           channelProfile: ChannelProfileType.channelProfileCommunication,
         ),
       );
-      // ★ v1.0.130 P0-#2: setClientRole 호출 제거.
-      //   ClientRole.broadcaster 는 liveBroadcasting profile 전용이라
-      //   communication profile 에서 호출하면 일부 SDK 빌드에서 throw 함.
-      //   communication profile 은 모든 참가자가 양방향 송신 가능하므로 role
-      //   설정 자체가 불필요.
+    } catch (e) {
+      debugPrint('[call] _engine.initialize failed: $e');
+      _engine = null;
+      _engineInitialized = false;
+      rethrow;
+    }
+    // ── 여기 아래 모든 호출은 best-effort. 실패해도 통화는 진행. ───────
+    // ★ v1.0.130 P0-#2: setClientRole 호출 제거 (communication profile 불필요).
+    try {
       await _engine!.enableAudio();
+    } catch (e) {
+      debugPrint('[call] enableAudio failed (non-fatal): $e');
+    }
+    try {
       await _engine!.disableVideo();
-      // ★ P1-#6 (v1.0.127): 1:1 음성 통화에 최적화된 audio profile.
-      //   speechStandard = 16 kHz mono — 음성 압축 효율 + 품질 균형.
-      //   v1.0.130: scenario 도 default 로 통일 (RtcEngineContext 와 일관성).
-      try {
-        await _engine!.setAudioProfile(
-          profile: AudioProfileType.audioProfileSpeechStandard,
-          scenario: AudioScenarioType.audioScenarioDefault,
-        );
-      } catch (e) {
-        debugPrint('[call] setAudioProfile failed: $e');
-      }
-      try {
-        await _engine!.setDefaultAudioRouteToSpeakerphone(true);
-      } catch (e) {
-        debugPrint('[call] setDefaultAudioRouteToSpeakerphone failed: $e');
-      }
+    } catch (e) {
+      debugPrint('[call] disableVideo failed (non-fatal): $e');
+    }
+    // ★ P1-#6 (v1.0.127): 1:1 음성 통화에 최적화된 audio profile.
+    //   speechStandard = 16 kHz mono — 음성 압축 효율 + 품질 균형.
+    //   v1.0.130: scenario 도 default 로 통일 (RtcEngineContext 와 일관성).
+    try {
+      await _engine!.setAudioProfile(
+        profile: AudioProfileType.audioProfileSpeechStandard,
+        scenario: AudioScenarioType.audioScenarioDefault,
+      );
+    } catch (e) {
+      debugPrint('[call] setAudioProfile failed (non-fatal): $e');
+    }
+    try {
+      await _engine!.setDefaultAudioRouteToSpeakerphone(true);
+    } catch (e) {
+      debugPrint('[call] setDefaultAudioRouteToSpeakerphone failed (non-fatal): $e');
+    }
+    try {
       await _engine!.setEnableSpeakerphone(_speakerOn);
+    } catch (e) {
+      debugPrint('[call] setEnableSpeakerphone failed (non-fatal): $e');
+    }
+    try {
       _engine!.registerEventHandler(RtcEngineEventHandler(
         onJoinChannelSuccess: (RtcConnection conn, int elapsed) {
           debugPrint('[call] Agora joined channel=${conn.channelId} uid=${conn.localUid} elapsed=${elapsed}ms');
@@ -642,13 +671,11 @@ class CallService extends ChangeNotifier {
           debugPrint('[call] Agora error code=$err msg=$msg');
         },
       ));
-      _engineInitialized = true;
     } catch (e) {
-      debugPrint('[call] engine init failed: $e');
-      _engine = null;
-      _engineInitialized = false;
-      rethrow;
+      debugPrint('[call] registerEventHandler failed (non-fatal): $e');
     }
+    // ── 여기까지 통과하면 엔진 초기화 성공으로 간주. ──
+    _engineInitialized = true;
   }
 
   /// Disconnected/Reconnecting 5초 이상 지속되면 자동 종료.
