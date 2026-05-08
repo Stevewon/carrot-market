@@ -165,6 +165,12 @@ Future<void> _showIncomingCall(Map<String, dynamic> data) async {
   final callerNickname = (data['caller_nickname']?.toString().trim().isNotEmpty ?? false)
       ? data['caller_nickname']!.toString().trim()
       : '익명';
+  // ★ v1.0.136: caller_wallet 도 보존. acceptCall 시 main isolate 로 전달돼
+  //   Agora 채널명(eggplant_<sortedPair>) 산정에 사용됨. 누락되면 채널 join
+  //   직전 "통화 정보를 불러올 수 없어요" 로 즉시 teardown 되어 사장님이 본
+  //   "수락 누르자마자 꺼져버림" 증상 발생. 서버 fcm payload 의 data.caller_wallet
+  //   에 들어와 있음.
+  final callerWallet = data['caller_wallet']?.toString() ?? '';
   if (callId.isEmpty) return;
 
   final params = CallKitParams(
@@ -185,6 +191,9 @@ Future<void> _showIncomingCall(Map<String, dynamic> data) async {
       'call_id': callId,
       'from_user_id': fromUserId,
       'caller_nickname': callerNickname,
+      // ★ v1.0.136: extra 는 CallKit accept 이벤트 body 로 흘러가 main isolate
+      //   가 그대로 받음. _attachCallkitListener 가 caller_wallet 도 같이 stream 으로 발사.
+      'caller_wallet': callerWallet,
     },
     android: const AndroidParams(
       // ★ false 로 변경: Android 기본 통화 알림 사용 → 헤드업/풀스크린 자동 트리거.
@@ -321,9 +330,14 @@ class PushService extends ChangeNotifier {
         if (name.contains('ACCEPT')) {
           final extra = (body?['extra'] as Map?)?.cast<String, dynamic>() ??
               <String, dynamic>{};
+          // ★ v1.0.136: caller_wallet / caller_nickname 도 함께 전달 — main isolate 의
+          //   _attachCallkitAccept 이 router.push('/call?...&peerWallet=...&peer=...')
+          //   로 사용. 누락 시 acceptCall 단계에서 채널명 산정 실패 → 즉시 teardown.
           _callAcceptCtrl.add({
             'call_id': extra['call_id']?.toString() ?? '',
             'from_user_id': extra['from_user_id']?.toString() ?? '',
+            'caller_wallet': extra['caller_wallet']?.toString() ?? '',
+            'caller_nickname': extra['caller_nickname']?.toString() ?? '익명',
           });
         }
         // DECLINE/TIMEOUT 는 CallKit 이 자동으로 UI 정리. 추가 처리 불필요.
@@ -362,9 +376,13 @@ class PushService extends ChangeNotifier {
     final data = message.data;
     final type = data['type']?.toString();
     if (type == 'call_invite') {
+      // ★ v1.0.136: caller_wallet / caller_nickname 동봉 — _attachCallkitAccept
+      //   이 동일 stream 으로 듣고 라우팅하므로 형식 일치시킴.
       _callAcceptCtrl.add({
         'call_id': data['call_id']?.toString() ?? '',
         'from_user_id': data['from_user_id']?.toString() ?? '',
+        'caller_wallet': data['caller_wallet']?.toString() ?? '',
+        'caller_nickname': data['caller_nickname']?.toString() ?? '익명',
       });
       return;
     }

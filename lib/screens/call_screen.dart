@@ -15,6 +15,11 @@ class CallScreen extends StatefulWidget {
   final String peerNickname;
   final String peerWalletAddress; // Agora 채널명 산정에 사용 (sorted wallet pair)
   final bool startImmediately; // true = outgoing; false = incoming (already set)
+  /// ★ v1.0.136: CallKit (백그라운드/잠금화면) 에서 "받기" 누른 후 라우팅된 케이스.
+  ///   true 면 CallScreen 이 자동으로 acceptCall 호출 (사용자가 다시 수락 버튼
+  ///   누를 필요 없음). startImmediately 와 별개 — fromPush 는 incoming 통화의
+  ///   자동 accept 트리거고, startImmediately 는 outgoing 통화의 자동 발신 트리거.
+  final bool fromPush;
 
   const CallScreen({
     super.key,
@@ -22,6 +27,7 @@ class CallScreen extends StatefulWidget {
     required this.peerNickname,
     this.peerWalletAddress = '',
     this.startImmediately = true,
+    this.fromPush = false,
   });
 
   @override
@@ -72,6 +78,37 @@ class _CallScreenState extends State<CallScreen> {
               SnackBar(content: Text(msg)),
             );
           });
+        }
+      });
+    } else if (widget.fromPush) {
+      // ★ v1.0.136: CallKit "받기" 후 라우팅된 incoming 통화 — 자동으로 acceptCall.
+      //   사용자가 이미 잠금화면/헤드업 CallKit UI 에서 "받기" 를 눌렀으므로
+      //   CallScreen 안에서 다시 "수락" 버튼을 누를 필요 없음. 즉시 채널 join.
+      //
+      //   주의: incoming 상태 진입은 chat.on('call_incoming') 이 처리하지만,
+      //   백그라운드/앱 종료 상태에서 push 로 깨워진 경우 WebSocket 이 아직
+      //   연결 안 됐을 수 있음. CallService.acceptCall 안에서 _activeCallId
+      //   체크가 있으므로, WS 가 늦게 도착해 incoming 이 늦게 set 되는 경우
+      //   잠시 기다렸다가 한 번 더 시도.
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (_startAttempted) return;
+        _startAttempted = true;
+        final call = context.read<CallService>();
+        // WS 도착 대기 — 최대 5초.
+        for (int i = 0; i < 25; i++) {
+          if (call.state == CallState.incoming && call.activeCallId != null) {
+            break;
+          }
+          await Future.delayed(const Duration(milliseconds: 200));
+          if (!mounted) return;
+        }
+        if (!mounted) return;
+        // incoming 상태가 됐든 안 됐든 acceptCall 시도.
+        // CallService 가 _activeCallId 없으면 즉시 return 하므로 안전.
+        try {
+          await call.acceptCall();
+        } catch (e) {
+          debugPrint('[call-screen] auto-accept from push failed: $e');
         }
       });
     }

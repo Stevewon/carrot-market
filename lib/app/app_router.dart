@@ -112,8 +112,15 @@ GoRouter createRouter(AuthService auth) {
           //  발신자: 상대방 프로필 → /call?peerWallet=0x... 로 전달.
           //  수신자: incoming=1 일 때는 CallService 가 이미 시그널링 페이로드에서
           //          caller_wallet 을 _peerWalletAddress 로 들고 있어 비어 있어도 OK.
+          //  ★ v1.0.136: fromPush=1 (CallKit accept) 케이스에서는 push 데이터로
+          //   peerWallet 이 들어와야 acceptCall 의 _joinAgoraChannel 이 채널명
+          //   산정 가능. main.dart 의 _attachCallkitAccept 가 동봉해 보냄.
           peerWalletAddress: state.uri.queryParameters['peerWallet'] ?? '',
           startImmediately: state.uri.queryParameters['incoming'] != '1',
+          // ★ v1.0.136: CallKit 에서 사장님이 이미 "받기"를 누른 상태로 진입한 경우
+          //   CallScreen 이 자동으로 acceptCall 호출. 사용자가 다시 "수락" 버튼
+          //   누를 필요 없음. 사용자 흐름 단축 + 즉시 음성 연결.
+          fromPush: state.uri.queryParameters['fromPush'] == '1',
         ),
       ),
       GoRoute(

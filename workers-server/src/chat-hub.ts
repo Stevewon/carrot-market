@@ -417,6 +417,12 @@ export class ChatHub {
         //   쓰지 않고, JWT 의 meta.nickname 을 우선 사용. 발신자가 임의로 다른
         //   사람 닉네임으로 가장하는 것을 서버에서 차단.
         const caller_nickname = meta.nickname || (msg.caller_nickname as string) || '익명';
+        // ★ v1.0.136: caller_wallet 도 push data 에 포함시켜야 background isolate 의
+        //   CallKit 가 wallet 까지 들고 main isolate 로 전달 → CallScreen 이 채널명
+        //   산정 가능. 클라이언트가 보내준 값 신뢰 (서버는 wallet 검증 안 함 — Agora
+        //   채널명 산정용 단순 페어 키이고, 토큰은 별도 인증으로 발급되므로 위·변조해도
+        //   실효성 0).
+        const caller_wallet = String(msg.caller_wallet || '');
         if (!to_user_id || !call_id) return;
 
         // ★ P1-#7 (v1.0.127): block 검증 — 수신자가 발신자를 차단했으면 invite
@@ -451,6 +457,7 @@ export class ChatHub {
           call_id,
           from_user_id: meta.userId,
           caller_nickname,
+          caller_wallet,
         });
         if (!delivered) {
           // ★★★ 3차 푸시: peer 가 백그라운드/앱 종료 상태일 때
@@ -465,6 +472,9 @@ export class ChatHub {
             //   클라이언트 _showIncomingCall 가 data.caller_nickname 을
             //   CallKitParams.nameCaller/handle 로 사용 → 헤드업/풀스크린에서
             //   "익명" 대신 실제 닉네임 표시.
+            // ★ v1.0.136: 통화는 data-only 푸시로 변환되어 title/body 는
+            //   클라이언트 CallKit 에 의해서만 사용됨. 서버측 fcm.ts 가
+            //   notification 객체를 보내지 않으므로 OS 자체 노티는 안 뜸.
             title: caller_nickname,
             body: '전화가 와요',
             data: {
@@ -472,6 +482,12 @@ export class ChatHub {
               call_id,
               from_user_id: meta.userId,
               caller_nickname,
+              // ★ v1.0.136: caller_wallet 추가 — 수신자 단말 background isolate 가
+              //   CallKitParams.extra 에 저장 → accept 시 main isolate 로 전달 →
+              //   /call 라우트의 peerWallet 파라미터로 흘러가 채널명 산정 가능.
+              //   기존엔 wallet 누락으로 acceptCall 시 _joinAgoraChannel 이
+              //   "통화 정보를 불러올 수 없어요" 로 즉시 teardown 되던 버그 수정.
+              caller_wallet,
             },
             isCall: true,
           });

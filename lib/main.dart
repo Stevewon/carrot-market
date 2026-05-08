@@ -283,11 +283,19 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
     _callkitAcceptSub = push.onCallAccepted.listen((data) {
       final fromUserId = data['from_user_id']?.toString() ?? '';
       if (fromUserId.isEmpty) return;
-      // 익명: 닉네임은 서버에서 다시 받아오므로 placeholder.
-      final peer = Uri.encodeComponent('익명');
+      // ★ v1.0.136: caller_wallet / caller_nickname 도 라우터에 동봉.
+      //   fromPush=1 일 때 CallScreen 이 startCall 대신 acceptCall 을 호출해
+      //   "수락"이 이미 CallKit 에서 눌린 상태임을 인지하도록 함.
+      //   wallet 누락 시 acceptCall 의 _joinAgoraChannel 이 즉시 teardown 되어
+      //   사장님이 본 "수락 누르자마자 꺼져버림" 증상 발생 → wallet 반드시 전달.
+      final callerWallet = data['caller_wallet']?.toString() ?? '';
+      final nickRaw = data['caller_nickname']?.toString().trim() ?? '';
+      final nick = nickRaw.isEmpty ? '익명' : nickRaw;
+      final peerEncoded = Uri.encodeComponent(nick);
+      final walletEncoded = Uri.encodeComponent(callerWallet);
       try {
         widget.router.push(
-            '/call?peerId=$fromUserId&peer=$peer&incoming=1&fromPush=1');
+            '/call?peerId=$fromUserId&peer=$peerEncoded&peerWallet=$walletEncoded&incoming=1&fromPush=1');
       } catch (e) {
         debugPrint('[callkit] router push failed: $e');
       }

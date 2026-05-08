@@ -164,26 +164,49 @@ export async function sendFcm(
   if (!token) return false;
 
   // FCM HTTP v1 message format.
-  const message: Record<string, unknown> = {
-    token: opts.fcmToken,
-    notification: { title: opts.title, body: opts.body },
-    data: opts.data || {},
-    android: {
-      priority: opts.isCall ? 'HIGH' : 'NORMAL',
-      notification: {
-        channel_id: opts.isCall ? 'eggplant_calls' : 'eggplant_messages',
-        // ★ 5차 푸시 핫픽스: Android 알림 탭 → 앱 인텐트 트리거.
-        //  click_action 라벨이 있어야 firebase_messaging plugin 이
-        //  onMessageOpenedApp 이벤트를 발생시켜 _handleOpenedFromPush →
-        //  router.push('/chat/<roomId>') 까지 라우팅됨.
-        //  (라벨 이름은 historic — Android FCM HTTP v1 표준 키이며
-        //   AndroidManifest 의 intent-filter 와 매칭되는 단순 문자열.)
-        click_action: 'FLUTTER_NOTIFICATION_CLICK',
-        // 통화는 ringing UI 가 떠야 하므로 high priority + sound default.
-        ...(opts.isCall ? { sound: 'default', visibility: 'PUBLIC' } : {}),
-      },
-    },
-  };
+  // ★ v1.0.136 (2026-05-08): 푸시 표시 방식 전면 재정비.
+  //   - 통화 invite: data-only push 로 변환 (notification 객체 제거).
+  //     이유: FCM 자체 노티("전화가 와요")와 background isolate 의
+  //     CallKit UI 가 같은 슬롯을 두고 경합 → FCM 노티가 살짝 떴다 사라지고
+  //     CallKit 풀스크린이 안 뜨는 증상 (사장님 보고). data-only 로 하면
+  //     OS 노티 0건, CallKit 만 풀스크린 인텐트로 단독 노출됨.
+  //   - 일반 메시지: priority HIGH + sound default 명시.
+  //     이유: NORMAL priority + sound 누락 시 일부 OEM(OneUI/MIUI)이
+  //     사운드만 재생하고 헤드업 배너 생략. HIGH + sound 명시로 헤드업 보장.
+  const message: Record<string, unknown> = opts.isCall
+      ? {
+          // 통화: data-only — 클라이언트 background isolate 가 CallKit 만 띄움.
+          token: opts.fcmToken,
+          data: opts.data || {},
+          android: {
+            priority: 'HIGH',
+            // notification 객체 자체를 보내지 않음 (FCM OS 노티 차단).
+          },
+        }
+      : {
+          // 일반 메시지: HIGH priority + sound + visibility 로 헤드업 보장.
+          token: opts.fcmToken,
+          notification: { title: opts.title, body: opts.body },
+          data: opts.data || {},
+          android: {
+            priority: 'HIGH',
+            notification: {
+              channel_id: 'eggplant_messages',
+              // ★ 5차 푸시 핫픽스: Android 알림 탭 → 앱 인텐트 트리거.
+              //  click_action 라벨이 있어야 firebase_messaging plugin 이
+              //  onMessageOpenedApp 이벤트를 발생시켜 _handleOpenedFromPush →
+              //  router.push('/chat/<roomId>') 까지 라우팅됨.
+              click_action: 'FLUTTER_NOTIFICATION_CLICK',
+              // ★ v1.0.136: sound 명시 — OneUI/MIUI 헤드업 보장.
+              sound: 'default',
+              // ★ v1.0.136: 잠금화면에서도 미리보기 노출 (privacy 옵션은 클라이언트 단).
+              visibility: 'PUBLIC',
+              // ★ v1.0.136: notification_priority 명시 — 헤드업 강제.
+              notification_priority: 'PRIORITY_HIGH',
+              default_vibrate_timings: true,
+            },
+          },
+        };
 
   const res = await fetch(
     `https://fcm.googleapis.com/v1/projects/${env.FCM_PROJECT_ID}/messages:send`,
