@@ -35,10 +35,13 @@ class AgoraService extends ChangeNotifier {
 
   /// 빌드 시 주입되는 Agora App ID.
   ///   `flutter build apk --dart-define=AGORA_APP_ID=66ee6650c8b244b1941fac87eae3fc9a`
-  /// 비어있으면 SDK 초기화를 시도하지 않는다 (개발 빌드 fallback).
+  /// dart-define 미주입 시 fallback 으로 프로덕션 App ID 사용 (v1.0.129 핫픽스).
+  /// — 기존 build-apk.yml 에 AGORA_APP_ID 가 빠져있어 isConfigured=false 가 되며
+  ///   "통화 엔진 초기화 실패" 토스트가 발생했음. workflow 파일은 GitHub App
+  ///   권한 제한으로 push 불가하여 코드 fallback 으로 우회.
   static const String appId = String.fromEnvironment(
     'AGORA_APP_ID',
-    defaultValue: '',
+    defaultValue: '66ee6650c8b244b1941fac87eae3fc9a',
   );
 
   /// 빌드된 앱이 Agora 를 사용할 수 있는 상태인지.
