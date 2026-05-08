@@ -180,6 +180,8 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
   CallState _lastState = CallState.idle;
   bool _chatConnectRequested = false;
   bool _coldStartHandled = false;
+  // ★ v1.0.126: 앱 부팅 직후 stuck CallKit/상태 강제 정리 1회 플래그.
+  bool _callBootResetDone = false;
   // ★ 당근식 자동 진입: 부팅 후 1회만 (UX — 사용자가 의도적으로 다른 화면
   //   보고 있는데 또 빼앗아 가면 안 됨).
   bool _autoEnterUnreadDone = false;
@@ -432,6 +434,13 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
       _callService?.removeListener(_onCallChange);
       _callService = call;
       _callService!.addListener(_onCallChange);
+      // ★ v1.0.126: 앱 부팅 직후 1회만 stuck CallKit/상태 강제 정리.
+      //  비정상 종료 후 재실행 시 "이미 통화 중이에요" 토스트 방지.
+      if (!_callBootResetDone) {
+        _callBootResetDone = true;
+        // ignore: discarded_futures
+        call.resetOnBoot();
+      }
     }
 
     // CallKit accept 이벤트 → /call 라우팅 (한 번만 attach).

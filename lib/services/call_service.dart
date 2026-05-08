@@ -217,8 +217,43 @@ class CallService extends ChangeNotifier {
     required String peerNickname,
     required String peerWalletAddress,
   }) async {
+    // ★ v1.0.126: stuck 상태 자가 회복.
+    //   _state 가 outgoing/connecting/connected 로 stuck 된 경우, 신뢰할 수
+    //   있는 진행 신호(_connectedAt 또는 최근 ringback) 가 없으면 강제 리셋.
+    //   사장님 케이스: 직전 통화가 비정상 종료되어 _state == ended/connecting
+    //   이 남아있고, 사용자가 다시 통화 버튼 누르면 "이미 통화 중이에요" 토스트.
     if (_state != CallState.idle && _state != CallState.ended) {
-      throw '이미 통화 중이에요';
+      // connected 상태에서 진짜 음성이 흐르고 있다면 _connectedAt 이 있을 것.
+      final isReallyConnected = _state == CallState.connected &&
+          _connectedAt != null &&
+          DateTime.now().difference(_connectedAt!).inSeconds < 3600;
+      // outgoing/connecting 인데 ringback 도 안 울리고 timer 도 없으면 stuck.
+      final isStuckOutgoing = (_state == CallState.outgoing ||
+              _state == CallState.connecting) &&
+          !_ringbackPlaying &&
+          _outgoingTimeoutTimer == null;
+      if (isReallyConnected) {
+        // 진짜로 통화 중 — 사용자 안내 후 차단.
+        switch (_state) {
+          case CallState.connected:
+            throw '이미 통화 중이에요';
+          case CallState.connecting:
+            throw '연결 중이에요';
+          case CallState.outgoing:
+            throw '응답을 기다리고 있어요';
+          case CallState.incoming:
+            throw '걸려온 통화가 있어요';
+          default:
+            throw '이미 통화 중이에요';
+        }
+      }
+      // stuck 의심 — 강제 정리 후 새 통화 진행.
+      debugPrint('[call] stuck state detected (state=$_state, '
+          'ringback=$_ringbackPlaying, timer=${_outgoingTimeoutTimer != null}). '
+          'force-resetting before new call.');
+      await _forceReset();
+      // ignore: unused_local_variable
+      final _ = isStuckOutgoing; // silence linter
     }
     // ended 상태 리셋 (즉시 재발신 허용)
     if (_state == CallState.ended) {
@@ -563,6 +598,38 @@ class CallService extends ChangeNotifier {
     } catch (e) {
       debugPrint('[call] leaveChannel failed: $e');
     }
+  }
+
+  /// ★ v1.0.126: 모든 통화 관련 상태를 무조건 idle 로 강제 복구.
+  ///   stuck 케이스 자가 회복 + 콜드부팅 시 잔존 UI 초기화 양쪽에서 사용.
+  ///   _teardown 과 다른 점: stateAfter 옵션 없이 무조건 idle 로 가고,
+  ///   엔진/채널/타이머/사운드/CallKit 모두 정리한다.
+  Future<void> _forceReset() async {
+    try { await _stopAllRingtones(); } catch (_) {}
+    try { await _leaveAgoraChannel(); } catch (_) {}
+    try { await FlutterCallkitIncoming.endAllCalls(); } catch (_) {}
+    _outgoingTimeoutTimer?.cancel();
+    _outgoingTimeoutTimer = null;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _muted = false;
+    _activeCallId = null;
+    _peerUserId = null;
+    _peerNickname = null;
+    _peerWalletAddress = null;
+    _isCaller = false;
+    _connectedAt = null;
+    _lastError = null;
+    _state = CallState.idle;
+    notifyListeners();
+  }
+
+  /// ★ v1.0.126: 앱 부팅 직후 1회 호출 — 잔존 CallKit UI/상태 강제 정리.
+  ///   비정상 종료(앱 강제 종료, OS kill) 후 다시 켰을 때 stuck 토스트
+  ///   "이미 통화 중이에요" 가 뜨는 케이스 방지.
+  Future<void> resetOnBoot() async {
+    debugPrint('[call] resetOnBoot — clearing stale CallKit state');
+    await _forceReset();
   }
 
   Future<void> _teardown({required CallState stateAfter}) async {
