@@ -555,21 +555,26 @@ class CallService extends ChangeNotifier {
     }
     try {
       _engine = createAgoraRtcEngine();
+      // ★ v1.0.130 P0-#1: RtcEngineContext 의 audioScenario 제거.
+      //   Communication profile 과 audioScenarioChatroom 조합이 일부 안드로이드
+      //   기기에서 initialize() 자체를 throw 하게 만들어 "통화 엔진 초기화 실패"
+      //   토스트의 진짜 원인이었음. 기본 scenario(default) 만 사용해 호환성 확보.
       await _engine!.initialize(
         RtcEngineContext(
           appId: AgoraService.appId,
           channelProfile: ChannelProfileType.channelProfileCommunication,
-          audioScenario: AudioScenarioType.audioScenarioChatroom,
         ),
       );
-      await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+      // ★ v1.0.130 P0-#2: setClientRole 호출 제거.
+      //   ClientRole.broadcaster 는 liveBroadcasting profile 전용이라
+      //   communication profile 에서 호출하면 일부 SDK 빌드에서 throw 함.
+      //   communication profile 은 모든 참가자가 양방향 송신 가능하므로 role
+      //   설정 자체가 불필요.
       await _engine!.enableAudio();
       await _engine!.disableVideo();
       // ★ P1-#6 (v1.0.127): 1:1 음성 통화에 최적화된 audio profile.
       //   speechStandard = 16 kHz mono — 음성 압축 효율 + 품질 균형.
-      //   audioScenarioChatroom 은 multi-party group 용이라 1:1 에는 default 가
-      //   적절. setDefaultAudioRouteToSpeakerphone(true) 로 일부 OEM 에서
-      //   수화기로만 출력되던 문제 방지.
+      //   v1.0.130: scenario 도 default 로 통일 (RtcEngineContext 와 일관성).
       try {
         await _engine!.setAudioProfile(
           profile: AudioProfileType.audioProfileSpeechStandard,

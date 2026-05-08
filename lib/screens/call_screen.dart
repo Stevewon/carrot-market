@@ -57,12 +57,21 @@ class _CallScreenState extends State<CallScreen> {
             peerWalletAddress: widget.peerWalletAddress,
           );
         } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(e.toString())),
+          // ★ v1.0.130 P0-#3: pop 먼저 → SnackBar 는 root scaffold 에서.
+          //   기존: SnackBar 후 pop → 라우터 stack 꼬임으로 채팅 탭의 다음 push
+          //   가 무효화되어 사장님 화면에서 채팅방이 안 들어가는 현상 발생.
+          //   수정: 즉시 pop → 다음 frame 에서 SnackBar 표시 (root context).
+          if (!mounted) return;
+          final msg = e.toString();
+          context.pop();
+          // pop 직후 SnackBar — root navigator 위에서 띄움.
+          Future.microtask(() {
+            final rootCtx = context;
+            if (!rootCtx.mounted) return;
+            ScaffoldMessenger.maybeOf(rootCtx)?.showSnackBar(
+              SnackBar(content: Text(msg)),
             );
-            context.pop();
-          }
+          });
         }
       });
     }
