@@ -413,8 +413,39 @@ export class ChatHub {
       case 'call_invite': {
         const to_user_id = String(msg.to_user_id || '');
         const call_id = String(msg.call_id || '');
-        const caller_nickname = (msg.caller_nickname as string) || meta.nickname;
+        // ★ P1-#7 (v1.0.127): 닉네임 spoof 방지 — 클라이언트가 보낸 값을 그대로
+        //   쓰지 않고, JWT 의 meta.nickname 을 우선 사용. 발신자가 임의로 다른
+        //   사람 닉네임으로 가장하는 것을 서버에서 차단.
+        const caller_nickname = meta.nickname || (msg.caller_nickname as string) || '익명';
         if (!to_user_id || !call_id) return;
+
+        // ★ P1-#7 (v1.0.127): block 검증 — 수신자가 발신자를 차단했으면 invite
+        //   자체를 차단. 차단된 사용자도 전화 받을 수 있던 보안 구멍 수정.
+        //   양방향 모두 체크: 발신자가 수신자를 차단했어도 invite 차단 (UX 일관성).
+        try {
+          const blockRow = await this.env.DB.prepare(
+            `SELECT 1 FROM user_blocks
+             WHERE (blocker_id = ? AND blocked_id = ?)
+                OR (blocker_id = ? AND blocked_id = ?)
+             LIMIT 1`,
+          )
+            .bind(to_user_id, meta.userId, meta.userId, to_user_id)
+            .first();
+          if (blockRow) {
+            // 차단 관계 — 발신자에게 일반 거절 신호.
+            this.sendSafe(ws, {
+              type: 'call_failed',
+              call_id,
+              reason: 'blocked',
+              message: '연결할 수 없는 상대에요',
+            });
+            return;
+          }
+        } catch (e) {
+          // DB 일시 오류 — 차단 검증 실패해도 통화는 허용 (가용성 우선).
+          console.log('[call_invite] block check failed:', e);
+        }
+
         const delivered = this.sendToUser(to_user_id, {
           type: 'call_incoming',
           call_id,

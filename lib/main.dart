@@ -123,11 +123,16 @@ class EggplantApp extends StatelessWidget {
         // - chat: call_invite/response/cancel/end 시그널 전달
         // - agora: 채널명 생성 + RTC 토큰 발급 (HMAC-SHA256 v006)
         ChangeNotifierProxyProvider2<ChatService, AgoraService, CallService>(
-          create: (ctx) => CallService(
-            auth: authService,
-            chat: ctx.read<ChatService>(),
-            agora: ctx.read<AgoraService>(),
-          ),
+          create: (ctx) {
+            final call = CallService(
+              auth: authService,
+              chat: ctx.read<ChatService>(),
+              agora: ctx.read<AgoraService>(),
+            );
+            // ★ P1-#11 (v1.0.127): 로그아웃 시 진행 중인 통화 자동 정리.
+            authService.attachCallSink(() => call.resetOnBoot());
+            return call;
+          },
           update: (ctx, chat, agora, previous) =>
               previous ??
               CallService(auth: authService, chat: chat, agora: agora),

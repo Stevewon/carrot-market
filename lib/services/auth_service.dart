@@ -77,6 +77,15 @@ class AuthService extends ChangeNotifier {
     _agora = agora;
   }
 
+  /// ★ P1-#11 (v1.0.127): 로그아웃 시 진행 중인 통화/CallKit UI/Agora 채널을
+  ///   강제 종료. main.dart 에서 CallService 생성 직후 attachCall 호출.
+  ///   콜백으로 받아두는 이유: AuthService 가 CallService 를 직접 import 하면
+  ///   순환 의존(CallService → AuthService → CallService) 발생.
+  Future<void> Function()? _onLogoutCallSink;
+  void attachCallSink(Future<void> Function() onLogout) {
+    _onLogoutCallSink = onLogout;
+  }
+
   AuthService(this.prefs) {
     // Whenever the API returns 401 with a "revoked" signal, we log out
     // locally so the app falls back to onboarding automatically.
@@ -722,6 +731,14 @@ class AuthService extends ChangeNotifier {
       // ignore: discarded_futures
       _agora!.teardown().catchError((Object e) {
         debugPrint('[auth] agora teardown warning: $e');
+      });
+    }
+
+    // ★ P1-#11: 진행 중이던 통화/CallKit 강제 종료 (다른 계정 로그인 시 stale 방지).
+    if (_onLogoutCallSink != null) {
+      // ignore: discarded_futures
+      _onLogoutCallSink!().catchError((Object e) {
+        debugPrint('[auth] call sink logout warning: $e');
       });
     }
 
