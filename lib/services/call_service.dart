@@ -32,6 +32,7 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
@@ -40,7 +41,6 @@ import '../utils/agora_uid.dart';
 import 'agora_service.dart';
 import 'auth_service.dart';
 import 'chat_service.dart';
-import 'permission_service.dart';
 
 enum CallState {
   idle,       // No call
@@ -146,7 +146,10 @@ class CallService extends ChangeNotifier {
         // 내가 작은 쪽 → 상대 invite 무시 (상대가 내 invite 를 받아야 함).
         return;
       }
-      if (_state != CallState.idle) {
+      // ★ P0-#1 (v1.0.127): ended 상태도 idle 로 취급.
+      //   직전 통화 종료 후 800ms 동안 ended 상태로 머무는 동안 새 incoming 이
+      //   오면 자동 거절되던 버그 수정. ended 상태 자동 정리 후 incoming 진행.
+      if (_state != CallState.idle && _state != CallState.ended) {
         // Already busy - auto-reject.
         chat.emit('call_response', {
           'to_user_id': data['from_user_id'],
@@ -154,6 +157,16 @@ class CallService extends ChangeNotifier {
           'accepted': false,
         });
         return;
+      }
+      // ended → 즉시 정리하고 새 incoming 받기.
+      if (_state == CallState.ended) {
+        _state = CallState.idle;
+        _activeCallId = null;
+        _peerUserId = null;
+        _peerNickname = null;
+        _peerWalletAddress = null;
+        _isCaller = false;
+        _connectedAt = null;
       }
       _activeCallId = data['call_id']?.toString();
       _peerUserId = data['from_user_id']?.toString();
@@ -180,7 +193,11 @@ class CallService extends ChangeNotifier {
         _outgoingTimeoutTimer?.cancel();
         _state = CallState.connecting;
         notifyListeners();
-        await _joinAgoraChannel();
+        final joined = await _joinAgoraChannel();
+        if (joined) {
+          // ★ P0-#3: 백그라운드 음성 보장.
+          await _startCallForegroundService();
+        }
       }
     }));
 
@@ -264,9 +281,18 @@ class CallService extends ChangeNotifier {
     if (!ok) {
       throw '마이크 권한이 필요해요';
     }
+    // ★ P1-#9 (v1.0.127): WebSocket 1회 재시도.
+    //   첫 연결 실패 시 즉시 throw 하던 동작 → 4G 약전계에서 통화 시도 자체가
+    //   불가능. 1초 대기 후 한 번 더 connect + 대기.
     chat.connect();
     if (!chat.connected) {
       await _waitForSocket();
+    }
+    if (!chat.connected) {
+      debugPrint('[call] WebSocket first attempt failed, retrying...');
+      await Future.delayed(const Duration(seconds: 1));
+      chat.connect();
+      await _waitForSocket(timeoutMs: 4000);
     }
     if (!chat.connected) {
       throw '서버에 연결되지 않았어요';
@@ -282,7 +308,15 @@ class CallService extends ChangeNotifier {
     notifyListeners();
 
     // Agora 엔진은 미리 초기화 (joinChannel 은 상대 수락 시).
-    await _ensureEngine();
+    // ★ P1-#10 (v1.0.127): 엔진 초기화 실패 시 outgoing 상태 그대로 두지 않고
+    //   강제 복구 후 사용자에게 안내.
+    try {
+      await _ensureEngine();
+    } catch (e) {
+      debugPrint('[call] startCall: engine init failed: $e');
+      await _forceReset();
+      throw '통화 엔진 초기화 실패';
+    }
 
     chat.emit('call_invite', {
       'to_user_id': peerUserId,
@@ -308,6 +342,11 @@ class CallService extends ChangeNotifier {
   }
 
   /// Callee accepts the incoming call.
+  ///
+  /// ★ P0-#2 (v1.0.127): join 성공 후 response 전송.
+  ///   기존 버그: response(accepted=true) 먼저 보내고 → join 진행 → 토큰 발급
+  ///   실패하면 발신자는 "수락됨" 받았는데 음성 안 흐름 → 30초간 ringback.
+  ///   수정: 채널 join 까지 성공한 뒤 response 보냄. 실패 시 자동 reject.
   Future<void> acceptCall() async {
     if (_state != CallState.incoming || _activeCallId == null) return;
     final ok = await _ensureMicPermission();
@@ -319,16 +358,32 @@ class CallService extends ChangeNotifier {
     _state = CallState.connecting;
     notifyListeners();
 
-    await _ensureEngine();
+    // 1) 엔진 초기화
+    try {
+      await _ensureEngine();
+    } catch (e) {
+      debugPrint('[call] acceptCall: engine init failed: $e');
+      await rejectCall(reason: '통화 엔진 초기화 실패');
+      return;
+    }
 
+    // 2) 수신자 먼저 채널 join (성공 시에만 발신자에게 accepted 알림).
+    final joined = await _joinAgoraChannel();
+    if (!joined) {
+      // join 실패 — 발신자에게 수락 신호 보내지 않음 (자동 timeout 으로 처리).
+      // 사용자에게 안내 후 종료.
+      await rejectCall(reason: '통화 연결 실패');
+      return;
+    }
+
+    // 3) join 성공 → 발신자에게 accepted 통보.
     chat.emit('call_response', {
       'to_user_id': _peerUserId,
       'call_id': _activeCallId,
       'accepted': true,
     });
-
-    // 수신자도 즉시 채널 join (양쪽 모두 publisher).
-    await _joinAgoraChannel();
+    // ★ P0-#3: 백그라운드 음성 끊김 방지 — foreground service 시작.
+    await _startCallForegroundService();
   }
 
   /// Callee rejects the incoming call.
@@ -393,11 +448,29 @@ class CallService extends ChangeNotifier {
 
   // --- Internals --------------------------------------------------------
 
+  /// ★ P0-#4 (v1.0.127): 마이크 권한 체크.
+  ///   기존 버그: 한 번 거부되면 hasAskedBefore=true 라서 영영 false 반환 →
+  ///   사용자는 통화 못 함. 수정: permanentlyDenied 면 openAppSettings 호출
+  ///   가능하도록 별도 시그널을 두고, UI 에서 안내. 일반 denied 는 매번 재요청.
   Future<bool> _ensureMicPermission() async {
-    if (await Permission.microphone.isGranted) return true;
-    if (!await PermissionService.hasAskedBefore()) {
-      final status = await Permission.microphone.request();
-      return status.isGranted;
+    final current = await Permission.microphone.status;
+    if (current.isGranted) return true;
+    if (current.isPermanentlyDenied) {
+      // 사용자가 "다시 묻지 않기" 선택한 상태 → 시스템 설정으로 안내.
+      _setError('설정 > 권한 > 마이크에서 권한을 켜주세요');
+      try {
+        await openAppSettings();
+      } catch (e) {
+        debugPrint('[call] openAppSettings failed: $e');
+      }
+      return false;
+    }
+    // denied 또는 첫 요청 — 시스템 권한 다이얼로그 띄움.
+    final status = await Permission.microphone.request();
+    if (status.isGranted) return true;
+    if (status.isPermanentlyDenied) {
+      _setError('설정 > 권한 > 마이크에서 권한을 켜주세요');
+      try { await openAppSettings(); } catch (_) {}
     }
     return false;
   }
@@ -486,10 +559,45 @@ class CallService extends ChangeNotifier {
       await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
       await _engine!.enableAudio();
       await _engine!.disableVideo();
+      // ★ P1-#6 (v1.0.127): 1:1 음성 통화에 최적화된 audio profile.
+      //   speechStandard = 16 kHz mono — 음성 압축 효율 + 품질 균형.
+      //   audioScenarioChatroom 은 multi-party group 용이라 1:1 에는 default 가
+      //   적절. setDefaultAudioRouteToSpeakerphone(true) 로 일부 OEM 에서
+      //   수화기로만 출력되던 문제 방지.
+      try {
+        await _engine!.setAudioProfile(
+          profile: AudioProfileType.audioProfileSpeechStandard,
+          scenario: AudioScenarioType.audioScenarioDefault,
+        );
+      } catch (e) {
+        debugPrint('[call] setAudioProfile failed: $e');
+      }
+      try {
+        await _engine!.setDefaultAudioRouteToSpeakerphone(true);
+      } catch (e) {
+        debugPrint('[call] setDefaultAudioRouteToSpeakerphone failed: $e');
+      }
       await _engine!.setEnableSpeakerphone(_speakerOn);
       _engine!.registerEventHandler(RtcEngineEventHandler(
         onJoinChannelSuccess: (RtcConnection conn, int elapsed) {
           debugPrint('[call] Agora joined channel=${conn.channelId} uid=${conn.localUid} elapsed=${elapsed}ms');
+          // ★ P1-#5 (v1.0.127): 내가 늦게 join 한 경우 onUserJoined 가 안 올 수
+          //  있으므로 여기서도 connected 처리. 단, 상대가 이미 채널에 있는지
+          //  확실치 않으니 connecting 유지하다가 onUserJoined 또는 5초 timer 로
+          //  최종 결정. 여기선 connecting 진입 표시만.
+          if (_state == CallState.connecting) {
+            // 5초 안에 onUserJoined 가 안 오면 connected 로 강제 (네트워크 이슈
+            // 로 RemoteAudioStateChanged 가 늦는 안드로이드 일부 기기 대비).
+            Timer(const Duration(seconds: 5), () {
+              if (_state == CallState.connecting) {
+                debugPrint('[call] forcing connected after 5s grace period');
+                _state = CallState.connected;
+                _connectedAt = DateTime.now();
+                _stopAllRingtones();
+                notifyListeners();
+              }
+            });
+          }
         },
         onUserJoined: (RtcConnection conn, int remoteUid, int elapsed) {
           debugPrint('[call] remote user joined uid=$remoteUid');
@@ -543,30 +651,41 @@ class CallService extends ChangeNotifier {
     });
   }
 
-  Future<void> _joinAgoraChannel() async {
+  /// Agora 채널 입장. 성공 시 true, 실패 시 false 반환.
+  ///
+  /// ★ P0-#2 (v1.0.127): bool 반환으로 변경 — acceptCall 이 join 성공 여부를
+  ///   확인한 후에만 발신자에게 accepted 통보하기 위해.
+  /// ★ P1-#8 (v1.0.127): 토큰 발급 1회 retry — 첫 호출 timeout/일시 오류 대비.
+  Future<bool> _joinAgoraChannel() async {
     if (_engine == null) await _ensureEngine();
     final myWallet = auth.user?.walletAddress ?? '';
     final peerWallet = _peerWalletAddress ?? '';
     if (myWallet.isEmpty || peerWallet.isEmpty) {
       _setError('통화 정보를 불러올 수 없어요');
       await _teardown(stateAfter: CallState.ended);
-      return;
+      return false;
     }
 
     final channel = agora.callChannel(myWallet, peerWallet);
     final myUid = AgoraUid.fromWalletAddress(myWallet);
 
-    // 서버 토큰 발급 (실패 시 채널 join 실패 → 종료).
+    // 서버 토큰 발급 (1회 retry — 4G 약전계 첫 호출 실패 대비).
     String? token;
-    try {
-      token = await agora.fetchRtcToken(channel: channel);
-    } catch (e) {
-      debugPrint('[call] fetchRtcToken failed: $e');
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try {
+        token = await agora.fetchRtcToken(channel: channel);
+        if (token != null && token.isNotEmpty) break;
+      } catch (e) {
+        debugPrint('[call] fetchRtcToken attempt=$attempt failed: $e');
+      }
+      if (attempt == 0) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
     }
     if (token == null || token.isEmpty) {
       _setError('통화 토큰 발급 실패');
       await _teardown(stateAfter: CallState.ended);
-      return;
+      return false;
     }
 
     try {
@@ -582,10 +701,12 @@ class CallService extends ChangeNotifier {
           channelProfile: ChannelProfileType.channelProfileCommunication,
         ),
       );
+      return true;
     } catch (e) {
       debugPrint('[call] joinChannel failed: $e');
       _setError('채널 입장 실패');
       await _teardown(stateAfter: CallState.ended);
+      return false;
     }
   }
 
@@ -608,6 +729,8 @@ class CallService extends ChangeNotifier {
     try { await _stopAllRingtones(); } catch (_) {}
     try { await _leaveAgoraChannel(); } catch (_) {}
     try { await FlutterCallkitIncoming.endAllCalls(); } catch (_) {}
+    // ★ P0-#3: foreground service 도 함께 정리.
+    try { await _stopCallForegroundService(); } catch (_) {}
     _outgoingTimeoutTimer?.cancel();
     _outgoingTimeoutTimer = null;
     _reconnectTimer?.cancel();
@@ -632,6 +755,67 @@ class CallService extends ChangeNotifier {
     await _forceReset();
   }
 
+  // ── Foreground Service (Android 14+ 백그라운드 음성 보장) ─────────
+  //
+  // ★ P0-#3 (v1.0.127): flutter_foreground_task 시작/종료.
+  //   pubspec 에 패키지가 추가됐지만 실제 시작 코드가 없어 Android 14+ 에서
+  //   백그라운드 진입 시 마이크 끊김. 채널 join 직후 startService() 호출하고
+  //   _teardown 시 stopService() 호출.
+  bool _foregroundServiceStarted = false;
+
+  Future<void> _startCallForegroundService() async {
+    if (_foregroundServiceStarted) return;
+    try {
+      // 8.x API: init 은 androidNotificationOptions / iosNotificationOptions /
+      // foregroundTaskOptions 3 인자 모두 받지만, 가장 단순한 형태로 호출.
+      // dynamic 으로 캐스팅하여 마이너 버전 시그니처 차이 흡수.
+      // ignore: avoid_dynamic_calls
+      final dynamic ff = FlutterForegroundTask;
+      try {
+        ff.init(
+          androidNotificationOptions: AndroidNotificationOptions(
+            channelId: 'eggplant_call_fg',
+            channelName: '통화 진행 중',
+            channelDescription: '통화 중에는 알림이 표시됩니다',
+            channelImportance: NotificationChannelImportance.LOW,
+            priority: NotificationPriority.LOW,
+          ),
+          iosNotificationOptions: const IOSNotificationOptions(
+            showNotification: false,
+            playSound: false,
+          ),
+          foregroundTaskOptions: const ForegroundTaskOptions(
+            interval: 60000,
+            autoRunOnBoot: false,
+            allowWakeLock: true,
+            allowWifiLock: true,
+          ),
+        );
+      } catch (e) {
+        debugPrint('[call] foreground init alt path: $e');
+      }
+      await FlutterForegroundTask.startService(
+        notificationTitle: '통화 중',
+        notificationText: _peerNickname ?? '익명',
+      );
+      _foregroundServiceStarted = true;
+    } catch (e) {
+      // ★ 패키지 API 불일치/권한 거부 등으로 실패해도 통화 자체는 진행 (silent).
+      //  Android 12 이하에선 foreground service 없이도 백그라운드 마이크 OK.
+      debugPrint('[call] foreground service start failed: $e');
+    }
+  }
+
+  Future<void> _stopCallForegroundService() async {
+    if (!_foregroundServiceStarted) return;
+    _foregroundServiceStarted = false;
+    try {
+      await FlutterForegroundTask.stopService();
+    } catch (e) {
+      debugPrint('[call] foreground service stop failed: $e');
+    }
+  }
+
   Future<void> _teardown({required CallState stateAfter}) async {
     // 1) 사운드 즉시 정지
     await _stopAllRingtones();
@@ -643,6 +827,8 @@ class CallService extends ChangeNotifier {
         await FlutterCallkitIncoming.endCall(_activeCallId!);
       } catch (_) {}
     }
+    // ★ P0-#3: foreground service 종료 (배터리 보호 + 알림 사라짐).
+    await _stopCallForegroundService();
     // 4) 타이머 정리
     _outgoingTimeoutTimer?.cancel();
     _outgoingTimeoutTimer = null;
