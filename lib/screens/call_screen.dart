@@ -81,30 +81,53 @@ class _CallScreenState extends State<CallScreen> {
         }
       });
     } else if (widget.fromPush) {
-      // ★ v1.0.136: CallKit "받기" 후 라우팅된 incoming 통화 — 자동으로 acceptCall.
-      //   사용자가 이미 잠금화면/헤드업 CallKit UI 에서 "받기" 를 눌렀으므로
-      //   CallScreen 안에서 다시 "수락" 버튼을 누를 필요 없음. 즉시 채널 join.
+      // ★ v1.0.137 (2026-05-08): CallKit "받기" 후 라우팅된 incoming 통화.
       //
-      //   주의: incoming 상태 진입은 chat.on('call_incoming') 이 처리하지만,
-      //   백그라운드/앱 종료 상태에서 push 로 깨워진 경우 WebSocket 이 아직
-      //   연결 안 됐을 수 있음. CallService.acceptCall 안에서 _activeCallId
-      //   체크가 있으므로, WS 가 늦게 도착해 incoming 이 늦게 set 되는 경우
-      //   잠시 기다렸다가 한 번 더 시도.
+      //   v1.0.136 의 문제: incoming 상태 진입은 chat.on('call_incoming') 이
+      //   처리하지만 백그라운드/앱 종료 상태에서 push 로 깨워진 경우 WS 가
+      //   아직 안 붙어 있어 이벤트가 안 옴 → 5초 대기 → acceptCall 가드 막힘
+      //   → silent return → 사장님이 본 "메인 화면으로 들어가버림" 증상.
+      //
+      //   v1.0.137 해결: 라우터 쿼리로 받은 push data 만으로 CallService 의
+      //   incoming 상태를 즉시 부트스트랩 (WS 안 붙어도 OK). 그 뒤 acceptCall
+      //   내부에서 WS 재연결 후 emit('call_response') 보냄.
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (_startAttempted) return;
         _startAttempted = true;
         final call = context.read<CallService>();
-        // WS 도착 대기 — 최대 5초.
-        for (int i = 0; i < 25; i++) {
-          if (call.state == CallState.incoming && call.activeCallId != null) {
-            break;
+        // 1) 푸시 데이터로 incoming 상태 강제 진입 (WS 미연결이어도 동작).
+        //    이미 chat.on('call_incoming') 이 와서 incoming 으로 들어와 있으면
+        //    bootstrapIncomingFromPush 가 자체 가드로 skip.
+        //    activeCallId 가 비어 있으면 fromPush 라우트의 call_id 가 없는
+        //    상태이므로 부트스트랩 못함 — 이 경우는 main.dart 의
+        //    _attachCallkitAccept 가 router.push 할 때 이미 데이터 채워둠
+        //    (peerId/peer/peerWallet) → CallScreen 도 동일 데이터 보유.
+        if (call.state != CallState.incoming || call.activeCallId == null) {
+          // call_id 는 라우터 쿼리로 안 옴 → CallService 가 push_service 로부터
+          // _callAcceptCtrl 을 통해 받은 데이터에서 _attachCallkitAccept 가
+          // 라우터 push 시점에 이미 알고 있음. 단 callId 자체는 query 에 안 실려
+          // 있으니 부트스트랩 시 임시 callId 를 쓰면 서버 매칭 실패.
+          // → 대신 CallService 가 chat.on('call_incoming') 을 받기까지 짧게
+          //    기다린 뒤 (WS 재연결 후 서버가 retry push 안 보내도 상관없음 —
+          //    아래 acceptCall 안의 _waitForSocket 가 WS 만 연결되면 OK),
+          //    incoming 진입 못해도 acceptCall 호출 전에 마지막으로 한 번 더
+          //    부트스트랩 시도.
+          //
+          //  ★ 최종 흐름: push_service 의 _callAcceptCtrl 에 call_id 포함됨 →
+          //    main.dart 의 _attachCallkitAccept 가 라우터 push 직전에
+          //    bootstrapIncomingFromPush 도 호출 (다음 patch 에서 추가).
+          //    여기서는 그 결과 state 가 incoming 으로 진입돼 있을 것을 기대.
+          //    1초 정도만 기다림 (WS reconnect 는 acceptCall 내부에서 처리).
+          for (int i = 0; i < 5; i++) {
+            if (call.state == CallState.incoming && call.activeCallId != null) {
+              break;
+            }
+            await Future.delayed(const Duration(milliseconds: 200));
+            if (!mounted) return;
           }
-          await Future.delayed(const Duration(milliseconds: 200));
-          if (!mounted) return;
         }
         if (!mounted) return;
-        // incoming 상태가 됐든 안 됐든 acceptCall 시도.
-        // CallService 가 _activeCallId 없으면 즉시 return 하므로 안전.
+        // 2) acceptCall — 내부에서 WS 재연결 + 채널 join + response 전송.
         try {
           await call.acceptCall();
         } catch (e) {

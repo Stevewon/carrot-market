@@ -288,11 +288,33 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
       //   "수락"이 이미 CallKit 에서 눌린 상태임을 인지하도록 함.
       //   wallet 누락 시 acceptCall 의 _joinAgoraChannel 이 즉시 teardown 되어
       //   사장님이 본 "수락 누르자마자 꺼져버림" 증상 발생 → wallet 반드시 전달.
+      final callId = data['call_id']?.toString() ?? '';
       final callerWallet = data['caller_wallet']?.toString() ?? '';
       final nickRaw = data['caller_nickname']?.toString().trim() ?? '';
       final nick = nickRaw.isEmpty ? '익명' : nickRaw;
       final peerEncoded = Uri.encodeComponent(nick);
       final walletEncoded = Uri.encodeComponent(callerWallet);
+
+      // ★ v1.0.137 (2026-05-08): 라우터 push 직전에 CallService 의 incoming
+      //   상태를 푸시 데이터로 직접 부트스트랩.
+      //   v1.0.136 의 사장님 보고 증상 ("수락 → 메인 화면 진입 → 발신자 거절"):
+      //   백그라운드/앱 종료 상태에서 깨워진 경우 chat.on('call_incoming') 이
+      //   안 와서 _activeCallId 등이 비어 있고, CallScreen 이 5초 대기 후
+      //   acceptCall 호출해도 line 358 가드에 막혀 silent return 되던 버그.
+      //   여기서 미리 bootstrapIncomingFromPush 로 incoming 진입 → 라우터 push
+      //   → CallScreen 의 fromPush 분기가 즉시 acceptCall 정상 진행.
+      try {
+        final call = ctx.read<CallService>();
+        call.bootstrapIncomingFromPush(
+          callId: callId,
+          peerUserId: fromUserId,
+          peerNickname: nick,
+          peerWalletAddress: callerWallet,
+        );
+      } catch (e) {
+        debugPrint('[callkit] bootstrap incoming failed: $e');
+      }
+
       try {
         widget.router.push(
             '/call?peerId=$fromUserId&peer=$peerEncoded&peerWallet=$walletEncoded&incoming=1&fromPush=1');

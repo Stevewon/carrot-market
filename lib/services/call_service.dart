@@ -348,18 +348,77 @@ class CallService extends ChangeNotifier {
     });
   }
 
+  /// ★ v1.0.137 (2026-05-08): CallKit "받기" 푸시 경로 부트스트랩.
+  ///
+  /// 백그라운드/앱 종료 상태에서 푸시로 깨워진 경우, ChatService(WebSocket)
+  /// 가 아직 연결 안 돼 chat.on('call_incoming') 이벤트를 못 받았으므로
+  /// _activeCallId/_peerUserId/_peerWalletAddress 가 비어 있다.
+  /// 이 상태에서 acceptCall() 을 호출하면 line 358 가드에 막혀 silent return →
+  /// 사장님이 보신 "수락 누르면 메인 화면으로 가버림" 증상.
+  ///
+  /// 푸시 data (call_id/from_user_id/caller_nickname/caller_wallet) 만으로
+  /// CallService 의 incoming 상태를 직접 부트스트랩한다. WS 가 아직 끊겨 있어도
+  /// state 를 CallState.incoming 으로 강제 진입시키고, 이후 acceptCall 이
+  /// 호출되면 _waitForSocket 으로 재연결 후 join 진행.
+  void bootstrapIncomingFromPush({
+    required String callId,
+    required String peerUserId,
+    required String peerNickname,
+    required String peerWalletAddress,
+  }) {
+    if (callId.isEmpty || peerUserId.isEmpty) {
+      debugPrint('[call] bootstrapIncomingFromPush: missing callId/peerUserId — skip');
+      return;
+    }
+    // 이미 동일 call_id 로 incoming 상태면 중복 진입 방지.
+    if (_state == CallState.incoming && _activeCallId == callId) {
+      debugPrint('[call] bootstrapIncomingFromPush: already incoming for $callId — skip');
+      return;
+    }
+    // 이미 connecting/connected 면 별도 진입 금지 (race 보호).
+    if (_state == CallState.connecting || _state == CallState.connected) {
+      debugPrint('[call] bootstrapIncomingFromPush: state=$_state — skip');
+      return;
+    }
+    debugPrint('[call] bootstrapIncomingFromPush: callId=$callId peer=$peerUserId');
+    _activeCallId = callId;
+    _peerUserId = peerUserId;
+    _peerNickname = peerNickname.isEmpty ? '익명' : peerNickname;
+    _peerWalletAddress = peerWalletAddress;
+    _isCaller = false;
+    _connectedAt = null;
+    _lastError = null;
+    _state = CallState.incoming;
+    notifyListeners();
+  }
+
   /// Callee accepts the incoming call.
   ///
   /// ★ P0-#2 (v1.0.127): join 성공 후 response 전송.
   ///   기존 버그: response(accepted=true) 먼저 보내고 → join 진행 → 토큰 발급
   ///   실패하면 발신자는 "수락됨" 받았는데 음성 안 흐름 → 30초간 ringback.
   ///   수정: 채널 join 까지 성공한 뒤 response 보냄. 실패 시 자동 reject.
+  /// ★ v1.0.137: WS 끊긴 상태(콜드 부팅 직후 푸시 수락)에서도 동작.
+  ///   chat.connect() + _waitForSocket() 으로 emit 직전 재연결 보장.
   Future<void> acceptCall() async {
     if (_state != CallState.incoming || _activeCallId == null) return;
     final ok = await _ensureMicPermission();
     if (!ok) {
       await rejectCall(reason: '마이크 권한이 필요해요');
       return;
+    }
+    // ★ v1.0.137: WS 가 끊겨 있으면 재연결. emit('call_response') 가 silent
+    //   fail 되면 발신자는 영영 30초 timeout 까지 ringback → "받지 않음" 표시.
+    if (!chat.connected) {
+      debugPrint('[call] acceptCall: WS not connected, attempting reconnect');
+      chat.connect();
+      await _waitForSocket(timeoutMs: 4000);
+      if (!chat.connected) {
+        debugPrint('[call] acceptCall: WS reconnect failed, retrying once');
+        await Future.delayed(const Duration(seconds: 1));
+        chat.connect();
+        await _waitForSocket(timeoutMs: 3000);
+      }
     }
     await _stopOsRingtone();
     _state = CallState.connecting;
