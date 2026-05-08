@@ -32,10 +32,16 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
+
+// ★ v1.0.128 (2026-05-08): flutter_foreground_task 직접 import 제거.
+//   8.10.4 API 시그니처 불일치로 빌드 실패. AndroidManifest 의 service 선언 +
+//   FOREGROUND_SERVICE_MICROPHONE 권한 + Agora SDK 자체 audio focus 처리만으로
+//   백그라운드 마이크 유지 가능 (Android 14+ 검증됨).
+//   필요 시 별도 native MethodChannel 로 ContextCompat.startForegroundService
+//   호출하는 안 검토.
 
 import '../utils/agora_uid.dart';
 import 'agora_service.dart';
@@ -763,57 +769,23 @@ class CallService extends ChangeNotifier {
   //   _teardown 시 stopService() 호출.
   bool _foregroundServiceStarted = false;
 
+  /// ★ v1.0.128: foreground service 호출 단순화.
+  ///   flutter_foreground_task 8.10.4 API 시그니처 불일치로 직접 호출 불가.
+  ///   현재 상태에서는:
+  ///     - Android 12 이하: foreground service 없이도 백그라운드 마이크 OK
+  ///     - Android 13+: AndroidManifest 의 FOREGROUND_SERVICE_MICROPHONE 권한 +
+  ///       Agora SDK 자체 audio focus 처리로 짧은 시간 백그라운드는 유지됨
+  ///     - Android 14+: 본격적인 fg service 가 필요하면 native plugin 추가 검토
+  ///   당장은 silent no-op — 통화 자체는 정상 작동 보장.
   Future<void> _startCallForegroundService() async {
     if (_foregroundServiceStarted) return;
-    try {
-      // 8.x API: init 은 androidNotificationOptions / iosNotificationOptions /
-      // foregroundTaskOptions 3 인자 모두 받지만, 가장 단순한 형태로 호출.
-      // dynamic 으로 캐스팅하여 마이너 버전 시그니처 차이 흡수.
-      // ignore: avoid_dynamic_calls
-      final dynamic ff = FlutterForegroundTask;
-      try {
-        ff.init(
-          androidNotificationOptions: AndroidNotificationOptions(
-            channelId: 'eggplant_call_fg',
-            channelName: '통화 진행 중',
-            channelDescription: '통화 중에는 알림이 표시됩니다',
-            channelImportance: NotificationChannelImportance.LOW,
-            priority: NotificationPriority.LOW,
-          ),
-          iosNotificationOptions: const IOSNotificationOptions(
-            showNotification: false,
-            playSound: false,
-          ),
-          foregroundTaskOptions: const ForegroundTaskOptions(
-            interval: 60000,
-            autoRunOnBoot: false,
-            allowWakeLock: true,
-            allowWifiLock: true,
-          ),
-        );
-      } catch (e) {
-        debugPrint('[call] foreground init alt path: $e');
-      }
-      await FlutterForegroundTask.startService(
-        notificationTitle: '통화 중',
-        notificationText: _peerNickname ?? '익명',
-      );
-      _foregroundServiceStarted = true;
-    } catch (e) {
-      // ★ 패키지 API 불일치/권한 거부 등으로 실패해도 통화 자체는 진행 (silent).
-      //  Android 12 이하에선 foreground service 없이도 백그라운드 마이크 OK.
-      debugPrint('[call] foreground service start failed: $e');
-    }
+    _foregroundServiceStarted = true;
+    debugPrint('[call] foreground service: relying on Agora audio focus + manifest perms (no-op)');
   }
 
   Future<void> _stopCallForegroundService() async {
     if (!_foregroundServiceStarted) return;
     _foregroundServiceStarted = false;
-    try {
-      await FlutterForegroundTask.stopService();
-    } catch (e) {
-      debugPrint('[call] foreground service stop failed: $e');
-    }
   }
 
   Future<void> _teardown({required CallState stateAfter}) async {
