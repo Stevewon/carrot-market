@@ -122,13 +122,20 @@ class AgoraService extends ChangeNotifier {
   /// 채팅방 채널명 (네임스페이스 prefix 포함).
   String chatChannel(String roomId) => AgoraUid.channelName('chat', roomId);
 
-  /// 1:1 통화 채널명 (sorted wallet pair, prefix 포함).
+  /// 1:1 통화 채널명 (sorted UID pair, prefix 포함).
   /// 양쪽이 같은 채널에 들어가야 통화 성립.
+  ///
+  /// ★ v1.0.143 (2026-05-09): raw wallet 두 개를 그대로 join 하면
+  ///   `eggplant_call_<0x...42자>_<0x...42자>` = 99자 → 서버 64자 한도 초과 (HTTP 400).
+  ///   해결: 양쪽 wallet 을 결정론적 UID (32-bit unsigned) 로 변환 후 sorted join.
+  ///   결과 길이 최대 `eggplant_call_<10>_<10>` = 35자 ✅
+  ///   (서버 chat-hub.ts / Kotlin AgoraConfig.callChannel 동일 알고리즘)
   String callChannel(String walletA, String walletB) {
-    final a = walletA.toLowerCase();
-    final b = walletB.toLowerCase();
-    final pair = a.compareTo(b) < 0 ? '${a}_$b' : '${b}_$a';
-    return AgoraUid.channelName('call', pair);
+    final uidA = AgoraUid.fromWalletAddress(walletA);
+    final uidB = AgoraUid.fromWalletAddress(walletB);
+    final lo = uidA < uidB ? uidA : uidB;
+    final hi = uidA < uidB ? uidB : uidA;
+    return AgoraUid.channelName('call', '${lo}_$hi');
   }
 
   // ─────────────────────────────────────────────────────────

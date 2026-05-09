@@ -50,20 +50,27 @@ object AgoraConfig {
     const val CHANNEL_PREFIX: String = "eggplant_call_"
 
     /**
-     * 1:1 통화 채널명 생성 (sorted wallet pair 기반).
+     * 1:1 통화 채널명 생성 (sorted UID pair 기반).
      *
      * 양쪽이 같은 채널에 들어가야 통화 성립.
-     * Dart 측 AgoraService.callChannel() 과 100% 동일 알고리즘.
+     * Dart 측 AgoraService.callChannel() / 서버 chat-hub.ts 와 100% 동일 알고리즘.
+     *
+     * ★ v1.0.143 (2026-05-09): raw wallet 두 개 join 시 99자 → 서버 64자 한도
+     *   초과 (HTTP 400). 해결: 양쪽 wallet 을 walletToUid 로 32-bit u32 변환 후
+     *   sorted join → 최대 35자.
      *
      * @param walletA 한쪽 지갑주소 (대소문자 무관)
      * @param walletB 다른쪽 지갑주소 (대소문자 무관)
-     * @return "eggplant_call_<lowerA>_<lowerB>" (사전순 정렬)
+     * @return "eggplant_call_<minUid>_<maxUid>" (수치 오름차순)
      */
     fun callChannel(walletA: String, walletB: String): String {
-        val a = walletA.lowercase()
-        val b = walletB.lowercase()
-        val pair = if (a < b) "${a}_$b" else "${b}_$a"
-        return CHANNEL_PREFIX + pair
+        // walletToUid 는 signed Int 반환 (음수 가능 — Agora 는 32-bit signed Int 받음).
+        // 채널명 비교는 unsigned 로 해야 양쪽 클라이언트 + 서버가 동일 순서 산출.
+        val uidA = walletToUid(walletA).toLong() and 0xFFFFFFFFL
+        val uidB = walletToUid(walletB).toLong() and 0xFFFFFFFFL
+        val lo = if (uidA < uidB) uidA else uidB
+        val hi = if (uidA < uidB) uidB else uidA
+        return CHANNEL_PREFIX + "${lo}_$hi"
     }
 
     /**

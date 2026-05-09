@@ -33,6 +33,7 @@
 
 import type { Env } from './types';
 import { sendFcm } from './utils/fcm';
+import { walletToAgoraUid } from './utils/agoraToken';
 
 interface AttachedMeta {
   userId: string;
@@ -474,8 +475,16 @@ export class ChatHub {
             .first<{ wallet_address: string | null }>();
           peer_wallet = (peerRow?.wallet_address || '').trim().toLowerCase();
           if (caller_wallet && peer_wallet) {
-            const pair = [caller_wallet, peer_wallet].sort();
-            channel_name = `eggplant_call_${pair[0]}_${pair[1]}`;
+            // ★ v1.0.143 (2026-05-09): raw wallet 두 개 join 시 99자 → 서버
+            //   `/api/users/agora/token` 의 64자 한도 초과 (HTTP 400 'channel too long').
+            //   해결: 양쪽 wallet 을 walletToAgoraUid (Dart AgoraUid.fromWalletAddress
+            //   / Kotlin AgoraConfig.walletToUid 와 동일 SHA-256 앞 4바이트 u32) 로
+            //   변환 후 수치 오름차순 join → 최대 35자.
+            const uidCaller = await walletToAgoraUid(caller_wallet);
+            const uidPeer = await walletToAgoraUid(peer_wallet);
+            const lo = Math.min(uidCaller, uidPeer);
+            const hi = Math.max(uidCaller, uidPeer);
+            channel_name = `eggplant_call_${lo}_${hi}`;
           }
         } catch (e) {
           console.log('[call_invite] peer wallet lookup failed:', e);
