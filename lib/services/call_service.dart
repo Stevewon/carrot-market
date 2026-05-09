@@ -763,6 +763,24 @@ class CallService extends ChangeNotifier {
       return false;
     }
 
+    // ★ v1.0.138 (2026-05-08): AgoraService._uid 가 null 인 케이스 자가 회복.
+    //   사장님 보고 ("연결을 시도했어요. 잠시 후 다시 걸어주세요" → 끊김):
+    //   AgoraService.prepare(walletAddress) 는 main.dart 의 ChangeNotifierProvider
+    //   create 함수에서 한 번만 호출되는데, 자동 로그인 사용자는 create 시점에
+    //   authService.user 가 아직 null (loadFromStorage fire-and-forget) 이라
+    //   prepare 가 안 호출되고 _uid 가 영영 null 로 유지됨.
+    //   → fetchRtcToken 이 _uid==null 가드에서 즉시 null 반환 → 토큰 발급 실패
+    //   → 발신자에게 reject 신호 → 사장님이 본 정확한 증상.
+    //   해결: 토큰 호출 직전에 uid 가 비어 있으면 prepare 1회 호출.
+    if (agora.uid == null && myWallet.isNotEmpty) {
+      debugPrint('[call] agora._uid=null — running prepare() before token fetch');
+      try {
+        await agora.prepare(walletAddress: myWallet);
+      } catch (e) {
+        debugPrint('[call] agora.prepare() warning: $e');
+      }
+    }
+
     final channel = agora.callChannel(myWallet, peerWallet);
     final myUid = AgoraUid.fromWalletAddress(myWallet);
 

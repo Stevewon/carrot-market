@@ -200,6 +200,19 @@ class AuthService extends ChangeNotifier {
       } catch (e) {
         debugPrint('[auth] loadFromStorage: /me error (keeping session): $e');
       }
+
+      // ★ v1.0.138 (2026-05-08): 자동 로그인 케이스에서 AgoraService.prepare 보장.
+      //   main.dart 의 ChangeNotifierProvider create 시점엔 _user 가 null 이라
+      //   AgoraService.prepare 가 호출되지 않고 _uid 가 영영 null 로 유지되던 버그.
+      //   → 통화 수신 시 fetchRtcToken 이 즉시 null 반환 → 발신자에게 reject 신호
+      //   → 사장님이 본 "연결을 시도했어요" 토스트 + 발신자 거절 표시.
+      //   loadFromStorage 가 prefs/서버 검증 끝낸 직후 prepare 1회 명시적으로 호출.
+      final wallet = _user?.walletAddress;
+      if (_agora != null && wallet != null && wallet.isNotEmpty) {
+        _agora!.prepare(walletAddress: wallet).catchError((Object e) {
+          debugPrint('[auth] loadFromStorage: agora prepare warning: $e');
+        });
+      }
     } else {
       notifyListeners();
     }
