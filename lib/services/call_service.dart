@@ -121,6 +121,10 @@ class CallService extends ChangeNotifier {
   bool _engineInitialized = false;
   String? _activeChannel;
 
+  /// ★ v1.0.144 (2026-05-09): _joinAgoraChannel 실패 분기별 진단 사유.
+  ///   acceptCall 의 토스트가 이 값을 함께 노출 → 사장님 보고 시 원인 즉시 식별.
+  String? _lastJoinFailReason;
+
   /// 발신 타임아웃 (초). 응답 없으면 자동 취소 + 부재중.
   static const int _outgoingTimeoutSec = 30;
 
@@ -531,7 +535,15 @@ class CallService extends ChangeNotifier {
       //   teardown. 발신자는 30초 발신 타임아웃이 자연 만료되어 "받지
       //   않았어요" 로 종료됨 (수락 → 거절 표시 X).
       //   수신자 화면엔 _setError 로 안내 메시지만 표시.
-      _setError('연결을 시도했어요. 잠시 후 다시 걸어주세요.');
+      // ★ v1.0.144 (2026-05-09): _joinAgoraChannel 의 분기별 사유를 토스트에 포함.
+      //   사장님 보고 시 채널길이/JWT/Agora SDK 중 어느 단계에서 실패했는지 즉시 식별.
+      final _failReason = _lastJoinFailReason;
+      _lastJoinFailReason = null;
+      _setError(
+        _failReason == null || _failReason.isEmpty
+            ? '연결을 시도했어요. 잠시 후 다시 걸어주세요.'
+            : '연결을 시도했어요. 잠시 후 다시 걸어주세요.\n($_failReason)',
+      );
       // 단 emit('call_response') 는 보내지 않음 — 발신자 보호.
       // _teardown 자체는 WS emit 안 함 (rejectCall/endCall 만 emit).
       await _teardown(stateAfter: CallState.ended);
@@ -881,7 +893,11 @@ class CallService extends ChangeNotifier {
     }
 
     if (myWallet.isEmpty || peerWallet.isEmpty) {
-      _setError('통화 정보를 불러올 수 없어요');
+      // ★ v1.0.144 (2026-05-09): 진단 가능하도록 사유를 _lastJoinFailReason 에 기록.
+      //   acceptCall 이 이 값을 토스트에 포함시켜 사장님이 원인 즉시 식별 가능.
+      _lastJoinFailReason =
+          'wallet missing (my=${myWallet.isEmpty ? "empty" : "ok"}, peer=${peerWallet.isEmpty ? "empty" : "ok"})';
+      debugPrint('[call] _joinAgoraChannel: $_lastJoinFailReason');
       await _teardown(stateAfter: CallState.ended);
       return false;
     }
@@ -909,11 +925,14 @@ class CallService extends ChangeNotifier {
 
     // 서버 토큰 발급 (1회 retry — 4G 약전계 첫 호출 실패 대비).
     String? token;
+    String lastTokenError = '';
     for (int attempt = 0; attempt < 2; attempt++) {
       try {
         token = await agora.fetchRtcToken(channel: channel);
         if (token != null && token.isNotEmpty) break;
+        lastTokenError = 'returned null/empty';
       } catch (e) {
+        lastTokenError = e.toString();
         debugPrint('[call] fetchRtcToken attempt=$attempt failed: $e');
       }
       if (attempt == 0) {
@@ -921,7 +940,10 @@ class CallService extends ChangeNotifier {
       }
     }
     if (token == null || token.isEmpty) {
-      _setError('통화 토큰 발급 실패');
+      // ★ v1.0.144 (2026-05-09): 채널 길이/JWT/서버 미배포 등 원인 식별용.
+      _lastJoinFailReason =
+          'token fetch failed (chanLen=${channel.length}, uid=$myUid, err=${lastTokenError.isEmpty ? "n/a" : lastTokenError})';
+      debugPrint('[call] _joinAgoraChannel: $_lastJoinFailReason');
       await _teardown(stateAfter: CallState.ended);
       return false;
     }
@@ -941,8 +963,9 @@ class CallService extends ChangeNotifier {
       );
       return true;
     } catch (e) {
-      debugPrint('[call] joinChannel failed: $e');
-      _setError('채널 입장 실패');
+      // ★ v1.0.144: Agora SDK joinChannel 실패 — 채널/uid/네트워크 문제.
+      _lastJoinFailReason = 'joinChannel threw (chanLen=${channel.length}, err=$e)';
+      debugPrint('[call] _joinAgoraChannel: $_lastJoinFailReason');
       await _teardown(stateAfter: CallState.ended);
       return false;
     }
@@ -1070,6 +1093,18 @@ class CallService extends ChangeNotifier {
     _outgoingTimeoutTimer?.cancel();
     _reconnectTimer?.cancel();
     _teardown(stateAfter: CallState.idle);
+    try {
+      _engine?.release();
+    } catch (_) {}
+    _engine = null;
+    try {
+      _ringbackPlayer?.dispose();
+    } catch (_) {}
+    _ringbackPlayer = null;
+    super.dispose();
+  }
+}
+teAfter: CallState.idle);
     try {
       _engine?.release();
     } catch (_) {}
