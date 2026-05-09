@@ -156,7 +156,42 @@ class CallService extends ChangeNotifier {
       //   직전 통화 종료 후 800ms 동안 ended 상태로 머무는 동안 새 incoming 이
       //   오면 자동 거절되던 버그 수정. ended 상태 자동 정리 후 incoming 진행.
       if (_state != CallState.idle && _state != CallState.ended) {
-        // Already busy - auto-reject.
+        // ★ v1.0.139 (2026-05-08): 동일 call_id 재전송 silent skip.
+        //   v1.0.137 에서 도입한 bootstrapIncomingFromPush 가 main isolate
+        //   에서 _state=CallState.incoming 으로 미리 진입시킨 뒤,
+        //   ChatService.connect() 가 끝나면 서버가 backlog 로 같은 call_id 의
+        //   call_incoming 이벤트를 재전송함. 이전 코드는 "이미 incoming 이니
+        //   busy" 라고 오판해서 자기 자신의 통화에 auto-reject 를 발사 →
+        //   발신자에게 'accepted=false' 도달 → 사장님이 보신 "수락 누르면
+        //   상대방이 통화를 거절했어요" 증상.
+        //   해결: 동일 call_id (또는 동일 from_user_id) 재전송이면 무시.
+        final incomingCallId = data['call_id']?.toString() ?? '';
+        final incomingFromUserId = data['from_user_id']?.toString() ?? '';
+        if (incomingCallId.isNotEmpty && incomingCallId == _activeCallId) {
+          debugPrint('[call] call_incoming duplicate (call_id=$incomingCallId) — skip');
+          // 부트스트랩 시점에 데이터가 비어있을 수 있으니 보강.
+          if (_peerWalletAddress == null || _peerWalletAddress!.isEmpty) {
+            _peerWalletAddress = data['caller_wallet']?.toString();
+          }
+          if (_peerNickname == null || _peerNickname == '익명') {
+            final n = data['caller_nickname']?.toString();
+            if (n != null && n.isNotEmpty) _peerNickname = n;
+          }
+          return;
+        }
+        // 같은 발신자가 다시 invite 한 케이스도 부트스트랩 race 일 수 있음.
+        if (_state == CallState.incoming &&
+            incomingFromUserId.isNotEmpty &&
+            incomingFromUserId == _peerUserId) {
+          debugPrint('[call] call_incoming same peer (from=$incomingFromUserId) — refresh data, skip reject');
+          _activeCallId = incomingCallId.isNotEmpty ? incomingCallId : _activeCallId;
+          _peerWalletAddress = data['caller_wallet']?.toString() ?? _peerWalletAddress;
+          final n = data['caller_nickname']?.toString();
+          if (n != null && n.isNotEmpty) _peerNickname = n;
+          notifyListeners();
+          return;
+        }
+        // 진짜 다른 통화가 들어왔을 때만 busy auto-reject 발사.
         chat.emit('call_response', {
           'to_user_id': data['from_user_id'],
           'call_id': data['call_id'],
