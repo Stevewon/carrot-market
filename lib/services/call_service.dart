@@ -537,13 +537,13 @@ class CallService extends ChangeNotifier {
       //   수신자 화면엔 _setError 로 안내 메시지만 표시.
       // ★ v1.0.144 (2026-05-09): _joinAgoraChannel 의 분기별 사유를 토스트에 포함.
       //   사장님 보고 시 채널길이/JWT/Agora SDK 중 어느 단계에서 실패했는지 즉시 식별.
-      final _failReason = _lastJoinFailReason;
+      final String? failReason = _lastJoinFailReason;
       _lastJoinFailReason = null;
-      _setError(
-        _failReason == null || _failReason.isEmpty
-            ? '연결을 시도했어요. 잠시 후 다시 걸어주세요.'
-            : '연결을 시도했어요. 잠시 후 다시 걸어주세요.\n($_failReason)',
-      );
+      String errorMsg = '연결을 시도했어요. 잠시 후 다시 걸어주세요.';
+      if (failReason != null && failReason.isNotEmpty) {
+        errorMsg = errorMsg + '\n(' + failReason + ')';
+      }
+      _setError(errorMsg);
       // 단 emit('call_response') 는 보내지 않음 — 발신자 보호.
       // _teardown 자체는 WS emit 안 함 (rejectCall/endCall 만 emit).
       await _teardown(stateAfter: CallState.ended);
