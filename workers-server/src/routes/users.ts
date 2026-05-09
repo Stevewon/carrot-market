@@ -114,6 +114,35 @@ app.put('/me', authMiddleware, async (c) => {
  * lightweight aggregates: total reviews, good/soso/bad breakdown,
  * top 3 review tags.
  */
+/**
+ * GET /api/users/:id/call-info
+ *
+ * ★ v1.0.141 (2026-05-09): 통화용 peer 정보 자가 복구 엔드포인트.
+ *
+ * 통화 발생 시 수신자가 push 데이터로 받은 caller_wallet 이 누락되어
+ * Agora 채널명 산정이 불가한 케이스 자가 복구용. user_id 만 알면
+ * wallet_address + nickname 을 조회 가능.
+ *
+ * 정책:
+ *   1) 인증된 사용자만 호출 가능 (authMiddleware)
+ *   2) wallet_address 는 채널명 산정에만 쓰는 단순 페어 키이므로 노출 OK
+ *      (Agora 토큰은 별도 인증으로 발급되므로 위·변조 실효성 0)
+ *   3) 응답에 민감 정보(잔액/계좌/CI 등)는 절대 포함 안 함
+ */
+app.get('/:id/call-info', authMiddleware, async (c) => {
+  const id = c.req.param('id');
+  const u = await c.env.DB
+    .prepare('SELECT id, nickname, wallet_address FROM users WHERE id = ?')
+    .bind(id)
+    .first<{ id: string; nickname: string; wallet_address: string | null }>();
+  if (!u) return c.json({ error: 'Not found' }, 404);
+  return c.json({
+    id: u.id,
+    nickname: u.nickname,
+    wallet_address: u.wallet_address,
+  });
+});
+
 app.get('/:id/profile', async (c) => {
   const id = c.req.param('id');
   const u = await c.env.DB

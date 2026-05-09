@@ -456,11 +456,10 @@ class CallService extends ChangeNotifier {
       }
     }
 
-    // ★ v1.0.140 (2026-05-09): wallet 자가 회복 — auth 가 아직 hydrate 안 된
-    //   콜드 부팅 직후 푸시 수락 케이스. _peerWalletAddress 또는 myWallet 이
-    //   비어 있으면 _joinAgoraChannel 이 즉시 false 리턴 → 기존엔 rejectCall
-    //   호출 → 발신자에게 accepted=false → "상대방이 통화를 거절했어요" 증상.
-    //   해결: join 전에 한 번 더 auth.loadFromStorage() await + 짧은 대기.
+    // ★ v1.0.140 (2026-05-09): myWallet 자가 회복 — auth 가 아직 hydrate 안 된
+    //   콜드 부팅 직후 푸시 수락 케이스. auth.user 가 null/wallet 비어있으면
+    //   _joinAgoraChannel 이 즉시 false 리턴 → 통화 못 연결.
+    //   해결: join 전에 한 번 더 auth.loadFromStorage() await + polling.
     if ((auth.user?.walletAddress ?? '').isEmpty) {
       debugPrint('[call] acceptCall: auth.user wallet empty — awaiting loadFromStorage');
       try {
@@ -472,6 +471,37 @@ class CallService extends ChangeNotifier {
       for (int i = 0; i < 15; i++) {
         if ((auth.user?.walletAddress ?? '').isNotEmpty) break;
         await Future.delayed(const Duration(milliseconds: 100));
+      }
+    }
+
+    // ★ v1.0.141 (2026-05-09): peerWallet 자가 회복 — push 데이터에 caller_wallet
+    //   이 누락된 케이스 (구버전 발신자, 또는 fcm payload 손실).
+    //   _peerWalletAddress 가 비어 있으면 신규 엔드포인트
+    //   GET /api/users/:id/call-info 로 peer 의 wallet 직접 조회 → 채널명 산정.
+    //   사장님 요구: "수락 → 통화 진짜 연결" — 이 자가 회복으로 join 성공률 극대화.
+    if ((_peerWalletAddress ?? '').isEmpty &&
+        (_peerUserId ?? '').isNotEmpty) {
+      debugPrint('[call] acceptCall: _peerWalletAddress empty — fetching from /call-info');
+      try {
+        final res = await auth.api.dio.get<Map<String, dynamic>>(
+          '/api/users/${_peerUserId!}/call-info',
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final w = res.data!['wallet_address']?.toString();
+          if (w != null && w.isNotEmpty) {
+            _peerWalletAddress = w;
+            final n = res.data!['nickname']?.toString();
+            if (n != null && n.isNotEmpty &&
+                (_peerNickname == null || _peerNickname == '익명')) {
+              _peerNickname = n;
+            }
+            debugPrint('[call] acceptCall: peerWallet recovered from server');
+          }
+        }
+      } catch (e) {
+        debugPrint('[call] acceptCall: /call-info fetch failed: $e');
+        // 서버 호출 실패 시에도 join 시도 — myWallet+peerWallet 둘 다 있으면 OK,
+        // 둘 중 하나라도 비어 있으면 _joinAgoraChannel 의 가드에서 자연 실패.
       }
     }
 
@@ -822,8 +852,34 @@ class CallService extends ChangeNotifier {
   /// ★ P1-#8 (v1.0.127): 토큰 발급 1회 retry — 첫 호출 timeout/일시 오류 대비.
   Future<bool> _joinAgoraChannel() async {
     if (_engine == null) await _ensureEngine();
-    final myWallet = auth.user?.walletAddress ?? '';
-    final peerWallet = _peerWalletAddress ?? '';
+    var myWallet = auth.user?.walletAddress ?? '';
+    var peerWallet = _peerWalletAddress ?? '';
+
+    // ★ v1.0.141 (2026-05-09): wallet 누락 시 마지막 자가 복구 시도.
+    //   acceptCall 에서 이미 loadFromStorage + /call-info fetch 했지만, 그래도
+    //   비어 있을 가능성 대비 (네트워크 race / API 지연). 여기서 한 번 더.
+    if (myWallet.isEmpty) {
+      try {
+        await auth.loadFromStorage();
+      } catch (_) {}
+      myWallet = auth.user?.walletAddress ?? '';
+    }
+    if (peerWallet.isEmpty && (_peerUserId ?? '').isNotEmpty) {
+      try {
+        final res = await auth.api.dio.get<Map<String, dynamic>>(
+          '/api/users/${_peerUserId!}/call-info',
+        );
+        final w = res.data?['wallet_address']?.toString();
+        if (w != null && w.isNotEmpty) {
+          _peerWalletAddress = w;
+          peerWallet = w;
+          debugPrint('[call] _joinAgoraChannel: peerWallet recovered (last-mile)');
+        }
+      } catch (e) {
+        debugPrint('[call] _joinAgoraChannel: /call-info recovery failed: $e');
+      }
+    }
+
     if (myWallet.isEmpty || peerWallet.isEmpty) {
       _setError('통화 정보를 불러올 수 없어요');
       await _teardown(stateAfter: CallState.ended);
