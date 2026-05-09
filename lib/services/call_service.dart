@@ -1104,15 +1104,3 @@ class CallService extends ChangeNotifier {
     super.dispose();
   }
 }
-teAfter: CallState.idle);
-    try {
-      _engine?.release();
-    } catch (_) {}
-    _engine = null;
-    try {
-      _ringbackPlayer?.dispose();
-    } catch (_) {}
-    _ringbackPlayer = null;
-    super.dispose();
-  }
-}
