@@ -1,13 +1,54 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/user.dart';
 import 'agora_service.dart';
 import 'api_client.dart';
+
+// ============================================================
+// Native Call Bridge (v1.0.142 — Eggplant native call port).
+// ============================================================
+// Android 의 NativeIncomingCallActivity / EggplantFirebaseMessagingService /
+// AgoraTokenService 가 SharedPreferences("eggplant_native_call") 의
+// jwt_token / wallet_address 를 직접 읽어 Agora 토큰 발급에 사용한다.
+// Flutter 측 SharedPreferences 와 native 측 SharedPreferences 는 같은 파일이
+// 아니므로 (Flutter plugin 이 별도 prefix 를 붙임), 로그인/로그아웃 시점에
+// MethodChannel 로 명시적으로 미러링해야 한다.
+//
+// 채널: 'eggplant.market/native_call_bridge'
+// 메서드:
+//   setAuth(jwt: String, walletAddress: String) — 로그인 직후 호출
+//   clearAuth()                                  — 로그아웃 직후 호출
+// 실패는 모두 silent (push 가 안 와도 앱 자체는 동작해야 함).
+const _nativeCallBridge = MethodChannel('eggplant.market/native_call_bridge');
+
+Future<void> _mirrorAuthToNative(String token, String? walletAddress) async {
+  // 안드로이드 외 플랫폼은 native bridge 가 없음 — silent skip.
+  if (!Platform.isAndroid) return;
+  try {
+    await _nativeCallBridge.invokeMethod('setAuth', <String, dynamic>{
+      'jwt': token,
+      'walletAddress': (walletAddress ?? '').trim(),
+    });
+  } catch (e) {
+    debugPrint('[auth] native bridge setAuth warning: $e');
+  }
+}
+
+Future<void> _clearNativeAuth() async {
+  if (!Platform.isAndroid) return;
+  try {
+    await _nativeCallBridge.invokeMethod('clearAuth');
+  } catch (e) {
+    debugPrint('[auth] native bridge clearAuth warning: $e');
+  }
+}
 
 /// Wallet-based authentication service.
 ///
@@ -212,6 +253,17 @@ class AuthService extends ChangeNotifier {
         _agora!.prepare(walletAddress: wallet).catchError((Object e) {
           debugPrint('[auth] loadFromStorage: agora prepare warning: $e');
         });
+      }
+
+      // ★ v1.0.142 (Eggplant native call port): 콜드스타트 자동 로그인 시점에도
+      //   native SharedPreferences 로 JWT + wallet 미러링.
+      //   이 미러링이 없으면 앱이 한 번도 로그인을 다시 안 거친 상태에서 FCM 이
+      //   먼저 도착했을 때 native 측 AgoraTokenService 가 jwt_token 못 읽어
+      //   token 발급 실패 → AgoraCallActivity 즉시 finish.
+      //   fire-and-forget — 실패해도 앱은 정상 동작.
+      if (_token != null) {
+        // ignore: discarded_futures
+        _mirrorAuthToNative(_token!, wallet);
       }
     } else {
       notifyListeners();
@@ -717,6 +769,13 @@ class AuthService extends ChangeNotifier {
         debugPrint('[auth] agora prepare warning: $e');
       });
     }
+
+    // ★ v1.0.142 (Eggplant native call port): JWT + wallet 을 native
+    //   SharedPreferences("eggplant_native_call") 로 미러링.
+    //   AgoraTokenService(Kotlin) 가 background 에서 Agora 토큰 발급할 때
+    //   읽는 키. fire-and-forget — 미러링 실패해도 앱은 정상 동작.
+    // ignore: discarded_futures
+    _mirrorAuthToNative(token, wallet);
   }
 
   /// 잔액만 갱신 (보너스 수령 직후, ledger 새로고침 후 등).
@@ -754,6 +813,13 @@ class AuthService extends ChangeNotifier {
         debugPrint('[auth] call sink logout warning: $e');
       });
     }
+
+    // ★ v1.0.142 (Eggplant native call port): native SharedPreferences
+    //   ("eggplant_native_call") 의 jwt_token / wallet_address 비우기.
+    //   다른 계정 로그인 시 stale JWT 로 Agora 토큰 발급 시도 방지.
+    //   fire-and-forget.
+    // ignore: discarded_futures
+    _clearNativeAuth();
 
     notifyListeners();
   }

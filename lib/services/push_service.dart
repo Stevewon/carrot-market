@@ -60,14 +60,30 @@ Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
     }
     final data = message.data;
     final type = data['type']?.toString();
+    // ★ v1.0.142 (Eggplant native call port):
+    //   type='incoming_call' (신규 native FCM 형식) 은 Android native 의
+    //   EggplantFirebaseMessagingService 가 manifest 등록 우선순위로 먼저
+    //   가져가서 처리하므로, Dart background isolate 에는 도달하지 않는다.
+    //   혹시 도달했다면 (race / iOS 등) silent skip — 이중 표시 방지.
+    if (type == 'incoming_call') {
+      return;
+    }
+    // ★ Legacy (v1.0.141 이하): type='call_invite' 는 Dart CallKit 으로 fallback.
+    //   v1.0.142 서버는 두 형식을 동시 발사하지 않으므로 (incoming_call 만 보냄)
+    //   실제로는 거의 호출 안 됨. 다만 push_service 가 FCM SDK 에 register 된
+    //   상태이므로 silent skip 처리만 하면 안전.
     if (type == 'call_invite') {
-      await _showIncomingCall(data);
+      // 신규 native call 흐름에선 Dart CallKit 안 띄움. native 가 처리.
+      // (구버전 클라이언트에서 받은 잔존 푸시 대비 silent return)
       return;
     }
     // ★ v1.0.124 핵심 핫픽스 (2026-05-07 사장님 보고):
     //   발신자가 통화 끊으면 서버가 call_cancel data-only 푸시를 발사한다.
     //   background isolate 가 이걸 받아 FlutterCallkitIncoming.endCall(callId)
     //   를 호출 → 잠금화면/홈화면에 떠있던 통화 UI 와 벨소리 즉시 종료.
+    //   v1.0.142 에서도 유지 — native side 는 자체 ACTION_CANCEL_INCOMING
+    //   broadcast 로 처리하지만, 구버전 잔존 CallKit UI 가 떠있을 수 있어
+    //   Dart endCall 도 같이 호출 (양쪽 cleanup 보장).
     if (type == 'call_cancel') {
       await _dismissIncomingCall(data);
       return;
@@ -378,9 +394,22 @@ class PushService extends ChangeNotifier {
   Future<void> _handleForeground(RemoteMessage message) async {
     final data = message.data;
     final type = data['type']?.toString();
+    // ★ v1.0.142 (Eggplant native call port):
+    //   포그라운드에서 type='incoming_call' 푸시가 들어오면 native FCM
+    //   서비스가 Route 1 (foreground) 분기로 처리 — 알림만 띄우고 ChatService
+    //   WebSocket 의 call_incoming 이 main.dart 의 _IncomingCallOverlay 로
+    //   in-app UI 트리거. Dart 측은 CallKit 띄우지 않고 silent skip.
+    if (type == 'incoming_call') {
+      return;
+    }
+    // Legacy: 구버전 클라이언트 잔존 푸시 — Dart CallKit 띄우지 않음.
     if (type == 'call_invite') {
-      // 포그라운드라도 사용자가 다른 화면에 있을 수 있으니 CallKit UI 띄움.
-      await _showIncomingCall(data);
+      return;
+    }
+    // call_cancel 은 native 가 ACTION_CANCEL_INCOMING broadcast 로 처리하지만
+    // foreground 에서도 CallKit 잔존 가능성 있으므로 endCall 보강.
+    if (type == 'call_cancel') {
+      await _dismissIncomingCall(data);
       return;
     }
     // ★ 7차 푸시 (이슈 3): type == 'message' 면 ChatService 에 합성 방 추가
@@ -403,9 +432,19 @@ class PushService extends ChangeNotifier {
   Future<void> _handleOpenedFromPush(RemoteMessage message) async {
     final data = message.data;
     final type = data['type']?.toString();
+    // ★ v1.0.142 (Eggplant native call port):
+    //   type='incoming_call' 푸시 tap 은 native NativeIncomingCallActivity
+    //   가 받아서 직접 AgoraCallActivity 로 진입시키므로 Dart 측 라우팅 불필요.
+    //   이 경로(onMessageOpenedApp)는 알림 tap → 앱 부팅 케이스인데,
+    //   native FCM 서비스가 우선 처리하므로 Dart 에는 거의 도달 안 함.
+    //   silent skip — 중복 라우팅 방지.
+    if (type == 'incoming_call') {
+      return;
+    }
     if (type == 'call_invite') {
-      // ★ v1.0.136: caller_wallet / caller_nickname 동봉 — _attachCallkitAccept
-      //   이 동일 stream 으로 듣고 라우팅하므로 형식 일치시킴.
+      // ★ Legacy (v1.0.141 이하): caller_wallet / caller_nickname 동봉 —
+      //   _attachCallkitAccept 가 동일 stream 으로 듣고 라우팅. v1.0.142
+      //   서버는 신규 형식만 보내므로 거의 도달 안 하지만 안전 보존.
       _callAcceptCtrl.add({
         'call_id': data['call_id']?.toString() ?? '',
         'from_user_id': data['from_user_id']?.toString() ?? '',

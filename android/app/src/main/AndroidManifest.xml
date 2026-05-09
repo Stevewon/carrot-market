@@ -111,6 +111,80 @@
             android:foregroundServiceType="microphone|phoneCall"
             android:exported="false"
             tools:replace="android:foregroundServiceType" />
+
+        <!-- ============================================================
+             v1.0.142 Native call components (QRChat v4.0.270 port)
+             Q3=생략 + Agora flow 단순화 적용
+             ============================================================ -->
+
+        <!-- Native 수신 통화 풀스크린 Activity (FSI target).
+             잠금화면 위에 자체 UI 그림 (FLAG_SHOW_WHEN_LOCKED).
+             수락 시 즉시 AgoraCallActivity 직행 (Q3=생략, NativeAccept 게이트 제거). -->
+        <activity
+            android:name=".NativeIncomingCallActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+
+        <!-- Native 통화 화면 Activity (Agora RTC).
+             수신 수락 / 발신 통화 모두 이 Activity 가 처리.
+             백그라운드/잠금화면에서도 통화 유지. -->
+        <activity
+            android:name=".AgoraCallActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:excludeFromRecents="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+
+        <!-- Native 통화 진행 중 Foreground Service.
+             AudioFocus + WakeLock + Watchdog (마이크 끊김 방지).
+             foregroundServiceType: microphone|phoneCall — Android 14+ 필수. -->
+        <service
+            android:name=".CallForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|phoneCall" />
+
+        <!-- FCM 수신 처리 — 3-route 분기 (foreground / unlocked / locked).
+             FlutterFirebaseMessagingService 상속하여 일반 채팅 푸시는 기존
+             firebase_messaging plugin 으로 위임, incoming_call/call_cancel 만
+             native 처리. -->
+        <service
+            android:name=".EggplantFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- 알림 액션 BroadcastReceiver (REJECT only).
+             ACTION_REJECT_CALL → MainActivity 로 reject_call_from_native=true 전달. -->
+        <receiver
+            android:name=".CallActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.eggplant.market.ACTION_REJECT_CALL" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Ongoing 알림 "End call" 버튼 BroadcastReceiver.
+             CallForegroundService.ACTION_END_CALL → MainActivity 로
+             end_call_from_notification=true 전달. -->
+        <receiver
+            android:name=".CallEndFromNotificationReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.eggplant.market.ACTION_END_CALL_FROM_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <queries>

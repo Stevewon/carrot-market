@@ -422,7 +422,12 @@ export class ChatHub {
         //   산정 가능. 클라이언트가 보내준 값 신뢰 (서버는 wallet 검증 안 함 — Agora
         //   채널명 산정용 단순 페어 키이고, 토큰은 별도 인증으로 발급되므로 위·변조해도
         //   실효성 0).
-        const caller_wallet = String(msg.caller_wallet || '');
+        const caller_wallet_raw = String(msg.caller_wallet || '');
+        const caller_wallet = caller_wallet_raw.trim().toLowerCase();
+        // ★ v1.0.142: callType 도 페이로드에 포함시켜야 native FCM 서비스가
+        //   audio/video 분기 가능. 기본 'audio'.
+        const call_type_raw = String(msg.callType || msg.call_type || 'audio');
+        const call_type = call_type_raw === 'video' ? 'video' : 'audio';
         if (!to_user_id || !call_id) return;
 
         // ★ P1-#7 (v1.0.127): block 검증 — 수신자가 발신자를 차단했으면 invite
@@ -452,41 +457,76 @@ export class ChatHub {
           console.log('[call_invite] block check failed:', e);
         }
 
+        // ★ v1.0.142 (Eggplant native call port): peer 의 wallet_address 조회.
+        //   Agora 채널명은 caller_wallet + peer_wallet 의 sorted lowercase pair 로
+        //   산정한다 → `eggplant_call_<min>_<max>`. 양쪽 단말이 동일 채널명을
+        //   합의해야 join 후 서로 들리므로 서버에서 결정해서 push/WS 에 같이 실어
+        //   보내는 게 가장 안전 (클라이언트가 wallet 모를 가능성 차단).
+        //   조회 실패 시 channel 은 빈 문자열 — 클라이언트가 fallback (call_id 기반)
+        //   으로 처리하지만 native 측에선 cross-side mismatch 위험 있음.
+        let peer_wallet = '';
+        let channel_name = '';
+        try {
+          const peerRow = await this.env.DB.prepare(
+            'SELECT wallet_address FROM users WHERE id = ?',
+          )
+            .bind(to_user_id)
+            .first<{ wallet_address: string | null }>();
+          peer_wallet = (peerRow?.wallet_address || '').trim().toLowerCase();
+          if (caller_wallet && peer_wallet) {
+            const pair = [caller_wallet, peer_wallet].sort();
+            channel_name = `eggplant_call_${pair[0]}_${pair[1]}`;
+          }
+        } catch (e) {
+          console.log('[call_invite] peer wallet lookup failed:', e);
+        }
+
         const delivered = this.sendToUser(to_user_id, {
           type: 'call_incoming',
           call_id,
           from_user_id: meta.userId,
           caller_nickname,
           caller_wallet,
+          // ★ v1.0.142: foreground 수신 클라이언트도 동일 채널명을 사용해야
+          //   양쪽이 같은 Agora 채널에 join 됨.
+          channel: channel_name,
+          call_type,
         });
         if (!delivered) {
           // ★★★ 3차 푸시: peer 가 백그라운드/앱 종료 상태일 때
-          //  CallKit (Android: flutter_callkit_incoming, iOS: CallKit) 으로
-          //  전화 수신 UI 를 띄우기 위해 FCM high-priority 푸시 발송.
+          //  Eggplant native FCM 서비스 (EggplantFirebaseMessagingService) 로
+          //  전화 수신 UI 를 띄우기 위해 FCM high-priority data-only 푸시 발송.
           //  앱이 켜져있으면 sendOfflinePush 결과와 무관하게 결국 WebSocket 으로
           //  call_incoming 이 다시 라우팅되도록, 클라이언트가 푸시 tap → 앱 부팅 →
           //  WebSocket 재연결 + call_id 로 시그널링 재시도.
           //  Firebase 키 미등록(placeholder) 환경에서는 silent skip 후 call_failed.
           this.sendOfflinePush(to_user_id, {
-            // ★ v1.0.124 (2026-05-07): 닉네임을 알림 제목/본문에 노출.
-            //   클라이언트 _showIncomingCall 가 data.caller_nickname 을
-            //   CallKitParams.nameCaller/handle 로 사용 → 헤드업/풀스크린에서
-            //   "익명" 대신 실제 닉네임 표시.
-            // ★ v1.0.136: 통화는 data-only 푸시로 변환되어 title/body 는
-            //   클라이언트 CallKit 에 의해서만 사용됨. 서버측 fcm.ts 가
-            //   notification 객체를 보내지 않으므로 OS 자체 노티는 안 뜸.
+            // ★ v1.0.124: 닉네임을 알림 제목/본문에 노출. v1.0.142 에서도
+            //   유지 — native FCM 서비스가 data-only 로 받지만 generic 푸시
+            //   fallback 시 표시되도록.
             title: caller_nickname,
             body: '전화가 와요',
             data: {
-              type: 'call_invite',
+              // ★ v1.0.142 (Eggplant native call port — QRChat v4.0.270 형식):
+              //   EggplantFirebaseMessagingService.onMessageReceived 가 읽는 키 셋.
+              //   type='incoming_call' 이어야 native 서비스가 통화 분기로 라우팅.
+              //   sessionId/callerId/callerNickname/callType/channel/agora 가
+              //   NativeIncomingCallActivity → AgoraCallActivity 까지 전달됨.
+              type: 'incoming_call',
+              sessionId: call_id,
+              callerId: meta.userId,
+              callerNickname: caller_nickname,
+              callType: call_type,
+              callerProfilePhoto: '',
+              channel: channel_name,
+              agora: '1',
+              // ★ Legacy 필드 병행 (v1.0.141 이하 클라이언트 호환):
+              //   기존 _showIncomingCall (Dart flutter_callkit_incoming) 가
+              //   읽던 키. v1.0.142 에서 native 가 우선 처리하지만, 구버전
+              //   설치 단말의 background isolate 가 깨졌을 때 대비.
               call_id,
               from_user_id: meta.userId,
               caller_nickname,
-              // ★ v1.0.136: caller_wallet 추가 — 수신자 단말 background isolate 가
-              //   CallKitParams.extra 에 저장 → accept 시 main isolate 로 전달 →
-              //   /call 라우트의 peerWallet 파라미터로 흘러가 채널명 산정 가능.
-              //   기존엔 wallet 누락으로 acceptCall 시 _joinAgoraChannel 이
-              //   "통화 정보를 불러올 수 없어요" 로 즉시 teardown 되던 버그 수정.
               caller_wallet,
             },
             isCall: true,
