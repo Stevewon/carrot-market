@@ -455,6 +455,26 @@ class CallService extends ChangeNotifier {
         await _waitForSocket(timeoutMs: 3000);
       }
     }
+
+    // ★ v1.0.140 (2026-05-09): wallet 자가 회복 — auth 가 아직 hydrate 안 된
+    //   콜드 부팅 직후 푸시 수락 케이스. _peerWalletAddress 또는 myWallet 이
+    //   비어 있으면 _joinAgoraChannel 이 즉시 false 리턴 → 기존엔 rejectCall
+    //   호출 → 발신자에게 accepted=false → "상대방이 통화를 거절했어요" 증상.
+    //   해결: join 전에 한 번 더 auth.loadFromStorage() await + 짧은 대기.
+    if ((auth.user?.walletAddress ?? '').isEmpty) {
+      debugPrint('[call] acceptCall: auth.user wallet empty — awaiting loadFromStorage');
+      try {
+        await auth.loadFromStorage();
+      } catch (e) {
+        debugPrint('[call] acceptCall: loadFromStorage failed: $e');
+      }
+      // 그래도 비어있으면 짧은 polling (최대 1.5s, 100ms 간격).
+      for (int i = 0; i < 15; i++) {
+        if ((auth.user?.walletAddress ?? '').isNotEmpty) break;
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+    }
+
     await _stopOsRingtone();
     _state = CallState.connecting;
     notifyListeners();
@@ -470,9 +490,21 @@ class CallService extends ChangeNotifier {
     // 2) 수신자 먼저 채널 join (성공 시에만 발신자에게 accepted 알림).
     final joined = await _joinAgoraChannel();
     if (!joined) {
-      // join 실패 — 발신자에게 수락 신호 보내지 않음 (자동 timeout 으로 처리).
-      // ★ v1.0.131: 사용자 친화 메시지로 변경 ('통화 엔진 초기화 실패' 토스트 제거).
-      await rejectCall(reason: '연결을 시도했어요. 잠시 후 다시 걸어주세요.');
+      // ★ v1.0.140 (2026-05-09): rejectCall 호출 제거.
+      //   기존 동작 (v1.0.131~v1.0.139): join 실패 시 rejectCall(reason)
+      //   → chat.emit('call_response', {accepted:false}) → 발신자 단말의
+      //   chat.on('call_response') 핸들러가 _setError('상대방이 통화를
+      //   거절했어요') 표시 + teardown. 사장님이 v1.0.136~v1.0.139 내내
+      //   본 정확한 증상 (수락 → 발신자에 거절 표시 → 끊김).
+      //
+      //   수정: 발신자에게 거절 신호 보내지 않고, 수신자 단말만 silent
+      //   teardown. 발신자는 30초 발신 타임아웃이 자연 만료되어 "받지
+      //   않았어요" 로 종료됨 (수락 → 거절 표시 X).
+      //   수신자 화면엔 _setError 로 안내 메시지만 표시.
+      _setError('연결을 시도했어요. 잠시 후 다시 걸어주세요.');
+      // 단 emit('call_response') 는 보내지 않음 — 발신자 보호.
+      // _teardown 자체는 WS emit 안 함 (rejectCall/endCall 만 emit).
+      await _teardown(stateAfter: CallState.ended);
       return;
     }
 

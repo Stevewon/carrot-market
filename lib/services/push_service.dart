@@ -204,9 +204,21 @@ Future<void> _showIncomingCall(Map<String, dynamic> data) async {
       ringtonePath: 'system_ringtone_default',
       backgroundColor: '#7B2CBF', // Eggplant primary
       actionColor: '#FFB300',
-      incomingCallNotificationChannelName: '전화 수신',
-      missedCallNotificationChannelName: '부재중 전화',
+      // ★ v1.0.140 (2026-05-09): 헤드업 배너가 안 뜨고 벨소리만 나는 증상 핫픽스.
+      //   원인: v1.0.124~v1.0.139 기간 동안 '전화 수신' 채널이 한 번이라도
+      //   IMPORTANCE_DEFAULT 로 등록되면 Android 가 그 importance 를 영구
+      //   캐시 (코드로 못 올림) → 사운드만 재생되고 배너 push 안 함.
+      //   해결책 1) 채널 이름을 '전화 수신' → '전화 수신 (V2)' 로 변경 →
+      //   Android 가 신규 채널로 인식 → 라이브러리 native side 가
+      //   IMPORTANCE_HIGH 로 재생성.
+      //   해결책 2) isShowFullLockedScreen + isImportant 명시 → 라이브러리가
+      //   Notification.Builder 에 setFullScreenIntent + Person.setImportant
+      //   를 적용하도록 강제.
+      incomingCallNotificationChannelName: '전화 수신 (V2)',
+      missedCallNotificationChannelName: '부재중 전화 (V2)',
       // 잠금화면 위에 풀스크린 인텐트로 띄움 (USE_FULL_SCREEN_INTENT 권한 필요).
+      isShowFullLockedScreen: true,
+      isImportant: true,
       isShowCallID: false,
     ),
   );
@@ -317,6 +329,22 @@ class PushService extends ChangeNotifier {
 
     // ── 7) CallKit 이벤트 리스너 (accept/decline) ──────
     _attachCallkitListener();
+
+    // ── 8) ★ v1.0.140 (2026-05-09): Android 14+ FSI 권한 사전 점검 ──
+    //   Android 14 부터 USE_FULL_SCREEN_INTENT 권한이 calling/alarm 앱에만
+    //   기본 부여되고, 사용자가 설정에서 끌 수 있음. 꺼져 있으면 풀스크린
+    //   인텐트가 안 떠 헤드업 배너만 짧게 보이거나(또는 안 보이고) 벨소리만
+    //   재생됨. canUseFullScreenIntent() 로 점검만 해 두고, 거부 상태면
+    //   debug 로그만 (사용자에게 권한 설정 페이지를 강제로 띄우면 매번
+    //   설정창이 뜨는 사장님 보고된 UX 이슈 발생 → 점검만, 강제 요청 X).
+    try {
+      final canUseFsi =
+          await FlutterCallkitIncoming.canUseFullScreenIntent();
+      debugPrint('[push] canUseFullScreenIntent = $canUseFsi');
+    } catch (e) {
+      // Android 13 이하 또는 라이브러리 미지원 — 무시.
+      debugPrint('[push] canUseFullScreenIntent unsupported: $e');
+    }
     notifyListeners();
   }
 
