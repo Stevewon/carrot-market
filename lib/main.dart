@@ -201,6 +201,11 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
   StreamSubscription<Map<String, dynamic>>? _callkitAcceptSub;
   StreamSubscription<Map<String, dynamic>>? _msgOpenedSub;
   StreamSubscription<Map<String, dynamic>>? _msgReceivedSub;
+  // ★ v1.0.150 (2026-05-10): Native NativeIncomingCallActivity 의 받기/거절 →
+  //   MainActivity 가 invokeMethod 로 깨우는 채널. 한 번만 setMethodCallHandler.
+  bool _nativeCallBridgeAttached = false;
+  static const MethodChannel _nativeCallBridge =
+      MethodChannel('eggplant.market/native_call_bridge');
 
   @override
   void initState() {
@@ -329,6 +334,80 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
         debugPrint('[callkit] router push failed: $e');
       }
     });
+  }
+
+  /// ★ v1.0.150 (2026-05-10): Native (NativeIncomingCallActivity) 의 받기/거절/종료
+  ///   버튼 → MainActivity.handleNativeCallIntent() → MethodChannel 로 invoke.
+  ///   여기서 setMethodCallHandler 등록 1회만.
+  ///
+  ///   v1.0.149 까지 root cause:
+  ///     1) NativeIncomingCallActivity.onAnswerClicked() 가 MainActivity 를
+  ///        깨우지 않아 Flutter 가 "받음" 사실을 영영 알 수 없었음.
+  ///     2) Flutter 측 setMethodCallHandler 0건. 채널은 auth_service.dart 에
+  ///        선언만 돼 있고 invokeMethod (Dart→Native) 만 사용.
+  ///   → 양쪽 폰 "연결 중" 무한 + 발신측 ringback 안 끊김 (chat.emit('call_response')
+  ///     자체가 안 일어남).
+  ///
+  ///   v1.0.150 fix:
+  ///     - Native onAnswerClicked() 에 MainActivity wake Intent 추가 (.kt 수정 완료)
+  ///     - 여기서 onNativeAnswer / onNativeReject / onEndFromNotification 핸들러 등록
+  ///     - onNativeAnswer → PushService.dispatchNativeAnswer → 기존 _callAcceptCtrl
+  ///       흐름(_attachCallkitAccept) 재사용 → bootstrapIncomingFromPush + router push
+  ///       → CallScreen.fromPush 분기 → CallService.acceptCall() →
+  ///         chat.emit('call_response', accepted=true) ✅
+  void _attachNativeCallBridge(BuildContext ctx) {
+    if (_nativeCallBridgeAttached) return;
+    _nativeCallBridgeAttached = true;
+    _nativeCallBridge.setMethodCallHandler((call) async {
+      try {
+        debugPrint('[native-bridge] method=${call.method} args=${call.arguments}');
+        // call.arguments 는 Map (Kotlin HashMap) 으로 들어옴.
+        final raw = call.arguments;
+        final data = <String, dynamic>{};
+        if (raw is Map) {
+          raw.forEach((k, v) {
+            data[k.toString()] = v;
+          });
+        }
+        switch (call.method) {
+          case 'onNativeAnswer':
+            // Native NativeIncomingCallActivity.onAnswerClicked() →
+            // MainActivity.handleNativeCallIntent() → 여기로 도달.
+            // 기존 CallKit accept 인프라 (_attachCallkitAccept) 가 자동으로 받음.
+            try {
+              ctx.read<PushService>().dispatchNativeAnswer(data);
+            } catch (e) {
+              debugPrint('[native-bridge] dispatchNativeAnswer failed: $e');
+            }
+            break;
+          case 'onNativeReject':
+            // Native 거절 버튼: NativeIncomingCallActivity.onRejectClicked() →
+            // MainActivity 깨우기 putExtra(reject_call_from_native=true) → 여기로 invoke.
+            // CallService.rejectCall() 이 chat.emit('call_response', accepted=false)
+            // 까지 자동으로 처리.
+            try {
+              await ctx.read<CallService>().rejectCall(reason: 'declined');
+            } catch (e) {
+              debugPrint('[native-bridge] rejectCall failed: $e');
+            }
+            break;
+          case 'onEndFromNotification':
+            // 통화 알림의 "종료" 버튼 → endCall.
+            try {
+              await ctx.read<CallService>().endCall();
+            } catch (e) {
+              debugPrint('[native-bridge] endCall failed: $e');
+            }
+            break;
+          default:
+            debugPrint('[native-bridge] unknown method: ${call.method}');
+        }
+      } catch (e) {
+        debugPrint('[native-bridge] handler exception: $e');
+      }
+      return null;
+    });
+    debugPrint('[native-bridge] setMethodCallHandler registered (v1.0.150)');
   }
 
   /// ★ 7차 푸시 (이슈 3): foreground FCM 메시지 수신 → ChatService 합성 방 추가.
@@ -487,6 +566,11 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
 
     // CallKit accept 이벤트 → /call 라우팅 (한 번만 attach).
     _attachCallkitAccept(context);
+
+    // ★ v1.0.150 (2026-05-10): Native NativeIncomingCallActivity 의 받기/거절/종료 →
+    //   MainActivity invokeMethod → MethodChannel 핸들러. 한 번만 attach.
+    //   _attachCallkitAccept 와 동일 _callAcceptCtrl 흐름을 재사용한다.
+    _attachNativeCallBridge(context);
 
     // ★ 5차 푸시: FCM 메시지 알림 tap → /chat/<roomId> 라우팅 (한 번만 attach).
     //   콜드 스타트 처리도 이 안에서 1회만 호출됨.

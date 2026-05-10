@@ -268,6 +268,40 @@ class PushService extends ChangeNotifier {
       StreamController.broadcast();
   Stream<Map<String, dynamic>> get onCallAccepted => _callAcceptCtrl.stream;
 
+  /// ★ v1.0.150 (2026-05-10): Native (NativeIncomingCallActivity) 의 받기 버튼
+  ///   tap → MainActivity 가 깨어나 MethodChannel 'onNativeAnswer' 로
+  ///   이 메서드 호출. 기존 CallKit ACCEPT 흐름(_callAcceptCtrl)에 그대로
+  ///   feed 해서 main.dart 의 _attachCallkitAccept 가 router.push('/call?...&fromPush=1')
+  ///   → CallScreen.fromPush 분기 → CallService.acceptCall() →
+  ///   chat.emit('call_response', accepted=true) 까지 자동 진행되도록 한다.
+  ///
+  /// v1.0.149 까지는 native 답변 시 MainActivity 를 깨우지도 않았고
+  /// Flutter 측 setMethodCallHandler 도 0건이라 chat.emit 자체가 없었음 →
+  /// 양쪽 폰 "연결 중" 무한 + 발신측 ringback 안 끊기는 root cause.
+  void dispatchNativeAnswer(Map<String, dynamic> data) {
+    try {
+      final entry = <String, dynamic>{
+        'call_id': data['sessionId']?.toString() ??
+            data['call_id']?.toString() ??
+            '',
+        'from_user_id': data['callerId']?.toString() ??
+            data['from_user_id']?.toString() ??
+            '',
+        'caller_wallet': data['callerWallet']?.toString() ??
+            data['caller_wallet']?.toString() ??
+            data['callerId']?.toString() ??
+            '',
+        'caller_nickname': data['callerNickname']?.toString() ??
+            data['caller_nickname']?.toString() ??
+            '익명',
+      };
+      debugPrint('[push] dispatchNativeAnswer → _callAcceptCtrl: $entry');
+      _callAcceptCtrl.add(entry);
+    } catch (e) {
+      debugPrint('[push] dispatchNativeAnswer failed: $e');
+    }
+  }
+
   /// ★ 5차 푸시: 메시지 알림 tap → 채팅방 자동 라우팅용.
   /// data['room_id'], data['sender_id']?, data['sender_nickname']? 포함.
   /// main.dart 의 _IncomingCallOverlay 가 listen 해서 router.push('/chat/<roomId>') 수행.

@@ -374,6 +374,36 @@ class NativeIncomingCallActivity : Activity() {
             isIncoming = true,
         )
 
+        // 6.5 ★ v1.0.150 (2026-05-10): MainActivity 깨워서 Flutter 측에 accept 통보.
+        //   v1.0.144~149 에서 양쪽 폰 "연결 중..." + 벨소리 무한 유지 root cause:
+        //   onAnswerClicked() 가 AgoraCallActivity 직행만 하고 MainActivity 를
+        //   깨우지 않음 → Flutter CallService 가 "수신자가 수락했다" 모름 →
+        //   chat.emit('call_response', accepted=true) WebSocket 송신 0건 →
+        //   발신자 단말 무한 ringback. (사장님 v1.0.149 테스트 보고로 확정)
+        //   reject 흐름은 line 389~398 에서 이미 동일 패턴 사용 중. accept 도
+        //   동일하게 MainActivity 를 깨워서 from_native_answer=true 인텐트 전달.
+        //   MainActivity.handleNativeCallIntent (line 124) 가 onNativeAnswer
+        //   MethodChannel invoke → Flutter setMethodCallHandler → CallService
+        //   handleNativeAnswer() → chat.emit('call_response', accepted=true) →
+        //   서버 → 발신자 단말 → 벨소리 정지 + joinChannel → 양쪽 통화 연결.
+        try {
+            val answerIntent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("from_native_answer", true)
+                putExtra("sessionId", sessionId)
+                putExtra("callerId", callerId)
+                putExtra("callerNickname", callerName)
+                putExtra("callType", callType)
+                putExtra("callerProfilePhoto", callerPhoto)
+            }
+            startActivity(answerIntent)
+            Log.e(TAG, "[CALL_FULLSCREEN] MainActivity launched for native answer sessionId=$sessionId")
+        } catch (e: Exception) {
+            Log.e(TAG, "[CALL_FULLSCREEN] MainActivity launch (answer) failed: ${e.message}")
+        }
+
         // 7. Finish this activity (no second UI)
         finish()
     }
