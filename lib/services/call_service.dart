@@ -930,7 +930,13 @@ class CallService extends ChangeNotifier {
       try {
         token = await agora.fetchRtcToken(channel: channel);
         if (token != null && token.isNotEmpty) break;
-        lastTokenError = 'returned null/empty';
+        // ★ v1.0.145 (2026-05-09): AgoraService 가 _requestToken catch 에서
+        //   debugPrint 만 하고 null return 하던 정보 유실 문제 해결.
+        //   AgoraService.lastTokenError 가 HTTP 코드 + 서버 error code 보유.
+        final svcErr = agora.lastTokenError;
+        lastTokenError = (svcErr != null && svcErr.isNotEmpty)
+            ? svcErr
+            : 'returned null/empty';
       } catch (e) {
         lastTokenError = e.toString();
         debugPrint('[call] fetchRtcToken attempt=$attempt failed: $e');

@@ -60,6 +60,12 @@ class AgoraService extends ChangeNotifier {
   DateTime? _rtmTokenExpireAt;
   Timer? _refreshTimer;
 
+  /// ★ v1.0.145 (2026-05-09): _requestToken 의 마지막 실패 사유 (외부 진단용).
+  ///   call_service.dart 가 이 값을 토스트에 포함시켜 사장님이 원인 즉시 식별.
+  ///   기존엔 catch (e) 가 debugPrint 로만 남기고 null return 해서 정보 유실.
+  String? _lastTokenError;
+  String? get lastTokenError => _lastTokenError;
+
   // ─────────────────────────────────────────────────────────
   // Public API
   // ─────────────────────────────────────────────────────────
@@ -175,6 +181,8 @@ class AgoraService extends ChangeNotifier {
     required int uid,
     String? channel,
   }) async {
+    // ★ v1.0.145: 매 호출마다 진단 정보 초기화.
+    _lastTokenError = null;
     try {
       final res = await _api.dio.get<Map<String, dynamic>>(
         '/api/users/agora/token',
@@ -185,16 +193,48 @@ class AgoraService extends ChangeNotifier {
         },
         options: Options(receiveTimeout: const Duration(seconds: 8)),
       );
-      if (res.statusCode != 200 || res.data == null) return null;
+      if (res.statusCode != 200 || res.data == null) {
+        _lastTokenError = 'HTTP ' + (res.statusCode?.toString() ?? '?') + ' (no data)';
+        debugPrint('[agora] _requestToken($kind) ' + _lastTokenError!);
+        return null;
+      }
 
       final token = res.data!['token'] as String?;
+      if (token == null || token.isEmpty) {
+        // ★ v1.0.145: HTTP 200 인데 token 필드가 비어있는 케이스.
+        //   서버 코드 분기상 거의 불가능하지만 (200 응답엔 항상 token 포함),
+        //   서버 측 변경/캐시 문제 시 진단 가능하도록 명시.
+        final keys = res.data!.keys.join(',');
+        _lastTokenError = 'HTTP 200 but token empty (keys=' + keys + ')';
+        debugPrint('[agora] _requestToken($kind) ' + _lastTokenError!);
+        return null;
+      }
       final expSec = res.data!['expire_at'];
       if (expSec is int) {
         _rtmTokenExpireAt =
             DateTime.fromMillisecondsSinceEpoch(expSec * 1000);
       }
       return token;
+    } on DioException catch (e) {
+      // ★ v1.0.145: dio 가 4xx/5xx throw 한 케이스 — HTTP 코드 + 서버 error code 추출.
+      final status = e.response?.statusCode;
+      final body = e.response?.data;
+      String? serverCode;
+      String? serverErr;
+      if (body is Map) {
+        serverCode = body['code']?.toString();
+        serverErr = body['error']?.toString();
+      }
+      _lastTokenError =
+          'HTTP ' +
+          (status?.toString() ?? '?') +
+          (serverCode != null ? ' code=' + serverCode : '') +
+          (serverErr != null ? ' msg=' + serverErr : '') +
+          (status == null ? ' type=' + e.type.toString() : '');
+      debugPrint('[agora] _requestToken($kind) ' + _lastTokenError!);
+      return null;
     } catch (e) {
+      _lastTokenError = e.toString();
       debugPrint('[agora] _requestToken($kind) error: $e');
       return null;
     }
