@@ -112,7 +112,15 @@ async function buildRtcToken(p: {
     salt: randomU32(),
     ts: nowSec(),
     privileges,
-    extraSuffix: bytesConcat(strToBytes(p.channelName), u32LE(p.uid)),
+    // ★ v1.0.152 root-cause fix:
+    //   Agora 공식 v006 사양 (Python/Go/Node SDK 동일) 은 RTC token 의
+    //   uid 를 binary u32LE 가 아니라 "십진수 문자열의 UTF-8 bytes" 로
+    //   서명한다 (buildTokenWithAccount 와 동일 인코딩).
+    //   기존 u32LE(p.uid) 로 서명한 토큰을 클라이언트가 numeric uid 로
+    //   joinChannel 시도하면 Agora 서버가
+    //   ConnectionChangedReasonType.connectionChangedInvalidToken 으로
+    //   즉시 거부함 → v1.0.151 토스트로 확정된 증상의 근본 원인.
+    extraSuffix: bytesConcat(strToBytes(p.channelName), strToBytes(String(p.uid))),
   });
 }
 
