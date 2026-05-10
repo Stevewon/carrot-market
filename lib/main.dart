@@ -89,7 +89,14 @@ class EggplantApp extends StatelessWidget {
         // 실제 RTM/RTC 연결은 2차/3차에서 추가.
         ChangeNotifierProvider<AgoraService>(
           create: (_) {
-            final agora = AgoraService();
+            // ★ v1.0.149 (2026-05-10): AgoraService 에 AuthService.api 주입 필수.
+            //   이전 코드 `AgoraService()` 는 새 ApiClient 인스턴스를 자체 생성해
+            //   AuthService.api.setToken() 으로 박힌 JWT 가 도달하지 않음 →
+            //   `/api/users/agora/token` 요청 시 Authorization 헤더 비어
+            //   서버 authMiddleware 가 401 'Unauthorized' 반환 → joinChannel(null)
+            //   → Agora error 110 (ERR_INVALID_TOKEN). 사장님 v1.0.148 토스트로 확정.
+            //   `api: authService.api` 로 같은 dio 인스턴스 공유하면 JWT 자동 반영.
+            final agora = AgoraService(api: authService.api);
             authService.attachAgora(agora);
             // 앱 시작 시 이미 로그인된 상태(자동 로그인)면 즉시 prepare.
             final wallet = authService.user?.walletAddress;

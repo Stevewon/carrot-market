@@ -183,6 +183,19 @@ class AgoraService extends ChangeNotifier {
   }) async {
     // ★ v1.0.145: 매 호출마다 진단 정보 초기화.
     _lastTokenError = null;
+    // ★ v1.0.149 (2026-05-10): JWT 첨부 여부 사전 검증.
+    //   v1.0.144~148 에서 발신자 측이 HTTP 401 'Unauthorized' 받은 root cause:
+    //   main.dart 가 `AgoraService()` (api 인자 누락) 로 생성해 자체 ApiClient 가
+    //   AuthService.api 와 별개 인스턴스가 됨 → AuthService.setToken() 으로 박힌
+    //   JWT 가 _api 측 dio 에 도달 안 함 → Authorization 헤더 비어 401.
+    //   v1.0.149 에서 main.dart 가 `api: authService.api` 주입하도록 수정함.
+    //   여기서는 만약 또 다른 인스턴스 분리 상황 발생 시 즉시 식별 가능하도록
+    //   ApiClient.hasToken 으로 한 번 더 점검 (방어).
+    if (!_api.hasToken) {
+      _lastTokenError = 'JWT not attached (ApiClient instance mismatch?)';
+      debugPrint('[agora] _requestToken($kind) ' + _lastTokenError!);
+      return null;
+    }
     try {
       final res = await _api.dio.get<Map<String, dynamic>>(
         '/api/users/agora/token',
