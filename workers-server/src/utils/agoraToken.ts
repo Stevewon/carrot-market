@@ -106,21 +106,20 @@ async function buildRtcToken(p: {
     privileges.set(Privileges.kPublishVideoStream, p.expireAt);
     privileges.set(Privileges.kPublishDataStream, p.expireAt);
   }
-  return buildV006({
+  // ★ v1.0.153 root-cause fix:
+  //   Agora 공식 v006 RTC 토큰의 content 레이아웃은
+  //     signature(32) + crc_channel(4 LE) + crc_uid(4 LE) + msg_len(2 LE) + message
+  //   기존 코드는 CRC32 + msg_len 을 누락하고 signature + message 만 base64 인코딩 →
+  //   Agora 서버가 토큰 파싱 실패 → ConnectionChangedReasonType.connectionChangedInvalidToken
+  //   거부. v1.0.151 진단 토스트로 양쪽 모두 발생한 증상의 진짜 root cause.
+  return buildV006Rtc({
     appId: p.appId,
     appCertificate: p.appCertificate,
+    channelName: p.channelName,
+    uidStr: String(p.uid),
     salt: randomU32(),
     ts: nowSec(),
     privileges,
-    // ★ v1.0.152 root-cause fix:
-    //   Agora 공식 v006 사양 (Python/Go/Node SDK 동일) 은 RTC token 의
-    //   uid 를 binary u32LE 가 아니라 "십진수 문자열의 UTF-8 bytes" 로
-    //   서명한다 (buildTokenWithAccount 와 동일 인코딩).
-    //   기존 u32LE(p.uid) 로 서명한 토큰을 클라이언트가 numeric uid 로
-    //   joinChannel 시도하면 Agora 서버가
-    //   ConnectionChangedReasonType.connectionChangedInvalidToken 으로
-    //   즉시 거부함 → v1.0.151 토스트로 확정된 증상의 근본 원인.
-    extraSuffix: bytesConcat(strToBytes(p.channelName), strToBytes(String(p.uid))),
   });
 }
 
@@ -136,54 +135,113 @@ async function buildRtmToken(p: {
 }): Promise<string> {
   const privileges = new Map<number, number>();
   privileges.set(Privileges.kRtmLogin, p.expireAt);
-  return buildV006({
+  // RTM 토큰은 channelName 자리에 빈 문자열, uid 자리에 userAccount 사용.
+  // (Agora 공식 RtmTokenBuilder 도 RtcTokenBuilder 와 같은 v006 packer 를 공유함)
+  return buildV006Rtc({
     appId: p.appId,
     appCertificate: p.appCertificate,
+    channelName: '',
+    uidStr: p.userAccount,
     salt: randomU32(),
     ts: nowSec(),
     privileges,
-    extraSuffix: strToBytes(p.userAccount),
   });
 }
 
 // ─────────────────────────────────────────────────────────
-// v006 packer (공통)
+// v006 RTC/RTM packer (Agora 공식 알고리즘)
 // ─────────────────────────────────────────────────────────
+// 정확한 byte layout (Agora 공식 SDK Python/Node/Go 동일):
+//
+// [message] (HMAC-SHA256 서명 대상)
+//   salt(u32LE 4B) + ts(u32LE 4B) + privCount(u16LE 2B)
+//   + (privKey(u16LE 2B) + privVal(u32LE 4B)) * N
+//   + channelName_utf8_bytes
+//   + uidStr_utf8_bytes
+//
+// [content] (base64 인코딩 대상)
+//   signature(32B) + crc_channel(u32LE 4B) + crc_uid(u32LE 4B)
+//   + msgLen(u16LE 2B) + message
+//
+// [최종 토큰 문자열]
+//   "006" + appId(32 hex chars) + base64(content)
 
-async function buildV006(p: {
+async function buildV006Rtc(p: {
   appId: string;
   appCertificate: string;
+  channelName: string;
+  uidStr: string;
   salt: number;
   ts: number;
   privileges: Map<number, number>;
-  extraSuffix: Uint8Array;
 }): Promise<string> {
-  // message = salt(u32LE) + ts(u32LE) + privCount(u16LE) + (key(u16LE)+val(u32LE))*N + extraSuffix
-  const parts: Uint8Array[] = [];
-  parts.push(u32LE(p.salt));
-  parts.push(u32LE(p.ts));
-  parts.push(u16LE(p.privileges.size));
-  for (const [k, v] of p.privileges.entries()) {
-    parts.push(u16LE(k));
-    parts.push(u32LE(v));
-  }
-  parts.push(p.extraSuffix);
-  const message = bytesConcat(...parts);
+  const channelBytes = strToBytes(p.channelName);
+  const uidBytes = strToBytes(p.uidStr);
 
-  // signature = HMAC-SHA256(appCertificate, appId || message) — 일부 SDK 버전에서는
-  // certificate 만 키로 사용. 호환성 위해 표준 형식 사용:
-  //   key   = appCertificate
-  //   data  = message
-  const signature = await hmacSha256(
-    strToBytes(p.appCertificate),
+  // 1) message = salt + ts + privCount + (key+val)*N + channelName + uidStr
+  const msgParts: Uint8Array[] = [];
+  msgParts.push(u32LE(p.salt));
+  msgParts.push(u32LE(p.ts));
+  msgParts.push(u16LE(p.privileges.size));
+  for (const [k, v] of p.privileges.entries()) {
+    msgParts.push(u16LE(k));
+    msgParts.push(u32LE(v));
+  }
+  msgParts.push(channelBytes);
+  msgParts.push(uidBytes);
+  const message = bytesConcat(...msgParts);
+
+  // 2) signature = HMAC-SHA256(appCertificate_bytes, message)
+  const signature = await hmacSha256(strToBytes(p.appCertificate), message);
+
+  // 3) CRC32 of channelName & uidStr (Agora 공식 사양)
+  const crcChannel = crc32(channelBytes);
+  const crcUid = crc32(uidBytes);
+
+  // 4) content = signature(32) + crc_channel(4 LE) + crc_uid(4 LE) + msgLen(2 LE) + message
+  const content = bytesConcat(
+    signature,
+    u32LE(crcChannel),
+    u32LE(crcUid),
+    u16LE(message.length),
     message,
   );
-
-  // content = signature(32) + message
-  const content = bytesConcat(signature, message);
   const b64 = base64Encode(content);
 
+  // 5) 최종 = "006" + appId + base64(content)
   return `006${p.appId}${b64}`;
+}
+
+// ─────────────────────────────────────────────────────────
+// CRC32 (IEEE 802.3 polynomial 0xEDB88320, Agora 공식 SDK 와 동일)
+// ─────────────────────────────────────────────────────────
+// Agora Python SDK / Node SDK 모두 zlib.crc32 사용 → 결과값을 unsigned 32-bit
+// little-endian 으로 직렬화. 우리는 zlib 의존 없이 Workers 에서 동작하도록
+// table 기반 계산 + (>>> 0) 로 unsigned 보장.
+
+let _crc32Table: Uint32Array | null = null;
+
+function getCrc32Table(): Uint32Array {
+  if (_crc32Table) return _crc32Table;
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    table[i] = c >>> 0;
+  }
+  _crc32Table = table;
+  return table;
+}
+
+function crc32(bytes: Uint8Array): number {
+  const table = getCrc32Table();
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) {
+    crc = (table[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8)) >>> 0;
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 // ─────────────────────────────────────────────────────────
