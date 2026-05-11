@@ -668,7 +668,12 @@ app.get('/agora/token', authMiddleware, async (c) => {
   const me = c.get('user')!;
   const env = c.env;
 
-  if (!env.AGORA_APP_ID || !env.AGORA_APP_CERTIFICATE) {
+  // Eggplant 전용 Project(c60b4a7f...) 우선, 미설정 시 legacy(큐알쳇 공유) 로 fallback.
+  // 큐알쳇 트래픽/장애와 100% 격리 보장.
+  const agoraAppId = env.AGORA_APP_ID_EGGPLANT || env.AGORA_APP_ID;
+  const agoraAppCert = env.AGORA_APP_CERTIFICATE_EGGPLANT || env.AGORA_APP_CERTIFICATE;
+
+  if (!agoraAppId || !agoraAppCert) {
     return c.json(
       { error: 'Agora not configured', code: 'agora_unconfigured' },
       503,
@@ -727,8 +732,8 @@ app.get('/agora/token', authMiddleware, async (c) => {
   let token: string;
   try {
     token = await buildAgoraToken({
-      appId: env.AGORA_APP_ID,
-      appCertificate: env.AGORA_APP_CERTIFICATE,
+      appId: agoraAppId,
+      appCertificate: agoraAppCert,
       uid,
       channel: kind === 'rtc' ? channel : undefined,
       expireAt,
@@ -746,6 +751,10 @@ app.get('/agora/token', authMiddleware, async (c) => {
     expire_at: expireAt,
     channel: kind === 'rtc' ? channel : null,
     kind,
+    // 클라이언트가 서버 발급 AppID 와 동일한 값으로 join 하도록 명시 반환.
+    // (AGORA_APP_ID_EGGPLANT 우선, 없으면 legacy AGORA_APP_ID.)
+    // 클라/서버 AppID 불일치로 인한 invalidToken 을 원천 차단.
+    app_id: agoraAppId,
   });
 });
 

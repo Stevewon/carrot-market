@@ -19,19 +19,32 @@ export interface Env {
   ADMIN_USER_IDS?: string;
 
   /**
-   * Agora App ID (큐알쳇과 공유). vars 로 주입.
+   * Agora App ID (legacy, 큐알쳇과 공유). vars 로 주입.
    *   wrangler.toml [vars] AGORA_APP_ID = "..."
-   * 클라이언트에서도 같은 값을 --dart-define 으로 주입받는다.
+   * Eggplant 전용 신규 Project 도입 후 fallback 으로만 사용.
    */
   AGORA_APP_ID?: string;
 
   /**
-   * Agora App Certificate (HMAC-SHA256 서명 키). 절대 클라이언트에 노출 X.
+   * Agora App Certificate (legacy, 큐알쳇용 HMAC-SHA256 서명 키).
    *   wrangler secret put AGORA_APP_CERTIFICATE
-   * 사장님이 Firebase Secret Manager 에서 직접 조회 후 등록.
-   * 비어있으면 토큰 발급 라우트는 503 반환 (fail-closed).
+   * Eggplant 전용 신규 Project 도입 후 fallback 으로만 사용.
    */
   AGORA_APP_CERTIFICATE?: string;
+
+  /**
+   * Eggplant 전용 Agora App ID (큐알쳇과 완전 분리된 신규 Project).
+   *   wrangler secret put AGORA_APP_ID_EGGPLANT
+   * 큐알쳇 트래픽/장애와 100% 격리. 우선 사용, 없으면 AGORA_APP_ID 로 fallback.
+   */
+  AGORA_APP_ID_EGGPLANT?: string;
+
+  /**
+   * Eggplant 전용 Agora App Certificate (신규 Project Primary Certificate).
+   *   wrangler secret put AGORA_APP_CERTIFICATE_EGGPLANT
+   * 절대 클라이언트에 노출 X. 우선 사용, 없으면 AGORA_APP_CERTIFICATE 로 fallback.
+   */
+  AGORA_APP_CERTIFICATE_EGGPLANT?: string;
 
   /**
    * FCM (Firebase Cloud Messaging) — 3차 푸시.

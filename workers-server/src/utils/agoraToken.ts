@@ -1,40 +1,35 @@
 /**
- * Agora Token Builder (RTC + RTM, v006 형식)
+ * Agora Token Builder (RTC + RTM, v007 공식 패키지)
  * ============================================
+ *
+ * v1.0.154 (2026-05-11): 공식 agora-token 패키지 도입.
+ *   - 자체 v006 구현(buildV006Rtc) 폐기.
+ *   - Mark Orcena (Agora.io) 권고 — github.com/AgoraIO/Tools 공식 알고리즘 사용.
+ *   - v006 → v007 토큰 업그레이드 (Agora Console 이 발급하는 형식과 동일).
+ *   - Cloudflare Workers nodejs_compat flag 활성화 상태에서 작동.
  *
  * 사장님 룰:
  *   - "퀀타리움 지갑주소 = Universal User ID"
  *   - App Certificate 는 Cloudflare Workers Secret 에 보관, 절대 노출 X.
  *   - 클라이언트는 이 토큰을 받아서 Agora SDK 의 login/joinChannel 에 전달한다.
  *
- * 구현은 Agora 공식 dynamic key v006 사양을 Web Crypto API (Workers 호환) 로
- * 재구현한 것이다 (npm 의 agora-token 패키지는 Node 의 crypto 모듈에 의존하여
- * Cloudflare Workers 에서 동작하지 않음).
+ *  - 형식: "007" + base64(zlib.deflate(signature + appId + issueTs + expire + salt + services))
+ *  - signature = HMAC-SHA256(appCertificate, signing_info)
+ *  - 공식 npm 패키지 'agora-token' v2.0.5 사용.
  *
- *  - 형식: "006" + appId(32) + base64url(crc32 + msgLength + msg + signature)
- *  - signature = HMAC-SHA256(appCertificate, msg)
- *  - msg = randomInt32 + ts + privileges (RTC/RTM 마다 권한 비트가 다름)
- *
- * 참고: https://docs.agora.io/en/voice-calling/develop/integration-token
+ * 참고: https://github.com/AgoraIO/Tools/tree/master/DynamicKey/AgoraDynamicKey/nodejs
  */
 
+// @ts-ignore — agora-token 패키지에 types 매핑은 있지만 namespace 형태라 TS strict 에서 경고 가능
+import { RtcTokenBuilder, RtmTokenBuilder, RtcRole as PkgRtcRole } from 'agora-token';
+
 // ─────────────────────────────────────────────────────────
-// RTC / RTM 권한 enum (Agora dynamic key v006 사양)
+// RTC 권한 enum (Public API 호환을 위해 유지)
 // ─────────────────────────────────────────────────────────
 
 export const RtcRole = {
   PUBLISHER: 1, // 음성/영상 송수신 가능 (1:1 통화에서 양쪽 모두 publisher)
   SUBSCRIBER: 2, // 수신만 (live broadcast 청취자용)
-} as const;
-
-const Privileges = {
-  // RTC
-  kJoinChannel: 1,
-  kPublishAudioStream: 2,
-  kPublishVideoStream: 3,
-  kPublishDataStream: 4,
-  // RTM
-  kRtmLogin: 1000,
 } as const;
 
 // ─────────────────────────────────────────────────────────
@@ -54,7 +49,12 @@ export interface BuildTokenParams {
   role?: typeof RtcRole[keyof typeof RtcRole];
 }
 
-/** Agora v006 dynamic key (RTC 또는 RTM). */
+/**
+ * Agora 공식 v007 dynamic key (RTC 또는 RTM).
+ *
+ * 공식 패키지 'agora-token' v2.0.5 의 RtcTokenBuilder / RtmTokenBuilder 사용.
+ * 토큰 prefix 는 "007" (Agora Console Temp Token 과 동일 형식).
+ */
 export async function buildAgoraToken(p: BuildTokenParams): Promise<string> {
   if (!p.appId || p.appId.length !== 32) {
     throw new Error('Invalid AGORA_APP_ID (expected 32 hex chars)');
@@ -66,253 +66,39 @@ export async function buildAgoraToken(p: BuildTokenParams): Promise<string> {
     throw new Error(`Invalid uid: ${p.uid}`);
   }
 
+  // 공식 패키지 API 는 "남은 시간(seconds)" 을 받는다 — epoch 절대시각 X.
+  // expireAt(epoch sec) → tokenExpire(remaining sec) 로 변환.
+  const nowSec = Math.floor(Date.now() / 1000);
+  const remainingSec = Math.max(60, p.expireAt - nowSec); // 최소 60초 보장
+
   if (p.kind === 'rtc') {
     if (!p.channel) throw new Error('RTC token requires channel');
-    return buildRtcToken({
-      appId: p.appId,
-      appCertificate: p.appCertificate,
-      channelName: p.channel,
-      uid: p.uid,
-      role: p.role ?? RtcRole.PUBLISHER,
-      expireAt: p.expireAt,
-    });
+    const role = p.role ?? RtcRole.PUBLISHER;
+    // RtcTokenBuilder.buildTokenWithUid(appId, appCert, channelName, uid,
+    //   role, tokenExpire, privilegeExpire)
+    //   - tokenExpire: 토큰 만료 (재인증 시점)
+    //   - privilegeExpire: 권한 만료 (보통 tokenExpire 와 동일)
+    const token: string = RtcTokenBuilder.buildTokenWithUid(
+      p.appId,
+      p.appCertificate,
+      p.channel,
+      p.uid,
+      role,
+      remainingSec,
+      remainingSec,
+    );
+    return token;
   } else {
     // RTM 은 채널이 필요 없고 uid 가 곧 account 가 된다.
-    return buildRtmToken({
-      appId: p.appId,
-      appCertificate: p.appCertificate,
-      userAccount: String(p.uid),
-      expireAt: p.expireAt,
-    });
+    // RtmTokenBuilder.buildToken(appId, appCert, userId, expire)
+    const token: string = RtmTokenBuilder.buildToken(
+      p.appId,
+      p.appCertificate,
+      String(p.uid),
+      remainingSec,
+    );
+    return token;
   }
-}
-
-// ─────────────────────────────────────────────────────────
-// RTC token (v006)
-// ─────────────────────────────────────────────────────────
-
-async function buildRtcToken(p: {
-  appId: string;
-  appCertificate: string;
-  channelName: string;
-  uid: number;
-  role: number;
-  expireAt: number;
-}): Promise<string> {
-  const privileges = new Map<number, number>();
-  privileges.set(Privileges.kJoinChannel, p.expireAt);
-  if (p.role === RtcRole.PUBLISHER) {
-    privileges.set(Privileges.kPublishAudioStream, p.expireAt);
-    privileges.set(Privileges.kPublishVideoStream, p.expireAt);
-    privileges.set(Privileges.kPublishDataStream, p.expireAt);
-  }
-  // ★ v1.0.153 root-cause fix:
-  //   Agora 공식 v006 RTC 토큰의 content 레이아웃은
-  //     signature(32) + crc_channel(4 LE) + crc_uid(4 LE) + msg_len(2 LE) + message
-  //   기존 코드는 CRC32 + msg_len 을 누락하고 signature + message 만 base64 인코딩 →
-  //   Agora 서버가 토큰 파싱 실패 → ConnectionChangedReasonType.connectionChangedInvalidToken
-  //   거부. v1.0.151 진단 토스트로 양쪽 모두 발생한 증상의 진짜 root cause.
-  return buildV006Rtc({
-    appId: p.appId,
-    appCertificate: p.appCertificate,
-    channelName: p.channelName,
-    uidStr: String(p.uid),
-    salt: randomU32(),
-    ts: nowSec(),
-    privileges,
-  });
-}
-
-// ─────────────────────────────────────────────────────────
-// RTM token (v006)
-// ─────────────────────────────────────────────────────────
-
-async function buildRtmToken(p: {
-  appId: string;
-  appCertificate: string;
-  userAccount: string;
-  expireAt: number;
-}): Promise<string> {
-  const privileges = new Map<number, number>();
-  privileges.set(Privileges.kRtmLogin, p.expireAt);
-  // RTM 토큰은 channelName 자리에 빈 문자열, uid 자리에 userAccount 사용.
-  // (Agora 공식 RtmTokenBuilder 도 RtcTokenBuilder 와 같은 v006 packer 를 공유함)
-  return buildV006Rtc({
-    appId: p.appId,
-    appCertificate: p.appCertificate,
-    channelName: '',
-    uidStr: p.userAccount,
-    salt: randomU32(),
-    ts: nowSec(),
-    privileges,
-  });
-}
-
-// ─────────────────────────────────────────────────────────
-// v006 RTC/RTM packer (Agora 공식 알고리즘)
-// ─────────────────────────────────────────────────────────
-// 정확한 byte layout (Agora 공식 SDK Python/Node/Go 동일):
-//
-// [message] (HMAC-SHA256 서명 대상)
-//   salt(u32LE 4B) + ts(u32LE 4B) + privCount(u16LE 2B)
-//   + (privKey(u16LE 2B) + privVal(u32LE 4B)) * N
-//   + channelName_utf8_bytes
-//   + uidStr_utf8_bytes
-//
-// [content] (base64 인코딩 대상)
-//   signature(32B) + crc_channel(u32LE 4B) + crc_uid(u32LE 4B)
-//   + msgLen(u16LE 2B) + message
-//
-// [최종 토큰 문자열]
-//   "006" + appId(32 hex chars) + base64(content)
-
-async function buildV006Rtc(p: {
-  appId: string;
-  appCertificate: string;
-  channelName: string;
-  uidStr: string;
-  salt: number;
-  ts: number;
-  privileges: Map<number, number>;
-}): Promise<string> {
-  const channelBytes = strToBytes(p.channelName);
-  const uidBytes = strToBytes(p.uidStr);
-
-  // 1) message = salt + ts + privCount + (key+val)*N + channelName + uidStr
-  const msgParts: Uint8Array[] = [];
-  msgParts.push(u32LE(p.salt));
-  msgParts.push(u32LE(p.ts));
-  msgParts.push(u16LE(p.privileges.size));
-  for (const [k, v] of p.privileges.entries()) {
-    msgParts.push(u16LE(k));
-    msgParts.push(u32LE(v));
-  }
-  msgParts.push(channelBytes);
-  msgParts.push(uidBytes);
-  const message = bytesConcat(...msgParts);
-
-  // 2) signature = HMAC-SHA256(appCertificate_bytes, message)
-  const signature = await hmacSha256(strToBytes(p.appCertificate), message);
-
-  // 3) CRC32 of channelName & uidStr (Agora 공식 사양)
-  const crcChannel = crc32(channelBytes);
-  const crcUid = crc32(uidBytes);
-
-  // 4) content = signature(32) + crc_channel(4 LE) + crc_uid(4 LE) + msgLen(2 LE) + message
-  const content = bytesConcat(
-    signature,
-    u32LE(crcChannel),
-    u32LE(crcUid),
-    u16LE(message.length),
-    message,
-  );
-  const b64 = base64Encode(content);
-
-  // 5) 최종 = "006" + appId + base64(content)
-  return `006${p.appId}${b64}`;
-}
-
-// ─────────────────────────────────────────────────────────
-// CRC32 (IEEE 802.3 polynomial 0xEDB88320, Agora 공식 SDK 와 동일)
-// ─────────────────────────────────────────────────────────
-// Agora Python SDK / Node SDK 모두 zlib.crc32 사용 → 결과값을 unsigned 32-bit
-// little-endian 으로 직렬화. 우리는 zlib 의존 없이 Workers 에서 동작하도록
-// table 기반 계산 + (>>> 0) 로 unsigned 보장.
-
-let _crc32Table: Uint32Array | null = null;
-
-function getCrc32Table(): Uint32Array {
-  if (_crc32Table) return _crc32Table;
-  const table = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let k = 0; k < 8; k++) {
-      c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
-    }
-    table[i] = c >>> 0;
-  }
-  _crc32Table = table;
-  return table;
-}
-
-function crc32(bytes: Uint8Array): number {
-  const table = getCrc32Table();
-  let crc = 0xffffffff;
-  for (let i = 0; i < bytes.length; i++) {
-    crc = (table[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8)) >>> 0;
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-// ─────────────────────────────────────────────────────────
-// Crypto helpers (Web Crypto API — Cloudflare Workers 호환)
-// ─────────────────────────────────────────────────────────
-
-async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    key,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', cryptoKey, data);
-  return new Uint8Array(sig);
-}
-
-function randomU32(): number {
-  const arr = new Uint32Array(1);
-  crypto.getRandomValues(arr);
-  return arr[0];
-}
-
-function nowSec(): number {
-  return Math.floor(Date.now() / 1000);
-}
-
-// ─────────────────────────────────────────────────────────
-// Byte helpers
-// ─────────────────────────────────────────────────────────
-
-function u16LE(n: number): Uint8Array {
-  const b = new Uint8Array(2);
-  b[0] = n & 0xff;
-  b[1] = (n >>> 8) & 0xff;
-  return b;
-}
-
-function u32LE(n: number): Uint8Array {
-  const b = new Uint8Array(4);
-  b[0] = n & 0xff;
-  b[1] = (n >>> 8) & 0xff;
-  b[2] = (n >>> 16) & 0xff;
-  b[3] = (n >>> 24) & 0xff;
-  return b;
-}
-
-function strToBytes(s: string): Uint8Array {
-  return new TextEncoder().encode(s);
-}
-
-function bytesConcat(...arrs: Uint8Array[]): Uint8Array {
-  let total = 0;
-  for (const a of arrs) total += a.length;
-  const out = new Uint8Array(total);
-  let off = 0;
-  for (const a of arrs) {
-    out.set(a, off);
-    off += a.length;
-  }
-  return out;
-}
-
-function base64Encode(bytes: Uint8Array): string {
-  // Workers 환경에는 btoa() 가 있다. 단, ASCII 만 허용되므로 binary string 변환 필요.
-  let s = '';
-  for (let i = 0; i < bytes.length; i++) {
-    s += String.fromCharCode(bytes[i]);
-  }
-  return btoa(s);
 }
 
 // ─────────────────────────────────────────────────────────
@@ -327,7 +113,8 @@ export async function walletToAgoraUid(walletAddress: string): Promise<number> {
   let s = walletAddress.trim().toLowerCase();
   if (s.startsWith('0x')) s = s.slice(2);
 
-  const hash = await crypto.subtle.digest('SHA-256', strToBytes(s));
+  const enc = new TextEncoder();
+  const hash = await crypto.subtle.digest('SHA-256', enc.encode(s));
   const bytes = new Uint8Array(hash);
   const uid =
     ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
