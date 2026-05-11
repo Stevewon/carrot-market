@@ -816,25 +816,38 @@ class CallService extends ChangeNotifier {
           notifyListeners();
         },
         onUserOffline: (RtcConnection conn, int remoteUid, UserOfflineReasonType reason) {
-          debugPrint('[call] remote user offline reason=$reason');
+          debugPrint('[call] remote user offline reason=$reason prevState=$_state');
           // 상대가 채널 떠남 → 통화 종료.
-          // ★ v1.0.155 진단: 어떤 사유로 상대가 이탈했는지 토스트로 노출.
+          // ★ v1.0.156 토스트 정상화: 사용자 노출 디버그 텍스트 제거.
+          //   • userOfflineQuit (정상 종료) → silent close. 토스트 0건.
+          //   • 그 외 (dropped/becameAudience 등 비정상) → 친화 한국어 1줄.
+          //   • reason/prevState 같은 진단값은 debugPrint 로만 남김.
           if (_state == CallState.connected || _state == CallState.connecting) {
-            _setError('상대 채널 이탈 (offline reason=$reason, prevState=$_state)');
-            _teardown(stateAfter: CallState.ended);
+            if (reason == UserOfflineReasonType.userOfflineQuit) {
+              // 정상 종료 — 토스트 노출 없이 조용히 정리.
+              _teardown(stateAfter: CallState.ended);
+            } else {
+              _setError('통화가 종료되었어요');
+              _teardown(stateAfter: CallState.ended);
+            }
           }
         },
         onConnectionStateChanged: (RtcConnection conn,
             ConnectionStateType s, ConnectionChangedReasonType reason) {
           debugPrint('[call] connection state=$s reason=$reason');
           if (s == ConnectionStateType.connectionStateFailed) {
-            // ★ v1.0.155 진단: Agora connection Failed 시 reason 코드를 토스트에 노출.
-            //   token expired / invalid AppID / channel mismatch / network 등 구분용.
-            _setError('연결이 끊어졌어요 (Agora state=Failed, reason=$reason)');
+            // ★ v1.0.156 토스트 정상화: reason 코드는 debugPrint 로만, 토스트는 친화 한국어.
+            //   • tokenExpired(9) → "통화 인증이 만료되었어요"
+            //   • 그 외 (invalidAppId/invalidToken/network 등) → "통화 연결이 끊어졌어요"
+            if (reason == ConnectionChangedReasonType.connectionChangedTokenExpired) {
+              _setError('통화 인증이 만료되었어요');
+            } else {
+              _setError('통화 연결이 끊어졌어요');
+            }
             _teardown(stateAfter: CallState.ended);
           } else if (s == ConnectionStateType.connectionStateDisconnected ||
               s == ConnectionStateType.connectionStateReconnecting) {
-            // ★ v1.0.155 진단: reconnect guard 진입 사유 디버그 로그.
+            // ★ v1.0.156: reconnect guard 진입 사유는 debugPrint 로만.
             debugPrint('[call] reconnect guard armed (state=$s, reason=$reason)');
             _scheduleReconnectGuard(triggerReason: reason);
           } else if (s == ConnectionStateType.connectionStateConnected) {
@@ -854,15 +867,14 @@ class CallService extends ChangeNotifier {
 
   /// Disconnected/Reconnecting 5초 이상 지속되면 자동 종료.
   ///
-  /// ★ v1.0.155 진단: triggerReason 추가 — guard 가 발동했을 때
-  ///   어떤 connection reason 으로 진입했는지 토스트에 노출하여
-  ///   "연결이 끊어졌어요" 토스트 3 경로 (Failed / userOffline / reconnect timeout)
-  ///   를 사장님이 즉시 구분할 수 있게 한다.
+  /// ★ v1.0.156 토스트 정상화: triggerReason 값은 debugPrint 로만 남기고
+  ///   사용자 토스트는 친화 한국어 한 줄로 통일.
   void _scheduleReconnectGuard({ConnectionChangedReasonType? triggerReason}) {
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(const Duration(seconds: 5), () {
       if (_state == CallState.connected || _state == CallState.connecting) {
-        _setError('네트워크가 불안정해요 (reconnect 5s timeout, trigger=$triggerReason)');
+        debugPrint('[call] reconnect 5s timeout trigger=$triggerReason');
+        _setError('네트워크가 불안정해요');
         _teardown(stateAfter: CallState.ended);
       }
     });
