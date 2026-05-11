@@ -1,7 +1,7 @@
 name: eggplant
 description: "Eggplant - QR 기반 익명 중고거래 마켓 🍆"
 publish_to: 'none'
-version: 1.0.154+154
+version: 1.0.155+155
 
 environment:
   sdk: '>=3.3.0 <4.0.0'

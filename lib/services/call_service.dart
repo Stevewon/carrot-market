@@ -818,7 +818,7 @@ class CallService extends ChangeNotifier {
         onUserOffline: (RtcConnection conn, int remoteUid, UserOfflineReasonType reason) {
           debugPrint('[call] remote user offline reason=$reason');
           // 상대가 채널 떠남 → 통화 종료.
-          // ★ v1.0.154 진단: 어떤 사유로 상대가 이탈했는지 토스트로 노출.
+          // ★ v1.0.155 진단: 어떤 사유로 상대가 이탈했는지 토스트로 노출.
           if (_state == CallState.connected || _state == CallState.connecting) {
             _setError('상대 채널 이탈 (offline reason=$reason, prevState=$_state)');
             _teardown(stateAfter: CallState.ended);
@@ -828,13 +828,13 @@ class CallService extends ChangeNotifier {
             ConnectionStateType s, ConnectionChangedReasonType reason) {
           debugPrint('[call] connection state=$s reason=$reason');
           if (s == ConnectionStateType.connectionStateFailed) {
-            // ★ v1.0.154 진단: Agora connection Failed 시 reason 코드를 토스트에 노출.
+            // ★ v1.0.155 진단: Agora connection Failed 시 reason 코드를 토스트에 노출.
             //   token expired / invalid AppID / channel mismatch / network 등 구분용.
             _setError('연결이 끊어졌어요 (Agora state=Failed, reason=$reason)');
             _teardown(stateAfter: CallState.ended);
           } else if (s == ConnectionStateType.connectionStateDisconnected ||
               s == ConnectionStateType.connectionStateReconnecting) {
-            // ★ v1.0.154 진단: reconnect guard 진입 사유 디버그 로그.
+            // ★ v1.0.155 진단: reconnect guard 진입 사유 디버그 로그.
             debugPrint('[call] reconnect guard armed (state=$s, reason=$reason)');
             _scheduleReconnectGuard(triggerReason: reason);
           } else if (s == ConnectionStateType.connectionStateConnected) {
@@ -854,7 +854,7 @@ class CallService extends ChangeNotifier {
 
   /// Disconnected/Reconnecting 5초 이상 지속되면 자동 종료.
   ///
-  /// ★ v1.0.154 진단: triggerReason 추가 — guard 가 발동했을 때
+  /// ★ v1.0.155 진단: triggerReason 추가 — guard 가 발동했을 때
   ///   어떤 connection reason 으로 진입했는지 토스트에 노출하여
   ///   "연결이 끊어졌어요" 토스트 3 경로 (Failed / userOffline / reconnect timeout)
   ///   를 사장님이 즉시 구분할 수 있게 한다.
