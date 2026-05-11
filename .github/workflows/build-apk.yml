@@ -40,15 +40,30 @@ jobs:
       - name: 📦 Install dependencies
         run: flutter pub get
 
-      - name: 🔧 Generate build number
+            - name: 🔧 Generate build number
         id: build_info
         run: |
-          BUILD_NUMBER=${{ github.run_number }}
+          # ★★★★★ 사장님 영구 룰 (2026-05-11): pubspec.yaml = 진실의 원천 ★★★★★
+          # build-apk.yml 이 pubspec.yaml 의 version: X.Y.Z+B 를 직접 파싱하여
+          # 태그/릴리스명/APK 파일명/Step Summary 모두 동일 버전으로 통일한다.
+          # github.run_number 와 pubspec 버전이 어긋나는 사고 영구 차단.
+          PUBSPEC_VERSION_LINE=$(grep -E "^version:" pubspec.yaml | head -1)
+          # 예) "version: 1.0.155+155" → "1.0.155+155"
+          FULL_VERSION=$(echo "$PUBSPEC_VERSION_LINE" | sed -E 's/^version:[[:space:]]*//')
+          # 예) "1.0.155+155" → semver "1.0.155"
+          SEMVER=$(echo "$FULL_VERSION" | cut -d'+' -f1)
+          # 예) "1.0.155+155" → build number "155"
+          BUILD_NUMBER=$(echo "$FULL_VERSION" | cut -d'+' -f2)
+          # build number 가 비어있거나 비숫자이면 github.run_number 로 fallback (안전)
+          if ! echo "$BUILD_NUMBER" | grep -qE '^[0-9]+$'; then
+            BUILD_NUMBER=${{ github.run_number }}
+          fi
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           DATE=$(date +'%Y%m%d-%H%M')
-          # 사장님 지시: 집파일명/태그/릴리스명 모두 v1.0.<빌드번호> 한 가지 형태로 통일
-          # 예) v1.0.55  →  eggplant-v1.0.55.apk
-          VERSION_LABEL="v1.0.${BUILD_NUMBER}"
+          # 집파일명/태그/릴리스명 = v{semver} (예: v1.0.155 — pubspec 의 1.0.155 그대로)
+          VERSION_LABEL="v${SEMVER}"
+          echo "pubspec full version: $FULL_VERSION"
+          echo "semver: $SEMVER, build_number: $BUILD_NUMBER, version_label: $VERSION_LABEL"
           echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
           echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "date=${DATE}" >> $GITHUB_OUTPUT
