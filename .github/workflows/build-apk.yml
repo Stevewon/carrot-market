@@ -40,7 +40,7 @@ jobs:
       - name: 📦 Install dependencies
         run: flutter pub get
 
-            - name: 🔧 Generate build number
+      - name: 🔧 Generate build number
         id: build_info
         run: |
           # ★★★★★ 사장님 영구 룰 (2026-05-11): pubspec.yaml = 진실의 원천 ★★★★★
