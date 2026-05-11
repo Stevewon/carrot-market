@@ -135,7 +135,8 @@ class MainActivity: FlutterActivity() {
                             "callerProfilePhoto" to (intent.getStringExtra("callerProfilePhoto") ?: ""),
                             "callerWallet" to intentCallerWallet
                         )
-                        Log.e(TAG, "[MAIN] onNativeAnswer invoke sessionId=$sessionId callerWalletEmpty=${(data[\"callerWallet\"] ?: \"\").toString().isEmpty()}")
+                        val cwForLog = (data["callerWallet"] ?: "").toString()
+                        Log.e(TAG, "[MAIN] onNativeAnswer invoke sessionId=$sessionId callerWalletEmpty=${cwForLog.isEmpty()}")
                         nativeCallBridge?.invokeMethod("onNativeAnswer", data)
                             ?: Log.w(TAG, "[MAIN] nativeCallBridge null on answer — Flutter not ready yet")
                         pendingNativeAnswerData = null
