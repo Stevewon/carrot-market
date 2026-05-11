@@ -627,6 +627,17 @@ class ChatService extends ChangeNotifier {
     _startPing();
     notifyListeners();
 
+    // ★ v1.0.158 (2026-05-11): 초기 presence 'foreground' 송신.
+    //   앱 시작 직후 또는 reconnect 직후 호출되는 connect() 시점에
+    //   서버에 즉시 foreground 임을 알려서, 통화 수신 시 서버가
+    //   FCM heads-up push 발송을 건너뛰도록 함 (이중 표시 차단).
+    //
+    //   주의: connect 가 호출되는 시점은 거의 항상 foreground 다
+    //   (백그라운드에서 WebSocket 끊겨도 resume 직후 재연결이므로).
+    //   백그라운드 진입 시점에는 main.dart didChangeAppLifecycleState
+    //   가 'background' 송신.
+    emit('presence_update', {'state': 'foreground'});
+
     if (_activeRoomId != null) {
       emit('join_room', {'room_id': _activeRoomId});
     }

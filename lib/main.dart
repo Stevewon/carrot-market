@@ -501,6 +501,30 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
+
+    // ★ v1.0.158 (2026-05-11): 서버에 lifecycle 상태 송신 (presence_update).
+    //   서버 chat-hub.ts 가 이 값을 보고 FCM heads-up push 발송 여부 결정:
+    //     foreground → Flutter UI 가 통화 수신 처리 → FCM push 생략
+    //     background → native heads-up/FSI 필요 → FCM push 발송
+    //   → 이중 표시 (Flutter 풀스크린 + native 헤드업 동시) 원천 차단.
+    //
+    //   AppLifecycleState 매핑:
+    //     resumed                 → 'foreground'
+    //     paused/inactive/hidden/
+    //     detached                → 'background'
+    final presenceState = (state == AppLifecycleState.resumed)
+        ? 'foreground'
+        : 'background';
+    try {
+      final chat = context.read<ChatService>();
+      chat.emit('presence_update', {'state': presenceState});
+      debugPrint('[presence] lifecycle=$state → emit presence_update($presenceState)');
+    } catch (e) {
+      // ChatService 미주입 / WebSocket 미연결 시 silent skip.
+      // 다음 connect 직후 chat_service.dart 가 초기 presence 를 송신함.
+      debugPrint('[presence] emit skipped (lifecycle=$state): $e');
+    }
+
     // ★ 웜 스타트 — 앱이 백그라운드에서 포어그라운드로 복귀할 때.
     //  v1.0.107 정책: 미읽음 방 1+개면 무조건 가장 최근 방 직진.
     //  부팅 후 1회 제한(_autoEnterUnreadDone)이 false 일 때만 실행.

@@ -39,6 +39,20 @@ interface AttachedMeta {
   userId: string;
   nickname: string;
   rooms: string[];
+  /**
+   * ★ v1.0.158 (2026-05-11): 클라이언트 앱 lifecycle 상태.
+   *   'foreground': 사용자가 앱 화면을 보고 있음 → Flutter UI 가 통화 수신 가능
+   *   'background': 백그라운드/잠금/종료 → native heads-up/FSI 필요
+   *
+   *   default 'background' — 구버전 클라이언트(v1.0.157 이하) 가 presence_update
+   *   를 보내지 않아도 안전한 쪽(FCM push 발송) 으로 fallback.
+   *
+   *   call_invite 핸들러가 이 값을 보고 FCM heads-up push 발송 여부 결정 →
+   *   foreground 단말은 WebSocket call_incoming 만 받아 Flutter IncomingCallScreen
+   *   표시, background 단말은 FCM heads-up 받아 native UI 표시.
+   *   → 이중 표시 (Flutter 풀스크린 + native 헤드업 동시 노출) 원천 차단.
+   */
+  appState?: 'foreground' | 'background';
 }
 
 type Binding = { JWT_SECRET: string } & Env;
@@ -164,10 +178,14 @@ export class ChatHub {
     const [client, server] = Object.values(pair);
 
     // Attach metadata so we can recover after hibernation.
+    // ★ v1.0.158: appState default = 'background' — 클라이언트가 presence_update
+    //   를 명시적으로 보내기 전까지는 안전한 쪽(FCM push 발송) 으로 fallback.
+    //   v1.0.158+ 클라이언트는 connect 직후 즉시 'foreground' 송신.
     const meta: AttachedMeta = {
       userId: payload.id,
       nickname: payload.nickname,
       rooms: [],
+      appState: 'background',
     };
     server.serializeAttachment(meta);
 
@@ -209,6 +227,24 @@ export class ChatHub {
       case 'ping':
         this.sendSafe(ws, { type: 'pong' });
         return;
+
+      // ★ v1.0.158 (2026-05-11): 클라이언트 lifecycle 상태 업데이트.
+      //   Flutter didChangeAppLifecycleState 가 resumed → 'foreground',
+      //   paused/inactive/hidden/detached → 'background' 송신.
+      //   call_invite 핸들러가 이 값 보고 FCM heads-up push 발송 여부 결정.
+      //   foreground 단말은 WebSocket call_incoming + Flutter UI 로 처리 →
+      //   FCM push 생략 → 이중 표시 0건.
+      //   background 단말은 FCM heads-up 발송 → native UI 표시.
+      case 'presence_update': {
+        const rawState = String(msg.state || '').toLowerCase();
+        if (rawState === 'foreground' || rawState === 'background') {
+          if (meta.appState !== rawState) {
+            meta.appState = rawState;
+            ws.serializeAttachment(meta);
+          }
+        }
+        return;
+      }
 
       // 클라이언트가 방을 읽었음을 알림 — peer 에게 그대로 forward.
       // 휘발성: 서버는 read 상태를 저장하지 않는다.
@@ -502,66 +538,73 @@ export class ChatHub {
           call_type,
         });
 
-        // ★ v1.0.157 (2026-05-11) hybrid push: delivered 여부와 무관하게
-        //   FCM data-only push 도 항상 병행 발송.
+        // ★ v1.0.158 (2026-05-11) presence-aware hybrid push.
         //
-        // 배경 (v1.0.156 사장님 2폰 검증 결과):
-        //   - 두 폰이 모두 앱 안(foreground) 에 들어와 있어야만 통화 100% 성공
-        //   - Android 단말이 백그라운드여도 WebSocket 은 유지 → sendToUser 가
-        //     delivered=true 판정 → 기존 로직은 push 를 건너뜀
-        //   - 그러나 Flutter IncomingCallScreen 은 백그라운드에서 화면을 띄울
-        //     권한 없음 → 사용자에게 어떤 알림도 안 감 (헤드업 0건)
+        // 배경 (v1.0.157 사장님 2폰 검증 결과):
+        //   - 두 폰 모두 foreground 일 때 헤드업(native) + 풀스크린(Flutter)
+        //     이중 표시 발생 + 한쪽 수락 후 다른 쪽 벨소리 잔존 + 잠금화면 빈
+        //     푸쉬 알림 — v1.0.157 의 무조건 push 가 너무 강했음
         //
-        // 안전성 (큐알챗 영향 0%):
-        //   - 본 분기는 case 'call_invite' 안에만 있음 (Eggplant 전용 호출 경로)
-        //   - 큐알챗은 chat-hub.ts 자체를 사용하지 않음
-        //   - sendOfflinePush 는 fire-and-forget — WebSocket 응답 지연 0
-        //   - placeholder 모드 (FCM 키 미등록) 면 sendFcm 이 silent skip
+        // 해결 (옵션 A — 정확한 백그라운드 감지):
+        //   1) 클라이언트가 didChangeAppLifecycleState 에서 'presence_update'
+        //      WebSocket 메시지로 foreground/background 상태 송신
+        //   2) 서버는 AttachedMeta.appState 에 저장
+        //   3) call_invite 핸들러는 수신자의 foreground 단말 보유 여부 판별 →
+        //      foreground 단말 있으면 FCM push 생략 (Flutter UI 가 처리)
+        //      foreground 단말 없으면 FCM push 발송 (native heads-up/FSI 가 처리)
         //
-        // 클라이언트 측 dedupe:
-        //   - Eggplant native EggplantFirebaseMessagingService.onMessageReceived
-        //     line 114: if (isAppForeground) { ... } — foreground 단말도 헤드업
-        //     알림으로 통일 처리 (Q3=생략 + 사용자에게 수락/거절 선택권 부여)
-        //   - 즉, foreground 단말은 WebSocket call_incoming + FCM heads-up 둘 다
-        //     수신할 수 있으나 native 가 sessionId 기준 cleanup 으로 중복 방지
-        //   - background 단말은 FCM heads-up 만 받아서 정상 표시
-        const pushPayload = {
-          // ★ v1.0.124: 닉네임을 알림 제목/본문에 노출. v1.0.142 에서도
-          //   유지 — native FCM 서비스가 data-only 로 받지만 generic 푸시
-          //   fallback 시 표시되도록.
-          title: caller_nickname,
-          body: '전화가 와요',
-          data: {
-            // ★ v1.0.142 (Eggplant native call port — QRChat v4.0.270 형식):
-            //   EggplantFirebaseMessagingService.onMessageReceived 가 읽는 키 셋.
-            //   type='incoming_call' 이어야 native 서비스가 통화 분기로 라우팅.
-            //   sessionId/callerId/callerNickname/callType/channel/agora 가
-            //   NativeIncomingCallActivity → AgoraCallActivity 까지 전달됨.
-            type: 'incoming_call',
-            sessionId: call_id,
-            callerId: meta.userId,
-            callerNickname: caller_nickname,
-            callType: call_type,
-            callerProfilePhoto: '',
-            channel: channel_name,
-            agora: '1',
-            // ★ Legacy 필드 병행 (v1.0.141 이하 클라이언트 호환):
-            //   기존 _showIncomingCall (Dart flutter_callkit_incoming) 가
-            //   읽던 키. v1.0.142 에서 native 가 우선 처리하지만, 구버전
-            //   설치 단말의 background isolate 가 깨졌을 때 대비.
-            call_id,
-            from_user_id: meta.userId,
-            caller_nickname,
-            caller_wallet,
-          },
-          isCall: true,
-        };
-        this.sendOfflinePush(to_user_id, pushPayload);
+        // 하위 호환 (v1.0.157 이하 클라이언트):
+        //   - presence_update 안 보냄 → meta.appState 가 default 'background'
+        //   - hasForegroundDevice 는 false 반환 → FCM push 발송
+        //   - 즉, 구버전은 v1.0.157 과 동일하게 동작 (이중 표시 가능성 있으나
+        //     기존 사용자 통화 가능성 유지)
+        const hasForeground = this.hasForegroundDevice(to_user_id);
+        const needPush = !hasForeground;
 
-        if (!delivered) {
-          // WebSocket 미연결 — 발신자에게 즉시 fail 안내.
-          //   FCM push 는 위에서 이미 비동기 발송됐으므로 수신자 단말이 살아있으면
-          //   잠시 후 heads-up 으로 전화가 와요 표시될 수 있음.
+        if (needPush) {
+          // 수신자가 background/offline → FCM heads-up/FSI 로 알림
+          const pushPayload = {
+            // ★ v1.0.124: 닉네임을 알림 제목/본문에 노출.
+            //   native FCM 서비스가 data-only 로 받지만 generic 푸시 fallback
+            //   시 표시되도록.
+            title: caller_nickname,
+            body: '전화가 와요',
+            data: {
+              // ★ v1.0.142 (Eggplant native call port — QRChat v4.0.270 형식):
+              //   EggplantFirebaseMessagingService.onMessageReceived 가 읽는 키 셋.
+              //   type='incoming_call' 이어야 native 서비스가 통화 분기로 라우팅.
+              type: 'incoming_call',
+              sessionId: call_id,
+              callerId: meta.userId,
+              callerNickname: caller_nickname,
+              callType: call_type,
+              callerProfilePhoto: '',
+              channel: channel_name,
+              agora: '1',
+              // ★ Legacy 필드 병행 (v1.0.141 이하 클라이언트 호환).
+              call_id,
+              from_user_id: meta.userId,
+              caller_nickname,
+              caller_wallet,
+            },
+            isCall: true,
+          };
+          this.sendOfflinePush(to_user_id, pushPayload);
+        }
+
+        if (!delivered && !needPush) {
+          // 이론상 도달 어려운 분기 (WebSocket 미연결 + foreground 단말 있다고 표시).
+          //   안전망: 발신자에게 fail 안내.
+          this.sendSafe(ws, {
+            type: 'call_failed',
+            call_id,
+            reason: 'offline',
+            message: '상대방이 접속 중이 아니에요',
+          });
+        } else if (!delivered && needPush) {
+          // WebSocket 미연결 → FCM push 만으로 깨우기.
+          //   기존(v1.0.157) 안내 그대로 — 발신자는 ringback 계속 듣다가
+          //   수신자가 push 받고 수락하면 call_response 로 join.
           this.sendSafe(ws, {
             type: 'call_failed',
             call_id,
@@ -711,6 +754,29 @@ export class ChatHub {
         try { ws.send(data); } catch { /* ignore */ }
       }
     }
+  }
+
+  /**
+   * ★ v1.0.158 (2026-05-11): 수신자가 foreground 단말을 하나라도 보유하고
+   *   있는지 판별. presence_update 로 갱신된 meta.appState='foreground' 인
+   *   소켓이 한 개 이상이면 true.
+   *
+   *   call_invite 핸들러가 이 값으로 FCM heads-up push 발송 여부 결정:
+   *     true  → Flutter UI 가 처리 → FCM push 생략 (이중 표시 0건)
+   *     false → background/offline → FCM heads-up/FSI 로 native UI 표시
+   *
+   *   하위 호환: v1.0.157 이하 클라이언트는 presence_update 안 보내므로
+   *   meta.appState 가 default 'background' → false 반환 → 기존 v1.0.157
+   *   동작과 동일하게 FCM push 발송.
+   */
+  private hasForegroundDevice(user_id: string): boolean {
+    for (const ws of this.state.getWebSockets()) {
+      const meta = ws.deserializeAttachment() as AttachedMeta | null;
+      if (meta && meta.userId === user_id && meta.appState === 'foreground') {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Send directly to a user (first socket we find for them). Returns true if delivered. */
