@@ -61,6 +61,8 @@ class NativeIncomingCallActivity : Activity() {
     // Eggplant: Agora 채널명 + 본인 지갑주소 (FCM payload 또는 SharedPreferences fallback)
     private var channelName = ""
     private var walletAddress = ""
+    // ★ v1.0.159: 발신자 지갑주소 (Flutter peerWallet 산정 핵심값)
+    private var callerWallet = ""
 
     // 35초 WakeLock — 수신 타임아웃(30초)보다 약간 길게
     private var wakeLock: PowerManager.WakeLock? = null
@@ -151,8 +153,11 @@ class NativeIncomingCallActivity : Activity() {
         if (walletAddress.isEmpty()) {
             walletAddress = AgoraTokenService.readWalletAddress(this)
         }
+        // ★ v1.0.159: 발신자 지갑주소 추출 — FCM payload 의 callerWallet/caller_wallet 모두 지원
+        callerWallet = intent.getStringExtra("callerWallet")
+            ?: intent.getStringExtra("caller_wallet") ?: ""
 
-        Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] IncomingCallActivity onCreate sessionId=$sessionId caller=$callerName type=$callType channel=$channelName walletEmpty=${walletAddress.isEmpty()}")
+        Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] IncomingCallActivity onCreate sessionId=$sessionId caller=$callerName type=$callType channel=$channelName walletEmpty=${walletAddress.isEmpty()} callerWalletEmpty=${callerWallet.isEmpty()}")
         Log.e(TAG, "[CALL_FULLSCREEN] onCreate sessionId=$sessionId caller=$callerName type=$callType")
 
         // 발신자가 끊었을 때 수신화면 자동 종료를 위한 receiver
@@ -350,13 +355,15 @@ class NativeIncomingCallActivity : Activity() {
 
         // 5. Block Flutter ringing UI re-entry + set pending data
         //    flag와 pendingData를 BEFORE AgoraCallActivity 실행 시점에 설정.
+        // ★ v1.0.159: callerWallet 포함 — cold-start 시에도 Flutter peerWallet 산정 보장
         MainActivity.nativeAnswerInProgress = true
         MainActivity.pendingNativeAnswerData = mapOf(
             "sessionId" to sessionId,
             "callerId" to callerId,
             "callerNickname" to callerName,
             "callType" to callType,
-            "callerProfilePhoto" to callerPhoto
+            "callerProfilePhoto" to callerPhoto,
+            "callerWallet" to callerWallet
         )
 
         // 6. Q3=생략: 항상 AgoraCallActivity 직행 (Flutter 미경유)
@@ -397,9 +404,12 @@ class NativeIncomingCallActivity : Activity() {
                 putExtra("callerNickname", callerName)
                 putExtra("callType", callType)
                 putExtra("callerProfilePhoto", callerPhoto)
+                // ★ v1.0.159: 발신자 지갑주소를 MainActivity → Flutter 로 전파.
+                //   handleNativeCallIntent 이 callerWallet 을 onNativeAnswer data 에 포함.
+                if (callerWallet.isNotEmpty()) putExtra("callerWallet", callerWallet)
             }
             startActivity(answerIntent)
-            Log.e(TAG, "[CALL_FULLSCREEN] MainActivity launched for native answer sessionId=$sessionId")
+            Log.e(TAG, "[CALL_FULLSCREEN] MainActivity launched for native answer sessionId=$sessionId callerWalletEmpty=${callerWallet.isEmpty()}")
         } catch (e: Exception) {
             Log.e(TAG, "[CALL_FULLSCREEN] MainActivity launch (answer) failed: ${e.message}")
         }

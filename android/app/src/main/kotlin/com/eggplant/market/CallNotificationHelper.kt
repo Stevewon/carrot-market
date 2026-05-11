@@ -248,10 +248,11 @@ object CallNotificationHelper {
         agoraFlag: Boolean = true,  // Eggplant default true (always Agora)
         channelName: String = "",   // Eggplant: Agora 채널명 (FCM payload)
         walletAddress: String = "", // Eggplant: 본인 지갑주소 (보통 비움 → NativeIncomingCallActivity 가 SP fallback)
+        callerWallet: String = "",  // ★ v1.0.159: 발신자 지갑주소 (Flutter peerWallet 으로 전파)
     ) {
         ensureChannels(context)
 
-        val answerPi = makeAnswerPendingIntent(context, sessionId, callerId, callerName, callType, callerPhoto, agoraFlag, channelName, walletAddress)
+        val answerPi = makeAnswerPendingIntent(context, sessionId, callerId, callerName, callType, callerPhoto, agoraFlag, channelName, walletAddress, callerWallet)
         val rejectPi = makeRejectPendingIntent(context, sessionId, callerId, callerName)
 
         val typeText = if (callType == "video") "Video Call" else "Voice Call"
@@ -270,7 +271,7 @@ object CallNotificationHelper {
         // 잠금 해제 상태이므로 OS 가 FSI 자동 실행 안 함 — heads-up 강제 유지 신호로만 작동
         try {
             val fsi = makeFullScreenPendingIntent(
-                context, sessionId, callerId, callerName, callType, callerPhoto, agoraFlag, channelName, walletAddress
+                context, sessionId, callerId, callerName, callType, callerPhoto, agoraFlag, channelName, walletAddress, callerWallet
             )
             builder.setFullScreenIntent(fsi, true)
             Log.e("CALL_NOTI", "[CALL_NOTI] FSI attached for heads-up retention")
@@ -326,13 +327,14 @@ object CallNotificationHelper {
         agoraFlag: Boolean = true,  // Eggplant default true
         channelName: String = "",   // Eggplant: Agora 채널명 (FCM payload)
         walletAddress: String = "", // Eggplant: 본인 지갑주소
+        callerWallet: String = "",  // ★ v1.0.159: 발신자 지갑주소
     ) {
-        Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] lock-state route — full-screen ONLY (no heads-up) sessionId=$sessionId")
+        Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] lock-state route — full-screen ONLY (no heads-up) sessionId=$sessionId callerWalletEmpty=${callerWallet.isEmpty()}")
 
         ensureChannels(context)
 
         val fullScreenPi = makeFullScreenPendingIntent(
-            context, sessionId, callerId, callerName, callType, callerPhoto, agoraFlag, channelName, walletAddress
+            context, sessionId, callerId, callerName, callType, callerPhoto, agoraFlag, channelName, walletAddress, callerWallet
         )
 
         // Android 14+ 전체 화면 알림 권한 런타임 체크 (Google Play 정책 준수)
@@ -424,8 +426,9 @@ object CallNotificationHelper {
         agoraFlag: Boolean = true,
         channelName: String = "",
         walletAddress: String = "",
+        callerWallet: String = "",  // ★ v1.0.159: 발신자 지갑주소
     ): PendingIntent {
-        Log.e("CALL_ROUTE", "[CALL_ROUTE] makeFullScreenPendingIntent target=NativeIncomingCallActivity sessionId=$sessionId")
+        Log.e("CALL_ROUTE", "[CALL_ROUTE] makeFullScreenPendingIntent target=NativeIncomingCallActivity sessionId=$sessionId callerWalletEmpty=${callerWallet.isEmpty()}")
         val intent = Intent(context, NativeIncomingCallActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -440,6 +443,8 @@ object CallNotificationHelper {
             // Eggplant: 채널명 + 지갑주소 전파 (NativeIncomingCallActivity → AgoraCallActivity)
             if (channelName.isNotEmpty()) putExtra("channelName", channelName)
             if (walletAddress.isNotEmpty()) putExtra("walletAddress", walletAddress)
+            // ★ v1.0.159: 발신자 지갑주소 — Flutter peerWallet 산정 핵심값.
+            if (callerWallet.isNotEmpty()) putExtra("callerWallet", callerWallet)
             // agora flag 전파 → NativeIncomingCallActivity.onAnswerClicked() 에서 AgoraCallActivity 직행
             if (agoraFlag) {
                 putExtra("agora", "1")
@@ -464,8 +469,9 @@ object CallNotificationHelper {
         agoraFlag: Boolean = true,
         channelName: String = "",
         walletAddress: String = "",
+        callerWallet: String = "",  // ★ v1.0.159: 발신자 지갑주소
     ): PendingIntent {
-        Log.e("CALL_ROUTE", "[CALL_ROUTE] makeAnswerPendingIntent target=NativeIncomingCallActivity (Q3=생략) sessionId=$sessionId")
+        Log.e("CALL_ROUTE", "[CALL_ROUTE] makeAnswerPendingIntent target=NativeIncomingCallActivity (Q3=생략) sessionId=$sessionId callerWalletEmpty=${callerWallet.isEmpty()}")
         val intent = Intent(context, NativeIncomingCallActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -481,6 +487,8 @@ object CallNotificationHelper {
             // Eggplant: 채널명 + 지갑주소 전파
             if (channelName.isNotEmpty()) putExtra("channelName", channelName)
             if (walletAddress.isNotEmpty()) putExtra("walletAddress", walletAddress)
+            // ★ v1.0.159: 발신자 지갑주소 — Flutter peerWallet 산정 핵심값.
+            if (callerWallet.isNotEmpty()) putExtra("callerWallet", callerWallet)
             if (agoraFlag) {
                 putExtra("agora", "1")
                 putExtra("agora_call", true)

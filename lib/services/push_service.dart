@@ -280,6 +280,16 @@ class PushService extends ChangeNotifier {
   /// 양쪽 폰 "연결 중" 무한 + 발신측 ringback 안 끊기는 root cause.
   void dispatchNativeAnswer(Map<String, dynamic> data) {
     try {
+      // ★ v1.0.159 (2026-05-11): caller_wallet fallback 수정.
+      //   v1.0.158 까지 caller_wallet 누락 시 callerId(=user_id) 로 fallback 하던 버그 →
+      //   Flutter CallService 가 user_id 를 wallet 으로 오인 → Agora 채널명 산정 불일치
+      //   → 'wallet missing (my=ok, peer=empty)' 토스트.
+      //   해결: callerWallet/caller_wallet 없으면 빈 문자열로 두고 CallService 의
+      //   /call-info 자가복구 경로가 정상 작동하도록 둠.
+      final callerWalletRaw = data['callerWallet']?.toString() ??
+          data['caller_wallet']?.toString() ??
+          '';
+      final callerWallet = callerWalletRaw.trim().toLowerCase();
       final entry = <String, dynamic>{
         'call_id': data['sessionId']?.toString() ??
             data['call_id']?.toString() ??
@@ -287,15 +297,15 @@ class PushService extends ChangeNotifier {
         'from_user_id': data['callerId']?.toString() ??
             data['from_user_id']?.toString() ??
             '',
-        'caller_wallet': data['callerWallet']?.toString() ??
-            data['caller_wallet']?.toString() ??
-            data['callerId']?.toString() ??
-            '',
+        'caller_wallet': callerWallet,
         'caller_nickname': data['callerNickname']?.toString() ??
             data['caller_nickname']?.toString() ??
             '익명',
       };
-      debugPrint('[push] dispatchNativeAnswer → _callAcceptCtrl: $entry');
+      debugPrint('[push] dispatchNativeAnswer → _callAcceptCtrl '
+          'callIdEmpty=${(entry['call_id'] as String).isEmpty} '
+          'fromUserIdEmpty=${(entry['from_user_id'] as String).isEmpty} '
+          'callerWalletEmpty=${(entry['caller_wallet'] as String).isEmpty}');
       _callAcceptCtrl.add(entry);
     } catch (e) {
       debugPrint('[push] dispatchNativeAnswer failed: $e');

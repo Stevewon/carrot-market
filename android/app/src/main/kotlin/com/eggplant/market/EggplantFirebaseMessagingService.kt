@@ -100,10 +100,15 @@ class EggplantFirebaseMessagingService : FlutterFirebaseMessagingService() {
         val agoraFlag   = data["agora"] != "0"
         // Eggplant 신규: 채널명 (FCM payload 에서 직접 전달, 폴백은 caller+receiver wallet 으로 재구성)
         val channelName = data["channel"] ?: ""
+        // ★ v1.0.159 (2026-05-11): callerWallet — 발신자의 지갑주소.
+        //   server chat-hub.ts 가 callerWallet (camelCase) + caller_wallet (snake_case) 둘 다 보냄.
+        //   v1.0.158 까지 native 가 이 필드를 읽지 않아서 Flutter 측 _peerWalletAddress
+        //   가 user_id 로 잘못 들어가 'wallet missing (my=ok, peer=empty)' 발생.
+        val callerWallet = data["callerWallet"] ?: data["caller_wallet"] ?: ""
         // Eggplant: 본인 지갑주소 (수신자) — SharedPreferences 에서 fallback
         val walletAddress = AgoraTokenService.readWalletAddress(this)
 
-        Log.e("CALL_PATH", "[CALL_PATH] incoming session=$sessionId caller=$callerName type=$callType agora=$agoraFlag channel=$channelName walletEmpty=${walletAddress.isEmpty()}")
+        Log.e("CALL_PATH", "[CALL_PATH] incoming session=$sessionId caller=$callerName type=$callType agora=$agoraFlag channel=$channelName walletEmpty=${walletAddress.isEmpty()} callerWalletEmpty=${callerWallet.isEmpty()}")
 
         // ================================================================
         // Route 1: Eggplant foreground -> Flutter handles (do not touch)
@@ -125,6 +130,7 @@ class EggplantFirebaseMessagingService : FlutterFirebaseMessagingService() {
                     agoraFlag = true,
                     channelName = channelName,
                     walletAddress = walletAddress,
+                    callerWallet = callerWallet,
                 )
                 CallNotificationHelper.startRingtoneImmediately(this, sessionId)
                 return
@@ -153,6 +159,7 @@ class EggplantFirebaseMessagingService : FlutterFirebaseMessagingService() {
                 agoraFlag = agoraFlag,
                 channelName = channelName,
                 walletAddress = walletAddress,
+                callerWallet = callerWallet,
             )
             CallNotificationHelper.startRingtoneImmediately(this, sessionId)
             return
@@ -199,6 +206,7 @@ class EggplantFirebaseMessagingService : FlutterFirebaseMessagingService() {
             agoraFlag = agoraFlag,
             channelName = channelName,
             walletAddress = walletAddress,
+            callerWallet = callerWallet,
         )
 
         // Step 3: 벨소리 시작

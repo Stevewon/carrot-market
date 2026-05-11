@@ -124,13 +124,18 @@ class MainActivity: FlutterActivity() {
                     fromNativeAnswer -> {
                         // pendingNativeAnswerData 가 있으면 그것을 우선 (NativeIncomingCallActivity 가 set 한 데이터)
                         // 없으면 인텐트 extras 에서 직접 추출
+                        // ★ v1.0.159: callerWallet 도 함께 전달 (Flutter peerWallet 산정 핵심값)
+                        val intentCallerWallet = intent.getStringExtra("callerWallet")
+                            ?: intent.getStringExtra("caller_wallet") ?: ""
                         val data = pendingNativeAnswerData ?: mapOf(
                             "sessionId" to sessionId,
                             "callerId" to (intent.getStringExtra("callerId") ?: ""),
                             "callerNickname" to (intent.getStringExtra("callerNickname") ?: ""),
                             "callType" to (intent.getStringExtra("callType") ?: "audio"),
-                            "callerProfilePhoto" to (intent.getStringExtra("callerProfilePhoto") ?: "")
+                            "callerProfilePhoto" to (intent.getStringExtra("callerProfilePhoto") ?: ""),
+                            "callerWallet" to intentCallerWallet
                         )
+                        Log.e(TAG, "[MAIN] onNativeAnswer invoke sessionId=$sessionId callerWalletEmpty=${(data[\"callerWallet\"] ?: \"\").toString().isEmpty()}")
                         nativeCallBridge?.invokeMethod("onNativeAnswer", data)
                             ?: Log.w(TAG, "[MAIN] nativeCallBridge null on answer — Flutter not ready yet")
                         pendingNativeAnswerData = null

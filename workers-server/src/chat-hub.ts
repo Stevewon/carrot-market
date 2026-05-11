@@ -581,6 +581,14 @@ export class ChatHub {
               callerProfilePhoto: '',
               channel: channel_name,
               agora: '1',
+              // ★ v1.0.159 (2026-05-11): callerWallet 명시 필드 추가.
+              //   v1.0.158 까지 native 측은 callerId(user_id) 만 받았고 wallet 전달
+              //   채널이 없어서 NativeIncomingCallActivity 수락 → Flutter
+              //   bootstrapIncomingFromPush(peerWalletAddress=user_id) → CallService
+              //   _joinAgoraChannel 이 user_id 를 wallet 으로 오인 → Agora 채널 산정
+              //   불일치 → 'wallet missing (my=ok, peer=empty)' 토스트.
+              //   해결: FCM data 에 callerWallet 명시 + native 가 intent extras 로 전파.
+              callerWallet: caller_wallet,
               // ★ Legacy 필드 병행 (v1.0.141 이하 클라이언트 호환).
               call_id,
               from_user_id: meta.userId,

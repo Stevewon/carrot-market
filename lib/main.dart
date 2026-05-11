@@ -633,3 +633,4 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
   Widget build(BuildContext context) => widget.child;
 }
 // v1.0.114 rebuild trigger
+// v1.0.159 (2026-05-11): native FCM/FSI 경로 callerWallet 전파 + 디버그 토스트 제거

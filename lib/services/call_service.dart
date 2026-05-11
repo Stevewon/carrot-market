@@ -483,13 +483,20 @@ class CallService extends ChangeNotifier {
     //   _peerWalletAddress 가 비어 있으면 신규 엔드포인트
     //   GET /api/users/:id/call-info 로 peer 의 wallet 직접 조회 → 채널명 산정.
     //   사장님 요구: "수락 → 통화 진짜 연결" — 이 자가 회복으로 join 성공률 극대화.
-    if ((_peerWalletAddress ?? '').isEmpty &&
-        (_peerUserId ?? '').isNotEmpty) {
+    // ★ v1.0.159 (2026-05-11) 진단 로깅 강화: _peerUserId/_peerWalletAddress 상태와
+    //   HTTP 응답 코드를 debugPrint 로 명시 — 사장님 logcat 으로 누락 지점 즉시 식별.
+    final peerWalletEmptyPre = (_peerWalletAddress ?? '').isEmpty;
+    final peerUserIdEmpty = (_peerUserId ?? '').isEmpty;
+    debugPrint('[call] acceptCall: pre-recovery '
+        'peerUserIdEmpty=$peerUserIdEmpty peerWalletEmpty=$peerWalletEmptyPre');
+    if (peerWalletEmptyPre && !peerUserIdEmpty) {
       debugPrint('[call] acceptCall: _peerWalletAddress empty — fetching from /call-info');
       try {
         final res = await auth.api.dio.get<Map<String, dynamic>>(
           '/api/users/${_peerUserId!}/call-info',
         );
+        debugPrint('[call] acceptCall: /call-info status=${res.statusCode} '
+            'hasWallet=${res.data?['wallet_address'] != null}');
         if (res.statusCode == 200 && res.data != null) {
           final w = res.data!['wallet_address']?.toString();
           if (w != null && w.isNotEmpty) {
@@ -507,6 +514,11 @@ class CallService extends ChangeNotifier {
         // 서버 호출 실패 시에도 join 시도 — myWallet+peerWallet 둘 다 있으면 OK,
         // 둘 중 하나라도 비어 있으면 _joinAgoraChannel 의 가드에서 자연 실패.
       }
+    } else if (peerWalletEmptyPre && peerUserIdEmpty) {
+      // ★ v1.0.159: 진단 — 이 경우는 FCM/Native 경로에서 callerId 자체가 누락된 케이스.
+      //   bootstrapIncomingFromPush 호출 시점에 peer_user_id 가 비어있었다는 뜻.
+      debugPrint('[call] acceptCall: ⚠️ both _peerUserId AND _peerWalletAddress empty — '
+          'native intent extras likely missing callerId/callerWallet');
     }
 
     await _stopOsRingtone();
@@ -535,15 +547,16 @@ class CallService extends ChangeNotifier {
       //   teardown. 발신자는 30초 발신 타임아웃이 자연 만료되어 "받지
       //   않았어요" 로 종료됨 (수락 → 거절 표시 X).
       //   수신자 화면엔 _setError 로 안내 메시지만 표시.
-      // ★ v1.0.144 (2026-05-09): _joinAgoraChannel 의 분기별 사유를 토스트에 포함.
-      //   사장님 보고 시 채널길이/JWT/Agora SDK 중 어느 단계에서 실패했는지 즉시 식별.
+      // ★ v1.0.159 (2026-05-11) 토스트 정상화 (v1.0.156 룰 일관성):
+      //   v1.0.144~v1.0.158 까지 디버그 사유 '(wallet missing (my=ok, peer=empty))'
+      //   같은 텍스트를 사용자 토스트에 노출 → 사장님 영구 룰 위반.
+      //   사유는 debugPrint 로만 남기고 사용자에겐 친화 한국어 한 줄만 노출.
       final String? failReason = _lastJoinFailReason;
       _lastJoinFailReason = null;
-      String errorMsg = '연결을 시도했어요. 잠시 후 다시 걸어주세요.';
       if (failReason != null && failReason.isNotEmpty) {
-        errorMsg = errorMsg + '\n(' + failReason + ')';
+        debugPrint('[call] acceptCall: join failed reason=$failReason');
       }
-      _setError(errorMsg);
+      _setError('연결을 시도했어요. 잠시 후 다시 걸어주세요.');
       // 단 emit('call_response') 는 보내지 않음 — 발신자 보호.
       // _teardown 자체는 WS emit 안 함 (rejectCall/endCall 만 emit).
       await _teardown(stateAfter: CallState.ended);
