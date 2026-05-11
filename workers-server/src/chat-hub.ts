@@ -501,45 +501,67 @@ export class ChatHub {
           channel: channel_name,
           call_type,
         });
+
+        // ★ v1.0.157 (2026-05-11) hybrid push: delivered 여부와 무관하게
+        //   FCM data-only push 도 항상 병행 발송.
+        //
+        // 배경 (v1.0.156 사장님 2폰 검증 결과):
+        //   - 두 폰이 모두 앱 안(foreground) 에 들어와 있어야만 통화 100% 성공
+        //   - Android 단말이 백그라운드여도 WebSocket 은 유지 → sendToUser 가
+        //     delivered=true 판정 → 기존 로직은 push 를 건너뜀
+        //   - 그러나 Flutter IncomingCallScreen 은 백그라운드에서 화면을 띄울
+        //     권한 없음 → 사용자에게 어떤 알림도 안 감 (헤드업 0건)
+        //
+        // 안전성 (큐알챗 영향 0%):
+        //   - 본 분기는 case 'call_invite' 안에만 있음 (Eggplant 전용 호출 경로)
+        //   - 큐알챗은 chat-hub.ts 자체를 사용하지 않음
+        //   - sendOfflinePush 는 fire-and-forget — WebSocket 응답 지연 0
+        //   - placeholder 모드 (FCM 키 미등록) 면 sendFcm 이 silent skip
+        //
+        // 클라이언트 측 dedupe:
+        //   - Eggplant native EggplantFirebaseMessagingService.onMessageReceived
+        //     line 114: if (isAppForeground) { ... } — foreground 단말도 헤드업
+        //     알림으로 통일 처리 (Q3=생략 + 사용자에게 수락/거절 선택권 부여)
+        //   - 즉, foreground 단말은 WebSocket call_incoming + FCM heads-up 둘 다
+        //     수신할 수 있으나 native 가 sessionId 기준 cleanup 으로 중복 방지
+        //   - background 단말은 FCM heads-up 만 받아서 정상 표시
+        const pushPayload = {
+          // ★ v1.0.124: 닉네임을 알림 제목/본문에 노출. v1.0.142 에서도
+          //   유지 — native FCM 서비스가 data-only 로 받지만 generic 푸시
+          //   fallback 시 표시되도록.
+          title: caller_nickname,
+          body: '전화가 와요',
+          data: {
+            // ★ v1.0.142 (Eggplant native call port — QRChat v4.0.270 형식):
+            //   EggplantFirebaseMessagingService.onMessageReceived 가 읽는 키 셋.
+            //   type='incoming_call' 이어야 native 서비스가 통화 분기로 라우팅.
+            //   sessionId/callerId/callerNickname/callType/channel/agora 가
+            //   NativeIncomingCallActivity → AgoraCallActivity 까지 전달됨.
+            type: 'incoming_call',
+            sessionId: call_id,
+            callerId: meta.userId,
+            callerNickname: caller_nickname,
+            callType: call_type,
+            callerProfilePhoto: '',
+            channel: channel_name,
+            agora: '1',
+            // ★ Legacy 필드 병행 (v1.0.141 이하 클라이언트 호환):
+            //   기존 _showIncomingCall (Dart flutter_callkit_incoming) 가
+            //   읽던 키. v1.0.142 에서 native 가 우선 처리하지만, 구버전
+            //   설치 단말의 background isolate 가 깨졌을 때 대비.
+            call_id,
+            from_user_id: meta.userId,
+            caller_nickname,
+            caller_wallet,
+          },
+          isCall: true,
+        };
+        this.sendOfflinePush(to_user_id, pushPayload);
+
         if (!delivered) {
-          // ★★★ 3차 푸시: peer 가 백그라운드/앱 종료 상태일 때
-          //  Eggplant native FCM 서비스 (EggplantFirebaseMessagingService) 로
-          //  전화 수신 UI 를 띄우기 위해 FCM high-priority data-only 푸시 발송.
-          //  앱이 켜져있으면 sendOfflinePush 결과와 무관하게 결국 WebSocket 으로
-          //  call_incoming 이 다시 라우팅되도록, 클라이언트가 푸시 tap → 앱 부팅 →
-          //  WebSocket 재연결 + call_id 로 시그널링 재시도.
-          //  Firebase 키 미등록(placeholder) 환경에서는 silent skip 후 call_failed.
-          this.sendOfflinePush(to_user_id, {
-            // ★ v1.0.124: 닉네임을 알림 제목/본문에 노출. v1.0.142 에서도
-            //   유지 — native FCM 서비스가 data-only 로 받지만 generic 푸시
-            //   fallback 시 표시되도록.
-            title: caller_nickname,
-            body: '전화가 와요',
-            data: {
-              // ★ v1.0.142 (Eggplant native call port — QRChat v4.0.270 형식):
-              //   EggplantFirebaseMessagingService.onMessageReceived 가 읽는 키 셋.
-              //   type='incoming_call' 이어야 native 서비스가 통화 분기로 라우팅.
-              //   sessionId/callerId/callerNickname/callType/channel/agora 가
-              //   NativeIncomingCallActivity → AgoraCallActivity 까지 전달됨.
-              type: 'incoming_call',
-              sessionId: call_id,
-              callerId: meta.userId,
-              callerNickname: caller_nickname,
-              callType: call_type,
-              callerProfilePhoto: '',
-              channel: channel_name,
-              agora: '1',
-              // ★ Legacy 필드 병행 (v1.0.141 이하 클라이언트 호환):
-              //   기존 _showIncomingCall (Dart flutter_callkit_incoming) 가
-              //   읽던 키. v1.0.142 에서 native 가 우선 처리하지만, 구버전
-              //   설치 단말의 background isolate 가 깨졌을 때 대비.
-              call_id,
-              from_user_id: meta.userId,
-              caller_nickname,
-              caller_wallet,
-            },
-            isCall: true,
-          });
+          // WebSocket 미연결 — 발신자에게 즉시 fail 안내.
+          //   FCM push 는 위에서 이미 비동기 발송됐으므로 수신자 단말이 살아있으면
+          //   잠시 후 heads-up 으로 전화가 와요 표시될 수 있음.
           this.sendSafe(ws, {
             type: 'call_failed',
             call_id,
