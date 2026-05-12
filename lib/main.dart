@@ -641,3 +641,10 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
 //                        - MainActivity FSI_PERM_CHANNEL 추가 (canUseFullScreenIntent/openFullScreenIntentSettings)
 //                        - PermissionService.ensureFullScreenIntentOrGuide 친화 다이얼로그 (1탭으로 시스템 설정 직행)
 //                        - splash + call_screen 진입 시 자동 안내 (세션당 1회)
+// v1.0.162 (2026-05-12): ★★★ 진짜 근본 원인 수정 ★★★
+//                        Workers chat-hub.ts !delivered && needPush 분기에서 call_failed 오발사 제거
+//                        - v1.0.157 부터 잠재된 버그: 수신자 background → 서버가 FCM push 발사 +
+//                          동시에 발신자에게 call_failed('상대방이 접속 중이 아니에요') 보내서 발신자 즉시 끊김
+//                        - 시나리오 3,4 모두에서 발신자 cutoff + 채팅방 잔재 + 수신자 벨소리 무한 울림의 원인
+//                        - 수정: !delivered && needPush 분기 = 정상 동선이므로 call_failed 발사 금지
+//                          발신자는 ringback 계속, 수신자 FCM 수락 시 call_response 로 합류

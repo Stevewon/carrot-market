@@ -600,26 +600,40 @@ export class ChatHub {
           this.sendOfflinePush(to_user_id, pushPayload);
         }
 
+        // ★ v1.0.162 (2026-05-12) ★★★ 진짜 근본 원인 수정 ★★★
+        //   사장님 v1.0.157~v1.0.161 검증 결과 시나리오 3, 4 에서 발신자 즉시 끊김
+        //   + 채팅방 잔재 + 수신자 벨소리만 죽어라 울림 — 본 분기가 원인.
+        //
+        //   기존 버그:
+        //     - 수신자가 앱 모두 닫음/잠금화면 → WebSocket 끊김 → delivered=false
+        //     - presence_update 못 보낸 상태 → hasForegroundDevice=false → needPush=true
+        //     - 서버가 FCM 푸시는 정상 발사 (수신자 헤드업/벨소리 OK)
+        //     - 동시에 발신자에게 call_failed('상대방이 접속 중이 아니에요') 발사
+        //     - 발신자 call_service.dart 의 chat.on('call_failed') 핸들러가
+        //       _setError + _teardown(ended) → 발신자 즉시 끊김 + 채팅방 잔재
+        //     - 수신자는 이미 발신자 끊긴 후라 응답해도 합류 못 함 → 벨소리만 울림
+        //
+        //   주석은 "발신자는 ringback 계속 듣다가" 라고 적혀있었으나 실제 코드는
+        //   정반대로 즉시 끊는 메시지를 보내고 있었음. v1.0.157 부터 잠재된 버그.
+        //
+        //   해결:
+        //     - !delivered && needPush 인 경우는 정상 동선 (FCM 으로 깨움) → call_failed 발사 금지
+        //     - !delivered && !needPush 는 이론상 도달 불가 (foreground 인데 WS 없음 모순)
+        //       → 안전망으로 발신자에게 fail 알리되 message 는 부드럽게
+        //     - 발신자는 ringback 계속 듣다가 수신자 응답(call_response) 받거나
+        //       outgoing timer (call_service 측 30s timeout) 자체 만료로 종료
         if (!delivered && !needPush) {
-          // 이론상 도달 어려운 분기 (WebSocket 미연결 + foreground 단말 있다고 표시).
-          //   안전망: 발신자에게 fail 안내.
+          // 이론상 도달 어려운 분기 (foreground 라고 표시됐는데 WS 미연결).
+          //   안전망: 발신자에게 fail 안내. 부드러운 한국어.
           this.sendSafe(ws, {
             type: 'call_failed',
             call_id,
             reason: 'offline',
-            message: '상대방이 접속 중이 아니에요',
-          });
-        } else if (!delivered && needPush) {
-          // WebSocket 미연결 → FCM push 만으로 깨우기.
-          //   기존(v1.0.157) 안내 그대로 — 발신자는 ringback 계속 듣다가
-          //   수신자가 push 받고 수락하면 call_response 로 join.
-          this.sendSafe(ws, {
-            type: 'call_failed',
-            call_id,
-            reason: 'offline',
-            message: '상대방이 접속 중이 아니에요',
+            message: '연결할 수 없어요. 잠시 후 다시 걸어주세요.',
           });
         }
+        // ★ v1.0.162: !delivered && needPush 분기는 call_failed 발사 금지!!
+        //   FCM push 만으로 정상 깨우기 동선 — 발신자는 ringback 계속.
         return;
       }
 
