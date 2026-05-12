@@ -49,6 +49,17 @@ class _SplashScreenState extends State<SplashScreen> {
       await PermissionService.requestAll();
     }
 
+    // ★ v1.0.161 (2026-05-12): FSI(Full-Screen Intent) 권한 자동 안내.
+    //   Android 14+ 부터 USE_FULL_SCREEN_INTENT 가 기본 OFF 라서
+    //   잠금화면 incoming call 풀스크린이 안 뜨는 문제 해결.
+    //   - 권한 ON 이면 조용히 통과 (Android 13 이하 포함)
+    //   - 권한 OFF 이면 사장님 친화 다이얼로그 → "권한 허용" 1탭으로 시스템 설정 직행
+    //   - 같은 세션에서는 1회만 안내 (사장님 동선 보호)
+    if (mounted && auth.isLoggedIn) {
+      // ignore: unawaited_futures
+      PermissionService.ensureFullScreenIntentOrGuide(context);
+    }
+
     if (!mounted || navigated) return;
     if (auth.isLoggedIn) {
       // 서버에서 사용자가 이미 삭제됐거나 (운영자 reset / 본인 탈퇴 / DB

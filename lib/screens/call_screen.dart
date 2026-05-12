@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../app/theme.dart';
 import '../services/call_service.dart';
+import '../services/permission_service.dart';
 
 /// Full-screen call UI.
 /// - Shown for outgoing, incoming, connecting, connected, ended states.
@@ -55,6 +56,14 @@ class _CallScreenState extends State<CallScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (_startAttempted) return;
         _startAttempted = true;
+        // ★ v1.0.161 (2026-05-12): 발신 진입 시 FSI 권한 한 번 더 확인.
+        //   splash 에서 이미 한 번 안내했지만, 발신자 본인이 안내를 놓쳤어도
+        //   첫 발신 시점에 다시 알려서 다음 통화는 정상화되도록 보장.
+        //   (oncePerSession=true 이므로 같은 세션 내 중복 팝업 없음)
+        if (mounted) {
+          // ignore: unawaited_futures
+          PermissionService.ensureFullScreenIntentOrGuide(context);
+        }
         final call = context.read<CallService>();
         try {
           await call.startCall(

@@ -3,7 +3,10 @@ package com.eggplant.market
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
@@ -27,6 +30,10 @@ class MainActivity: FlutterActivity() {
     //   또한 Native (NativeIncomingCallActivity / CallActionReceiver / CallEndFromNotificationReceiver)
     //   에서 발생한 reject / end / native_answer 이벤트를 Flutter call_service 로 전달.
     private val NATIVE_CALL_BRIDGE_CHANNEL = "eggplant.market/native_call_bridge"
+    // ★ v1.0.161 (2026-05-12): FSI 권한 체크/요청 채널
+    //   - canUseFullScreenIntent: NotificationManager.canUseFullScreenIntent() (Android 14+)
+    //   - openFullScreenIntentSettings: Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT 화면 직행
+    private val FSI_PERM_CHANNEL = "eggplant.market/fsi_permission"
 
     // Flutter 측이 등록한 MethodChannel 핸들 — onResume / onNewIntent 에서 이벤트 invoke 시 사용
     private var nativeCallBridge: MethodChannel? = null
@@ -312,6 +319,63 @@ class MainActivity: FlutterActivity() {
                 }
             }
         }
+
+        // ★ v1.0.161 (2026-05-12): FSI 권한 체크/요청 MethodChannel.
+        //   Android 14 (API 34) 부터 USE_FULL_SCREEN_INTENT 권한이 기본 OFF.
+        //   잠금화면 incoming call 풀스크린이 안 뜨는 진짜 원인 — 사장님 단말 검증 확인.
+        //   Flutter 측에서 canUseFullScreenIntent() 호출 후 false 면
+        //   openFullScreenIntentSettings() 로 시스템 설정 화면 직행 (1탭 허용).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, FSI_PERM_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "canUseFullScreenIntent" -> {
+                        try {
+                            // Android 14+ (API 34): NotificationManager.canUseFullScreenIntent()
+                            // Android 13 이하: 권한 선언만으로 항상 허용 → true 반환
+                            if (Build.VERSION.SDK_INT >= 34) {
+                                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                                val allowed = nm.canUseFullScreenIntent()
+                                Log.d(TAG, "[FSI_PERM] canUseFullScreenIntent=$allowed (API ${Build.VERSION.SDK_INT})")
+                                result.success(allowed)
+                            } else {
+                                Log.d(TAG, "[FSI_PERM] canUseFullScreenIntent=true (API ${Build.VERSION.SDK_INT}, pre-Android14)")
+                                result.success(true)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "[FSI_PERM] canUseFullScreenIntent check failed: ${e.message}")
+                            // 체크 실패 시 보수적으로 true 반환 (사장님 동선 차단 방지)
+                            result.success(true)
+                        }
+                    }
+                    "openFullScreenIntentSettings" -> {
+                        try {
+                            if (Build.VERSION.SDK_INT >= 34) {
+                                // Android 14+ 전용: 앱별 전체화면 알림 권한 설정 화면 직행
+                                val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                                    data = Uri.parse("package:$packageName")
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                startActivity(intent)
+                                Log.d(TAG, "[FSI_PERM] opened ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT")
+                                result.success(true)
+                            } else {
+                                // Android 13 이하: 일반 앱 설정 화면 (fallback)
+                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.parse("package:$packageName")
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                startActivity(intent)
+                                Log.d(TAG, "[FSI_PERM] opened ACTION_APPLICATION_DETAILS_SETTINGS (pre-Android14)")
+                                result.success(true)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "[FSI_PERM] openFullScreenIntentSettings failed: ${e.message}")
+                            result.success(false)
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
 
         // engine 준비 완료 — onCreate 에서 잡아둔 인텐트가 있으면 다시 한 번 시도
         // (configureFlutterEngine 은 onCreate 후 호출되므로 nativeCallBridge null 이슈 방지)

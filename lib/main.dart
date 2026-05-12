@@ -637,3 +637,7 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
 // v1.0.160 (2026-05-12): 잠금화면 FSI 3중 폴백 강제 보장 (PendingIntent.send → startActivity → plain noti)
 //                        + 발신자 측 join 실패 가드 (call_end emit + 채팅방 잔재 차단)
 //                        + _teardown CallKit endAllCalls 보강
+// v1.0.161 (2026-05-12): Android 14+ USE_FULL_SCREEN_INTENT 권한 자동 요청 (옵션 A 정공법)
+//                        - MainActivity FSI_PERM_CHANNEL 추가 (canUseFullScreenIntent/openFullScreenIntentSettings)
+//                        - PermissionService.ensureFullScreenIntentOrGuide 친화 다이얼로그 (1탭으로 시스템 설정 직행)
+//                        - splash + call_screen 진입 시 자동 안내 (세션당 1회)

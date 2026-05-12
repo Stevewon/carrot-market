@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,6 +14,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// a settings shortcut instead.
 class PermissionService {
   static const _kAskedAllKey = 'perm_asked_all_v1';
+  // ★ v1.0.161 (2026-05-12): FSI 권한 자동 요청 — 사장님 한 세션당 1회만 안내 (영구 OFF 시 다시 묻지 않음)
+  static const _kFsiAskedKey = 'perm_fsi_asked_v1';
+  static const MethodChannel _fsiChannel = MethodChannel('eggplant.market/fsi_permission');
 
   /// All permissions the app ever needs, grouped for the user-facing dialog.
   static List<Permission> get _all {
@@ -161,5 +165,109 @@ class PermissionService {
         duration: const Duration(seconds: 4),
       ),
     );
+  }
+
+  // ============================================================
+  // ★ v1.0.161 (2026-05-12): FSI (Full-Screen Intent) 권한 자동 요청
+  // ----------------------------------------------------------
+  // Android 14 (API 34) 부터 USE_FULL_SCREEN_INTENT 권한이 기본 OFF.
+  // 잠금화면에서 incoming call 풀스크린이 안 뜨는 진짜 원인.
+  // 앱이 런타임에 NotificationManager.canUseFullScreenIntent() 체크 후
+  // false 면 사장님 친화 다이얼로그를 띄우고 1탭으로 시스템 설정 직행.
+  // 단말 OS 가 Android 13 이하면 항상 true 반환 (조용히 통과).
+  // ============================================================
+
+  /// FSI 권한이 켜져있는지 native 측에 조회.
+  /// Android 14 미만 또는 체크 실패 시 보수적으로 true.
+  static Future<bool> canUseFullScreenIntent() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final result = await _fsiChannel.invokeMethod<bool>('canUseFullScreenIntent');
+      return result ?? true;
+    } catch (e) {
+      // 채널 미연결/메서드 미구현 시 통화 동선 차단 방지를 위해 true.
+      return true;
+    }
+  }
+
+  /// 시스템 설정 화면(앱별 전체화면 알림 권한) 직행.
+  /// Android 13 이하면 일반 앱 설정 화면으로 fallback.
+  static Future<bool> openFullScreenIntentSettings() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final result = await _fsiChannel.invokeMethod<bool>('openFullScreenIntentSettings');
+      return result ?? false;
+    } catch (e) {
+      // 채널 실패 시 일반 앱 설정으로 fallback
+      await openAppSettings();
+      return false;
+    }
+  }
+
+  /// 현재 세션에서 사장님께 FSI 권한 안내를 이미 띄웠는지.
+  /// (한 번 안내한 뒤로는 같은 세션에서 다시 띄우지 않음 — 사용자 동선 보호)
+  static Future<bool> hasAskedFsi() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kFsiAskedKey) ?? false;
+  }
+
+  static Future<void> markAskedFsi() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kFsiAskedKey, true);
+  }
+
+  /// FSI 권한 OFF 일 때 사장님 친화 다이얼로그 표시 후
+  /// "권한 허용" 버튼 클릭 시 시스템 설정 화면으로 직행.
+  ///
+  /// 호출 위치:
+  ///   1) 앱 시작 시 (lib/main.dart 의 _RootGate.initState) — 한 번만
+  ///   2) 통화 발신/수신 진입 시 (call_service.startCall / 알림 수락 시점)
+  ///
+  /// 반환값:
+  ///   true  = 권한 이미 켜져있음 OR Android 14 미만
+  ///   false = 권한 OFF (사용자가 설정 화면으로 이동했거나 나중에 선택)
+  static Future<bool> ensureFullScreenIntentOrGuide(
+    BuildContext context, {
+    bool oncePerSession = true,
+  }) async {
+    if (!Platform.isAndroid) return true;
+    final allowed = await canUseFullScreenIntent();
+    if (allowed) return true;
+
+    // 한 세션에 1번만 안내 (사장님 동선 보호 — 매 통화마다 팝업 금지)
+    if (oncePerSession && await hasAskedFsi()) return false;
+
+    if (!context.mounted) return false;
+    final goSetting = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('🔒 잠금화면 통화 알림 권한'),
+        content: const Text(
+          '잠금화면에서 통화 수신을 표시하려면\n'
+          '"전체 화면 알림" 권한이 필요해요.\n\n'
+          '권한이 꺼져 있으면 잠금화면에서는\n'
+          '벨소리만 울리고 통화 화면이 뜨지 않아요.\n\n'
+          '한 번만 설정하면 끝나요.',
+          style: TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('나중에'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('권한 허용'),
+          ),
+        ],
+      ),
+    );
+    await markAskedFsi();
+    if (goSetting == true) {
+      await openFullScreenIntentSettings();
+    }
+    return false;
   }
 }
