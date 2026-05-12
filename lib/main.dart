@@ -634,3 +634,6 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
 }
 // v1.0.114 rebuild trigger
 // v1.0.159 (2026-05-11): native FCM/FSI 경로 callerWallet 전파 + 디버그 토스트 제거
+// v1.0.160 (2026-05-12): 잠금화면 FSI 3중 폴백 강제 보장 (PendingIntent.send → startActivity → plain noti)
+//                        + 발신자 측 join 실패 가드 (call_end emit + 채팅방 잔재 차단)
+//                        + _teardown CallKit endAllCalls 보강

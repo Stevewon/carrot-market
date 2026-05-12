@@ -83,6 +83,21 @@ class NativeIncomingCallActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // ★ v1.0.160 (2026-05-12): 진입 즉시 로깅 — FSI 3중 폴백 어느 경로로 진입했는지 확인용
+        try {
+            val km0 = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
+            val pm0 = getSystemService(POWER_SERVICE) as PowerManager
+            Log.e(
+                "CALL_LOCK_REAL",
+                "[CALL_LOCK_REAL] ★ NativeIncomingCallActivity.onCreate ENTRY " +
+                "locked=${km0.isKeyguardLocked} " +
+                "screenOn=${pm0.isInteractive} " +
+                "callerOf=${intent.getStringExtra("callerNickname")}"
+            )
+        } catch (e: Exception) {
+            Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] onCreate entry log failed: ${e.message}")
+        }
+
         // ======= 1. Lock-screen / wake flags (카톡 방식) =======
         // setShowWhenLocked(true) — 잠금 위에 이 Activity만 그림
         // setTurnScreenOn(true) — 화면 꺼짐 시 켬

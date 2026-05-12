@@ -242,6 +242,26 @@ class CallService extends ChangeNotifier {
         if (joined) {
           // ★ P0-#3: 백그라운드 음성 보장.
           await _startCallForegroundService();
+        } else {
+          // ★ v1.0.160 (2026-05-11) 발신자 측 즉시 끊김 + 채팅방 잔재 가드:
+          //   사장님 v1.0.159 보고: "발신자쪽은 바로 통화시도시 바로 끊어지면서
+          //   채팅방잔재, 수신자는 벨소리만 죽어라오고 푸쉬알림도 안보임"
+          //   원인: _joinAgoraChannel 이 false 면 _teardown 자동 호출되긴 하지만,
+          //   call_end emit 이 없어서 수신자 단말이 끝까지 벨 울림 + UI 잔재.
+          //   해결: join 실패 시 call_end 명시 발사 + 친화 토스트 + 완전 cleanup.
+          final String? failReason = _lastJoinFailReason;
+          _lastJoinFailReason = null;
+          if (failReason != null && failReason.isNotEmpty) {
+            debugPrint('[call] caller join failed reason=$failReason — sending call_end to peer');
+          }
+          try {
+            chat.emit('call_end', {
+              'to_user_id': _peerUserId,
+              'call_id': _activeCallId,
+            });
+          } catch (_) {}
+          _setError('연결을 시도했어요. 잠시 후 다시 걸어주세요.');
+          await _teardown(stateAfter: CallState.ended);
         }
       }
     }));
@@ -1096,6 +1116,11 @@ class CallService extends ChangeNotifier {
         await FlutterCallkitIncoming.endCall(_activeCallId!);
       } catch (_) {}
     }
+    // ★ v1.0.160: CallKit 전체 endAllCalls 추가 — 채팅방 잔재 원천 차단
+    //   (한쪽이 _activeCallId 를 잃어버린 race 상황에서도 모든 incoming/active UI 제거)
+    try {
+      await FlutterCallkitIncoming.endAllCalls();
+    } catch (_) {}
     // ★ P0-#3: foreground service 종료 (배터리 보호 + 알림 사라짐).
     await _stopCallForegroundService();
     // 4) 타이머 정리
@@ -1117,8 +1142,15 @@ class CallService extends ChangeNotifier {
     notifyListeners();
 
     // ★ v1.0.125: 3초 지연 제거 → 즉시 재발신 가능 (사장님 요구사항 11번).
+    // ★ v1.0.160: ended 진입 시 800ms 후 clearEnded → idle 전환 + 모든 식별자 null
+    //   (수신자 측 발신자 끊김 직후 채팅방 잔재 incoming UI 추가 보정)
     if (stateAfter == CallState.ended) {
-      Future.delayed(const Duration(milliseconds: 800), clearEnded);
+      Future.delayed(const Duration(milliseconds: 800), () async {
+        try {
+          await FlutterCallkitIncoming.endAllCalls();
+        } catch (_) {}
+        clearEnded();
+      });
     }
   }
 

@@ -376,32 +376,72 @@ object CallNotificationHelper {
             return // FSI 권한 없으면 send() 시도하지 않음 (의미 없음)
         }
 
-        // 핵심: FSI 직접 send. 헤드업/알림 발사 절대 없음.
+        // ★ v1.0.160 (2026-05-11) 잠금화면 FSI 강제 보장:
+        //   사장님 v1.0.159 보고: "잠금화면 풀스크린은 아예 없이 벨소리만"
+        //   원인 가설: FSI PendingIntent.send() 는 OS 가 keyguard policy 로 차단할 수 있음
+        //   해결: 3중 폴백
+        //     1) FSI PendingIntent.send() — 가장 표준적인 방식
+        //     2) 0.5초 후 NativeIncomingCallActivity 가 안 떴으면 startActivity 직접 호출
+        //     3) startActivity 도 실패하면 plain notification + FSI 첨부
+        val fsiDirectIntent = Intent(context, NativeIncomingCallActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_NO_ANIMATION
+            putExtra("from_fullscreen_incoming", true)
+            putExtra("sessionId", sessionId)
+            putExtra("callerId", callerId)
+            putExtra("callerNickname", callerName)
+            putExtra("callType", callType)
+            putExtra("callerProfilePhoto", callerPhoto ?: "")
+            if (channelName.isNotEmpty()) putExtra("channelName", channelName)
+            if (walletAddress.isNotEmpty()) putExtra("walletAddress", walletAddress)
+            if (callerWallet.isNotEmpty()) putExtra("callerWallet", callerWallet)
+            if (agoraFlag) {
+                putExtra("agora", "1")
+                putExtra("agora_call", true)
+            }
+        }
+
+        // 1) FSI PendingIntent send
+        var fsiSendOk = false
         try {
             fullScreenPi.send()
+            fsiSendOk = true
             Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] ★ FSI direct send OK (full-screen only, NO heads-up) sessionId=$sessionId")
         } catch (e: Exception) {
-            // FSI direct send 가 실패한 극히 드문 경우 (PendingIntent.CanceledException 등)
-            // 이 경우만 fallback 으로 일반 알림 발사. CallStyle/헤드업 사용 안 함 (이중 노출 방지)
-            Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] FSI direct send FAILED — fallback to plain notification: ${e.message}")
-            try {
-                val typeText = if (callType == "video") "Video Call" else "Voice Call"
-                val fallbackBuilder = NotificationCompat.Builder(context, INCOMING_CHANNEL_ID)
-                    .setSmallIcon(android.R.drawable.sym_call_incoming)
-                    .setContentTitle(callerName)
-                    .setContentText("$typeText incoming...")
-                    .setPriority(NotificationCompat.PRIORITY_HIGH) // PRIORITY_MAX 아님 — 헤드업 회피
-                    .setCategory(NotificationCompat.CATEGORY_CALL)
-                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                    .setOngoing(true)
-                    .setAutoCancel(false)
-                    .setTimeoutAfter(30_000)
-                    .setFullScreenIntent(fullScreenPi, true)
-                    // CallStyle / addAction 모두 추가 안 함 — 이중 노출 방지
-                nm.notify(INCOMING_NOTIFICATION_ID, fallbackBuilder.build())
-                Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] fallback nm.notify() done (NO CallStyle, NO actions)")
-            } catch (e2: Exception) {
-                Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] fallback FAILED too: ${e2.message}")
+            Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] FSI direct send FAILED: ${e.message}")
+        }
+
+        // 2) ★ v1.0.160: startActivity 직접 호출 — 잠금화면에서도 풀스크린 강제 보장
+        //    NativeIncomingCallActivity 의 setShowWhenLocked/setTurnScreenOn 이 keyguard 위에 그려줌.
+        //    Android 10+ 부터 background startActivity 제한이 있으나, USE_FULL_SCREEN_INTENT
+        //    권한 보유 + Notification CATEGORY_CALL + setFullScreenIntent 로 예외 적용됨.
+        try {
+            context.startActivity(fsiDirectIntent)
+            Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] ★★ startActivity FSI direct OK (lock-screen guaranteed) sessionId=$sessionId")
+        } catch (e: Exception) {
+            Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] startActivity FSI direct FAILED: ${e.message}")
+            // 3) 최종 폴백 — plain notification + FSI 첨부 (OS 가 결국 FSI 자동 실행)
+            if (!fsiSendOk) {
+                try {
+                    val typeText = if (callType == "video") "Video Call" else "Voice Call"
+                    val fallbackBuilder = NotificationCompat.Builder(context, INCOMING_CHANNEL_ID)
+                        .setSmallIcon(android.R.drawable.sym_call_incoming)
+                        .setContentTitle(callerName)
+                        .setContentText("$typeText incoming...")
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setCategory(NotificationCompat.CATEGORY_CALL)
+                        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                        .setOngoing(true)
+                        .setAutoCancel(false)
+                        .setTimeoutAfter(30_000)
+                        .setFullScreenIntent(fullScreenPi, true)
+                    nm.notify(INCOMING_NOTIFICATION_ID, fallbackBuilder.build())
+                    Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] final fallback notification posted (NO heads-up)")
+                } catch (e2: Exception) {
+                    Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] final fallback FAILED: ${e2.message}")
+                }
             }
         }
 

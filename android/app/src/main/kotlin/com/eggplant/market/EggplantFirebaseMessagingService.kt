@@ -176,7 +176,16 @@ class EggplantFirebaseMessagingService : FlutterFirebaseMessagingService() {
         //
         //   절대 금지: startActivity() 직접 호출
         // ================================================================
-        Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] locked/off sessionId=$sessionId screenOn=$screenOn locked=$locked")
+        // ★ v1.0.160 (2026-05-12): Route 3 진입 상세 진단 — FSI 누락 원인 파악용
+        Log.e(
+            "CALL_LOCK_REAL",
+            "[CALL_LOCK_REAL] ★ Route3 ENTRY sessionId=$sessionId " +
+            "screenOn=$screenOn locked=$locked " +
+            "callerWalletEmpty=${callerWallet.isEmpty()} " +
+            "channelEmpty=${channelName.isEmpty()} " +
+            "walletEmpty=${walletAddress.isEmpty()} " +
+            "agoraFlag=$agoraFlag"
+        )
 
         // Flutter IncomingCallScreen 이중 표시 차단
         CallNotificationHelper.setNativeIncomingActive(this, sessionId)
