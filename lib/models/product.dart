@@ -1,3 +1,39 @@
+import '../app/l10n.dart';
+import '../app/market.dart';
+
+/// 카테고리 id(서버 값) → 표시 이름. 서버로는 id 그대로 보낸다.
+String categoryLabel(String id) {
+  final t = L10n.current;
+  switch (id) {
+    case 'all':
+      return t.productCategoryAll;
+    case 'digital':
+      return t.productCategoryDigital;
+    case 'appliance':
+      return t.productCategoryAppliance;
+    case 'furniture':
+      return t.productCategoryFurniture;
+    case 'clothing':
+      return t.productCategoryClothing;
+    case 'beauty':
+      return t.productCategoryBeauty;
+    case 'book':
+      return t.productCategoryBook;
+    case 'sports':
+      return t.productCategorySports;
+    case 'hobby':
+      return t.productCategoryHobby;
+    case 'kids':
+      return t.productCategoryKids;
+    case 'pet':
+      return t.productCategoryPet;
+    case 'food':
+      return t.productCategoryFood;
+    default:
+      return t.productCategoryEtc;
+  }
+}
+
 class Product {
   final String id;
   final String title;
@@ -8,6 +44,9 @@ class Product {
   final int qtaPrice;
   final String category;
   final String region;
+
+  /// 'kr'(원) | 'jp'(엔) — 올린 사람의 시장.
+  final String market;
   final List<String> images;
   final String videoUrl; // '' | https://youtu.be/<id> | /uploads/<key>.mp4
   final String sellerId;
@@ -29,6 +68,9 @@ class Product {
   /// Set by the server when the seller marks the listing as 'sold'
   /// and picks a buyer (used for the 거래후기 flow).
   final String? buyerId;
+  /// 구매자가 거래를 확인한 시각 (QTA 결제 + 거래 보너스 실행). NULL = 미확인.
+  /// 판매자가 거래완료로 지정해도 구매자가 확인하기 전까지는 결제되지 않는다.
+  final DateTime? buyerConfirmedAt;
 
   Product({
     required this.id,
@@ -38,6 +80,7 @@ class Product {
     this.qtaPrice = 0,
     required this.category,
     required this.region,
+    this.market = 'kr',
     required this.images,
     this.videoUrl = '',
     required this.sellerId,
@@ -52,6 +95,7 @@ class Product {
     required this.createdAt,
     this.bumpedAt,
     this.buyerId,
+    this.buyerConfirmedAt,
   });
 
   /// Display-friendly seller temperature, e.g. `36.5`.
@@ -97,10 +141,11 @@ class Product {
           : int.tryParse(json['qta_price']?.toString() ?? '0') ?? 0,
       category: json['category'] ?? 'etc',
       region: json['region'] ?? '',
+      market: json['market']?.toString() == 'jp' ? 'jp' : 'kr',
       images: parsedImages,
       videoUrl: (json['video_url'] ?? '').toString(),
       sellerId: json['seller_id']?.toString() ?? '',
-      sellerNickname: json['seller_nickname'] ?? '익명가지',
+      sellerNickname: json['seller_nickname'] ?? L10n.current.productAnonymousSeller,
       sellerWalletAddress: (json['seller_wallet_address']?.toString().isNotEmpty == true)
           ? json['seller_wallet_address'].toString()
           : null,
@@ -123,6 +168,9 @@ class Product {
       buyerId: (json['buyer_id'] ?? '').toString().isEmpty
           ? null
           : json['buyer_id'].toString(),
+      buyerConfirmedAt: json['buyer_confirmed_at'] != null
+          ? DateTime.tryParse(json['buyer_confirmed_at'].toString())
+          : null,
     );
   }
 
@@ -168,10 +216,8 @@ class Product {
     return '${_formatThousands(qtaPrice)} QTA';
   }
 
-  String get priceFormatted {
-    if (price == 0) return '나눔';
-    return '${_formatThousands(price)}원';
-  }
+  /// 10,000원 / ¥10,000 (상품을 올린 사람의 시장 화폐). 0 이면 나눔.
+  String get priceFormatted => AppMarket.formatPrice(price, market);
 
   static String _formatThousands(int n) {
     final s = n.toString();
@@ -186,21 +232,24 @@ class Product {
   /// Human-readable freshness — uses [effectiveAt] so a bumped product reads
   /// as "방금 전" right after the seller끌어올림 (matches 당근).
   String get timeAgo {
+    final t = L10n.current;
     final diff = DateTime.now().difference(effectiveAt);
-    if (diff.inMinutes < 1) return '방금 전';
-    if (diff.inHours < 1) return '${diff.inMinutes}분 전';
-    if (diff.inDays < 1) return '${diff.inHours}시간 전';
-    if (diff.inDays < 30) return '${diff.inDays}일 전';
-    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}개월 전';
-    return '${(diff.inDays / 365).floor()}년 전';
+    if (diff.inMinutes < 1) return t.productTimeJustNow;
+    if (diff.inHours < 1) return t.productTimeMinutesAgo(diff.inMinutes);
+    if (diff.inDays < 1) return t.productTimeHoursAgo(diff.inHours);
+    if (diff.inDays < 30) return t.productTimeDaysAgo(diff.inDays);
+    if (diff.inDays < 365) {
+      return t.productTimeMonthsAgo((diff.inDays / 30).floor());
+    }
+    return t.productTimeYearsAgo((diff.inDays / 365).floor());
   }
 
   String get statusLabel {
     switch (status) {
       case 'reserved':
-        return '예약중';
+        return L10n.current.productStatusReserved;
       case 'sold':
-        return '거래완료';
+        return L10n.current.productStatusSold;
       default:
         return '';
     }

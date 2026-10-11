@@ -21,6 +21,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
 
@@ -73,7 +74,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('사진을 불러올 수 없어요: $e')),
+        SnackBar(content: Text(context.l10n.myPhotoLoadFail)),
       );
     } finally {
       if (mounted) setState(() => _pickingImage = false);
@@ -104,9 +105,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   /// 클라이언트 사전 검증 — 서버 검증과 동일 규칙 (2~12자, 공백 trim).
   String? _validateLocal(String value) {
     final trimmed = value.trim();
-    if (trimmed.isEmpty) return '닉네임을 입력해주세요';
-    if (trimmed.length < 2) return '닉네임은 2자 이상이어야 해요';
-    if (trimmed.length > 12) return '닉네임은 12자 이하여야 해요';
+    if (trimmed.isEmpty) return context.l10n.myNicknameEmpty;
+    if (trimmed.length < 2) return context.l10n.myNicknameTooShort;
+    if (trimmed.length > 12) return context.l10n.myNicknameTooLong;
     return null;
   }
 
@@ -154,8 +155,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
     // 성공 — 안내 후 닫기.
     final msg = nicknameChanged
-        ? '프로필이 저장됐어요. 채팅·통화에 바로 반영돼요 ✨'
-        : '프로필 사진이 저장됐어요 ✨';
+        ? context.l10n.myProfileSaved
+        : context.l10n.myProfilePhotoSaved;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
@@ -170,8 +171,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     final auth = context.watch<AuthService>();
     final user = auth.user;
     if (user == null) {
-      return const Scaffold(
-        body: Center(child: Text('로그인이 필요해요')),
+      return Scaffold(
+        body: Center(child: Text(context.l10n.commonLoginRequired)),
       );
     }
 
@@ -180,9 +181,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          '프로필 등록',
-          style: TextStyle(
+        title: Text(
+          context.l10n.myProfileEditTitle,
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
             color: EggplantColors.textPrimary,
@@ -243,8 +244,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       label: Text(
                         (auth.profileImageB64 != null &&
                                 _pendingImageB64 != '')
-                            ? '사진 변경'
-                            : '사진 등록',
+                            ? context.l10n.myPhotoChange
+                            : context.l10n.myPhotoAdd,
                       ),
                       style: TextButton.styleFrom(
                         foregroundColor: EggplantColors.primary,
@@ -257,7 +258,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       TextButton.icon(
                         onPressed: _saving ? null : _removeImage,
                         icon: const Icon(Icons.delete_outline, size: 16),
-                        label: const Text('기본 가지로 변경'),
+                        label: Text(context.l10n.myPhotoReset),
                         style: TextButton.styleFrom(
                           foregroundColor: EggplantColors.textSecondary,
                         ),
@@ -266,10 +267,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Center(
+              Center(
                 child: Text(
-                  '채팅·통화에 표시될 내 닉네임을 설정하세요',
-                  style: TextStyle(
+                  context.l10n.myNicknameIntro,
+                  style: const TextStyle(
                     fontSize: 14,
                     color: EggplantColors.textSecondary,
                   ),
@@ -278,9 +279,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               const SizedBox(height: 24),
 
               // 닉네임 입력.
-              const Text(
-                '닉네임',
-                style: TextStyle(
+              Text(
+                context.l10n.myNicknameLabel,
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: EggplantColors.textPrimary,
@@ -296,7 +297,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   FilteringTextInputFormatter.deny(RegExp(r'[\n\r]')),
                 ],
                 decoration: InputDecoration(
-                  hintText: '2~12자, 한글/영문/숫자',
+                  hintText: context.l10n.myNicknameHint,
                   errorText: _errorText,
                   counterText: '${_nicknameCtl.text.trim().length}/12',
                   border: OutlineInputBorder(
@@ -330,17 +331,17 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFEDE9FE)),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.info_outline,
+                        const Icon(Icons.info_outline,
                             size: 16, color: EggplantColors.primary),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
                         Text(
-                          '닉네임 안내',
-                          style: TextStyle(
+                          context.l10n.myNicknameGuideTitle,
+                          style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                             color: EggplantColors.primary,
@@ -348,12 +349,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
-                      '• 변경 즉시 채팅·통화에 반영돼요\n'
-                      '• 다른 사용자와 중복될 수 없어요\n'
-                      '• 본인인증과 무관하게 닉네임만 사용해요',
-                      style: TextStyle(
+                      context.l10n.myNicknameGuideBody,
+                      style: const TextStyle(
                         fontSize: 12,
                         height: 1.6,
                         color: EggplantColors.textSecondary,
@@ -391,7 +390,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                             strokeWidth: 2.5,
                           ),
                         )
-                      : const Text('저장하기'),
+                      : Text(context.l10n.mySaveButton),
                 ),
               ),
             ],

@@ -1,0 +1,213 @@
+{
+  "chatLeaveWarningSubtitle": "🔒 나가면 양쪽 모두 완전 삭제돼요",
+  "chatVoiceCallTooltip": "익명 음성통화",
+  "chatOfferSheetTitle": "💰 가격 제안하기",
+  "chatOfferAmountHint": "제안 금액 ({unit})",
+  "@chatOfferAmountHint": {
+    "placeholders": {
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCurrencyUnitKrw": "원",
+  "chatCurrencyUnitJpy": "엔",
+  "chatOfferSend": "제안 보내기",
+  "chatOfferAutoCancelNote": "이전에 보낸 미응답 제안은 자동으로 취소돼요.",
+  "chatOfferAccept": "수락",
+  "chatOfferReject": "거절",
+  "chatOfferCancelAction": "취소",
+  "chatOfferDialogTitle": "가격 제안 {action}",
+  "@chatOfferDialogTitle": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "chatOfferAcceptConfirm": "이 가격에 거래를 진행하시겠어요?",
+  "chatOfferRejectConfirm": "제안을 거절할까요?",
+  "chatPeerNotFound": "상대방 정보를 찾을 수 없어요",
+  "chatClearMessages": "대화 내용 삭제",
+  "chatClearMessagesSubtitle": "이 방의 메시지만 비워요 (방은 유지)",
+  "chatLeaveRoom": "채팅방 나가기",
+  "chatLeaveRoomSubtitle": "양쪽 모두 대화 + 방을 완전 삭제해요 (복구 불가)",
+  "chatLeaveRoomConfirm": "{nickname}님과의 대화를 완전히 삭제할까요?\n\n• 메시지 전부 영구 삭제\n• 상대방 화면에서도 즉시 사라짐\n• 복구 불가",
+  "@chatLeaveRoomConfirm": {
+    "placeholders": {
+      "nickname": {
+        "type": "String"
+      }
+    }
+  },
+  "chatDeletePermanently": "완전히 삭제",
+  "chatDeleteFailedRetry": "삭제 실패. 잠시 후 다시 시도해주세요",
+  "chatClearMessagesConfirm": "이 방의 모든 메시지를 지울까요?\n방은 유지되며 상대방 화면의 메시지도 같이 지워져요.",
+  "chatMessagesCleared": "대화 내용을 비웠어요",
+  "chatDeleteFailed": "삭제 실패",
+  "chatEmptyTitle": "{nickname} 님과\n익명 채팅이 시작되었어요",
+  "@chatEmptyTitle": {
+    "placeholders": {
+      "nickname": {
+        "type": "String"
+      }
+    }
+  },
+  "chatEmptyNote": "이 대화는 서버/기기 어디에도 저장되지 않아요.\n화면을 벗어나면 내용이 사라져요.",
+  "chatRead": "읽음",
+  "chatOfferLabel": "가격 제안",
+  "chatInputHint": "메시지 입력",
+  "chatConnecting": "연결 중...",
+  "chatOfferCancelButton": "제안 취소하기",
+  "chatCallOutgoing": "호출 중...",
+  "chatCallIncoming": "걸려온 익명 통화",
+  "chatCallEnded": "통화 종료",
+  "chatCallHeader": "완전 익명 음성 통화",
+  "chatCallP2pNote": "이 통화는 P2P로 직접 연결돼요.\n서버에 녹음·저장되지 않아요.",
+  "chatCallDecline": "거절",
+  "chatCallAccept": "수락",
+  "chatCallUnmute": "음소거 해제",
+  "chatCallMute": "음소거",
+  "chatCallHangup": "종료",
+  "chatCallSpeaker": "스피커",
+  "chatCallEarpiece": "수화기",
+  "chatLeaveRoomConfirmList": "{nickname}님과의 대화를 완전히 삭제할까요?\n\n• 주고받은 모든 메시지가 사라져요\n• 상대방 화면에서도 함께 삭제돼요\n• 복구할 수 없어요",
+  "@chatLeaveRoomConfirmList": {
+    "placeholders": {
+      "nickname": {
+        "type": "String"
+      }
+    }
+  },
+  "chatRoomDeleted": "채팅방을 삭제했어요",
+  "chatTabTitle": "채팅",
+  "chatQrScanTooltip": "QR 스캔해서 대화 시작",
+  "chatPrivacyBanner": "대화는 어디에도 저장되지 않아요. 앱을 닫으면 사라져요.",
+  "chatListEmptyTitle": "아직 대화가 없어요",
+  "chatListEmptyHint": "관심있는 상품에서 \"채팅하기\"를 눌러보세요",
+  "chatSwipeLeave": "나가기",
+  "chatRoomAboutProduct": "{title} 관련 대화",
+  "@chatRoomAboutProduct": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSendFirstMessage": "메시지를 보내보세요",
+  "chatLastMessageMine": "나: {message}",
+  "@chatLastMessageMine": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "chatAnonymous": "익명",
+  "chatEnterAmount": "금액을 입력해주세요",
+  "chatReconnecting": "연결 중이에요. 잠시 후 다시 시도해주세요",
+  "chatRoomNotFound": "대화방을 찾을 수 없어요",
+  "chatNewMessage": "새 메시지",
+  "chatEnterMessage": "내용을 입력해주세요",
+  "chatCallPeerDeclined": "상대방이 통화를 거절했어요",
+  "chatCallRetryLater": "연결을 시도했어요. 잠시 후 다시 걸어주세요.",
+  "chatCallFailed": "통화 실패",
+  "chatCallAlreadyInCall": "이미 통화 중이에요",
+  "chatCallStillConnecting": "연결 중이에요",
+  "chatCallWaitingAnswer": "응답을 기다리고 있어요",
+  "chatCallHasIncoming": "걸려온 통화가 있어요",
+  "chatMicPermissionRequired": "마이크 권한이 필요해요",
+  "chatCallServerDisconnected": "서버에 연결되지 않았어요",
+  "chatCallNoAnswer": "상대방이 받지 않았어요",
+  "chatMicPermissionSettings": "설정 > 권한 > 마이크에서 권한을 켜주세요",
+  "chatCallAgoraConfigMissing": "Agora 설정이 누락되었어요",
+  "chatCallPeerNotConnected": "상대와 연결되지 않았어요",
+  "chatCallEndedMessage": "통화가 종료되었어요",
+  "chatCallAuthExpired": "통화 인증이 만료되었어요",
+  "chatCallDisconnected": "통화 연결이 끊어졌어요",
+  "chatCallNetworkUnstable": "네트워크가 불안정해요",
+  "chatCallkitAppName": "가지마켓",
+  "chatCallkitAccept": "받기",
+  "chatCallkitDecline": "거절",
+  "chatMissedCall": "부재중 전화",
+  "chatIncomingCallChannel": "전화 수신 (V2)",
+  "chatMissedCallChannel": "부재중 전화 (V2)",
+  "chatChannelChatName": "채팅 메시지",
+  "chatChannelChatDesc": "새 채팅 메시지 알림",
+  "chatChannelKeywordName": "키워드 알림",
+  "chatChannelKeywordDesc": "관심 키워드와 일치하는 새 상품 알림",
+  "chatChannelPushName": "Eggplant 메시지",
+  "chatChannelPushDesc": "새 채팅 메시지 푸시 알림",
+  "chatChannelCallName": "Eggplant 전화",
+  "chatChannelCallDesc": "음성 통화 수신 알림",
+  "chatKeywordAlertTitle": "🔔 새 매물 알림",
+  "chatKeywordAlertMaskedBody": "관심 키워드와 일치하는 새 상품이 있어요",
+  "chatKeywordTicker": "새 매물",
+  "chatMaskedMessageTitle": "💬 새 메시지가 있어요",
+  "chatMaskedMessageBody": "메시지를 보려면 탭하세요",
+  "chatPermMicBody": "설정 > 앱 > Eggplant에서 마이크를 켜주세요.",
+  "chatPermCameraTitle": "카메라 권한이 필요해요",
+  "chatPermCameraBody": "설정 > 앱 > Eggplant에서 카메라를 켜주세요.",
+  "chatPermGalleryTitle": "갤러리 권한이 필요해요",
+  "chatPermGalleryBodyAndroid": "설정 > 앱 > Eggplant에서 사진/동영상 권한을 켜주세요.",
+  "chatPermGalleryBodyIos": "설정 > Eggplant에서 사진 권한을 켜주세요.",
+  "chatPermNotifTitle": "🔔 알림 권한이 꺼져 있어요",
+  "chatPermNotifBody": "알림이 꺼져 있으면 새 메시지·통화·키워드 매물 알림을 놓칠 수 있어요.\n\n설정에서 알림을 켜시겠어요?\n\n※ Eggplant는 알림 본문을 잠금화면에서 가리는 옵션도 제공해요. \"나의 Eggplant > 알림 본문 가리기\" 에서 켤 수 있어요.",
+  "chatPermOpenSettings": "설정 열기",
+  "chatPermFsiTitle": "🔒 잠금화면 통화 알림 권한",
+  "chatPermFsiBody": "잠금화면에서 통화 수신을 표시하려면\n\"전체 화면 알림\" 권한이 필요해요.\n\n권한이 꺼져 있으면 잠금화면에서는\n벨소리만 울리고 통화 화면이 뜨지 않아요.\n\n한 번만 설정하면 끝나요.",
+  "chatPermAllow": "권한 허용",
+  "chatOfferStatusAccepted": "수락됨",
+  "chatOfferStatusRejected": "거절됨",
+  "chatOfferStatusCancelled": "취소됨",
+  "chatOfferStatusPending": "응답 대기",
+  "chatTimeJustNow": "방금 전",
+  "chatTimeMinutesAgo": "{n}분 전",
+  "@chatTimeMinutesAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "chatTimeHoursAgo": "{n}시간 전",
+  "@chatTimeHoursAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "chatTimeDaysAgo": "{n}일 전",
+  "@chatTimeDaysAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "chatTimeWeeksAgo": "{n}주 전",
+  "@chatTimeWeeksAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "chatTimeMonthsAgo": "{n}개월 전",
+  "@chatTimeMonthsAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "chatTimeYearsAgo": "{n}년 전",
+  "@chatTimeYearsAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
+}

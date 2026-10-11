@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/constants.dart';
+import '../../app/l10n.dart';
 import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../models/chat_room.dart';
@@ -29,26 +30,24 @@ class _ChatListTabState extends State<ChatListTab> {
   }
 
   Future<void> _confirmDelete(ChatRoom room) async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('채팅방 나가기'),
+        title: Text(l10n.chatLeaveRoom),
         content: Text(
-          '${room.peerNickname}님과의 대화를 완전히 삭제할까요?\n\n'
-          '• 주고받은 모든 메시지가 사라져요\n'
-          '• 상대방 화면에서도 함께 삭제돼요\n'
-          '• 복구할 수 없어요',
+          l10n.chatLeaveRoomConfirmList(room.peerNickname),
           style: const TextStyle(fontSize: 14, height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
+            child: Text(l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: EggplantColors.error),
-            child: const Text('완전히 삭제'),
+            child: Text(l10n.chatDeletePermanently),
           ),
         ],
       ),
@@ -58,7 +57,7 @@ class _ChatListTabState extends State<ChatListTab> {
     final ok = await context.read<ChatService>().deleteRoom(room.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? '채팅방을 삭제했어요' : '삭제 실패. 잠시 후 다시 시도해주세요')),
+      SnackBar(content: Text(ok ? l10n.chatRoomDeleted : l10n.chatDeleteFailedRetry)),
     );
   }
 
@@ -73,11 +72,11 @@ class _ChatListTabState extends State<ChatListTab> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text('채팅', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(context.l10n.chatTabTitle, style: const TextStyle(fontWeight: FontWeight.w800)),
         actions: [
           IconButton(
             icon: const Icon(Icons.qr_code_scanner_rounded),
-            tooltip: 'QR 스캔해서 대화 시작',
+            tooltip: context.l10n.chatQrScanTooltip,
             onPressed: () => context.push('/qr/scan'),
           ),
         ],
@@ -89,15 +88,15 @@ class _ChatListTabState extends State<ChatListTab> {
             width: double.infinity,
             color: EggplantColors.background,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.lock_outline_rounded,
+                const Icon(Icons.lock_outline_rounded,
                     size: 14, color: EggplantColors.primary),
-                SizedBox(width: 6),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '대화는 어디에도 저장되지 않아요. 앱을 닫으면 사라져요.',
-                    style: TextStyle(
+                    context.l10n.chatPrivacyBanner,
+                    style: const TextStyle(
                       fontSize: 12,
                       color: EggplantColors.textSecondary,
                       fontWeight: FontWeight.w600,
@@ -148,14 +147,14 @@ class _ChatListTabState extends State<ChatListTab> {
                       size: 44, color: EggplantColors.primary),
                 ),
                 const SizedBox(height: 18),
-                const Text('아직 대화가 없어요',
-                    style: TextStyle(
+                Text(context.l10n.chatListEmptyTitle,
+                    style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: EggplantColors.textPrimary)),
                 const SizedBox(height: 6),
-                const Text('관심있는 상품에서 "채팅하기"를 눌러보세요',
-                    style: TextStyle(fontSize: 13, color: EggplantColors.textSecondary)),
+                Text(context.l10n.chatListEmptyHint,
+                    style: const TextStyle(fontSize: 13, color: EggplantColors.textSecondary)),
               ],
             ),
           ),
@@ -220,12 +219,12 @@ class _RoomTile extends StatelessWidget {
         color: EggplantColors.error,
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.delete_outline, color: Colors.white),
-            SizedBox(width: 6),
-            Text('나가기', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            const Icon(Icons.delete_outline, color: Colors.white),
+            const SizedBox(width: 6),
+            Text(context.l10n.chatSwipeLeave, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
           ],
         ),
       ),
@@ -272,9 +271,9 @@ class _RoomTile extends StatelessWidget {
                     Text(
                       room.lastMessage.isEmpty
                           ? (room.productTitle != null
-                              ? '${room.productTitle} 관련 대화'
-                              : '메시지를 보내보세요')
-                          : (isMineLastMsg ? '나: ${room.lastMessage}' : room.lastMessage),
+                              ? context.l10n.chatRoomAboutProduct(room.productTitle!)
+                              : context.l10n.chatSendFirstMessage)
+                          : (isMineLastMsg ? context.l10n.chatLastMessageMine(room.lastMessage) : room.lastMessage),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -305,6 +304,7 @@ class _RoomTile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                         child: CachedNetworkImage(
                           imageUrl: _absUrl(room.productThumb!),
+                          memCacheWidth: 132,
                           width: 44,
                           height: 44,
                           fit: BoxFit.cover,

@@ -1,0 +1,9 @@
+# 한국어(템플릿) · 일본어. 문구는 lib/l10n/parts/*_ko.arb, *_ja.arb 에 화면 묶음별로 두고
+#   node tool/l10n_merge.mjs && flutter gen-l10n
+# 로 app_ko.arb / app_ja.arb 와 lib/l10n/gen/ 을 만든다.
+arb-dir: lib/l10n
+template-arb-file: app_ko.arb
+output-dir: lib/l10n/gen
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false

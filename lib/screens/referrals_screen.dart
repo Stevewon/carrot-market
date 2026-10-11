@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
+import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
 
@@ -50,14 +51,14 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
           _items = (m['items'] as List?) ?? [];
         });
       } else {
-        setState(() => _error = '내 초대 내역을 불러올 수 없어요.');
+        setState(() => _error = context.l10n.myRefLoadFail);
       }
     } on TimeoutException {
       if (!mounted) return;
-      setState(() => _error = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐');
+      setState(() => _error = context.l10n.myServerSlow);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = '네트워크 오류: 잠시 후 다시 시도해주세요.');
+      setState(() => _error = context.l10n.myRefNetworkError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -70,7 +71,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('친구 초대'),
+        title: Text(context.l10n.myRefTitle),
       ),
       body: SafeArea(
         top: false,
@@ -96,13 +97,13 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.card_giftcard, color: Colors.white, size: 22),
-                      SizedBox(width: 8),
+                      const Icon(Icons.card_giftcard, color: Colors.white, size: 22),
+                      const SizedBox(width: 8),
                       Text(
-                        '친구가 가입할 때\n내 닉네임을 입력하면 +200 QTA',
-                        style: TextStyle(
+                        context.l10n.myRefHeadline,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -140,15 +141,15 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                         IconButton(
                           icon: const Icon(Icons.copy_rounded,
                               color: Colors.white, size: 20),
-                          tooltip: '닉네임 복사',
+                          tooltip: context.l10n.myRefCopyNick,
                           onPressed: () async {
                             await Clipboard.setData(
                                 ClipboardData(text: myNick));
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('닉네임을 복사했어요'),
-                                  duration: Duration(seconds: 2),
+                                SnackBar(
+                                  content: Text(context.l10n.myRefNickCopied),
+                                  duration: const Duration(seconds: 2),
                                 ),
                               );
                             }
@@ -158,9 +159,9 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    '한 사람당 1번만 처리되지만, 내가 초대할 수 있는 친구 수에는 제한이 없어요.',
-                    style: TextStyle(
+                  Text(
+                    context.l10n.myRefOncePerPerson,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
                       height: 1.5,
@@ -177,19 +178,19 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
               Row(
                 children: [
                   _StatCard(
-                    label: '유효한 초대',
+                    label: context.l10n.myRefStatValid,
                     value: '${_stats['granted_count'] ?? 0}',
                     color: EggplantColors.primary,
                   ),
                   const SizedBox(width: 8),
                   _StatCard(
-                    label: '누적 적립',
+                    label: context.l10n.myRefStatEarned,
                     value: '${_stats['total_earned'] ?? 0} QTA',
                     color: const Color(0xFFFF8800),
                   ),
                   const SizedBox(width: 8),
                   _StatCard(
-                    label: '회수 (탈퇴)',
+                    label: context.l10n.myRefStatClawed,
                     value: '${_stats['total_clawed_back'] ?? 0} QTA',
                     color: EggplantColors.error,
                   ),
@@ -205,30 +206,27 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                 color: EggplantColors.background,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.info_outline,
+                      const Icon(Icons.info_outline,
                           color: EggplantColors.primary, size: 18),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        '친구 초대 보너스 규칙',
-                        style: TextStyle(
+                        context.l10n.myRefRuleTitle,
+                        style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           color: EggplantColors.textPrimary,
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
-                    '• 친구 1명당 +200 QTA · 무제한\n'
-                    '• 친구가 회원가입 마지막 칸에 내 닉네임 입력\n'
-                    '• 친구가 탈퇴하면 그 200 QTA는 즉시 회수돼요\n'
-                    '• 자기 자신은 추천인이 될 수 없어요',
-                    style: TextStyle(
+                    context.l10n.myRefRuleBody,
+                    style: const TextStyle(
                       fontSize: 12,
                       color: EggplantColors.textSecondary,
                       height: 1.7,
@@ -241,11 +239,11 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
             const SizedBox(height: 20),
 
             // ── 초대한 친구 목록 ──
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               child: Text(
-                '내가 초대한 친구',
-                style: TextStyle(
+                context.l10n.myRefListTitle,
+                style: const TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 15,
                   color: EggplantColors.textPrimary,
@@ -275,14 +273,14 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                   color: EggplantColors.background,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Column(
+                child: Column(
                   children: [
-                    Icon(Icons.group_add_outlined,
+                    const Icon(Icons.group_add_outlined,
                         size: 36, color: EggplantColors.textSecondary),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     Text(
-                      '아직 초대한 친구가 없어요',
-                      style: TextStyle(
+                      context.l10n.myRefEmpty,
+                      style: const TextStyle(
                         color: EggplantColors.textSecondary,
                         fontSize: 13,
                       ),
@@ -382,8 +380,8 @@ class _ReferralTile extends StatelessWidget {
               children: [
                 Text(
                   isClawed
-                      ? (nick ?? '(탈퇴한 친구)')
-                      : (nick ?? '(알 수 없음)'),
+                      ? (nick ?? context.l10n.myRefDeletedFriend)
+                      : (nick ?? context.l10n.myRefUnknown),
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
@@ -412,7 +410,7 @@ class _ReferralTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              isClawed ? '−200 QTA 회수' : '+200 QTA',
+              isClawed ? context.l10n.myRefClawedBadge : '+200 QTA',
               style: TextStyle(
                 color: isClawed
                     ? EggplantColors.error

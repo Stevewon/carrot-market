@@ -871,6 +871,69 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   .foot-company-grid .foot-addr { grid-column: 1 / -1; }
 }
 
+/* ===================== 언어 전환 (한국어 / 日本語) ===================== */
+.lang-switch {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  gap: 2px;
+  background: var(--primary-soft);
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.lang-switch button {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  line-height: 1;
+}
+.lang-switch button[aria-pressed="true"] {
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.lang-switch ~ .nav-cta,
+.lang-switch ~ .nav-burger { margin-left: 0; }
+
+/* ===================== 정책 보조 표기 ===================== */
+.feature h3 .tag {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  background: #e8f7ee;
+  color: #1f7a45;
+}
+.feature h3 .tag.soon { background: #fff4e0; color: #b45309; }
+.qta-note {
+  margin: 14px 0 0 !important;
+  font-size: 12.5px !important;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.85) !important;
+}
+.section-note {
+  max-width: 760px;
+  margin: 22px auto 0;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+html[lang="ja"] body { word-break: normal; line-break: strict; }
+@media (max-width: 400px) {
+  .nav-inner { gap: 8px; padding: 0 14px; }
+  .lang-switch button { padding: 6px 7px; font-size: 11.5px; }
+}
+
 /* ===================== Tablet (≥720 px) ===================== */
 @media (min-width: 720px) {
   .features { grid-template-columns: repeat(2, 1fr); gap: 18px; }
@@ -888,6 +951,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 @media (min-width: 1024px) {
   .nav-links { display: flex; }
   .nav-cta { display: inline-flex; }
+  .lang-switch ~ .nav-cta { margin-left: 12px; }
   .nav-burger { display: none; }
   .nav-drawer { display: none !important; }
 

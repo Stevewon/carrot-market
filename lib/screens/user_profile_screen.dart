@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/review.dart';
@@ -57,7 +58,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final reviews = (results[1] as List).cast<Review>();
       if (!mounted) return;
       if (profile == null) {
-        setState(() => _error = '사용자를 찾을 수 없어요');
+        setState(() => _error = context.l10n.myUserNotFound);
         return;
       }
       setState(() {
@@ -68,10 +69,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       });
     } on TimeoutException {
       if (!mounted) return;
-      setState(() => _error = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐');
+      setState(() => _error = context.l10n.myServerSlow);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = '불러오는 중 오류가 발생했어요');
+      setState(() => _error = context.l10n.myLoadError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -98,7 +99,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       // 추가 페이지 로드 실패는 토스트만, 무한 로딩 방지가 핵심.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('추가 리뷰 로딩이 늦어요. 잠시 후 다시 시도해주세요 🕐')),
+          SnackBar(content: Text(context.l10n.myMoreReviewsSlow)),
         );
       }
     } catch (_) {
@@ -124,24 +125,24 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _confirmBlock() async {
-    final nick = _profile?['nickname']?.toString() ?? '이 사용자';
+    final nick = _profile?['nickname']?.toString() ?? context.l10n.myThisUser;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('차단할까요?'),
+        title: Text(context.l10n.myBlockConfirmTitle),
         content: Text(
-          '$nick님을 차단하면 서로의 게시글과 채팅이 모두 안 보이게 돼요. 언제든 해제할 수 있어요.',
+          context.l10n.myBlockConfirmBody(nick),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
+            child: Text(context.l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              '차단',
-              style: TextStyle(color: EggplantColors.error),
+            child: Text(
+              context.l10n.myBlock,
+              style: const TextStyle(color: EggplantColors.error),
             ),
           ),
         ],
@@ -156,26 +157,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$nick님을 차단했어요')),
+      SnackBar(content: Text(context.l10n.myBlockedSnack(nick))),
     );
     if (context.canPop()) context.pop();
   }
 
   Future<void> _confirmUnblock() async {
-    final nick = _profile?['nickname']?.toString() ?? '이 사용자';
+    final nick = _profile?['nickname']?.toString() ?? context.l10n.myThisUser;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('차단 해제할까요?'),
-        content: Text('$nick님을 다시 볼 수 있게 돼요.'),
+        title: Text(context.l10n.myUnblockConfirmTitle),
+        content: Text(context.l10n.myUnblockConfirmBody(nick)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
+            child: Text(context.l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('해제'),
+            child: Text(context.l10n.myUnblockShort),
           ),
         ],
       ),
@@ -188,18 +189,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('차단을 해제했어요')),
+      SnackBar(content: Text(context.l10n.myUnblockedSnack)),
     );
   }
 
   Future<void> _showReportSheet() async {
-    final reasons = const <(String, String, String)>[
-      ('spam', '🚫', '스팸·광고'),
-      ('fraud', '💸', '사기 의심'),
-      ('abuse', '😠', '욕설·비방'),
-      ('inappropriate', '🔞', '부적절한 내용'),
-      ('fake', '🎭', '허위 매물'),
-      ('other', '📝', '기타'),
+    final t = context.l10n;
+    final reasons = <(String, String, String)>[
+      ('spam', '🚫', t.myReportSpam),
+      ('fraud', '💸', t.myReportFraud),
+      ('abuse', '😠', t.myReportAbuse),
+      ('inappropriate', '🔞', t.myReportInappropriate),
+      ('fake', '🎭', t.myReportFake),
+      ('other', '📝', t.myReportOther),
     ];
     String? selected;
     final detailCtl = TextEditingController();
@@ -213,10 +215,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setSt) {
-            return Padding(
+            // 라디오 6개 + 입력칸 + 버튼 ≈ 580dp — 작은 폰에서 키보드를 열면 넘쳤고,
+            // 버튼이 3버튼 내비바에 깔렸다 → 스크롤 + SafeArea.
+            return SafeArea(
+              top: false,
+              child: Padding(
               padding: EdgeInsets.fromLTRB(
                 16, 12, 16, MediaQuery.of(ctx).viewInsets.bottom + 16,
               ),
+              child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -229,14 +236,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const Text(
-                    '신고 사유를 골라주세요',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  Text(
+                    t.myReportTitle,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    '여러 명이 같은 사유로 신고하면 운영팀이 검토해요.',
-                    style: TextStyle(
+                  Text(
+                    t.myReportDesc,
+                    style: const TextStyle(
                       fontSize: 12.5,
                       color: EggplantColors.textSecondary,
                     ),
@@ -257,9 +264,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     controller: detailCtl,
                     maxLines: 2,
                     maxLength: 200,
-                    decoration: const InputDecoration(
-                      hintText: '추가 설명 (선택)',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: t.myReportDetailHint,
+                      border: const OutlineInputBorder(),
                       isDense: true,
                     ),
                   ),
@@ -281,14 +288,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(err ?? '신고를 접수했어요'),
+                                  content: Text(err ?? t.myReportDone),
                                 ),
                               );
                             },
-                      child: const Text('신고하기'),
+                      child: Text(t.myReportSubmit),
                     ),
                   ),
                 ],
+              ),
+              ),
               ),
             );
           },
@@ -307,7 +316,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          isMe ? '내 프로필' : '판매자 정보',
+          isMe ? context.l10n.myProfileMine : context.l10n.myProfileSeller,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -331,18 +340,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               },
               itemBuilder: (_) => [
                 if (isBlocked)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'unblock',
-                    child: Text('차단 해제'),
+                    child: Text(context.l10n.myUnblockMenu),
                   )
                 else
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'block',
-                    child: Text('차단하기'),
+                    child: Text(context.l10n.myBlockMenu),
                   ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'report',
-                  child: Text('신고하기'),
+                  child: Text(context.l10n.myReportSubmit),
                 ),
               ],
             ),
@@ -373,9 +382,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         _StatsBreakdown(stats: _stats!),
                         if (_topTags.isNotEmpty) ...[
                           const SizedBox(height: 20),
-                          const Text(
-                            '많이 받은 매너 칭찬',
-                            style: TextStyle(
+                          Text(
+                            context.l10n.myTopPraise,
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
                             ),
@@ -409,9 +418,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         const SizedBox(height: 24),
                         Row(
                           children: [
-                            const Text(
-                              '받은 거래 후기',
-                              style: TextStyle(
+                            Text(
+                              context.l10n.myReceivedReviews,
+                              style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -429,12 +438,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         ),
                         const SizedBox(height: 8),
                         if (_reviews.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 32),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 32),
                             child: Center(
                               child: Text(
-                                '아직 받은 후기가 없어요',
-                                style: TextStyle(
+                                context.l10n.myNoReviews,
+                                style: const TextStyle(
                                   color: EggplantColors.textSecondary,
                                   fontSize: 14,
                                 ),
@@ -512,14 +521,14 @@ class _Header extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      profile['nickname']?.toString() ?? '익명가지',
+                      profile['nickname']?.toString() ?? context.l10n.myAnonNickname,
                       style: const TextStyle(
                           fontSize: 18, fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       (profile['region']?.toString() ?? '').isEmpty
-                          ? '동네 미설정'
+                          ? context.l10n.myRegionUnset
                           : profile['region'].toString(),
                       style: const TextStyle(
                         fontSize: 13,
@@ -536,7 +545,7 @@ class _Header extends StatelessWidget {
             children: [
               Expanded(
                 child: _StatCell(
-                  label: '매너온도',
+                  label: context.l10n.myMannerLabel,
                   value: '${_temperature.toStringAsFixed(1)}°C',
                   valueColor: _temperatureColor,
                 ),
@@ -545,7 +554,7 @@ class _Header extends StatelessWidget {
                   width: 1, height: 32, color: EggplantColors.border),
               Expanded(
                 child: _StatCell(
-                  label: '받은 후기',
+                  label: context.l10n.myReviewsLabel,
                   value: '${stats['total'] ?? 0}',
                 ),
               ),
@@ -553,7 +562,7 @@ class _Header extends StatelessWidget {
                   width: 1, height: 32, color: EggplantColors.border),
               Expanded(
                 child: _StatCell(
-                  label: '판매중',
+                  label: context.l10n.myStatSelling,
                   value: '$selling',
                 ),
               ),
@@ -619,7 +628,7 @@ class _StatsBreakdown extends StatelessWidget {
         Expanded(
           child: _RatingBar(
             emoji: '😊',
-            label: '좋아요',
+            label: context.l10n.myRatingGood,
             count: good,
             total: total,
             color: EggplantColors.primary,
@@ -629,7 +638,7 @@ class _StatsBreakdown extends StatelessWidget {
         Expanded(
           child: _RatingBar(
             emoji: '😐',
-            label: '보통이에요',
+            label: context.l10n.myRatingSoso,
             count: soso,
             total: total,
             color: const Color(0xFF9CA3AF),
@@ -639,7 +648,7 @@ class _StatsBreakdown extends StatelessWidget {
         Expanded(
           child: _RatingBar(
             emoji: '😣',
-            label: '별로예요',
+            label: context.l10n.myRatingBad,
             count: bad,
             total: total,
             color: const Color(0xFFE74C3C),
@@ -736,7 +745,7 @@ class _ReviewCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      review.reviewerNickname ?? '익명가지',
+                      review.reviewerNickname ?? context.l10n.myAnonNickname,
                       style: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w700),
                     ),
@@ -755,7 +764,7 @@ class _ReviewCard extends StatelessWidget {
                 ),
               ),
               Text(
-                _shortAgo(review.createdAt),
+                _shortAgo(context, review.createdAt),
                 style: const TextStyle(
                   fontSize: 11,
                   color: EggplantColors.textTertiary,
@@ -803,12 +812,13 @@ class _ReviewCard extends StatelessWidget {
     );
   }
 
-  String _shortAgo(DateTime t) {
+  String _shortAgo(BuildContext context, DateTime t) {
+    final l = context.l10n;
     final d = DateTime.now().difference(t);
-    if (d.inMinutes < 60) return '${d.inMinutes}분 전';
-    if (d.inHours < 24) return '${d.inHours}시간 전';
-    if (d.inDays < 7) return '${d.inDays}일 전';
-    if (d.inDays < 30) return '${(d.inDays / 7).floor()}주 전';
-    return '${(d.inDays / 30).floor()}개월 전';
+    if (d.inMinutes < 60) return l.myAgoMinutes(d.inMinutes);
+    if (d.inHours < 24) return l.myAgoHours(d.inHours);
+    if (d.inDays < 7) return l.myAgoDays(d.inDays);
+    if (d.inDays < 30) return l.myAgoWeeks((d.inDays / 7).floor());
+    return l.myAgoMonths((d.inDays / 30).floor());
   }
 }

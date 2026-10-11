@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../app/l10n.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../services/permission_service.dart';
@@ -21,23 +22,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
   bool _requesting = false;
 
-  static const _pages = <_OnboardingPageData>[
-    _OnboardingPageData(
-      headline: '전화번호 없이\n익명으로 거래해요',
-      desc: '닉네임 하나면 충분해요.\n개인정보 노출 걱정 없이 안전하게.',
-      bgColor: Color(0xFFFAF5FF),
-    ),
-    _OnboardingPageData(
-      headline: '우리 동네\n이웃과 거래해요',
-      desc: '내 동네 인증된 사람들과만 만나요.\nQR 코드로 안심하고 직거래!',
-      bgColor: Color(0xFFF5F3FF),
-    ),
-    _OnboardingPageData(
-      headline: '쓸수록 쌓이는\nQTA 토큰 보상',
-      desc: '가입만 해도 +500 QTA,\n친구 초대마다 +200 QTA × 무제한!',
-      bgColor: Color(0xFFFAF5FF),
-    ),
-  ];
+  List<_OnboardingPageData> get _pages {
+    final l10n = context.l10n;
+    return <_OnboardingPageData>[
+      _OnboardingPageData(
+        headline: l10n.authOnboarding1Headline,
+        desc: l10n.authOnboarding1Desc,
+        bgColor: const Color(0xFFFAF5FF),
+      ),
+      _OnboardingPageData(
+        headline: l10n.authOnboarding2Headline,
+        desc: l10n.authOnboarding2Desc,
+        bgColor: const Color(0xFFF5F3FF),
+      ),
+      _OnboardingPageData(
+        headline: l10n.authOnboarding3Headline,
+        desc: l10n.authOnboarding3Desc,
+        bgColor: const Color(0xFFFAF5FF),
+      ),
+    ];
+  }
 
   @override
   void dispose() {
@@ -69,6 +73,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<bool?> _showPermissionExplainer() {
+    final l10n = context.l10n;
     return showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.white,
@@ -98,9 +103,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              '원활한 사용을 위해\n아래 권한이 필요해요',
-              style: TextStyle(
+            Text(
+              l10n.authPermTitle,
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 color: EggplantColors.textPrimary,
@@ -108,49 +113,49 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              '한 번만 허용하면 다시 묻지 않아요.',
-              style: TextStyle(
+            Text(
+              l10n.authPermSubtitle,
+              style: const TextStyle(
                 fontSize: 13,
                 color: EggplantColors.textSecondary,
               ),
             ),
             const SizedBox(height: 20),
-            const _PermRow(
+            _PermRow(
               emoji: '📷',
-              title: '카메라',
-              desc: 'QR 스캔 · 상품 사진/영상 촬영',
+              title: l10n.authPermCamera,
+              desc: l10n.authPermCameraDesc,
             ),
             const SizedBox(height: 10),
-            const _PermRow(
+            _PermRow(
               emoji: '🎙️',
-              title: '마이크',
-              desc: '익명 음성통화 (상대방에게만 전달)',
+              title: l10n.authPermMic,
+              desc: l10n.authPermMicDesc,
             ),
             const SizedBox(height: 10),
-            const _PermRow(
+            _PermRow(
               emoji: '🖼️',
-              title: '사진 / 동영상',
-              desc: '갤러리에서 상품 사진 선택',
+              title: l10n.authPermPhotos,
+              desc: l10n.authPermPhotosDesc,
             ),
             const SizedBox(height: 10),
-            const _PermRow(
+            _PermRow(
               emoji: '🔔',
-              title: '알림',
-              desc: '새 채팅 · 통화 알림',
+              title: l10n.authPermNotifications,
+              desc: l10n.authPermNotificationsDesc,
             ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Text(
-                    '확인하고 계속',
+                    l10n.authPermContinue,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 16),
+                    style: const TextStyle(fontSize: 16),
                   ),
                 ),
               ),
@@ -159,11 +164,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Center(
               child: TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text(
-                  '나중에 하기',
+                child: Text(
+                  l10n.authPermLater,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: EggplantColors.textTertiary),
+                  style: const TextStyle(color: EggplantColors.textTertiary),
                 ),
               ),
             ),
@@ -194,10 +199,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLastPage = _currentPage == _pages.length - 1;
+    final l10n = context.l10n;
+    final pages = _pages;
+    final isLastPage = _currentPage == pages.length - 1;
 
     return Scaffold(
-      backgroundColor: _pages[_currentPage].bgColor,
+      backgroundColor: pages[_currentPage].bgColor,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -227,11 +234,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               minimumSize: const Size(0, 0),
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                            child: const Text(
-                              '건너뛰기',
+                            child: Text(
+                              l10n.authSkip,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: EggplantColors.textSecondary,
@@ -249,9 +256,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 Expanded(
                   child: PageView.builder(
                     controller: _pageCtl,
-                    itemCount: _pages.length,
+                    itemCount: pages.length,
                     onPageChanged: (i) => setState(() => _currentPage = i),
-                    itemBuilder: (_, i) => _OnboardingPage(data: _pages[i]),
+                    itemBuilder: (_, i) => _OnboardingPage(data: pages[i]),
                   ),
                 ),
 
@@ -263,7 +270,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
-                      _pages.length,
+                      pages.length,
                       (i) => AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
                         margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -310,7 +317,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   ),
                                 )
                               : Text(
-                                  isLastPage ? '시작하기' : '다음',
+                                  isLastPage ? l10n.authStart : l10n.authNext,
                                   style: const TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.w700,
@@ -322,11 +329,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text(
-                            '이미 계정이 있어요?',
+                          Text(
+                            l10n.authHaveAccountQuestion,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 13,
                               color: EggplantColors.textSecondary,
                             ),
@@ -342,11 +349,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               tapTargetSize:
                                   MaterialTapTargetSize.shrinkWrap,
                             ),
-                            child: const Text(
-                              '로그인',
+                            child: Text(
+                              l10n.authLoginButton,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
                                 color: EggplantColors.primary,
@@ -387,57 +394,70 @@ class _OnboardingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        children: [
-          const Spacer(flex: 2),
-          // 마스코트 — 모든 페이지 공통, 부드럽게 떠있는 듯 가벼운 그림자
-          Container(
-            width: 240,
-            height: 240,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: EggplantColors.primary.withOpacity(0.08),
-                  blurRadius: 40,
-                  spreadRadius: 8,
-                ),
-              ],
-            ),
-            child: Image.asset(
-              'assets/images/eggplant-mascot.png',
-              fit: BoxFit.contain,
+    // 작은 폰(360×640 + 3버튼 내비바)에서 마스코트 240 + 2줄 제목 + 2줄 설명이
+    // 세로로 넘쳤다. 마스코트를 화면 높이에 맞춰 줄이고, 그래도 모자라면(큰 글씨)
+    // 스크롤되게 한다.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mascot = (constraints.maxHeight * 0.36).clamp(120.0, 240.0);
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: IntrinsicHeight(
+              child: Column(
+                children: [
+                  const Spacer(flex: 2),
+                  // 마스코트 — 모든 페이지 공통, 부드럽게 떠있는 듯 가벼운 그림자
+                  Container(
+                    width: mascot,
+                    height: mascot,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: EggplantColors.primary.withOpacity(0.08),
+                          blurRadius: 40,
+                          spreadRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: Image.asset(
+                      'assets/images/eggplant-mascot.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  const Spacer(flex: 2),
+                  // 헤드라인 — 큰 폰트, 진한 색
+                  Text(
+                    data.headline,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      color: EggplantColors.textPrimary,
+                      height: 1.3,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // 보조 설명 — 회색, 두 줄
+                  Text(
+                    data.desc,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: EggplantColors.textSecondary,
+                      height: 1.6,
+                    ),
+                  ),
+                  const Spacer(flex: 3),
+                ],
+              ),
             ),
           ),
-          const Spacer(flex: 2),
-          // 헤드라인 — 큰 폰트, 진한 색
-          Text(
-            data.headline,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: EggplantColors.textPrimary,
-              height: 1.3,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // 보조 설명 — 회색, 두 줄
-          Text(
-            data.desc,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 15,
-              color: EggplantColors.textSecondary,
-              height: 1.6,
-            ),
-          ),
-          const Spacer(flex: 3),
-        ],
-      ),
+        );
+      },
     );
   }
 }

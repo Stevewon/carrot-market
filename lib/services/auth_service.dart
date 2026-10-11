@@ -2,11 +2,15 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:dio/dio.dart';
+
+import '../app/market.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../app/constants.dart';
+import '../app/l10n.dart';
 import '../models/user.dart';
 import 'agora_service.dart';
 import 'api_client.dart';
@@ -35,6 +39,7 @@ Future<void> _mirrorAuthToNative(String token, String? walletAddress) async {
     await _nativeCallBridge.invokeMethod('setAuth', <String, dynamic>{
       'jwt': token,
       'walletAddress': (walletAddress ?? '').trim(),
+      'apiBase': AppConfig.apiBase,
     });
   } catch (e) {
     debugPrint('[auth] native bridge setAuth warning: $e');
@@ -127,6 +132,9 @@ class AuthService extends ChangeNotifier {
     _onLogoutCallSink = onLogout;
   }
 
+  /// 강제 로그아웃 사유 (예: 계정 정지). 로그인 화면이 한 번 보여주고 비운다.
+  String? logoutNotice;
+
   AuthService(this.prefs) {
     // Whenever the API returns 401 with a "revoked" signal, we log out
     // locally so the app falls back to onboarding automatically.
@@ -134,6 +142,15 @@ class AuthService extends ChangeNotifier {
       InterceptorsWrapper(
         onError: (e, handler) async {
           final code = e.response?.statusCode;
+          // 정지된 계정(403 banned): 로그인 상태로 남아 모든 동작에서 오류만 보던 문제 →
+          // 로그아웃하고 로그인 화면에서 사유를 보여준다.
+          if (code == 403 && _token != null) {
+            final data = e.response?.data;
+            if (data is Map && data['code']?.toString() == 'banned') {
+              logoutNotice = data['error']?.toString() ?? L10n.current.authAccountSuspended;
+              await _localLogout();
+            }
+          }
           if (code == 401 && _token != null) {
             final data = e.response?.data;
             final errCode = (data is Map) ? data['code']?.toString() : null;
@@ -233,7 +250,11 @@ class AuthService extends ChangeNotifier {
         // 401 with a known revoke code is handled by the interceptor.
         // For anything else we stay logged-in locally so a flaky network
         // doesn't log users out every cold start.
-        if (e.response?.statusCode == 401) {
+        final banned = e.response?.statusCode == 403 &&
+            e.response?.data is Map &&
+            (e.response!.data as Map)['code']?.toString() == 'banned';
+        if (banned) logoutNotice = (e.response!.data as Map)['error']?.toString();
+        if (e.response?.statusCode == 401 || banned) {
           await _localLogout();
         } else {
           debugPrint('[auth] loadFromStorage: /me failed (keeping session): $e');
@@ -248,7 +269,8 @@ class AuthService extends ChangeNotifier {
       //   → 통화 수신 시 fetchRtcToken 이 즉시 null 반환 → 발신자에게 reject 신호
       //   → 사장님이 본 "연결을 시도했어요" 토스트 + 발신자 거절 표시.
       //   loadFromStorage 가 prefs/서버 검증 끝낸 직후 prepare 1회 명시적으로 호출.
-      final wallet = _user?.walletAddress;
+      // 통화 식별 키 (지갑 없으면 'u_<id>')
+      final wallet = _user?.callIdentity;
       if (_agora != null && wallet != null && wallet.isNotEmpty) {
         _agora!.prepare(walletAddress: wallet).catchError((Object e) {
           debugPrint('[auth] loadFromStorage: agora prepare warning: $e');
@@ -306,25 +328,33 @@ class AuthService extends ChangeNotifier {
   // ================================================================
   // Sign up
   // ================================================================
+  /// 지갑은 선택 — 지갑 없이 가입하고, 나중에 '지갑 등록'(createWalletChallenge
+  /// purpose 'verify')으로 연결한다.
   Future<RegisterResult> register({
-    required String walletAddress,
+    String? walletAddress,
     required String nickname,
     required String password,
     required String passwordConfirm,
     String? region,
     String? referrerNickname,
+    String? walletChallengeId,
   }) async {
     try {
       // 절대 데드라인: 어떤 비동기가 막혀도 20초 안에 무조건 끝낸다.
       // (dio receiveTimeout=15s 가 이미 있지만, 응답 후 _saveSession 등의
       //  단계까지 포함해 마지막 안전망으로 한 번 더 감싼다.)
       final res = await api.post('/api/auth/register', data: {
-        'wallet_address': walletAddress.trim(),
+        if (walletChallengeId != null && (walletAddress ?? '').trim().isNotEmpty) ...{
+          'wallet_address': walletAddress!.trim(),
+          'wallet_challenge_id': walletChallengeId,
+        },
         'nickname': nickname.trim(),
         'password': password,
         'password_confirm': passwordConfirm,
         'device_uuid': deviceUuid,
         'region': region,
+        // 한국/일본 시장 — 기기 언어로 정한다 (일본어 기기 = 일본 지역·엔화).
+        'market': AppMarket.device,
         if (referrerNickname != null && referrerNickname.isNotEmpty)
           'referrer_nickname': referrerNickname.trim(),
       }).timeout(const Duration(seconds: 20));
@@ -352,11 +382,11 @@ class AuthService extends ChangeNotifier {
         return RegisterResult(error: null, referral: ref);
       }
       return RegisterResult(
-          error: _errorOf(res.data) ?? '가입 실패 (status=${res.statusCode})',
+          error: _errorOf(res.data) ?? L10n.current.authRegisterFailedStatus('${res.statusCode}'),
           referral: null);
     } on TimeoutException {
       return RegisterResult(
-          error: '서버 응답이 너무 느려요. 네트워크를 확인하고 다시 시도해주세요.',
+          error: L10n.current.authServerTooSlow,
           referral: null);
     } catch (e) {
       return RegisterResult(error: _parseError(e), referral: null);
@@ -376,7 +406,7 @@ class AuthService extends ChangeNotifier {
         await _localLogout();
         return null;
       }
-      return _errorOf(res.data) ?? '탈퇴 처리 실패';
+      return _errorOf(res.data) ?? L10n.current.authDeleteFailedShort;
     } catch (e) {
       return _parseError(e);
     }
@@ -429,11 +459,17 @@ class AuthService extends ChangeNotifier {
         if (data['qta_bonus'] is Map) {
           _pendingQtaBonus = Map<String, dynamic>.from(data['qta_bonus'] as Map);
         }
+        // 큐알쳇 닉네임·비밀번호로 처음 들어와 가지 계정이 만들어진 경우 → 가입 보너스 안내.
+        final qr = data['qrchat_login'];
+        if (qr is Map && qr['created'] == true && (qr['signup_bonus'] ?? 0) is num &&
+            (qr['signup_bonus'] as num) > 0) {
+          _pendingQtaBonus = {'reason': 'signup', 'amount': qr['signup_bonus']};
+        }
         return null;
       }
-      return _errorOf(res.data) ?? '로그인 실패';
+      return _errorOf(res.data) ?? L10n.current.authLoginFailedShort;
     } on TimeoutException {
-      return '서버 응답이 너무 느려요. 네트워크를 확인하고 다시 시도해주세요.';
+      return L10n.current.authServerTooSlow;
     } catch (e) {
       return _parseError(e);
     }
@@ -485,6 +521,7 @@ class AuthService extends ChangeNotifier {
         if (nickname != null && nickname.trim().isNotEmpty)
           'nickname': nickname.trim(),
         if (region != null && region.isNotEmpty) 'region': region,
+        'market': AppMarket.device,
         'device_uuid': deviceUuid,
       });
 
@@ -506,7 +543,7 @@ class AuthService extends ChangeNotifier {
         );
       }
       return (
-        error: _errorOf(res.data) ?? 'SSO 인증 실패',
+        error: _errorOf(res.data) ?? L10n.current.authSsoFailed,
         createdNew: false,
         provider: null,
       );
@@ -527,7 +564,7 @@ class AuthService extends ChangeNotifier {
       if (res.statusCode == 200) {
         return (nickname: res.data['nickname'] as String?, error: null);
       }
-      return (nickname: null, error: _errorOf(res.data) ?? '찾을 수 없어요');
+      return (nickname: null, error: _errorOf(res.data) ?? L10n.current.authNotFound);
     } catch (e) {
       return (nickname: null, error: _parseError(e));
     }
@@ -541,6 +578,7 @@ class AuthService extends ChangeNotifier {
     required String walletAddress,
     required String newPassword,
     required String newPasswordConfirm,
+    String? walletChallengeId,
   }) async {
     try {
       final res = await api.post('/api/auth/reset-password', data: {
@@ -548,6 +586,7 @@ class AuthService extends ChangeNotifier {
         'new_password': newPassword,
         'new_password_confirm': newPasswordConfirm,
         'device_uuid': deviceUuid,
+        if (walletChallengeId != null) 'wallet_challenge_id': walletChallengeId,
       });
 
       if (res.statusCode == 200) {
@@ -558,7 +597,7 @@ class AuthService extends ChangeNotifier {
         );
         return null;
       }
-      return _errorOf(res.data) ?? '비밀번호 재설정 실패';
+      return _errorOf(res.data) ?? L10n.current.authResetFailedShort;
     } catch (e) {
       return _parseError(e);
     }
@@ -567,14 +606,38 @@ class AuthService extends ChangeNotifier {
   // ================================================================
   // Region update
   // ================================================================
-  Future<void> updateRegion(String region) async {
-    if (_user == null) return;
+  /// 지금 보는 동네를 바꾼다. 내 동네 목록에 없으면 목록에 추가 (최대 10곳).
+  /// 반환: null = 성공, 그 외 = 사용자에게 보여줄 에러 메시지.
+  Future<String?> updateRegion(String region) =>
+      _saveRegions(active: region);
+
+  /// 내 동네 목록을 통째로 저장 (삭제·순서 변경). [active] 는 지금 보는 동네.
+  Future<String?> setRegions(List<String> regions, {String? active}) =>
+      _saveRegions(regions: regions, active: active);
+
+  Future<String?> _saveRegions({List<String>? regions, String? active}) async {
+    if (_user == null) return L10n.current.commonLoginRequired;
     try {
-      await api.put('/api/users/me', data: {'region': region});
-    } catch (_) {}
-    _user = _user!.copyWith(region: region);
-    await prefs.setString(_kRegion, region);
+      final res = await api.put('/api/users/me', data: {
+        if (regions != null) 'regions': regions,
+        if (active != null) 'region': active,
+      });
+      final u = (res.data is Map) ? res.data['user'] : null;
+      if (u is Map) {
+        final fresh = User.fromJson(Map<String, dynamic>.from(u));
+        _user = _user!.copyWith(region: fresh.region, regions: fresh.regions);
+      } else if (active != null) {
+        _user = _user!.copyWith(region: active);
+      }
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      return (data is Map ? data['error']?.toString() : null) ?? L10n.current.authRegionSaveFailed;
+    } catch (_) {
+      return L10n.current.authRegionSaveFailed;
+    }
+    if (_user!.region != null) await prefs.setString(_kRegion, _user!.region!);
     notifyListeners();
+    return null;
   }
 
   // ================================================================
@@ -587,10 +650,10 @@ class AuthService extends ChangeNotifier {
   //   반환: null = 성공, 그 외 = 사용자에게 보여줄 에러 메시지.
   // ================================================================
   Future<String?> updateNickname(String nickname) async {
-    if (_user == null) return '로그인이 필요해요';
+    if (_user == null) return L10n.current.commonLoginRequired;
     final trimmed = nickname.trim();
     if (trimmed.length < 2 || trimmed.length > 12) {
-      return '닉네임은 2~12자여야 해요';
+      return L10n.current.authNicknameLength;
     }
     if (trimmed == _user!.nickname) {
       return null; // 동일 닉네임 — no-op.
@@ -611,7 +674,7 @@ class AuthService extends ChangeNotifier {
         return null;
       }
       // 그 외 응답 → 에러 메시지 추출.
-      return _errorOf(res.data) ?? '닉네임 변경 실패';
+      return _errorOf(res.data) ?? L10n.current.authNicknameChangeFailed;
     } catch (e) {
       return _parseError(e);
     }
@@ -627,7 +690,7 @@ class AuthService extends ChangeNotifier {
     required double lng,
     String? region,
   }) async {
-    if (_user == null) return '로그인이 필요해요';
+    if (_user == null) return L10n.current.commonLoginRequired;
     try {
       final res = await api.post(
         '/api/users/me/region/verify',
@@ -675,7 +738,7 @@ class AuthService extends ChangeNotifier {
     String? txId,
     String? phoneHash,
   }) async {
-    if (_user == null) return '로그인이 필요해요';
+    if (_user == null) return L10n.current.commonLoginRequired;
     try {
       final res = await api.post(
         '/api/users/me/verify/identity',
@@ -707,7 +770,7 @@ class AuthService extends ChangeNotifier {
     required String bankCode,
     required String accountNumber,
   }) async {
-    if (_user == null) return '로그인이 필요해요';
+    if (_user == null) return L10n.current.commonLoginRequired;
     try {
       final res = await api.post(
         '/api/users/me/verify/bank',
@@ -753,6 +816,8 @@ class AuthService extends ChangeNotifier {
     await prefs.setString(_kDeviceUuid, user.deviceUuid);
     if (user.walletAddress != null) {
       await prefs.setString(_kWallet, user.walletAddress!);
+    } else {
+      await prefs.remove(_kWallet);
     }
     if (user.region != null) await prefs.setString(_kRegion, user.region!);
     await prefs.setInt(_kMannerScore, user.mannerScore);
@@ -762,8 +827,9 @@ class AuthService extends ChangeNotifier {
 
     // Agora 1차: 로그인 성공 시 토큰 발급 + UID 캐싱 (실제 RTM 연결은 2차에서).
     // 실패해도 앱 동작에 영향 X (fire-and-forget).
-    final wallet = user.walletAddress;
-    if (_agora != null && wallet != null && wallet.isNotEmpty) {
+    // 통화 식별 키 (지갑 없으면 'u_<id>') — native 통화도 같은 값을 쓴다.
+    final wallet = user.callIdentity;
+    if (_agora != null && wallet.isNotEmpty) {
       // ignore: discarded_futures
       _agora!.prepare(walletAddress: wallet).catchError((Object e) {
         debugPrint('[auth] agora prepare warning: $e');
@@ -824,6 +890,169 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ================================================================
+  // 지갑 소유 증명 (소액 송금 인증)
+  //   1) createWalletChallenge → 서버가 고유 소액(예: 0.0042 QTA) 발급
+  //   2) 사용자가 퀀타리움 지갑 앱에서 그 금액을 본인 지갑으로 송금
+  //   3) checkWalletChallenge → 서버가 블록 탐색기에서 송금 확인
+  //   4) 확인된 challengeId 를 register / resetPassword 에 넘김
+  // ================================================================
+  Future<({WalletChallenge? challenge, String? error})> createWalletChallenge({
+    required String walletAddress,
+    required String purpose, // 'register' | 'reset' | 'verify'(로그인 회원, 출금 조건)
+  }) async {
+    try {
+      // 'verify' 는 로그인한 본인 지갑 — JWT 로 서버가 지갑을 정한다.
+      // 지갑 없이 가입한 회원은 입력한 지갑주소로 등록(인증이 끝나야 저장).
+      final res = purpose == 'verify'
+          ? await api.post('/api/users/me/wallet-proof', data: {
+              if (walletAddress.trim().isNotEmpty) 'wallet_address': walletAddress.trim(),
+            })
+          : await api.post('/api/auth/wallet-challenge', data: {
+              'wallet_address': walletAddress.trim(),
+              'device_uuid': deviceUuid,
+              'purpose': purpose,
+            });
+      if (res.statusCode == 200 && res.data is Map) {
+        return (
+          challenge: WalletChallenge.fromJson(Map<String, dynamic>.from(res.data as Map)),
+          error: null,
+        );
+      }
+      return (challenge: null, error: _errorOf(res.data) ?? L10n.current.authWalletVerifyStartFailed);
+    } catch (e) {
+      // 이미 지갑 인증을 마친 계정(로컬 정보가 오래된 경우) → 최신 정보로 갱신하고
+      // 오류 대신 "완료" 로 처리할 수 있도록 error 를 비워 돌려준다.
+      if (purpose == 'verify' && e is DioException) {
+        final d = e.response?.data;
+        if (d is Map && d['code']?.toString() == 'already_verified') {
+          await refreshFromServer();
+          return (challenge: null, error: null);
+        }
+      }
+      return (challenge: null, error: _parseError(e));
+    }
+  }
+
+  /// 마지막 지갑 등록('verify')에서 받은 가입 보너스 (0 = 없음).
+  int lastWalletSignupBonus = 0;
+
+  /// verified=true 면 송금 확인 완료. 아니면 error 에 안내 문구.
+  /// 'verify' 는 확인과 동시에 계정에 지갑 인증이 기록되고 사용자 정보를 갱신한다.
+  Future<({bool verified, String? error})> checkWalletChallenge(
+    String challengeId, {
+    String purpose = 'register',
+  }) async {
+    try {
+      final res = purpose == 'verify'
+          ? await api.post('/api/users/me/wallet-proof/$challengeId/check')
+          : await api.post('/api/auth/wallet-challenge/$challengeId/check', data: {
+              'device_uuid': deviceUuid,
+            });
+      if (res.statusCode == 200 && res.data is Map && res.data['verified'] == true) {
+        if (purpose == 'verify') {
+          final b = res.data['signup_bonus'];
+          lastWalletSignupBonus = b is num ? b.toInt() : 0;
+          await refreshFromServer();
+        }
+        return (verified: true, error: null);
+      }
+      return (verified: false, error: _errorOf(res.data) ?? L10n.current.authTransferNotConfirmed);
+    } catch (e) {
+      return (verified: false, error: _parseError(e));
+    }
+  }
+
+  // ================================================================
+  // 1단계 지갑 인증 — 본사 지갑이 소수점 6자리 임의 수량을 보내고,
+  // 회원이 지갑에 들어온 수량을 입력하면 통과.
+  // 2단계 휴대폰 인증 — Firebase 문자 인증 ID 토큰을 서버가 확인.
+  // 둘 다 끝나면 서버가 +1,000 QTA (lastVerifyBonus).
+  // ================================================================
+
+  /// 마지막 인증(1·2단계)에서 받은 인증 완료 보너스 (0 = 없음).
+  int lastVerifyBonus = 0;
+
+  Future<({WalletReceive? request, String? error, bool alreadyVerified})> requestWalletReceive(
+      String walletAddress) async {
+    try {
+      final res = await api.post('/api/users/me/wallet-receive', data: {
+        if (walletAddress.trim().isNotEmpty) 'wallet_address': walletAddress.trim(),
+      });
+      if (res.statusCode == 200 && res.data is Map) {
+        return (
+          request: WalletReceive.fromJson(Map<String, dynamic>.from(res.data as Map)),
+          error: null,
+          alreadyVerified: false,
+        );
+      }
+      return (request: null, error: _errorOf(res.data) ?? L10n.current.authWalletVerifyStartFailed, alreadyVerified: false);
+    } catch (e) {
+      if (e is DioException) {
+        final d = e.response?.data;
+        if (d is Map && d['code']?.toString() == 'already_verified') {
+          await refreshFromServer();
+          return (request: null, error: null, alreadyVerified: true);
+        }
+      }
+      return (request: null, error: _parseError(e), alreadyVerified: false);
+    }
+  }
+
+  Future<WalletReceive?> getWalletReceive(String id) async {
+    try {
+      final res = await api.get('/api/users/me/wallet-receive/$id');
+      if (res.statusCode == 200 && res.data is Map) {
+        return WalletReceive.fromJson(Map<String, dynamic>.from(res.data as Map));
+      }
+    } catch (e) {
+      debugPrint('[auth] wallet-receive status warning: $e');
+    }
+    return null;
+  }
+
+  /// 받은 수량 입력. verified=true 면 지갑 등록 완료 (사용자 정보 갱신).
+  /// attemptsLeft: 틀렸을 때 남은 기회 (null = 해당 없음).
+  Future<({bool verified, String? error, int? attemptsLeft})> confirmWalletReceive(
+      String id, String amount) async {
+    try {
+      final res = await api.post('/api/users/me/wallet-receive/$id/confirm', data: {'amount': amount});
+      if (res.statusCode == 200 && res.data is Map && res.data['verified'] == true) {
+        final b = res.data['verify_bonus'];
+        lastVerifyBonus = b is num ? b.toInt() : 0;
+        await refreshFromServer();
+        return (verified: true, error: null, attemptsLeft: null);
+      }
+      return (verified: false, error: _errorOf(res.data) ?? L10n.current.authAmountCheckFailed, attemptsLeft: null);
+    } catch (e) {
+      int? left;
+      if (e is DioException && e.response?.data is Map) {
+        final l = (e.response!.data as Map)['attempts_left'];
+        if (l is num) left = l.toInt();
+      }
+      return (verified: false, error: _parseError(e), attemptsLeft: left);
+    }
+  }
+
+  /// 2단계 휴대폰 인증. 반환: null = 성공, 그 외 = 에러 문구.
+  Future<String?> verifyPhone(String firebaseIdToken) async {
+    try {
+      final res = await api.post('/api/users/me/verify/phone', data: {'id_token': firebaseIdToken});
+      final data = res.data is Map ? res.data as Map : {};
+      final b = data['verify_bonus'];
+      lastVerifyBonus = b is num ? b.toInt() : 0;
+      final userJson = data['user'];
+      if (userJson is Map) {
+        _user = User.fromJson(Map<String, dynamic>.from(userJson));
+        notifyListeners();
+      }
+      await refreshFromServer();
+      return null;
+    } catch (e) {
+      return _parseError(e);
+    }
+  }
+
   String? _errorOf(dynamic data) {
     if (data is Map && data['error'] != null) return data['error'].toString();
     return null;
@@ -836,16 +1065,80 @@ class AuthService extends ChangeNotifier {
     }
     final msg = e.toString();
     if (msg.contains('SocketException') || msg.contains('Connection refused')) {
-      return '서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.';
+      return L10n.current.authCannotConnect;
     }
-    if (msg.contains('timeout')) return '응답 시간이 초과되었어요.';
-    return '오류가 발생했어요';
+    if (msg.contains('timeout')) return L10n.current.authTimeout;
+    return L10n.current.authGenericError;
   }
 }
 
 // Small record-type polyfill note: `({String? nickname, String? error})` requires
 // Dart 3.0+. The project already uses go_router 14+ which implies Dart 3.x,
 // so this is safe.
+
+/// 지갑 소유 증명 요청 (POST /api/auth/wallet-challenge 응답)
+class WalletChallenge {
+  final String id;
+  final String walletAddress;
+  /// 보내야 할 정확한 금액 (예: '0.0042') — QTA 단위.
+  final String amount;
+  /// 받는 주소 — 기본은 본인 지갑 (자기송금, 가스비만 발생).
+  final String sendTo;
+  final DateTime? expiresAt;
+
+  const WalletChallenge({
+    required this.id,
+    required this.walletAddress,
+    required this.amount,
+    required this.sendTo,
+    this.expiresAt,
+  });
+
+  factory WalletChallenge.fromJson(Map<String, dynamic> j) => WalletChallenge(
+        id: j['challenge_id'].toString(),
+        walletAddress: (j['wallet_address'] ?? '').toString(),
+        amount: (j['amount'] ?? '').toString(),
+        sendTo: (j['send_to'] ?? j['wallet_address'] ?? '').toString(),
+        // 서버는 SQLite UTC 'YYYY-MM-DD HH:MM:SS' 형식.
+        expiresAt: DateTime.tryParse('${j['expires_at'] ?? ''}'.replaceFirst(' ', 'T') + 'Z'),
+      );
+}
+
+/// 1단계 지갑 인증 요청 (POST /api/users/me/wallet-receive 응답). 금액은 서버가 알려주지 않는다.
+class WalletReceive {
+  final String id;
+  final String walletAddress;
+  /// 보내는 곳 — 가지 본사 지갑.
+  final String sendFrom;
+  /// 'queued' | 'sending' | 'sent' | 'failed'
+  final String sendStatus;
+  final String? txHash;
+  final int attemptsLeft;
+  final DateTime? expiresAt;
+
+  const WalletReceive({
+    required this.id,
+    required this.walletAddress,
+    required this.sendFrom,
+    required this.sendStatus,
+    this.txHash,
+    required this.attemptsLeft,
+    this.expiresAt,
+  });
+
+  bool get isSent => sendStatus == 'sent';
+  bool get isFailed => sendStatus == 'failed';
+
+  factory WalletReceive.fromJson(Map<String, dynamic> j) => WalletReceive(
+        id: j['challenge_id'].toString(),
+        walletAddress: (j['wallet_address'] ?? '').toString(),
+        sendFrom: (j['send_from'] ?? '').toString(),
+        sendStatus: (j['send_status'] ?? 'queued').toString(),
+        txHash: j['send_tx_hash']?.toString(),
+        attemptsLeft: (j['attempts_left'] as num?)?.toInt() ?? 5,
+        expiresAt: DateTime.tryParse('${j['expires_at'] ?? ''}'.replaceFirst(' ', 'T') + 'Z'),
+      );
+}
 
 /// 회원가입 결과 (에러 또는 친구 초대 처리 결과 포함)
 class RegisterResult {

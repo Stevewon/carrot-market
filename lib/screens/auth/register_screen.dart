@@ -1,17 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/l10n.dart';
 import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../services/auth_service.dart';
 import '_auth_shared.dart';
 
 /// Sign-up screen:
-///   퀀타리움 지갑주소 + 닉네임 + 비번 + 비번확인
+///   닉네임 + 비번 + 비번확인 (+ 추천인)
+///   지갑은 가입 후 '내 정보 → 인증 관리 → 지갑 등록' 에서 연결한다.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -20,7 +21,6 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _walletCtl = TextEditingController();
   final _nicknameCtl = TextEditingController();
   final _pwCtl = TextEditingController();
   final _pwConfirmCtl = TextEditingController();
@@ -34,7 +34,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _walletCtl.dispose();
     _nicknameCtl.dispose();
     _pwCtl.dispose();
     _pwConfirmCtl.dispose();
@@ -42,15 +41,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  Future<void> _pasteWallet() async {
-    final data = await Clipboard.getData('text/plain');
-    final s = data?.text?.trim() ?? '';
-    if (s.isEmpty) return;
-    setState(() => _walletCtl.text = s);
-  }
-
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final l10n = context.l10n;
     setState(() {
       _loading = true;
       _error = null;
@@ -64,7 +57,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       result = await context
           .read<AuthService>()
           .register(
-            walletAddress: _walletCtl.text,
             nickname: _nicknameCtl.text,
             password: _pwCtl.text,
             passwordConfirm: _pwConfirmCtl.text,
@@ -75,11 +67,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           .timeout(const Duration(seconds: 25));
     } on TimeoutException {
       result = RegisterResult(
-        error: '응답이 너무 느려요. 네트워크 상태를 확인하고 다시 시도해주세요.',
+        error: l10n.authResponseSlow,
         referral: null,
       );
     } catch (e) {
-      result = RegisterResult(error: '가입 중 오류: $e', referral: null);
+      debugPrint('[register] unexpected error: $e');
+      result = RegisterResult(error: l10n.authRegisterFailed, referral: null);
     }
 
     if (!mounted) return;
@@ -92,13 +85,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final ref = result.referral;
       if (ref != null) {
         if (ref.credited) {
-          _showSnack('🎉 추천인 ${ref.inviterNickname ?? ""}님께 +200 QTA 지급 완료!');
+          _showSnack(l10n.authReferralCredited(ref.inviterNickname ?? ''));
         } else if (ref.reason == 'inviter_not_found') {
-          _showSnack('추천인 닉네임을 찾을 수 없어 초대 보너스가 적용되지 않았어요.');
+          _showSnack(l10n.authReferralNotFound);
         } else if (ref.reason == 'self_referral') {
-          _showSnack('자기 자신은 추천인으로 입력할 수 없어요.');
+          _showSnack(l10n.authReferralSelf);
         } else if (ref.reason == 'already_processed') {
-          _showSnack('이미 처리된 초대예요.');
+          _showSnack(l10n.authReferralAlreadyProcessed);
         }
       }
       context.go('/');
@@ -114,13 +107,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: const Text('회원가입'),
+        title: Text(l10n.authRegisterTitle),
       ),
       body: SafeArea(
         child: Center(
@@ -134,9 +128,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 8),
-                const Text(
-                  '퀀타리움 지갑으로\n회원가입 🍆',
-                  style: TextStyle(
+                Text(
+                  l10n.authRegisterHeadline,
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
                     color: EggplantColors.textPrimary,
@@ -144,9 +138,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  '지갑주소 하나로 로그인·닉네임 찾기·비밀번호 재설정을 모두 할 수 있어요.',
-                  style: TextStyle(
+                Text(
+                  l10n.authRegisterDesc,
+                  style: const TextStyle(
                     fontSize: 13,
                     color: EggplantColors.textSecondary,
                     height: 1.5,
@@ -154,41 +148,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Wallet
-                const FieldLabel('퀀타리움 지갑주소',
-                    hint: '0x + 40자리 (총 42자)'),
-                TextFormField(
-                  controller: _walletCtl,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  decoration: InputDecoration(
-                    hintText: '0xE0c166B147a742E4FbCf5e5BCf73aCA631f14f0e',
-                    hintStyle: const TextStyle(fontSize: 12),
-                    prefixIcon: const Icon(
-                      Icons.account_balance_wallet_outlined,
-                      color: EggplantColors.primary,
-                    ),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.content_paste_rounded, size: 20),
-                      tooltip: '붙여넣기',
-                      onPressed: _pasteWallet,
-                    ),
-                  ),
-                  validator: validateWalletAddress,
-                ),
-
-                const SizedBox(height: 18),
-
                 // Nickname
-                const FieldLabel('닉네임', hint: '2~12자, 중복 불가'),
+                FieldLabel(l10n.authNicknameLabel, hint: l10n.authNicknameHint),
                 TextFormField(
                   controller: _nicknameCtl,
                   maxLength: 12,
                   autocorrect: false,
                   enableSuggestions: false,
-                  decoration: const InputDecoration(
-                    hintText: '익명가지123',
-                    prefixIcon: Icon(Icons.person_outline,
+                  decoration: InputDecoration(
+                    hintText: l10n.authNicknamePlaceholder,
+                    prefixIcon: const Icon(Icons.person_outline,
                         color: EggplantColors.primary),
                     counterText: '',
                   ),
@@ -198,14 +167,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 18),
 
                 // Password
-                const FieldLabel('비밀번호', hint: '8자 이상'),
+                FieldLabel(l10n.authPasswordLabel, hint: l10n.authMin8),
                 TextFormField(
                   controller: _pwCtl,
                   obscureText: _obscure1,
                   autocorrect: false,
                   enableSuggestions: false,
                   decoration: InputDecoration(
-                    hintText: '영문·숫자·특수문자 조합 권장',
+                    hintText: l10n.authPasswordPlaceholder,
                     hintStyle: const TextStyle(fontSize: 12),
                     prefixIcon: const Icon(Icons.lock_outline,
                         color: EggplantColors.primary),
@@ -221,14 +190,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 const SizedBox(height: 18),
 
-                const FieldLabel('비밀번호 확인'),
+                FieldLabel(l10n.authPasswordConfirmLabel),
                 TextFormField(
                   controller: _pwConfirmCtl,
                   obscureText: _obscure2,
                   autocorrect: false,
                   enableSuggestions: false,
                   decoration: InputDecoration(
-                    hintText: '다시 한 번 입력',
+                    hintText: l10n.authEnterAgain,
                     prefixIcon: const Icon(Icons.lock_outline,
                         color: EggplantColors.primary),
                     suffixIcon: IconButton(
@@ -239,8 +208,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   validator: (v) {
-                    if (v == null || v.isEmpty) return '비밀번호 확인을 입력해주세요';
-                    if (v != _pwCtl.text) return '비밀번호가 일치하지 않아요';
+                    if (v == null || v.isEmpty) return l10n.authPasswordConfirmRequired;
+                    if (v != _pwCtl.text) return l10n.authPasswordMismatch;
                     return null;
                   },
                 ),
@@ -248,18 +217,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 18),
 
                 // Referrer (선택)
-                const FieldLabel(
-                  '추천인 닉네임 (선택)',
-                  hint: '친구가 +200 QTA 받아요 · 무제한',
+                FieldLabel(
+                  l10n.authReferrerLabel,
+                  hint: l10n.authReferrerHint,
                 ),
                 TextFormField(
                   controller: _referrerCtl,
                   maxLength: 12,
                   autocorrect: false,
                   enableSuggestions: false,
-                  decoration: const InputDecoration(
-                    hintText: '추천해주신 분의 닉네임',
-                    prefixIcon: Icon(Icons.card_giftcard_outlined,
+                  decoration: InputDecoration(
+                    hintText: l10n.authReferrerPlaceholder,
+                    prefixIcon: const Icon(Icons.card_giftcard_outlined,
                         color: EggplantColors.primary),
                     counterText: '',
                   ),
@@ -279,17 +248,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     color: EggplantColors.background,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Row(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.card_giftcard,
+                      const Icon(Icons.card_giftcard,
                           color: EggplantColors.primary, size: 18),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '가입 즉시 +500 QTA 지급! 추천인을 입력하면 추천인에게 +200 QTA가 무제한으로 지급돼요.\n'
-                          '※ 가입 후 탈퇴하면 추천인의 보너스는 즉시 회수돼요.',
-                          style: TextStyle(
+                          l10n.authRegisterBonusInfo,
+                          style: const TextStyle(
                             fontSize: 12,
                             color: EggplantColors.textSecondary,
                             height: 1.5,
@@ -306,17 +274,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     color: EggplantColors.background,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Row(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info_outline,
+                      const Icon(Icons.info_outline,
                           color: EggplantColors.primary, size: 18),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '지갑주소는 변경할 수 없어요. 닉네임/비밀번호 분실 시 '
-                          '같은 지갑으로만 복구할 수 있습니다.',
-                          style: TextStyle(
+                          l10n.authWalletImmutableInfo,
+                          style: const TextStyle(
                             fontSize: 12,
                             color: EggplantColors.textSecondary,
                             height: 1.5,
@@ -339,13 +306,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 4),
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Text(
-                            '가입하기',
+                            l10n.authRegisterButton,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 16),
+                            style: const TextStyle(fontSize: 16),
                           ),
                         ),
                 ),
@@ -354,11 +321,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Center(
                   child: TextButton(
                     onPressed: () => context.pop(),
-                    child: const Text(
-                      '이미 계정이 있어요 — 로그인',
+                    child: Text(
+                      l10n.authHaveAccountLogin,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: EggplantColors.primary,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,

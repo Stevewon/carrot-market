@@ -101,6 +101,16 @@ export async function buildAgoraToken(p: BuildTokenParams): Promise<string> {
   }
 }
 
+/**
+ * 통화 식별 키 — 지갑이 있으면 지갑주소, 없으면 'u_<회원 id>'.
+ * 지갑 없이 가입한 회원도 통화할 수 있게 한다. 클라이언트(Dart CallService,
+ * Kotlin native prefs)도 서버가 내려준 이 값을 그대로 walletToAgoraUid 에 넣는다.
+ */
+export function callIdentity(walletAddress: string | null | undefined, userId: string): string {
+  const w = (walletAddress || '').trim().toLowerCase();
+  return w || `u_${userId}`;
+}
+
 // ─────────────────────────────────────────────────────────
 // 지갑주소 → Agora UID (클라이언트의 lib/utils/agora_uid.dart 와 동일 알고리즘)
 // ─────────────────────────────────────────────────────────

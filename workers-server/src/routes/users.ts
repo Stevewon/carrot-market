@@ -1,8 +1,31 @@
 import { Hono } from 'hono';
 import type { Env, UserRow, UserPublic, Variables } from '../types';
 import { authMiddleware } from '../jwt';
-import { regionCenter, haversineKm, REGION_VERIFY_RADIUS_KM } from '../regions';
-import { buildAgoraToken, walletToAgoraUid } from '../utils/agoraToken';
+import { regionCenter, regionMarket, haversineKm, parseRegions, MAX_REGIONS, REGION_VERIFY_RADIUS_KM } from '../regions';
+import { isAllowedMobile, normalizeMarket, tr, trl, reqLang, MARKET_CURRENCY, MONEY_PER_QTA, type Market, type Lang } from '../market';
+import { buildAgoraToken, callIdentity, walletToAgoraUid } from '../utils/agoraToken';
+import { challengeView, checkChallenge, consumeChallenge, createChallenge } from '../walletProof';
+import { isValidWallet, normalizeWallet } from '../crypto';
+import { encryptPhone, phoneHash, phoneVaultReady } from '../phoneVault';
+import {
+  grantVerifyBonus,
+  QTA_VERIFY_BONUS,
+  MINING_REASONS,
+  QTA_KRW_PER_QTA,
+  QTA_LISTING_REWARD_PERCENT,
+  QTA_LISTING_REWARD_MAX,
+  QTA_LISTING_REWARD_DAILY_MAX,
+} from '../qta';
+import {
+  confirmReceive,
+  createReceiveChallenge,
+  getReceiveChallenge,
+  processReceiveSends,
+  receiveView,
+} from '../walletReceive';
+import { verifyFirebasePhoneToken } from '../phoneVerify';
+import { linkedQrchatUid } from '../qrchatBridge';
+import { checkNickname } from '../prohibited';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -24,6 +47,9 @@ function sanitize(u: UserRow): UserPublic {
     verification_level: u.verification_level ?? 0,
     verified_at: u.verified_at,
     bank_registered_at: u.bank_registered_at,
+    wallet_verified_at: u.wallet_verified_at ?? null,
+    market: u.market ?? 'kr',
+    regions: parseRegions(u.regions, u.region),
     created_at: u.created_at,
     updated_at: u.updated_at,
   };
@@ -45,6 +71,7 @@ function sanitizePublic(u: UserRow): UserPublic {
     manner_score: u.manner_score,
     qta_balance: 0,
     verification_level: u.verification_level ?? 0,
+    market: u.market ?? 'kr',
     created_at: u.created_at,
     updated_at: u.updated_at,
   };
@@ -55,33 +82,76 @@ app.put('/me', authMiddleware, async (c) => {
   const authUser = c.get('user');
   if (!authUser) return c.json({ error: 'Unauthorized' }, 401);
 
-  let body: { region?: string; nickname?: string } = {};
+  let body: { region?: string; regions?: unknown; nickname?: string } = {};
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: '잘못된 요청' }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
 
   const updates: string[] = [];
   const values: (string | null)[] = [];
 
-  if (body.region !== undefined) {
+  // 내 동네 목록(최대 10곳) + 지금 보는 동네(region).
+  //   regions 를 보내면 목록을 통째로 바꾼다. region 만 보내면 목록에 없을 때 뒤에 붙인다.
+  //   일본 회원은 일본 지역만, 한국 회원은 한국 지역만.
+  if (body.region !== undefined || body.regions !== undefined) {
+    const cur = await c.env.DB
+      .prepare('SELECT market, region, regions FROM users WHERE id = ?')
+      .bind(authUser.id)
+      .first<{ market: string | null; region: string | null; regions: string | null }>();
+    const market = cur?.market || 'kr';
+    const badRegion = (r: string) => {
+      const rm = regionMarket(r);
+      return rm !== null && rm !== market;
+    };
+
+    let list = parseRegions(cur?.regions, cur?.region);
+    if (body.regions !== undefined) {
+      if (!Array.isArray(body.regions)) {
+        return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+      }
+      list = [];
+      for (const v of body.regions) {
+        const r = String(v ?? '').trim();
+        if (r && !list.includes(r)) list.push(r);
+      }
+    }
+    let active = body.region !== undefined ? String(body.region ?? '').trim() : (cur?.region || '');
+    if (active && !list.includes(active)) list.push(active);
+    if (list.length > MAX_REGIONS) {
+      return c.json({
+        error: tr(c, `내 동네는 최대 ${MAX_REGIONS}곳까지 설정할 수 있어요`, `地域は最大${MAX_REGIONS}か所まで設定できます`),
+        code: 'region_limit',
+      }, 400);
+    }
+    if (list.some(badRegion)) {
+      return c.json({ error: tr(c, '선택할 수 없는 지역이에요', '選択できない地域です'), code: 'region_market' }, 400);
+    }
+    if (!active || !list.includes(active)) active = list[0] || '';
+    if (!active) {
+      return c.json({ error: tr(c, '동네를 한 곳 이상 남겨주세요', '地域を1か所以上設定してください'), code: 'region_empty' }, 400);
+    }
     updates.push('region = ?');
-    values.push(body.region);
+    values.push(active);
+    updates.push('regions = ?');
+    values.push(JSON.stringify(list));
   }
 
   if (body.nickname !== undefined) {
     const nick = body.nickname.trim();
     if (nick.length < 2 || nick.length > 12) {
-      return c.json({ error: '닉네임은 2~12자여야 해요' }, 400);
+      return c.json({ error: tr(c, '닉네임은 2~12자여야 해요', 'ニックネームは2〜12文字で入力してください') }, 400);
     }
+    const nickPolicyErr = checkNickname(nick, reqLang(c));
+    if (nickPolicyErr) return c.json({ error: nickPolicyErr, code: 'nickname_policy' }, 400);
     // Block nickname collisions (excluding ourselves).
     const collision = await c.env.DB
       .prepare('SELECT id FROM users WHERE nickname = ? COLLATE NOCASE AND id != ?')
       .bind(nick, authUser.id)
       .first<{ id: string }>();
     if (collision) {
-      return c.json({ error: '이미 사용 중인 닉네임이에요' }, 409);
+      return c.json({ error: tr(c, '이미 사용 중인 닉네임이에요', 'このニックネームはすでに使われています') }, 409);
     }
     updates.push('nickname = ?');
     values.push(nick);
@@ -139,7 +209,8 @@ app.get('/:id/call-info', authMiddleware, async (c) => {
   return c.json({
     id: u.id,
     nickname: u.nickname,
-    wallet_address: u.wallet_address,
+    // 통화 식별 키 (지갑 없으면 'u_<id>') — 필드명은 구버전 앱 호환용
+    wallet_address: callIdentity(u.wallet_address, u.id),
   });
 });
 
@@ -248,14 +319,14 @@ app.post('/me/region/verify', authMiddleware, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: '잘못된 요청' }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
 
   const lat = Number(body.lat);
   const lng = Number(body.lng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)
       || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    return c.json({ error: 'GPS 좌표가 유효하지 않아요' }, 400);
+    return c.json({ error: tr(c, 'GPS 좌표가 유효하지 않아요', '位置情報（GPS）が正しくありません') }, 400);
   }
 
   // 현재 또는 새 region 결정.
@@ -268,18 +339,27 @@ app.post('/me/region/verify', authMiddleware, async (c) => {
     region = cur?.region || '';
   }
   if (!region) {
-    return c.json({ error: '먼저 동네를 선택해주세요' }, 400);
+    return c.json({ error: tr(c, '먼저 동네를 선택해주세요', '先に地域を選択してください') }, 400);
   }
 
   const center = regionCenter(region);
   if (!center) {
-    return c.json({ error: '지원하지 않는 지역이에요' }, 400);
+    return c.json({ error: tr(c, '지원하지 않는 지역이에요', '対応していない地域です') }, 400);
+  }
+  {
+    const mine = await c.env.DB
+      .prepare('SELECT market FROM users WHERE id = ?')
+      .bind(me.id)
+      .first<{ market: string | null }>();
+    if (regionMarket(region) !== (mine?.market || 'kr')) {
+      return c.json({ error: tr(c, '선택할 수 없는 지역이에요', '選択できない地域です'), code: 'region_market' }, 400);
+    }
   }
 
   const dist = haversineKm({ lat, lng }, center);
   if (dist > REGION_VERIFY_RADIUS_KM) {
     return c.json({
-      error: '내 동네에서 너무 멀어요',
+      error: tr(c, '내 동네에서 너무 멀어요', '設定した地域から離れすぎています'),
       distance_km: Math.round(dist * 10) / 10,
       radius_km: REGION_VERIFY_RADIUS_KM,
     }, 403);
@@ -337,7 +417,7 @@ app.post('/me/verify/identity', authMiddleware, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: '잘못된 요청' }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
 
   const provider = (body.provider || 'dummy').trim().toLowerCase();
@@ -347,49 +427,33 @@ app.post('/me/verify/identity', authMiddleware, async (c) => {
   const phoneHash = (body.phone_hash || '').trim();
 
   if (!ci || ci.length < 8) {
-    return c.json({ error: '인증 토큰이 유효하지 않아요' }, 400);
+    return c.json({ error: tr(c, '인증 토큰이 유효하지 않아요', '認証トークンが無効です') }, 400);
   }
 
   // ── provider 별 검증 ─────────────────────────────────────────────
-  // 실제 SDK 연동 시 각 case 안에서 해당 provider 의 verify API 를 호출.
-  // 현재는 인터페이스만 분리해 두고, dummy 외 케이스는 토큰 형식만 검사.
+  // pass / sms / kisa 는 사업자 서버 검증(SDK 연동)이 아직 없다. 예전에는
+  // 토큰 "형식" 만 보고 Lv1 을 부여해서 아무 문자열로 인증이 통과됐다.
+  // 사업자 검증이 붙기 전까지는 거부한다. 연동 시 각 case 에서 verify API 를
+  // 호출하고 성공했을 때만 break 하도록 바꾼다.
   switch (provider) {
-    case 'pass': {
-      // PASS (이통3사 본인확인) 토큰. 보통 base64-url 형식, 100+ chars.
-      if (ci.length < 32) {
-        return c.json({ error: 'PASS 인증 토큰 형식이 잘못됐어요' }, 400);
-      }
-      if (!nonce) {
-        return c.json({ error: 'PASS 인증 nonce 가 필요해요' }, 400);
-      }
-      // TODO: PASS 사업자 서버에 (ci_token, nonce, tx_id) 검증 요청
-      break;
-    }
-    case 'sms': {
-      // SMS 인증 — CI 가 없는 경우가 많아 ci_token 자리에 phone+otp 해시가 들어옴.
-      // 폰 번호 자체는 절대 받지 않음.
-      if (!phoneHash || phoneHash.length !== 64) {
-        return c.json({ error: 'SMS 인증은 phone_hash(SHA-256) 가 필요해요' }, 400);
-      }
-      break;
-    }
+    case 'pass':
+    case 'sms':
     case 'kisa': {
-      // KISA 본인확인 (NICE/KCB 등). PASS 와 비슷하게 nonce 필수.
-      if (!nonce) {
-        return c.json({ error: 'KISA 인증 nonce 가 필요해요' }, 400);
-      }
-      break;
+      // TODO(pass-sdk): 사업자 서버에 (ci_token, nonce, tx_id) 검증 요청 후 통과 시 break.
+      return c.json(
+        { error: tr(c, '본인인증 서비스를 준비 중이에요. 잠시 후 다시 시도해주세요', '本人確認サービスを準備中です。しばらくしてから再度お試しください'), code: 'provider_not_ready' },
+        503,
+      );
     }
     case 'dummy': {
-      // 개발/시연 모드. 운영 배포에서는 ALLOW_DUMMY_VERIFY=0 으로 차단해야 함.
-      const allow = (c.env as { ALLOW_DUMMY_VERIFY?: string }).ALLOW_DUMMY_VERIFY;
-      if (allow !== '1') {
-        return c.json({ error: '운영 환경에서는 dummy provider 가 허용되지 않아요' }, 403);
+      // 개발/시연 모드. 운영 배포에서는 ALLOW_DUMMY_VERIFY 를 비워 차단.
+      if (c.env.ALLOW_DUMMY_VERIFY !== '1') {
+        return c.json({ error: tr(c, '운영 환경에서는 dummy provider 가 허용되지 않아요', '本番環境では dummy provider は使用できません') }, 403);
       }
       break;
     }
     default:
-      return c.json({ error: '지원하지 않는 인증 사업자에요' }, 400);
+      return c.json({ error: tr(c, '지원하지 않는 인증 사업자에요', '対応していない認証事業者です') }, 400);
   }
 
   // SHA-256(ci) — 식별자 해시
@@ -403,7 +467,7 @@ app.post('/me/verify/identity', authMiddleware, async (c) => {
     .bind(ciHash, me.id)
     .first<{ id: string }>();
   if (dup) {
-    return c.json({ error: '이미 다른 계정에 등록된 본인인증이에요' }, 409);
+    return c.json({ error: tr(c, '이미 다른 계정에 등록된 본인인증이에요', 'この本人確認はすでに別のアカウントで登録されています') }, 409);
   }
 
   const nowIso = new Date().toISOString();
@@ -441,13 +505,14 @@ app.post('/me/verify/identity', authMiddleware, async (c) => {
     console.log('[verify] audit log skipped:', e);
   }
 
+  const verifyBonus = await maybeGrantVerifyBonus(c.env, me.id);
   const user = await c.env.DB
     .prepare('SELECT * FROM users WHERE id = ?')
     .bind(me.id)
     .first<UserRow>();
   if (!user) return c.json({ error: 'User not found' }, 404);
 
-  return c.json({ ok: true, user: sanitize(user), provider });
+  return c.json({ ok: true, user: sanitize(user), provider, verify_bonus: verifyBonus });
 });
 
 /**
@@ -467,20 +532,20 @@ app.post('/me/verify/bank', authMiddleware, async (c) => {
     .bind(me.id)
     .first<{ verification_level: number }>();
   if (!cur || (cur.verification_level ?? 0) < 1) {
-    return c.json({ error: '먼저 본인인증을 완료해주세요' }, 403);
+    return c.json({ error: tr(c, '먼저 본인인증을 완료해주세요', '先に本人確認を完了してください') }, 403);
   }
 
   let body: { bank_code?: string; account_number?: string } = {};
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: '잘못된 요청' }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
 
   const bankCode = (body.bank_code || '').trim();
   const acctNum = (body.account_number || '').trim().replace(/[-\s]/g, '');
   if (!bankCode || !acctNum || acctNum.length < 6) {
-    return c.json({ error: '은행 정보가 유효하지 않아요' }, 400);
+    return c.json({ error: tr(c, '은행 정보가 유효하지 않아요', '銀行情報が正しくありません') }, 400);
   }
 
   const bankHash = await sha256Hex(`${bankCode}:${acctNum}`);
@@ -505,6 +570,309 @@ app.post('/me/verify/bank', authMiddleware, async (c) => {
   if (!user) return c.json({ error: 'User not found' }, 404);
 
   return c.json({ ok: true, user: sanitize(user) });
+});
+
+/**
+ * 로그인한 회원의 지갑 소유 증명 (출금 조건) — src/walletProof.ts 의 purpose='verify'.
+ *
+ * POST /api/users/me/wallet-proof                → 본인 지갑으로 챌린지 발급
+ * POST /api/users/me/wallet-proof/:id/check      → 송금 확인되면 wallet_verified_at 기록
+ *
+ * 가입 때 지갑 인증을 거친 회원은 이미 wallet_verified_at 이 있다. 이전 가입자·
+ * 큐알쳇 로그인으로 만든 계정이 출금 전에 한 번 거친다.
+ */
+app.post('/me/wallet-proof', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+  let body: { wallet_address?: string } = {};
+  try { body = await c.req.json(); } catch { /* 본문 없음 = 등록된 지갑으로 */ }
+  const u = await c.env.DB
+    .prepare('SELECT wallet_address, wallet_verified_at FROM users WHERE id = ?')
+    .bind(me.id)
+    .first<{ wallet_address: string | null; wallet_verified_at: string | null }>();
+  if (!u) return c.json({ error: 'User not found' }, 404);
+  if (u.wallet_address && u.wallet_verified_at) {
+    return c.json({ error: tr(c, '이미 지갑 인증을 마쳤어요', 'ウォレット認証はすでに完了しています'), code: 'already_verified' }, 409);
+  }
+  // 지갑 없이 가입한 회원은 여기서 지갑을 등록한다 (인증이 끝나야 저장됨).
+  // 인증 전 지갑(예전 가입자)도 주소를 바꿔 입력할 수 있다.
+  const input = (body.wallet_address || '').trim();
+  if (input && !isValidWallet(input)) {
+    return c.json({ error: tr(c, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）') }, 400);
+  }
+  const target = (input ? normalizeWallet(input) : u.wallet_address || '').toLowerCase();
+  if (!target) return c.json({ error: tr(c, '지갑주소를 입력해주세요', 'ウォレットアドレスを入力してください'), code: 'wallet_required' }, 400);
+  const holder = await c.env.DB
+    .prepare('SELECT id FROM users WHERE wallet_address = ? COLLATE NOCASE AND id != ?')
+    .bind(target, me.id)
+    .first<{ id: string }>();
+  if (holder) {
+    return c.json(
+      {
+        error: tr(c, '이미 다른 가지 계정에 등록된 지갑이에요. 본인 지갑이라면 '
+          + "'계정 찾기 → 비밀번호 재설정' 에서 지갑 인증으로 그 계정을 되찾을 수 있어요", 'このウォレットはすでに別のEggplantアカウントに登録されています。ご自身のウォレットであれば、「アカウントを探す → パスワード再設定」からウォレット認証でそのアカウントを取り戻せます'),
+        code: 'wallet_taken',
+      },
+      409,
+    );
+  }
+  const created = await createChallenge(
+    c.env, target, 'verify', me.device_uuid, c.req.header('cf-connecting-ip') || '', reqLang(c),
+  );
+  if (!created.ok) return c.json({ error: created.error, code: created.code }, created.status);
+  const row = created.row;
+  return c.json(challengeView(row, c.env));
+});
+
+app.post('/me/wallet-proof/:id/check', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+  const id = c.req.param('id');
+  const r = await checkChallenge(c.env, id, me.device_uuid, reqLang(c));
+  if (!r.ok) return c.json({ verified: false, error: r.error, code: r.code }, r.status);
+
+  const consumed = await consumeChallenge(c.env, id, r.row.wallet_address, 'verify', me.device_uuid);
+  if (!consumed) return c.json({ verified: false, error: tr(c, '인증이 만료됐어요. 다시 진행해주세요', '認証の有効期限が切れました。もう一度お試しください'), code: 'expired' }, 410);
+  // 인증된 지갑을 이 계정에 저장 (지갑 없던 회원은 여기서 처음 등록).
+  // 이미 인증된 지갑이 있으면 바꾸지 않는다.
+  try {
+    const res = await c.env.DB
+      .prepare(
+        `UPDATE users SET wallet_address = ?, wallet_verified_at = datetime('now'), updated_at = datetime('now')
+          WHERE id = ? AND (wallet_verified_at IS NULL OR wallet_address IS NULL)`,
+      )
+      .bind(r.row.wallet_address, me.id)
+      .run();
+    if ((res.meta?.changes ?? 0) !== 1) {
+      return c.json({ verified: false, error: tr(c, '이미 지갑 인증을 마쳤어요', 'ウォレット認証はすでに完了しています'), code: 'already_verified' }, 409);
+    }
+  } catch (e) {
+    if (/UNIQUE/i.test(String((e as Error)?.message || e))) {
+      return c.json({ verified: false, error: tr(c, '이미 다른 가지 계정에 등록된 지갑이에요', 'このウォレットはすでに別のEggplantアカウントに登録されています'), code: 'wallet_taken' }, 409);
+    }
+    throw e;
+  }
+
+  // 1·2단계를 다 마쳤으면 인증 보너스 (+1,000 QTA, 사람 단위 1회).
+  const verifyBonus = await maybeGrantVerifyBonus(c.env, me.id);
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(me.id).first<UserRow>();
+  return c.json({ verified: true, user: user ? sanitize(user) : null, signup_bonus: 0, verify_bonus: verifyBonus });
+});
+
+/**
+ * 1·2단계(지갑 + 휴대폰) 인증을 모두 마쳤으면 +1,000 QTA. 지급한 금액(없으면 0)을 돌려준다.
+ * 사람 단위 1회 — 지갑·전화번호·큐알쳇 계정 중 하나라도 받은 적 있으면 지급 안 함.
+ */
+async function maybeGrantVerifyBonus(env: Env, userId: string): Promise<number> {
+  try {
+    const u = await env.DB
+      .prepare('SELECT wallet_address, wallet_verified_at, verified_at, verified_ci_hash FROM users WHERE id = ?')
+      .bind(userId)
+      .first<{
+        wallet_address: string | null;
+        wallet_verified_at: string | null;
+        verified_at: string | null;
+        verified_ci_hash: string | null;
+      }>();
+    if (!u || !u.wallet_address || !u.wallet_verified_at || !u.verified_at || !u.verified_ci_hash) return 0;
+    const keys = [`wallet:${u.wallet_address.toLowerCase()}`, `phone:${u.verified_ci_hash}`];
+    const q = await linkedQrchatUid(env, userId);
+    if (q) keys.push(`qrchat:${q}`);
+    return (await grantVerifyBonus(env, userId, keys)) ? QTA_VERIFY_BONUS : 0;
+  } catch (e) {
+    console.error('[verify-bonus] failed', e);
+    return 0;
+  }
+}
+
+/** 지갑 등록 전 공통 확인 — 이미 인증했는지, 남이 쓰는 지갑인지. 통과하면 소문자 주소. */
+async function walletTargetFor(
+  env: Env,
+  userId: string,
+  input: string,
+  lang: Lang = 'ko',
+): Promise<{ ok: true; wallet: string } | { ok: false; status: 400 | 404 | 409; error: string; code?: string }> {
+  const u = await env.DB
+    .prepare('SELECT wallet_address, wallet_verified_at FROM users WHERE id = ?')
+    .bind(userId)
+    .first<{ wallet_address: string | null; wallet_verified_at: string | null }>();
+  if (!u) return { ok: false, status: 404, error: 'User not found' };
+  if (u.wallet_address && u.wallet_verified_at) {
+    return { ok: false, status: 409, error: trl(lang, '이미 지갑 인증을 마쳤어요', 'ウォレット認証はすでに完了しています'), code: 'already_verified' };
+  }
+  const raw = (input || '').trim();
+  if (raw && !isValidWallet(raw)) {
+    return { ok: false, status: 400, error: trl(lang, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）'), code: 'bad_wallet' };
+  }
+  const target = (raw ? normalizeWallet(raw) : u.wallet_address || '').toLowerCase();
+  if (!target) return { ok: false, status: 400, error: trl(lang, '지갑주소를 입력해주세요', 'ウォレットアドレスを入力してください'), code: 'wallet_required' };
+  const holder = await env.DB
+    .prepare('SELECT id FROM users WHERE wallet_address = ? COLLATE NOCASE AND id != ?')
+    .bind(target, userId)
+    .first<{ id: string }>();
+  if (holder) {
+    return {
+      ok: false,
+      status: 409,
+      error: trl(lang, '이미 다른 가지 계정에 등록된 지갑이에요. 본인 지갑이라면 '
+        + "'계정 찾기 → 비밀번호 재설정' 에서 지갑 인증으로 그 계정을 되찾을 수 있어요", 'このウォレットはすでに別のEggplantアカウントに登録されています。ご自身のウォレットであれば、「アカウントを探す → パスワード再設定」からウォレット認証でそのアカウントを取り戻せます'),
+      code: 'wallet_taken',
+    };
+  }
+  return { ok: true, wallet: target };
+}
+
+/**
+ * 1단계 지갑 인증 — 본사 지갑이 소수점 6자리 임의 수량을 보내고, 회원이 받은 수량을 입력.
+ *
+ * POST /api/users/me/wallet-receive              body:{ wallet_address } → 송금 요청 (금액은 안 알려줌)
+ * GET  /api/users/me/wallet-receive/:id          → 송금 상태 (queued/sending/sent/failed)
+ * POST /api/users/me/wallet-receive/:id/confirm  body:{ amount } → 맞으면 지갑 등록
+ */
+app.post('/me/wallet-receive', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+  let body: { wallet_address?: string } = {};
+  try { body = await c.req.json(); } catch { /* 본문 없음 = 등록된 지갑으로 */ }
+  const t = await walletTargetFor(c.env, me.id, body.wallet_address || '', reqLang(c));
+  if (!t.ok) return c.json({ error: t.error, code: t.code }, t.status);
+  const r = await createReceiveChallenge(
+    c.env, me.id, me.device_uuid, t.wallet, c.req.header('cf-connecting-ip') || '', reqLang(c),
+  );
+  if (!r.ok) return c.json({ error: r.error, code: r.code }, r.status);
+  // 바로 보내기 시작 (서명에 수 초) — 실패하면 1분 cron 이 다시 시도.
+  if (r.row.send_status === 'queued') {
+    c.executionCtx.waitUntil(processReceiveSends(c.env).catch((e) => console.error('[wallet-receive] tick', e)));
+  }
+  return c.json(receiveView(r.row, c.env));
+});
+
+app.get('/me/wallet-receive/:id', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+  const row = await getReceiveChallenge(c.env, me.id, c.req.param('id'));
+  if (!row) return c.json({ error: tr(c, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません'), code: 'not_found' }, 404);
+  return c.json(receiveView(row, c.env));
+});
+
+app.post('/me/wallet-receive/:id/confirm', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+  let body: { amount?: string | number } = {};
+  try { body = await c.req.json(); } catch { /* 아래에서 형식 오류 */ }
+  const r = await confirmReceive(c.env, me.id, c.req.param('id'), String(body.amount ?? ''), reqLang(c));
+  if (!r.ok) {
+    return c.json({ verified: false, error: r.error, code: r.code, attempts_left: r.attempts_left }, r.status);
+  }
+  try {
+    const res = await c.env.DB
+      .prepare(
+        `UPDATE users SET wallet_address = ?, wallet_verified_at = datetime('now'), updated_at = datetime('now')
+          WHERE id = ? AND (wallet_verified_at IS NULL OR wallet_address IS NULL)`,
+      )
+      .bind(r.row.wallet_address, me.id)
+      .run();
+    if ((res.meta?.changes ?? 0) !== 1) {
+      return c.json({ verified: false, error: tr(c, '이미 지갑 인증을 마쳤어요', 'ウォレット認証はすでに完了しています'), code: 'already_verified' }, 409);
+    }
+  } catch (e) {
+    if (/UNIQUE/i.test(String((e as Error)?.message || e))) {
+      return c.json({ verified: false, error: tr(c, '이미 다른 가지 계정에 등록된 지갑이에요', 'このウォレットはすでに別のEggplantアカウントに登録されています'), code: 'wallet_taken' }, 409);
+    }
+    throw e;
+  }
+  const verifyBonus = await maybeGrantVerifyBonus(c.env, me.id);
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(me.id).first<UserRow>();
+  return c.json({ verified: true, user: user ? sanitize(user) : null, verify_bonus: verifyBonus });
+});
+
+/**
+ * 2단계 휴대폰 인증 — 앱이 Firebase 문자 인증 후 받은 ID 토큰을 보낸다.
+ * 1단계(지갑 인증)를 먼저 마쳐야 한다. 끝나면 +1,000 QTA.
+ *
+ * POST /api/users/me/verify/phone  body:{ id_token }
+ */
+app.post('/me/verify/phone', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+  let body: { id_token?: string } = {};
+  try { body = await c.req.json(); } catch { /* 아래에서 오류 */ }
+  const cur = await c.env.DB
+    .prepare('SELECT wallet_address, wallet_verified_at, verified_at FROM users WHERE id = ?')
+    .bind(me.id)
+    .first<{ wallet_address: string | null; wallet_verified_at: string | null; verified_at: string | null }>();
+  if (!cur) return c.json({ error: 'User not found' }, 404);
+  if (!cur.wallet_address || !cur.wallet_verified_at) {
+    return c.json({ error: tr(c, '1단계 지갑 인증을 먼저 마쳐주세요', '先にステップ1のウォレット認証を完了してください'), code: 'wallet_first' }, 403);
+  }
+  if (cur.verified_at) return c.json({ error: tr(c, '이미 휴대폰 인증을 마쳤어요', '電話番号認証はすでに完了しています'), code: 'already_verified' }, 409);
+  // 번호를 암호화해 보관할 키가 없으면 인증하지 않는다 (평문 저장·추적 불가 상태로 진행 X).
+  if (!(await phoneVaultReady(c.env))) {
+    return c.json({ error: tr(c, '휴대폰 인증을 잠시 쓸 수 없어요. 잠시 후 다시 시도해주세요', '電話番号認証は現在ご利用いただけません。しばらくしてから再度お試しください'), code: 'verify_unavailable' }, 503);
+  }
+
+  let v;
+  try {
+    v = await verifyFirebasePhoneToken(c.env, body.id_token || '');
+  } catch (e) {
+    console.error('[verify/phone] token check failed', e);
+    return c.json({ error: tr(c, '인증 서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요', '認証サーバーに接続できませんでした。しばらくしてから再度お試しください'), code: 'verify_unavailable' }, 502);
+  }
+  if (!v.ok) {
+    return c.json({ error: tr(c, '휴대폰 인증이 확인되지 않았어요. 다시 시도해주세요', '電話番号認証を確認できませんでした。もう一度お試しください'), code: 'invalid_token', reason: v.reason }, 400);
+  }
+
+  if (!isAllowedMobile(v.phone)) {
+    return c.json({
+      error: tr(c, '한국(010)·일본(070/080/090) 휴대폰 번호로만 인증할 수 있어요', '日本(070/080/090)・韓国(010)の携帯電話番号のみ認証できます'),
+      code: 'mobile_only',
+    }, 400);
+  }
+
+  // 같은 번호로 두 계정 인증 불가 (1인 1계정). 해시는 키가 있어야 만들 수 있는 HMAC.
+  // 번호 자체는 암호문으로 phone_vault 에만 — 불법 사용자 추적 때 super_admin 만 복호화.
+  const ciHash = await phoneHash(c.env, v.phone);
+  const phoneEnc = await encryptPhone(c.env, v.phone);
+  const dup = await c.env.DB
+    .prepare('SELECT id FROM users WHERE verified_ci_hash = ? AND id != ?')
+    .bind(ciHash, me.id)
+    .first<{ id: string }>();
+  if (dup) return c.json({ error: tr(c, '이 번호는 이미 다른 가지 계정에서 인증했어요', 'この電話番号はすでに別のEggplantアカウントで認証されています'), code: 'phone_taken' }, 409);
+
+  const nowIso = new Date().toISOString();
+  try {
+    await c.env.DB.batch([
+      c.env.DB
+        .prepare(
+          `UPDATE users
+              SET verification_level = MAX(verification_level, 1),
+                  verified_ci_hash = ?, verified_at = ?, updated_at = datetime('now')
+            WHERE id = ? AND verified_at IS NULL`,
+        )
+        .bind(ciHash, nowIso, me.id),
+      c.env.DB
+        .prepare(
+          `INSERT INTO phone_vault (user_id, phone_enc, phone_hash) VALUES (?, ?, ?)
+             ON CONFLICT(user_id) DO UPDATE SET phone_enc = excluded.phone_enc,
+               phone_hash = excluded.phone_hash, created_at = datetime('now')`,
+        )
+        .bind(me.id, phoneEnc, ciHash),
+    ]);
+  } catch (e) {
+    if (/UNIQUE/i.test(String((e as Error)?.message || e))) {
+      return c.json({ error: tr(c, '이 번호는 이미 다른 가지 계정에서 인증했어요', 'この電話番号はすでに別のEggplantアカウントで認証されています'), code: 'phone_taken' }, 409);
+    }
+    throw e;
+  }
+  try {
+    await c.env.DB
+      .prepare(
+        `INSERT INTO verification_audit (id, user_id, provider, tx_id, phone_hash, created_at)
+         VALUES (?, ?, 'firebase_phone', ?, ?, ?)`,
+      )
+      .bind(crypto.randomUUID(), me.id, v.uid, ciHash, nowIso)
+      .run();
+  } catch (e) {
+    console.log('[verify/phone] audit log skipped:', e);
+  }
+
+  const verifyBonus = await maybeGrantVerifyBonus(c.env, me.id);
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(me.id).first<UserRow>();
+  return c.json({ ok: true, user: user ? sanitize(user) : null, verify_bonus: verifyBonus });
 });
 
 /** SHA-256 hex helper using Web Crypto API. */
@@ -549,6 +917,57 @@ app.get('/me/qta/ledger', authMiddleware, async (c) => {
 
   return c.json({
     balance: userRow?.qta_balance ?? 0,
+    items: (rs.results || []).map((r) => ({
+      amount: r.amount,
+      reason: r.reason,
+      meta: r.meta ? safeJson(r.meta) : null,
+      created_at: r.created_at,
+    })),
+  });
+});
+
+/**
+ * GET /api/users/me/qta/mining?limit=100
+ *
+ * 채굴 내역 (상품 등록 채굴 · 가격 인하/삭제 회수 · 7일 보유 · 둘러보기).
+ * 응답: { total, listing_total, rule: {...}, items: [{amount, reason, meta, created_at}] }
+ */
+app.get('/me/qta/mining', authMiddleware, async (c) => {
+  const me = c.get('user')!;
+  const limit = Math.min(200, parseInt(c.req.query('limit') || '100', 10) || 100);
+  const marks = MINING_REASONS.map(() => '?').join(',');
+  const mrow = await c.env.DB.prepare('SELECT market FROM users WHERE id = ?').bind(me.id).first<{ market: string | null }>();
+  const mk: Market = normalizeMarket(mrow?.market) ?? 'kr';
+
+  const sums = await c.env.DB
+    .prepare(
+      `SELECT COALESCE(SUM(amount), 0) AS total,
+              COALESCE(SUM(CASE WHEN reason LIKE 'listing_reward%' THEN amount ELSE 0 END), 0) AS listing_total
+         FROM qta_ledger WHERE user_id = ? AND reason IN (${marks})`,
+    )
+    .bind(me.id, ...MINING_REASONS)
+    .first<{ total: number; listing_total: number }>();
+
+  const rs = await c.env.DB
+    .prepare(
+      `SELECT amount, reason, meta, created_at FROM qta_ledger
+        WHERE user_id = ? AND reason IN (${marks})
+        ORDER BY created_at DESC LIMIT ?`,
+    )
+    .bind(me.id, ...MINING_REASONS, limit)
+    .all<{ amount: number; reason: string; meta: string | null; created_at: string }>();
+
+  return c.json({
+    total: sums?.total ?? 0,
+    listing_total: sums?.listing_total ?? 0,
+    rule: {
+      currency: MARKET_CURRENCY[mk],
+      money_per_qta: MONEY_PER_QTA[mk],
+      krw_per_qta: QTA_KRW_PER_QTA,
+      percent: QTA_LISTING_REWARD_PERCENT,
+      max_per_listing: QTA_LISTING_REWARD_MAX,
+      max_per_day: QTA_LISTING_REWARD_DAILY_MAX,
+    },
     items: (rs.results || []).map((r) => ({
       amount: r.amount,
       reason: r.reason,
@@ -623,7 +1042,7 @@ app.get('/search', authMiddleware, async (c) => {
   if (!rl.ok) {
     c.header('Retry-After', String(rl.retryAfterSec));
     return c.json(
-      { error: '요청이 너무 많아요. 잠시 후 다시 시도해주세요', retry_after: rl.retryAfterSec },
+      { error: tr(c, '요청이 너무 많아요. 잠시 후 다시 시도해주세요', 'リクエストが多すぎます。しばらくしてから再度お試しください'), retry_after: rl.retryAfterSec },
       429,
     );
   }
@@ -708,14 +1127,24 @@ app.get('/agora/token', authMiddleware, async (c) => {
     .prepare('SELECT wallet_address FROM users WHERE id = ?')
     .bind(me.id)
     .first<{ wallet_address: string | null }>();
-  if (!row || !row.wallet_address) {
-    return c.json(
-      { error: '지갑주소가 등록되지 않은 계정이에요', code: 'no_wallet' },
-      400,
-    );
+  if (!row) return c.json({ error: 'User not found' }, 404);
+
+  // 지갑 없는 회원은 'u_<id>' 로 (chat-hub 의 채널 계산과 같은 규칙)
+  const uid = await walletToAgoraUid(callIdentity(row.wallet_address, me.id));
+
+  // 통화 채널은 'eggplant_call_<lo>_<hi>' (양쪽 지갑의 Agora UID 오름차순).
+  // 요청자 UID 가 채널의 두 참여자 중 하나일 때만 토큰을 준다. 이게 없으면
+  // 공개된 지갑주소로 남의 채널명을 계산해 통화에 끼어들 수 있었다.
+  if (kind === 'rtc') {
+    const m = /^eggplant_call_(\d{1,10})_(\d{1,10})$/.exec(channel);
+    if (!m || (Number(m[1]) !== uid && Number(m[2]) !== uid)) {
+      return c.json(
+        { error: 'not a participant of this channel', code: 'bad_channel' },
+        403,
+      );
+    }
   }
 
-  const uid = await walletToAgoraUid(row.wallet_address);
   const expireAt = Math.floor(Date.now() / 1000) + 3600;
 
   // 캐시 컬럼 갱신 (best-effort, 실패해도 토큰 발급은 진행)

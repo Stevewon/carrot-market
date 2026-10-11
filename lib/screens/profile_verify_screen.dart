@@ -2,24 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app/constants.dart';
+import '../app/l10n.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
-import '../services/verification/identity_provider.dart';
+import 'auth/phone_verify_card.dart';
+import 'auth/wallet_receive_card.dart';
 
 /// 프로필 인증 단계 화면.
 ///
 /// 정책:
-///   Lv0 (none)         : 익명, 둘러보기·채팅·통화·상품등록 가능. 결제·출금 불가.
-///   Lv1 (identity)     : 본인인증 완료. KRW/QTA 결제 가능. QTA 출금 불가.
-///   Lv2 (bankAccount)  : 계좌 등록 완료. QTA → KRW 출금 가능.
+///   가입              : 닉네임·비밀번호만. 둘러보기·채팅·통화·상품등록 가능.
+///   1단계 지갑 인증    : 본사 지갑이 보낸 소수점 6자리 수량을 입력 → 지갑 등록.
+///   2단계 휴대폰 인증  : 문자 인증 (1인 1계정). 1단계를 먼저 마쳐야 한다.
+///   1·2단계 완료      : +1,000 QTA, QTA 결제 거래·출금 가능.
 ///
-/// 본 화면은 현재 더미(UI only)다.
-/// 실제 본인인증 SDK(PASS/SMS) 연동은 추후 작업이며,
-/// 서버에는 본인인증 토큰(CI)의 SHA-256 해시만 저장한다(전화번호 자체는 저장 X).
+/// 서버에는 전화번호를 저장하지 않고 해시만 남긴다.
 class ProfileVerifyScreen extends StatelessWidget {
   const ProfileVerifyScreen({super.key});
+
+  static const int verifyBonus = 1000;
 
   @override
   Widget build(BuildContext context) {
@@ -28,13 +32,15 @@ class ProfileVerifyScreen extends StatelessWidget {
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final lv = user.verificationLevel;
+    final walletDone = user.isWalletVerified;
+    final phoneDone = user.isIdentityVerified;
 
     final bottomInset = MediaQuery.of(context).padding.bottom;
+    final l10n = context.l10n;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('프로필 인증'),
+        title: Text(l10n.authProfileVerifyTitle),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -47,15 +53,14 @@ class ProfileVerifyScreen extends StatelessWidget {
             child: ListView(
               padding: EdgeInsets.fromLTRB(20, 12, 20, bottomInset + 40),
               children: [
-                _CurrentLevelCard(level: lv),
+                _ProgressCard(walletDone: walletDone, phoneDone: phoneDone),
                 const SizedBox(height: 24),
-                const _SectionTitle('인증 단계'),
+                _SectionTitle(l10n.authProfileStepsTitle),
                 const SizedBox(height: 8),
                 _StepCard(
                   step: 0,
-                  title: '익명 가입',
-                  description: '닉네임·지갑주소·비밀번호로 가입하면 자동 완료.\n'
-                      '둘러보기 · 채팅 · 통화 · 상품 등록 가능.',
+                  title: l10n.authProfileStep0Title,
+                  description: l10n.authProfileStep0Desc,
                   achieved: true,
                   actionLabel: null,
                   onAction: null,
@@ -63,56 +68,59 @@ class ProfileVerifyScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 _StepCard(
                   step: 1,
-                  title: '본인 인증',
-                  description: '실명 휴대폰 본인인증을 통해 1인 1계정을 보장.\n'
-                      'KRW · QTA 결제, 상품 구매가 활성화돼요.\n\n'
-                      '⚠️ 휴대폰 번호 자체는 저장하지 않으며, '
-                      '본인인증 토큰(CI)의 SHA-256 해시만 저장됩니다.',
-                  achieved: lv.value >= 1,
-                  actionLabel: lv.value >= 1 ? '완료됨' : '본인 인증 시작',
-                  onAction: lv.value >= 1
+                  title: l10n.authWalletVerifyTitle,
+                  description: l10n.authProfileStep1Desc,
+                  achieved: walletDone,
+                  actionLabel: walletDone ? l10n.authProfileDoneLabel : l10n.authWalletVerifyStart,
+                  onAction: walletDone
                       ? null
-                      : () => _startIdentityVerification(context),
+                      : () => _showSheet(
+                            context,
+                            (close) => WalletReceiveCard(
+                              initialWallet: user.walletAddress ?? '',
+                              onVerified: () => _done(context, close, l10n.authProfileWalletDoneSnack),
+                            ),
+                          ),
                 ),
                 const SizedBox(height: 12),
                 _StepCard(
                   step: 2,
-                  title: '계좌 등록 (출금)',
-                  description: 'QTA → KRW 출금을 위해 본인 명의 계좌를 등록.\n'
-                      '5,000 QTA 단위로 출금 가능 (최소 5,000).\n\n'
-                      '⚠️ 계좌번호 자체는 저장하지 않고 (은행+계좌)의 '
-                      'SHA-256 해시만 저장합니다.',
-                  achieved: lv.value >= 2,
-                  actionLabel: lv.value >= 2
-                      ? '완료됨'
-                      : (lv.value >= 1 ? '계좌 등록' : '본인 인증 후 가능'),
-                  onAction: (lv.value >= 1 && lv.value < 2)
-                      ? () => _showDummyDialog(
+                  title: l10n.authProfileStep2Title,
+                  description: l10n.authProfileStep2Desc +
+                      (walletDone ? '' : '\n\n${l10n.authProfileWalletFirst}'),
+                  achieved: phoneDone,
+                  actionLabel: phoneDone
+                      ? l10n.authProfileDoneLabel
+                      : !AppConfig.identityVerificationEnabled
+                          ? l10n.authProfileComingSoon
+                          : (walletDone ? l10n.authProfilePhoneStart : l10n.authProfileStep1First),
+                  onAction: phoneDone || !walletDone || !AppConfig.identityVerificationEnabled
+                      ? null
+                      : () => _showSheet(
                             context,
-                            title: '계좌 등록',
-                            message: '실서비스에서는 1원 인증 절차가 진행됩니다.\n'
-                                '현재는 더미 화면입니다.',
-                          )
-                      : null,
+                            (close) => PhoneVerifyCard(
+                              onVerified: () => _done(context, close, l10n.authProfilePhoneDoneSnack),
+                            ),
+                          ),
                 ),
+                const SizedBox(height: 12),
+                _BonusBox(done: walletDone && phoneDone),
                 const SizedBox(height: 28),
-                const _SectionTitle('익명성 정책'),
+                _SectionTitle(l10n.authProfilePolicyTitle),
                 const SizedBox(height: 8),
                 _PolicyBox(
                   icon: Icons.chat_bubble_outline,
-                  text: '채팅 / 음성통화는 인증 단계와 무관하게 항상 닉네임만 노출됩니다.',
+                  text: l10n.authProfilePolicy1,
                 ),
                 const SizedBox(height: 8),
                 _PolicyBox(
                   icon: Icons.lock_outline,
-                  text: '본인인증 정보는 거래 자격 확인 용도로만 쓰이며, '
-                      '거래 상대방·다른 사용자에게 절대 노출되지 않습니다.',
+                  text: l10n.authProfilePolicy2,
                 ),
                 const SizedBox(height: 8),
                 _PolicyBox(
                   icon: Icons.shield_moon_outlined,
-                  text: '같은 사람이 여러 계정으로 인증을 통과할 수 없도록 '
-                      'CI 해시에 UNIQUE 제약이 걸립니다.',
+                  text: l10n.authProfilePolicy3,
                 ),
                 const SizedBox(height: 16),
               ],
@@ -123,98 +131,67 @@ class ProfileVerifyScreen extends StatelessWidget {
     );
   }
 
-  void _showDummyDialog(BuildContext context,
-      {required String title, required String message}) {
-    showDialog<void>(
+  /// 인증 카드를 아래 시트로 띄운다. builder 에는 시트를 닫는 함수가 넘어간다.
+  void _showSheet(BuildContext context, Widget Function(VoidCallback close) builder) {
+    showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('확인'),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: builder(() => Navigator.of(ctx).pop()),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  /// 본인인증 시작 핸들러.
-  /// 1) [IdentityProviderRegistry.verifyOrFallback] 으로 PASS/SMS/KISA SDK 호출
-  ///    (SDK 미연결이면 자동 dummy 폴백)
-  /// 2) 결과 페이로드를 [AuthService.verifyIdentity] 로 전송
-  /// 3) 성공 시 verification_level=1 로 갱신, 실패 시 에러 다이얼로그.
-  Future<void> _startIdentityVerification(BuildContext context) async {
+  void _done(BuildContext context, VoidCallback close, String message) {
+    close();
     final auth = context.read<AuthService>();
-
-    // 진행 다이얼로그
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(
-        child: SizedBox(
-          width: 56,
-          height: 56,
-          child: CircularProgressIndicator(color: EggplantColors.primary),
+    final bonus = auth.lastVerifyBonus;
+    auth.lastVerifyBonus = 0;
+    if (bonus > 0) {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(ctx.l10n.authProfileBonusDialogTitle),
+          content: Text(ctx.l10n.authProfileBonusDialogBody('$bonus')),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(ctx.l10n.commonConfirm)),
+          ],
         ),
-      ),
-    );
-
-    String? error;
-    IdentityVerifyResult? result;
-    try {
-      // SDK 호출 (PASS 우선, 실패 시 dummy 폴백). 사용자 취소는 IdentityVerifyCancelled.
-      result = await IdentityProviderRegistry.verifyOrFallback();
-    } on IdentityVerifyCancelled {
-      // 사용자가 SDK 화면에서 취소
-      if (!context.mounted) return;
-      Navigator.of(context, rootNavigator: true).pop(); // close progress
-      return;
-    } catch (e) {
-      error = '본인인증 SDK 오류: $e';
-    }
-
-    // 서버 호출
-    if (result != null) {
-      error = await auth.verifyIdentity(
-        provider: result.provider,
-        ciToken: result.ciToken,
-        nonce: result.nonce,
-        txId: result.txId,
-        phoneHash: result.phoneHash,
       );
-    }
-
-    if (!context.mounted) return;
-    Navigator.of(context, rootNavigator: true).pop(); // close progress
-
-    if (error == null) {
-      _showDummyDialog(context,
-          title: '본인 인증 완료',
-          message: '본인인증이 완료됐어요.\nKRW · QTA 결제와 상품 구매가 활성화됩니다.');
     } else {
-      _showDummyDialog(context, title: '본인 인증 실패', message: error);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 }
 
-class _CurrentLevelCard extends StatelessWidget {
-  final VerificationLevel level;
-  const _CurrentLevelCard({required this.level});
+class _ProgressCard extends StatelessWidget {
+  final bool walletDone;
+  final bool phoneDone;
+  const _ProgressCard({required this.walletDone, required this.phoneDone});
 
   @override
   Widget build(BuildContext context) {
-    final color = level.value == 0
-        ? const Color(0xFF9CA3AF)
-        : level.value == 1
+    final all = walletDone && phoneDone;
+    final color = all
+        ? EggplantColors.primary
+        : walletDone
             ? const Color(0xFF22C55E)
-            : EggplantColors.primary;
-    final icon = level.value == 0
-        ? Icons.person_outline
-        : level.value == 1
-            ? Icons.verified_user_outlined
-            : Icons.account_balance_outlined;
+            : const Color(0xFF9CA3AF);
+    final l10n = context.l10n;
+    final label = all
+        ? l10n.authProfileAllDone
+        : walletDone
+            ? l10n.authProfileStep1Done
+            : l10n.authProfileUnverified;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -231,23 +208,53 @@ class _CurrentLevelCard extends StatelessWidget {
               color: color.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 28),
+            child: Icon(all ? Icons.verified_user_outlined : Icons.person_outline, color: color, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('현재 단계: Lv${level.value}',
+                Text(l10n.authProfileProgress('${(walletDone ? 1 : 0) + (phoneDone ? 1 : 0)}'),
                     style: const TextStyle(
                         fontSize: 13, color: EggplantColors.textSecondary)),
                 const SizedBox(height: 4),
-                Text(level.label,
+                Text(label,
                     style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: color)),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BonusBox extends StatelessWidget {
+  final bool done;
+  const _BonusBox({required this.done});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFED7AA)),
+      ),
+      child: Row(
+        children: [
+          const Text('🎁', style: TextStyle(fontSize: 22)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              done
+                  ? context.l10n.authProfileBonusReceived('${ProfileVerifyScreen.verifyBonus}')
+                  : context.l10n.authProfileBonusPending('${ProfileVerifyScreen.verifyBonus}'),
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, height: 1.4),
             ),
           ),
         ],
@@ -331,7 +338,7 @@ class _StepCard extends StatelessWidget {
                     color: accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text('완료',
+                  child: Text(context.l10n.authProfileDoneBadge,
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -425,14 +432,11 @@ Future<void> showVerificationGuard(
   String? customMessage,
 }) async {
   final needIdentity = required == VerificationLevel.identity;
+  final l10n = context.l10n;
   final title = customTitle ??
-      (needIdentity ? '본인 인증이 필요해요' : '계좌 등록이 필요해요');
+      (needIdentity ? l10n.authGuardPhoneTitle : l10n.authGuardWalletTitle);
   final message = customMessage ??
-      (needIdentity
-          ? '거래(결제)는 1인 1계정 보장을 위해 본인 인증이 필수입니다.\n'
-              '인증해도 채팅·통화는 익명 그대로 유지돼요.'
-          : 'QTA 출금을 위해 본인 명의 계좌 등록이 필요합니다.\n'
-              '본인 인증이 먼저 완료돼야 해요.');
+      (needIdentity ? l10n.authGuardPhoneMessage : l10n.authGuardWalletMessage);
 
   await showModalBottomSheet<void>(
     context: context,
@@ -499,12 +503,12 @@ Future<void> showVerificationGuard(
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text(
-                        '취소',
+                      child: Text(
+                        l10n.commonCancel,
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                             color: EggplantColors.textSecondary,
                             fontWeight: FontWeight.w600),
                       ),
@@ -526,12 +530,12 @@ Future<void> showVerificationGuard(
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text(
-                        '인증하러 가기',
+                      child: Text(
+                        l10n.authGuardGoVerify,
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
                   ),

@@ -34,6 +34,17 @@ object AgoraConfig {
     const val API_BASE_URL: String = "https://api.eggplant.life"
 
     /**
+     * 실제로 호출할 서버 주소 — Flutter 가 setAuth 때 넘겨준 AppConfig.apiBase.
+     * (테스트 빌드가 --dart-define=API_BASE 로 다른 서버를 쓰면 네이티브도 같은 서버로)
+     */
+    fun apiBaseUrl(context: android.content.Context): String {
+        val saved = context.applicationContext
+            .getSharedPreferences(MainActivity.NATIVE_CALL_PREFS, android.content.Context.MODE_PRIVATE)
+            .getString(MainActivity.KEY_API_BASE, null)
+        return if (saved.isNullOrBlank() || !saved.startsWith("https://")) API_BASE_URL else saved.trimEnd('/')
+    }
+
+    /**
      * Agora 토큰 발급 엔드포인트 (Cloudflare Workers)
      */
     const val TOKEN_PATH: String = "/api/users/agora/token"

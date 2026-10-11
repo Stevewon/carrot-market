@@ -207,7 +207,7 @@ object CallNotificationHelper {
             nm.createNotificationChannel(NotificationChannel(
                 INCOMING_CHANNEL_ID, "Incoming Calls", NotificationManager.IMPORTANCE_MAX
             ).apply {
-                description = "Eggplant 수신 통화 (잠금화면 풀스크린 + 벨소리)"
+                description = AppLang.t(context, "Eggplant 수신 통화 (잠금화면 풀스크린 + 벨소리)", "Eggplant 着信（ロック画面フルスクリーン＋着信音）")
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 setBypassDnd(true)
                 enableVibration(true)
@@ -255,7 +255,7 @@ object CallNotificationHelper {
         val answerPi = makeAnswerPendingIntent(context, sessionId, callerId, callerName, callType, callerPhoto, agoraFlag, channelName, walletAddress, callerWallet)
         val rejectPi = makeRejectPendingIntent(context, sessionId, callerId, callerName)
 
-        val typeText = if (callType == "video") "Video Call" else "Voice Call"
+        val typeText = if (callType == "video") AppLang.t(context, "영상통화", "ビデオ通話") else AppLang.t(context, "음성통화", "音声通話")
 
         val builder = NotificationCompat.Builder(context, INCOMING_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.sym_call_incoming)
@@ -292,9 +292,9 @@ object CallNotificationHelper {
         } else {
             // Fallback (Android 11 이하)
             builder.setContentTitle(callerName)
-                .setContentText("$typeText incoming...")
-                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Reject", rejectPi)
-                .addAction(android.R.drawable.sym_call_incoming, "Answer", answerPi)
+                .setContentText(AppLang.t(context, "${typeText}가 왔어요", "${typeText}の着信です"))
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, AppLang.t(context, "거절", "拒否"), rejectPi)
+                .addAction(android.R.drawable.sym_call_incoming, AppLang.t(context, "받기", "応答"), answerPi)
             Log.e("CALL_NOTI", "[CALL_NOTI] legacy heads-up + FSI (sdk=${Build.VERSION.SDK_INT})")
         }
 
@@ -344,35 +344,15 @@ object CallNotificationHelper {
         } else true
         Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] canUseFullScreenIntent=$canUseFsi sdk=${Build.VERSION.SDK_INT}")
 
-        // 권한 거부 상태이면 시스템 설정 이동 알림 발사
+        // 전체 화면 알림 권한이 없으면(Android 14+, 사용자가 끈 경우) 전체 화면은 못 띄운다.
+        //   예전엔 "권한이 필요합니다" 알림만 띄워서 벨은 울리는데 받을 방법이 없었다.
+        //   대신 받기/거절 버튼이 있는 통화 헤드업 알림을 띄운다 (잠금화면에도 표시됨).
         if (!canUseFsi && Build.VERSION.SDK_INT >= 34) {
-            Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] ⚠️ FSI permission DENIED — sending settings deep-link notification")
-            try {
-                val settingsIntent = Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
-                    data = android.net.Uri.parse("package:${context.packageName}")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                val settingsPi = PendingIntent.getActivity(
-                    context, 99, settingsIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                val permissionRequestBuilder = NotificationCompat.Builder(context, INCOMING_CHANNEL_ID)
-                    .setSmallIcon(android.R.drawable.sym_call_incoming)
-                    .setContentTitle("⚠️ 통화 수신 권한이 필요합니다")
-                    .setContentText("$callerName 님으로부터 통화 수신 — 시스템 설정에서 '전체 화면 알림' 권한을 켜주세요")
-                    .setStyle(NotificationCompat.BigTextStyle()
-                        .bigText("Eggplant 가 잠금화면 통화 수신을 표시하려면 '전체 화면 알림' 권한이 필요합니다.\n\n탭하여 시스템 설정에서 권한을 켜주세요. (한 번만 설정하면 다시 묻지 않습니다)"))
-                    .setPriority(NotificationCompat.PRIORITY_MAX)
-                    .setCategory(NotificationCompat.CATEGORY_CALL)
-                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                    .setContentIntent(settingsPi)
-                    .setAutoCancel(true)
-                    .setOngoing(false)
-                nm.notify(INCOMING_NOTIFICATION_ID, permissionRequestBuilder.build())
-                Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] permission-request notification sent (deep-link to ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)")
-            } catch (e: Exception) {
-                Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] permission-request notification FAILED: ${e.message}")
-            }
+            Log.e("CALL_LOCK_REAL", "[CALL_LOCK_REAL] FSI permission denied — falling back to heads-up with answer/reject")
+            showHeadsUpNotification(
+                context, sessionId, callerId, callerName, callType, callerPhoto,
+                agoraFlag, channelName, walletAddress, callerWallet,
+            )
             return // FSI 권한 없으면 send() 시도하지 않음 (의미 없음)
         }
 
@@ -425,11 +405,11 @@ object CallNotificationHelper {
             // 3) 최종 폴백 — plain notification + FSI 첨부 (OS 가 결국 FSI 자동 실행)
             if (!fsiSendOk) {
                 try {
-                    val typeText = if (callType == "video") "Video Call" else "Voice Call"
+                    val typeText = if (callType == "video") AppLang.t(context, "영상통화", "ビデオ通話") else AppLang.t(context, "음성통화", "音声通話")
                     val fallbackBuilder = NotificationCompat.Builder(context, INCOMING_CHANNEL_ID)
                         .setSmallIcon(android.R.drawable.sym_call_incoming)
                         .setContentTitle(callerName)
-                        .setContentText("$typeText incoming...")
+                        .setContentText(AppLang.t(context, "${typeText}가 왔어요", "${typeText}の着信です"))
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setCategory(NotificationCompat.CATEGORY_CALL)
                         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -581,6 +561,18 @@ object CallNotificationHelper {
     //  Ringtone
     // ==================================================
 
+    /**
+     * 벨소리 최대 재생 시간. 발신자는 30초에 자동 취소하므로 그보다 약간 길게.
+     * 취소 신호(FCM/WS)가 어떤 이유로 오지 않아도 벨이 끝없이 울리지 않게 하는 안전장치.
+     */
+    private const val RINGTONE_MAX_MS = 35_000L
+    private var ringtoneAutoStopContext: Context? = null
+    private val ringtoneAutoStop = Runnable {
+        Log.e("CALL_RING", "[CALL_RING] auto-stop after ${RINGTONE_MAX_MS}ms (no answer / cancel lost)")
+        val ctx = ringtoneAutoStopContext
+        if (ctx != null) cleanupIncomingState(ctx) else stopRingtone()
+    }
+
     fun startRingtoneImmediately(context: Context, sessionId: String = "") {
         if (isRingtoneActive) {
             Log.e("CALL_RING", "[CALL_RING] already playing -- skip session=$sessionId")
@@ -589,10 +581,16 @@ object CallNotificationHelper {
         isRingtoneActive = true
         Log.e("CALL_RING", "[CALL_RING] start session=$sessionId")
         mainHandler.post { startRingtoneOnMainThread(context.applicationContext, sessionId) }
+        ringtoneAutoStopContext = context.applicationContext
+        mainHandler.removeCallbacks(ringtoneAutoStop)
+        mainHandler.postDelayed(ringtoneAutoStop, RINGTONE_MAX_MS)
         startVibration(context.applicationContext)
     }
 
     private fun startRingtoneOnMainThread(context: Context, sessionId: String) {
+        // 시작 예약이 실행되기 전에 stopRingtone 이 먼저 불렸으면 시작하지 않는다
+        // (안 그러면 아무도 끄지 않는 벨이 끝없이 울린다 — auto-stop 도 이미 해제됨).
+        if (!isRingtoneActive) return
         stopMediaPlayerOnly()
         try {
             val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -644,6 +642,7 @@ object CallNotificationHelper {
     }
 
     fun stopRingtone() {
+        mainHandler.removeCallbacks(ringtoneAutoStop)
         if (!isRingtoneActive) return
         isRingtoneActive = false
         // 이중 벨소리 제거 — 동기로 즉시 정지 (main thread에서 호출 가능)

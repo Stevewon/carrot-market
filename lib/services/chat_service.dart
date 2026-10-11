@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as ws_status;
 
 import '../app/constants.dart';
+import '../app/l10n.dart';
 import '../models/chat_message.dart';
 import '../models/chat_room.dart';
 import 'auth_service.dart';
@@ -150,7 +151,7 @@ class ChatService extends ChangeNotifier {
     // 쓰면 안 됨. 그 경우엔 '익명' 으로 시작 (peer 응답이 오면 갱신됨).
     final fromPeer = !chatMsg.isMine;
     final peerNickname =
-        fromPeer ? chatMsg.senderNickname : '익명';
+        fromPeer ? chatMsg.senderNickname : L10n.current.chatAnonymous;
     return ChatRoom(
       id: chatMsg.roomId,
       peerId: extracted.peerId,
@@ -180,10 +181,10 @@ class ChatService extends ChangeNotifier {
     if (extracted == null) return null;
     final lastSenderId = rawMsg['last_sender_id']?.toString();
     final lastSenderNickname =
-        rawMsg['last_sender_nickname']?.toString() ?? '익명';
+        rawMsg['last_sender_nickname']?.toString() ?? L10n.current.chatAnonymous;
     // 마지막 sender 가 peer 면 그 닉네임으로, 본인이면 '익명' 시작.
     final peerNickname =
-        (lastSenderId != null && lastSenderId != me) ? lastSenderNickname : '익명';
+        (lastSenderId != null && lastSenderId != me) ? lastSenderNickname : L10n.current.chatAnonymous;
     // 서버는 UTC ISO8601 로 보냄. 반드시 .toLocal() 로 KST(한국시간) 변환.
     final lastAt = DateTime.tryParse(
                 rawMsg['last_message_at']?.toString() ?? '')
@@ -222,7 +223,7 @@ class ChatService extends ChangeNotifier {
     final room = ChatRoom(
       id: roomId,
       peerId: peerUserId,
-      peerNickname: peerNickname ?? '익명',
+      peerNickname: peerNickname ?? L10n.current.chatAnonymous,
       peerMannerScore: 36, // default neutral; server uses *10 scale but for fresh local rooms keep simple
       productId: productId,
       productTitle: productTitle,
@@ -265,12 +266,12 @@ class ChatService extends ChangeNotifier {
 
   /// 가격 제안을 보낸다. 서버 DB 에 저장하지 않고 WS broadcast 만 함.
   Future<String?> sendPriceOffer(String roomId, int price) async {
-    if (price <= 0) return '금액을 입력해주세요';
-    if (auth.user == null) return '로그인이 필요해요';
+    if (price <= 0) return L10n.current.chatEnterAmount;
+    if (auth.user == null) return L10n.current.commonLoginRequired;
     if (!_connected) {
       connect();
       // 재연결 직후 큐에 못 실으면 사용자에게 즉시 알림.
-      return '연결 중이에요. 잠시 후 다시 시도해주세요';
+      return L10n.current.chatReconnecting;
     }
     emit('price_offer', {
       'room_id': roomId,
@@ -286,10 +287,10 @@ class ChatService extends ChangeNotifier {
     if (!['accept', 'reject', 'cancel'].contains(action)) {
       return 'invalid action';
     }
-    if (auth.user == null) return '로그인이 필요해요';
+    if (auth.user == null) return L10n.current.commonLoginRequired;
     if (!_connected) {
       connect();
-      return '연결 중이에요. 잠시 후 다시 시도해주세요';
+      return L10n.current.chatReconnecting;
     }
     // roomId 가 안 들어오면 메모리에서 offerId 로 찾는다.
     String? rid = roomId;
@@ -301,7 +302,7 @@ class ChatService extends ChangeNotifier {
         }
       }
     }
-    if (rid == null) return '대화방을 찾을 수 없어요';
+    if (rid == null) return L10n.current.chatRoomNotFound;
     emit('offer_response', {
       'room_id': rid,
       'offer_id': offerId,
@@ -419,7 +420,7 @@ class ChatService extends ChangeNotifier {
     if (roomId.isEmpty) return;
 
     final now = sentAt ?? DateTime.now();
-    final preview = (text == null || text.isEmpty) ? '새 메시지' : text;
+    final preview = (text == null || text.isEmpty) ? L10n.current.chatNewMessage : text;
 
     var idx = _rooms.indexWhere((r) => r.id == roomId);
     if (idx < 0) {
@@ -428,7 +429,7 @@ class ChatService extends ChangeNotifier {
       if (extracted == null) return; // me 가 roomId 에 없으면 무시.
       final peerNick = (senderNickname != null && senderNickname.isNotEmpty)
           ? senderNickname
-          : '익명';
+          : L10n.current.chatAnonymous;
       _rooms.insert(
         0,
         ChatRoom(
@@ -485,7 +486,7 @@ class ChatService extends ChangeNotifier {
           senderId: senderId,
           senderNickname: (senderNickname != null && senderNickname.isNotEmpty)
               ? senderNickname
-              : '익명',
+              : L10n.current.chatAnonymous,
           text: text,
           type: 'text',
           sentAt: now,
@@ -621,26 +622,36 @@ class ChatService extends ChangeNotifier {
       cancelOnError: false,
     );
 
-    _connected = true;
-    _connecting = false;
-    _reconnectAttempts = 0;
-    _startPing();
-    notifyListeners();
+    // 연결 완료는 핸드셰이크가 끝난 뒤에만 표시한다. 예전엔 여기서 바로
+    // _connected=true + 재시도 횟수 0 으로 만들어서, 서버가 401/403 으로 거절해도
+    // (토큰 만료·정지) "연결됨" 으로 보이고 통화 초대가 그냥 사라졌으며, 백오프가
+    // 늘 1초에 머물러 1초마다 재연결을 시도했다.
+    final ch = _channel!;
+    ch.ready.then((_) {
+      if (!identical(_channel, ch)) return;
+      _connected = true;
+      _connecting = false;
+      _reconnectAttempts = 0;
+      _startPing();
+      notifyListeners();
 
-    // ★ v1.0.158 (2026-05-11): 초기 presence 'foreground' 송신.
-    //   앱 시작 직후 또는 reconnect 직후 호출되는 connect() 시점에
-    //   서버에 즉시 foreground 임을 알려서, 통화 수신 시 서버가
-    //   FCM heads-up push 발송을 건너뛰도록 함 (이중 표시 차단).
-    //
-    //   주의: connect 가 호출되는 시점은 거의 항상 foreground 다
-    //   (백그라운드에서 WebSocket 끊겨도 resume 직후 재연결이므로).
-    //   백그라운드 진입 시점에는 main.dart didChangeAppLifecycleState
-    //   가 'background' 송신.
-    emit('presence_update', {'state': 'foreground'});
+      // presence: 서버가 통화 수신 시 FCM(네이티브 화면) 을 보낼지 결정하는 값.
+      //   백그라운드에서 재연결된 경우까지 'foreground' 로 보내면 FCM 이 생략돼
+      //   전화를 놓친다 → 실제 앱 상태를 보낸다.
+      final fg = WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+      emit('presence_update', {'state': fg ? 'foreground' : 'background'});
 
-    if (_activeRoomId != null) {
-      emit('join_room', {'room_id': _activeRoomId});
-    }
+      if (_activeRoomId != null) {
+        emit('join_room', {'room_id': _activeRoomId});
+      }
+    }).catchError((Object e) {
+      if (!identical(_channel, ch)) return;
+      debugPrint('[chat] handshake failed: $e');
+      _connecting = false;
+      _connected = false;
+      notifyListeners();
+      _scheduleReconnect();
+    });
   }
 
   void _onData(dynamic raw) {
@@ -908,6 +919,9 @@ class ChatService extends ChangeNotifier {
 
   void _scheduleReconnect() {
     if (auth.token == null) return;
+    // 핸드셰이크 실패 시 catchError 와 onDone 이 둘 다 부른다 — 이미 예약돼 있으면 한 번만
+    // (안 그러면 실패 1번에 백오프가 두 단계씩 뛴다).
+    if (_reconnectTimer?.isActive ?? false) return;
     _reconnectTimer?.cancel();
     _reconnectAttempts = (_reconnectAttempts + 1).clamp(1, 6);
     final delay = Duration(seconds: 1 << (_reconnectAttempts - 1));

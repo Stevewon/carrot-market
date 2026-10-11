@@ -180,6 +180,9 @@ export async function sendFcm(
           data: opts.data || {},
           android: {
             priority: 'HIGH',
+            // 통화 신호는 30초가 지나면 의미 없음 — 꺼져 있던 폰이 나중에 켜졌을 때
+            // 이미 끝난 통화가 울리지 않도록 FCM 에서 버리게 한다.
+            ttl: '30s',
             // notification 객체 자체를 보내지 않음 (FCM OS 노티 차단).
           },
         }

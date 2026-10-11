@@ -1,0 +1,17 @@
+{
+  "regionPrefectureSearchHint": "도도부현·시구정촌 이름으로 검색 (예: 渋谷)",
+  "regionCitySearchHint": "{prefecture}의 시구정촌 검색",
+  "@regionCitySearchHint": {
+    "placeholders": {
+      "prefecture": { "type": "String" }
+    }
+  },
+  "regionCityCount": "{count}곳",
+  "@regionCityCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "regionChangePrefecture": "도도부현 다시 선택",
+  "regionNoResults": "검색 결과가 없어요"
+}

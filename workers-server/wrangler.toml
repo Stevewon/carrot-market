@@ -14,6 +14,14 @@ main = "src/index.ts"
 compatibility_date = "2025-01-15"
 compatibility_flags = ["nodejs_compat"]
 
+# 지갑 인증 송금(SPHINCS+ 서명, 수 초 CPU) — Workers Paid 한도 안에서 여유 있게.
+[limits]
+cpu_ms = 60000
+
+# 1분마다 지갑 인증 송금 대기열 처리 (src/walletReceive.ts).
+[triggers]
+crons = ["* * * * *"]
+
 # --------------------------------------------------------------------
 # Custom Domain Routing
 # --------------------------------------------------------------------
@@ -101,3 +109,32 @@ AGORA_APP_ID = "66ee6650c8b244b1941fac87eae3fc9a"
 # --------------------------------------------------------------------
 [observability]
 enabled = true
+
+# --------------------------------------------------------------------
+# 테스트 서버 (운영 데이터와 완전히 분리) — 실기기 테스트용
+#   배포: npx wrangler deploy --env test
+#   주소: https://eggplant-api-test.<계정>.workers.dev
+#   secret 은 운영과 별도: wrangler secret put <NAME> --env test
+# --------------------------------------------------------------------
+[env.test]
+name = "eggplant-api-test"
+workers_dev = true
+
+[[env.test.d1_databases]]
+binding = "DB"
+database_name = "eggplant-db-test"
+database_id = "ce844dfa-f6b2-423e-b1f7-f43db114fcb6"
+migrations_dir = "migrations"
+
+[[env.test.r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "eggplant-uploads-test"
+
+[[env.test.durable_objects.bindings]]
+name = "CHAT_HUB"
+class_name = "ChatHub"
+
+[env.test.vars]
+ENVIRONMENT = "test"
+PUBLIC_UPLOAD_URL = ""
+AGORA_APP_ID = "66ee6650c8b244b1941fac87eae3fc9a"

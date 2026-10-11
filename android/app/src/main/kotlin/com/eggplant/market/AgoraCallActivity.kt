@@ -58,6 +58,9 @@ import io.agora.rtc2.video.VideoCanvas
  */
 class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
 
+    /** 앱 언어(app_market)에 맞춘 문자열 — AppLang 참고 */
+    private fun tr(ko: String, ja: String): String = AppLang.t(this, ko, ja)
+
     companion object {
         private const val TAG = "AGORA_CALL_UI"
 
@@ -72,6 +75,33 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
         const val EXTRA_CHANNEL_NAME = "channelName"
         // ★★★ Eggplant: 본인 지갑 주소 (uid 결정론적 생성용)
         const val EXTRA_WALLET_ADDRESS = "walletAddress"
+
+        /** 네이티브 통화 화면이 떠 있는 동안 true — Dart 가 바쁨 판정·FGS 중복 방지에 사용. */
+        @Volatile
+        var isActive: Boolean = false
+            private set
+
+        @Volatile
+        private var current: java.lang.ref.WeakReference<AgoraCallActivity>? = null
+
+        /** 진행 중 통화 알림의 "종료" 버튼 — Activity 를 새로 띄우지 않고 바로 종료. */
+        fun endFromNotification() {
+            current?.get()?.let { a -> a.runOnUiThread { a.finishCall() } }
+        }
+
+        /**
+         * 발신자가 취소·종료함(FCM call_cancel) — 이 통화 화면이 같은 통화면 닫는다.
+         * 수락 직후 발신자가 채널에 들어오기 전에 끊으면 Agora 이탈 이벤트가 없어,
+         * 예전엔 "응답 대기 중" 화면이 타임아웃까지 남았다.
+         */
+        fun cancelIfSession(sessionId: String) {
+            val a = current?.get() ?: return
+            if (sessionId.isEmpty() || a.sessionId != sessionId) return
+            a.runOnUiThread {
+                a.endSignalSent = true // 상대가 끝낸 것이므로 종료 신호를 되돌려 보내지 않음
+                a.finishCall()
+            }
+        }
 
         /**
          * AgoraCallActivity 시작 헬퍼 — Eggplant 버전.
@@ -161,6 +191,9 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
     private var isRemoteCameraOn = true
     private var callStartedAtMs: Long = 0L
     private var remoteJoined = false
+    // 서버 통화 신호 1회 전송 가드 (CallSignalClient)
+    private var acceptSignalSent = false
+    private var endSignalSent = false
     // 영상통화 스왑 — false=remote 풀스크린/local PIP (기본),
     //   true=local 풀스크린/remote PIP. 메인 화면 탭으로 토글.
     private var isVideoSwapped = false
@@ -201,13 +234,15 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
     private val connectTimeoutRunnable = Runnable {
         if (!remoteJoined) {
             Log.w(TAG, "[AGORA_CALL_UI] connect timeout — remote did not join in 15s")
-            statusText.text = "연결 실패 — 상대방 응답 없음"
+            statusText.text = tr("연결 실패 — 상대방 응답 없음", "接続失敗 — 相手の応答がありません")
             timerHandler.postDelayed({ finishCall() }, 5000)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        isActive = true
+        current = java.lang.ref.WeakReference(this)
 
         // 1. Lock-screen / wake flags (NativeIncomingCallActivity 와 동일 패턴)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -265,7 +300,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
         channelName = intent.getStringExtra(EXTRA_CHANNEL_NAME) ?: ""
         walletAddress = intent.getStringExtra(EXTRA_WALLET_ADDRESS) ?: ""
         callerId = intent.getStringExtra(EXTRA_CALLER_ID) ?: ""
-        callerNickname = intent.getStringExtra(EXTRA_CALLER_NICKNAME) ?: "통화 중"
+        callerNickname = intent.getStringExtra(EXTRA_CALLER_NICKNAME) ?: tr("통화 중", "通話中")
         callType = intent.getStringExtra(EXTRA_CALL_TYPE) ?: "audio"
         callerPhoto = intent.getStringExtra(EXTRA_CALLER_PHOTO) ?: ""
         isIncoming = intent.getBooleanExtra(EXTRA_IS_INCOMING, true)
@@ -306,40 +341,25 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
             "[AGORA_CALL_UI] onCreate sessionLen=${sessionId.length} chLen=${channelName.length} type=$callType isIncoming=$isIncoming eggplantWasAlive=$eggplantWasAlive",
         )
 
-        // CallForegroundService 직접 시작 — Android 15 환경에서 ForegroundService(microphone) 없이는
-        //   화면 OFF + 책상 시나리오에서 OS 가 마이크 캡처를 끊음.
-        try {
-            val audioManager = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
-            // 스피커 상태를 SharedPreferences 에 미리 동기화 (서비스가 acquireAudioFocus 에서 읽음)
-            getSharedPreferences("eggplant_call_audio", MODE_PRIVATE)
-                .edit()
-                .putBoolean("speaker_on", audioManager.isSpeakerphoneOn || callType == "video")
-                .apply()
-            CallForegroundService.start(this, callerNickname, callType)
-            Log.e(TAG, "[AGORA_CALL_UI] CallForegroundService.start() 호출")
-        } catch (e: Exception) {
-            Log.e(TAG, "[AGORA_CALL_UI] CallForegroundService.start FAILED: ${e.message}")
-        }
-
         // 5. Build UI
         buildUi()
 
         // 6. Validate sessionId / channelName — 비었으면 즉시 종료
         if (sessionId.isEmpty()) {
             Log.e(TAG, "[AGORA_CALL_UI] sessionId is empty — finishing")
-            statusText.text = "잘못된 통화 요청"
+            statusText.text = tr("잘못된 통화 요청", "無効な通話リクエストです")
             timerHandler.postDelayed({ finishCall() }, 2000)
             return
         }
         if (channelName.isEmpty()) {
             Log.e(TAG, "[AGORA_CALL_UI] channelName is empty — finishing")
-            statusText.text = "통화 채널 정보 없음"
+            statusText.text = tr("통화 채널 정보 없음", "通話チャンネル情報がありません")
             timerHandler.postDelayed({ finishCall() }, 2000)
             return
         }
         if (walletAddress.isEmpty()) {
             Log.e(TAG, "[AGORA_CALL_UI] walletAddress is empty — finishing (인증 필요)")
-            statusText.text = "로그인 필요"
+            statusText.text = tr("로그인 필요", "ログインが必要です")
             timerHandler.postDelayed({ finishCall() }, 2000)
             return
         }
@@ -351,7 +371,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
             Log.e(TAG, "[AGORA_CALL_UI] RECORD_AUDIO 권한 없음 — 통화 종료")
             Toast.makeText(
                 this,
-                "마이크 권한이 없어 통화할 수 없습니다.\n설정 > 앱 > Eggplant > 권한 에서 허용해 주세요.",
+                tr("마이크 권한이 없어 통화할 수 없습니다.\n설정 > 앱 > Eggplant > 권한 에서 허용해 주세요.", "マイクの権限がないため通話できません。\n設定 > アプリ > Eggplant > 権限 から許可してください。"),
                 Toast.LENGTH_LONG,
             ).show()
             timerHandler.postDelayed({ finishCall() }, 2000)
@@ -364,11 +384,27 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
                 Log.e(TAG, "[AGORA_CALL_UI] CAMERA 권한 없음 — 음성통화로 강등")
                 Toast.makeText(
                     this,
-                    "카메라 권한이 없어 음성통화로 진행합니다.",
+                    tr("카메라 권한이 없어 음성통화로 진행합니다.", "カメラの権限がないため音声通話で続行します。"),
                     Toast.LENGTH_SHORT,
                 ).show()
                 callType = "audio"
             }
+        }
+
+        // CallForegroundService 시작 — 화면 OFF·백그라운드에서도 마이크 유지.
+        //   마이크 권한 확인 "뒤에" 시작한다. 권한 없이 microphone 타입으로
+        //   startForeground 하면 SecurityException → 서비스가 startForeground 를
+        //   못 해 앱이 죽을 수 있었다.
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            // 스피커 상태를 SharedPreferences 에 미리 동기화 (서비스가 acquireAudioFocus 에서 읽음)
+            getSharedPreferences("eggplant_call_audio", MODE_PRIVATE)
+                .edit()
+                .putBoolean("speaker_on", audioManager.isSpeakerphoneOn || callType == "video")
+                .apply()
+            CallForegroundService.start(this, callerNickname, callType)
+        } catch (e: Exception) {
+            Log.e(TAG, "[AGORA_CALL_UI] CallForegroundService.start FAILED: ${e.message}")
         }
 
         startCallFlow()
@@ -378,8 +414,9 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
      * 권한 확보 후 실제 Agora 채널 입장.
      */
     private fun startCallFlow() {
-        statusText.text = "연결 중..."
-        AgoraCallManager.init(applicationContext)
+        statusText.text = tr("연결 중...", "接続中…")
+        // 엔진은 joinCall 이 서버 토큰의 app_id 로 만든다 (여기서 기본 App ID 로 먼저 만들면
+        // 곧바로 다시 만들어야 해서 지연·ANR 위험).
 
         // ★★★ Eggplant: channelName + walletAddress 를 직접 전달
         AgoraCallManager.joinCall(
@@ -401,8 +438,10 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
             if (isSpeakerOn) Color.parseColor("#1976D2") else Color.parseColor("#444444"),
         )
 
-        // 15초 안에 상대가 들어오지 않으면 실패 처리
-        connectTimeoutHandler.postDelayed(connectTimeoutRunnable, 15000)
+        // 토큰 발급·채널 입장까지 포함한 전체 안전 타임아웃. 입장에 성공하면
+        // onJoinedChannel 에서 "상대 입장 대기" 30초로 다시 건다 (발신자는 수락 신호를
+        // 받은 뒤 토큰·입장을 하므로 4G 에서 15초는 빠듯했다).
+        connectTimeoutHandler.postDelayed(connectTimeoutRunnable, 45000)
 
         // 발신측이면 발신음(ringback "뚜루루") 재생
         //   Eggplant v1.0.142: A1 정책으로 발신측은 Flutter CallScreen 사용 → isIncoming 항상 true
@@ -456,7 +495,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
         if (!camGranted) {
             Toast.makeText(
                 this,
-                "카메라 권한이 없습니다.\n설정 > 앱 > Eggplant > 권한 에서 카메라를 허용해 주세요.",
+                tr("카메라 권한이 없습니다.\n설정 > 앱 > Eggplant > 권한 에서 카메라를 허용해 주세요.", "カメラの権限がありません。\n設定 > アプリ > Eggplant > 権限 からカメラを許可してください。"),
                 Toast.LENGTH_LONG,
             ).show()
             return
@@ -470,7 +509,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
             AgoraCallManager.upgradeToVideo(notifyPeer = true)
         } catch (e: Exception) {
             Log.e(TAG, "[AGORA_CALL_UI] upgradeToVideo engine call failed: ${e.message}")
-            Toast.makeText(this, "영상통화 전환에 실패했습니다.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, tr("영상통화 전환에 실패했습니다.", "ビデオ通話への切替に失敗しました。"), Toast.LENGTH_SHORT).show()
             callType = "audio" // 롤백
             return
         }
@@ -532,7 +571,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
 
                         val camResult = makeControlButton(
                             emoji = "📹",
-                            labelText = "카메라",
+                            labelText = tr("카메라", "カメラ"),
                             bgColor = Color.parseColor("#444444"),
                         ) {
                             applyLocalCameraState(!isCameraOn)
@@ -543,7 +582,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
 
                         val switchResult = makeControlButton(
                             emoji = "🔄",
-                            labelText = "전환",
+                            labelText = tr("전환", "切替"),
                             bgColor = Color.parseColor("#444444"),
                         ) {
                             AgoraCallManager.switchCamera()
@@ -560,9 +599,9 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
             applySpeakerRouting(true)
             setIconBgColor(speakerIcon, Color.parseColor("#1976D2"))
 
-            statusText.text = if (remoteJoined) "영상 통화 중" else "영상 연결 중..."
+            statusText.text = if (remoteJoined) tr("영상 통화 중", "ビデオ通話中") else tr("영상 연결 중...", "ビデオ接続中…")
             if (showToast) {
-                Toast.makeText(this, "영상통화로 전환되었습니다.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, tr("영상통화로 전환되었습니다.", "ビデオ通話に切り替えました。"), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -623,7 +662,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
         topInfo.addView(nameText)
 
         statusText = TextView(this).apply {
-            text = "연결 중..."
+            text = tr("연결 중...", "接続中…")
             setTextColor(Color.parseColor("#CCCCCC"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             gravity = Gravity.CENTER
@@ -706,7 +745,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
         // ── 음소거 ──
         val muteResult = makeControlButton(
             emoji = "🎤",
-            labelText = "음소거",
+            labelText = tr("음소거", "ミュート"),
             bgColor = Color.parseColor("#444444"),
         ) {
             isMuted = !isMuted
@@ -724,7 +763,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
         // ── 스피커 ──
         val spkResult = makeControlButton(
             emoji = "🔊",
-            labelText = "스피커",
+            labelText = tr("스피커", "スピーカー"),
             bgColor = Color.parseColor("#444444"),
         ) {
             isSpeakerOn = !isSpeakerOn
@@ -743,7 +782,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
         if (callType == "video") {
             val camResult = makeControlButton(
                 emoji = "📹",
-                labelText = "카메라",
+                labelText = tr("카메라", "カメラ"),
                 bgColor = Color.parseColor("#444444"),
             ) {
                 applyLocalCameraState(!isCameraOn)
@@ -754,7 +793,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
 
             val switchResult = makeControlButton(
                 emoji = "🔄",
-                labelText = "전환",
+                labelText = tr("전환", "切替"),
                 bgColor = Color.parseColor("#444444"),
             ) {
                 AgoraCallManager.switchCamera()
@@ -767,7 +806,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
         if (callType == "audio") {
             val upgradeResult = makeControlButton(
                 emoji = "📹",
-                labelText = "영상전환",
+                labelText = tr("영상전환", "ビデオ"),
                 bgColor = Color.parseColor("#444444"),
             ) {
                 upgradeAudioToVideo()
@@ -779,7 +818,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
         // ── 통화 종료 ──
         val endResult = makeControlButton(
             emoji = "📞",
-            labelText = "끊기",
+            labelText = tr("끊기", "終了"),
             bgColor = Color.parseColor("#E53935"),
         ) {
             finishCall()
@@ -971,8 +1010,23 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
     // ===================================================================
     override fun onJoinedChannel(channel: String, uid: Int) {
         Log.d(TAG, "[AGORA_CALL_UI] joined channel uid=$uid")
+        // 수신자: 채널 입장에 성공한 뒤에만 발신자에게 "수락" 을 보낸다
+        //   (실패했는데 수락을 보내면 발신자는 무음 통화를 기다리게 됨).
+        if (isIncoming && !acceptSignalSent) {
+            acceptSignalSent = true
+            CallSignalClient.sendResponse(this, sessionId, callerId, accepted = true)
+        }
         runOnUiThread {
-            statusText.text = "상대방 응답 대기 중..."
+            // 엔진이 이제 막 생겼으므로 기본 라우팅(음성=수화기)을 다시 적용.
+            applySpeakerRouting(isSpeakerOn)
+            // 입장 성공 → 상대 입장 대기 30초로 다시 건다.
+            if (!remoteJoined) {
+                connectTimeoutHandler.removeCallbacks(connectTimeoutRunnable)
+                connectTimeoutHandler.postDelayed(connectTimeoutRunnable, 30000)
+            }
+        }
+        runOnUiThread {
+            statusText.text = tr("상대방 응답 대기 중...", "相手の応答を待っています…")
             if (callType == "video") {
                 localVideoContainer.post { setupLocalVideoView() }
             }
@@ -993,7 +1047,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
         }
 
         runOnUiThread {
-            statusText.text = if (callType == "video") "영상 통화 중" else "통화 중"
+            statusText.text = if (callType == "video") tr("영상 통화 중", "ビデオ通話中") else tr("통화 중", "通話中")
             callStartedAtMs = System.currentTimeMillis()
             timerHandler.post(timerRunnable)
             if (callType == "video") {
@@ -1028,15 +1082,17 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
     override fun onRemoteUserLeft(uid: Int, reason: Int) {
         Log.d(TAG, "[AGORA_CALL_UI] remote left uid=$uid reason=$reason")
         runOnUiThread {
-            statusText.text = "통화 종료됨"
+            statusText.text = tr("통화 종료됨", "通話終了")
             timerHandler.postDelayed({ finishCall() }, 1500)
         }
     }
 
     override fun onCallError(code: Int, msg: String) {
         Log.e(TAG, "[AGORA_CALL_UI] error code=$code msg=$msg")
+        // 원인 코드는 로그로만 남기고, 화면에는 사용자용 문구만 (예전엔 "오류: Token
+        // endpoint HTTP 403" 같은 내부 메시지가 그대로 보였다).
         runOnUiThread {
-            statusText.text = "오류: $msg"
+            statusText.text = tr("통화를 연결하지 못했어요", "接続に失敗しました")
             timerHandler.postDelayed({ finishCall() }, 2500)
         }
     }
@@ -1044,7 +1100,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
     override fun onConnectionLost() {
         Log.w(TAG, "[AGORA_CALL_UI] connection lost")
         runOnUiThread {
-            statusText.text = "연결 끊김 — 재연결 중..."
+            statusText.text = tr("연결 끊김 — 재연결 중...", "接続が切れました — 再接続中…")
         }
     }
 
@@ -1080,7 +1136,7 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
             runOnUiThread {
                 Toast.makeText(
                     this,
-                    "상대방이 영상통화로 전환했습니다.\n카메라 권한이 없어 본인 영상은 송출되지 않습니다.",
+                    tr("상대방이 영상통화로 전환했습니다.\n카메라 권한이 없어 본인 영상은 송출되지 않습니다.", "相手がビデオ通話に切り替えました。\nカメラの権限がないため、あなたの映像は送信されません。"),
                     Toast.LENGTH_LONG,
                 ).show()
             }
@@ -1104,7 +1160,16 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
     // End call
     // ===================================================================
     private fun finishCall() {
+        // 지연 예약(postDelayed)된 종료가 이미 닫힌 화면에서 다시 실행되는 것 방지.
+        if (isFinishing || isDestroyed) return
         Log.d(TAG, "[AGORA_CALL_UI] finishCall")
+        // 수신자 쪽에서 끝난 경우(직접 끊기, 연결 실패, 알림 "종료") 발신자에게 종료 신호.
+        //   발신자가 아직 신호음을 듣고 있거나 채널 입장 전이면 Agora 이탈 이벤트를
+        //   못 받으므로 서버 신호가 필요하다. 상대가 먼저 나간 경우에도 중복은 무해.
+        if (isIncoming && !endSignalSent && sessionId.isNotEmpty() && callerId.isNotEmpty()) {
+            endSignalSent = true
+            CallSignalClient.sendEnd(this, sessionId, callerId)
+        }
         stopRingback()
         try {
             AgoraCallManager.endCall()
@@ -1158,6 +1223,15 @@ class AgoraCallActivity : Activity(), AgoraCallManager.CallListener {
 
     override fun onDestroy() {
         super.onDestroy()
+        isActive = false
+        if (current?.get() === this) current = null
+        // 수락 진행 표시 해제 — 다음 수신 전화의 화면이 정상적으로 뜨도록.
+        MainActivity.nativeAnswerInProgress = false
+        // 예약된 종료·상태 갱신 람다 전부 제거 (종료 후 다시 실행되지 않게).
+        timerHandler.removeCallbacksAndMessages(null)
+        connectTimeoutHandler.removeCallbacksAndMessages(null)
+        // 엔진을 통화 단위로 해제 — 같은 프로세스의 다음 Flutter 통화와 충돌 방지.
+        AgoraCallManager.releaseEngine()
         stopRingback()
         try {
             wakeLock?.release()

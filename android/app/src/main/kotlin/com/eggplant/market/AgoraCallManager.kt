@@ -98,37 +98,49 @@ object AgoraCallManager {
      * RtcEngine 초기화 (앱 시작 시 1회 호출 또는 통화 직전 lazy 호출)
      */
     @Synchronized
-    fun init(context: Context) {
-        if (rtcEngine != null) return
+    fun init(context: Context, appId: String = AgoraConfig.APP_ID) {
+        appContext = context.applicationContext
+        if (rtcEngine != null && engineAppId == appId) return
+        if (rtcEngine != null) {
+            // 서버가 다른 App ID(예: Eggplant 전용 프로젝트)로 토큰을 발급했으면
+            // 그 App ID 로 엔진을 다시 만든다. 다르면 모든 통화가 invalidToken 으로 실패.
+            Log.e(TAG, "[AGORA_CALL] appId changed → recreate engine")
+            try { RtcEngine.destroy() } catch (_: Exception) {}
+            rtcEngine = null
+            dataStreamId = -1
+        }
 
         try {
             val config = RtcEngineConfig().apply {
                 mContext = context.applicationContext
-                mAppId = AgoraConfig.APP_ID
+                mAppId = appId
                 mEventHandler = engineEventHandler
             }
             rtcEngine = RtcEngine.create(config)
+            engineAppId = appId
             Log.d(TAG, "[AGORA_CALL] RtcEngine initialized")
         } catch (e: Exception) {
             Log.e(TAG, "[AGORA_CALL] RtcEngine init failed: ${e.message}")
         }
     }
 
+    /** 엔진을 만든 App ID — 서버 토큰의 app_id 와 다르면 재생성. */
+    @Volatile
+    private var engineAppId: String? = null
+
+    /** 토큰 갱신용 (onTokenPrivilegeWillExpire 에서 서버 재요청). */
+    @Volatile
+    private var appContext: Context? = null
+
     /**
      * 채널 입장 (통화 시작) — Eggplant 버전
      *
-     * 큐알쳇 원본과 차이점:
-     *   - channelName 을 파라미터로 직접 수신 (sortedWalletPair 기반, FCM 에서 추출)
+     *   - channelName: 양쪽 지갑의 Agora UID 오름차순 (eggplant_call_<lo>_<hi>)
      *   - walletAddress 로부터 결정론적 uid 생성 (양 피어 동일 알고리즘)
      *   - sessionId 는 통화 추적/검증용으로만 보관 (Agora 채널명에는 사용 안 함)
-     *
-     * @param context Application context
-     * @param sessionId 통화 세션 UUID (양쪽 동일, 추적용)
-     * @param channelName Agora 채널명 (eggplant_call_<sortedLowerWalletPair>)
-     * @param walletAddress 본인 지갑 주소 (uid 생성용)
-     * @param callType "audio" or "video"
-     * @param listener 통화 상태 콜백
+     *   - 토큰 응답의 app_id 로 엔진을 맞춘 뒤 입장
      */
+    @Synchronized
     fun joinCall(
         context: Context,
         sessionId: String,
@@ -141,13 +153,6 @@ object AgoraCallManager {
         if (currentSessionId != null) {
             Log.w(TAG, "[AGORA_CALL] previous call still active, ending first")
             endCallInternal()
-        }
-
-        init(context)
-        val engine = rtcEngine ?: run {
-            Log.e(TAG, "[AGORA_CALL] engine is null after init")
-            listener.onCallError(-1, "Engine init failed")
-            return
         }
 
         // ★★★ Eggplant: walletAddress → 결정론적 uid (양 피어 동일 알고리즘, 서버 walletToAgoraUid 와 일치)
@@ -164,30 +169,35 @@ object AgoraCallManager {
             "[AGORA_CALL] joinCall sessionLen=${sessionId.length} chLen=${channelName.length} uid=$uid type=$callType",
         )
 
-        // 영상통화면 비디오 활성화, 아니면 음성만
-        if (callType == "video") {
-            engine.enableVideo()
-            // enableVideo() 직후 startPreview() 즉시 호출
-            //   발신자 카메라가 검정으로 나오는 문제 방지 — joinChannel 전에 startPreview() 가
-            //   호출되어야 카메라 캡처가 시작됨.
-            try {
-                engine.startPreview()
-                Log.d(TAG, "[AGORA_CALL] startPreview ok")
-            } catch (e: Exception) {
-                Log.e(TAG, "[AGORA_CALL] startPreview failed: ${e.message}")
-            }
-        } else {
-            engine.disableVideo()
-        }
-        engine.enableAudio()
-        engine.setDefaultAudioRoutetoSpeakerphone(callType == "video")
-
-        // 토큰 발급 후 채널 입장
+        // 토큰 발급 → (필요하면 엔진 재생성) → 설정 → 채널 입장
         activeJob = managerScope.launch {
             try {
                 // ★★★ Eggplant: kind="rtc" (Workers /api/users/agora/token?kind=rtc&uid=N&channel=C)
                 val tokenResult = AgoraTokenService.fetchToken(context, channelName, uid, "rtc")
                 currentToken = tokenResult.token
+
+                init(context, tokenResult.appId.ifBlank { AgoraConfig.APP_ID })
+                val engine = rtcEngine ?: run {
+                    Log.e(TAG, "[AGORA_CALL] engine is null after init")
+                    listener.onCallError(-1, "Engine init failed")
+                    cleanupState()
+                    return@launch
+                }
+
+                // 영상통화면 비디오 활성화, 아니면 음성만
+                if (callType == "video") {
+                    engine.enableVideo()
+                    // joinChannel 전에 startPreview() — 발신자 카메라 검정 화면 방지
+                    try {
+                        engine.startPreview()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "[AGORA_CALL] startPreview failed: ${e.message}")
+                    }
+                } else {
+                    engine.disableVideo()
+                }
+                engine.enableAudio()
+                engine.setDefaultAudioRoutetoSpeakerphone(callType == "video")
 
                 val options = ChannelMediaOptions().apply {
                     autoSubscribeAudio = true
@@ -204,13 +214,75 @@ object AgoraCallManager {
                     listener.onCallError(ret, "joinChannel returned $ret")
                     cleanupState()
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // 토큰 발급 중에 사용자가 끊음(endCall → job cancel) — 오류가 아니다.
+                // 여기서 onCallError/cleanupState 를 부르면 이미 닫힌 화면에 종료가 또 예약되고
+                // 다음 통화 상태까지 지울 수 있다.
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "[AGORA_CALL] token/join failed: ${e.message}")
-                listener.onCallError(-2, e.message ?: "Token fetch failed")
-                cleanupState()
+                if (currentSessionId == sessionId) {
+                    listener.onCallError(-2, e.message ?: "Token fetch failed")
+                    cleanupState()
+                }
             }
         }
     }
+
+    /**
+     * 통화가 끝나면 엔진을 완전히 해제한다. Agora 는 프로세스당 엔진 1개라, 네이티브
+     * 엔진이 남아 있으면 같은 프로세스에서 이어지는 Flutter 통화(Dart 엔진)가 초기화·
+     * 입장에 실패할 수 있다. destroy 는 수백 ms 걸리므로 백그라운드 스레드에서.
+     */
+    fun releaseEngine() {
+        val engine: RtcEngine?
+        synchronized(this) {
+            endCallInternal()
+            engine = rtcEngine
+            rtcEngine = null
+            engineAppId = null
+            dataStreamId = -1
+        }
+        if (engine == null) return
+        Thread {
+            try {
+                RtcEngine.destroy()
+                Log.d(TAG, "[AGORA_CALL] engine released")
+            } catch (e: Exception) {
+                Log.e(TAG, "[AGORA_CALL] engine release failed: ${e.message}")
+            }
+        }.start()
+    }
+
+    /**
+     * 토큰 만료 30초 전(onTokenPrivilegeWillExpire) — 새 토큰을 받아 갱신.
+     * 없으면 1시간(토큰 TTL)에 통화가 끊긴다.
+     */
+    private fun renewTokenAsync() {
+        val ctx = appContext ?: return
+        val channel = currentChannelName ?: return
+        val uid = currentUid
+        managerScope.launch {
+            try {
+                val r = AgoraTokenService.fetchToken(ctx, channel, uid, "rtc")
+                if (currentChannelName == channel) {
+                    currentToken = r.token
+                    val ret = rtcEngine?.renewToken(r.token)
+                    Log.d(TAG, "[AGORA_CALL] token renewed ret=$ret")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "[AGORA_CALL] token renew failed: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * 통화를 끝내야 하는 치명적 오류만. 나머지(일시적 네트워크·장치 경고 등)는
+     * 로그만 남긴다 — 예전엔 onError 전부를 통화 종료로 처리했다.
+     *   17 JOIN_CHANNEL_REJECTED, 101 INVALID_APP_ID, 102 INVALID_CHANNEL_NAME,
+     *   109 TOKEN_EXPIRED, 110 INVALID_TOKEN
+     */
+    private val FATAL_ERRORS = setOf(17, 101, 102, 109, 110)
 
     /**
      * 채널 퇴장 (통화 종료)
@@ -465,7 +537,14 @@ object AgoraCallManager {
 
         override fun onError(err: Int) {
             Log.e(TAG, "[AGORA_CALL] error code=$err")
-            currentListener?.onCallError(err, "Agora error $err")
+            if (err in FATAL_ERRORS) {
+                currentListener?.onCallError(err, "Agora error $err")
+            }
+        }
+
+        override fun onTokenPrivilegeWillExpire(token: String?) {
+            Log.d(TAG, "[AGORA_CALL] token will expire — renewing")
+            renewTokenAsync()
         }
 
         override fun onConnectionLost() {

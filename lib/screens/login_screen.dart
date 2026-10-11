@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
@@ -27,6 +28,17 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   bool _obscure = true;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // 강제 로그아웃(계정 정지 등) 사유가 있으면 한 번 보여준다.
+    final auth = context.read<AuthService>();
+    if (auth.logoutNotice != null) {
+      _error = auth.logoutNotice;
+      auth.logoutNotice = null;
+    }
+  }
 
   @override
   void dispose() {
@@ -59,10 +71,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } on TimeoutException {
       if (!mounted) return;
-      setState(() => _error = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐');
+      setState(() => _error = context.l10n.authServerSlow);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = '로그인 중 문제가 생겼어요. 다시 시도해주세요.');
+      setState(() => _error = context.l10n.authLoginFailed);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -70,6 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -89,9 +102,9 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 12),
-                const Text(
-                  '로그인',
-                  style: TextStyle(
+                Text(
+                  l10n.authLoginTitle,
+                  style: const TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
                     color: EggplantColors.textPrimary,
@@ -99,9 +112,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  '닉네임과 비밀번호로 로그인하세요.',
-                  style: TextStyle(
+                Text(
+                  l10n.authLoginDesc,
+                  style: const TextStyle(
                     fontSize: 14,
                     color: EggplantColors.textSecondary,
                     height: 1.5,
@@ -109,16 +122,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                const FieldLabel('닉네임'),
+                FieldLabel(l10n.authNicknameLabel),
                 TextFormField(
                   controller: _nicknameCtl,
                   autocorrect: false,
                   enableSuggestions: false,
                   maxLength: 12,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    hintText: '가입할 때 설정한 닉네임',
-                    prefixIcon: Icon(
+                  decoration: InputDecoration(
+                    hintText: l10n.authLoginNicknameHint,
+                    prefixIcon: const Icon(
                       Icons.person_outline,
                       color: EggplantColors.primary,
                     ),
@@ -126,14 +139,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   validator: (v) {
                     final s = (v ?? '').trim();
-                    if (s.isEmpty) return '닉네임을 입력해주세요';
+                    if (s.isEmpty) return l10n.authNicknameRequired;
                     return null;
                   },
                 ),
 
                 const SizedBox(height: 20),
 
-                const FieldLabel('비밀번호'),
+                FieldLabel(l10n.authPasswordLabel),
                 TextFormField(
                   controller: _passwordCtl,
                   obscureText: _obscure,
@@ -142,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _submit(),
                   decoration: InputDecoration(
-                    hintText: '8자 이상',
+                    hintText: l10n.authMin8,
                     prefixIcon: const Icon(Icons.lock_outline,
                         color: EggplantColors.primary),
                     suffixIcon: IconButton(
@@ -153,7 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   validator: (v) {
-                    if (v == null || v.isEmpty) return '비밀번호를 입력해주세요';
+                    if (v == null || v.isEmpty) return l10n.authPasswordRequired;
                     return null;
                   },
                 ),
@@ -175,13 +188,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 4),
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Text(
-                            '로그인',
+                            l10n.authLoginButton,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 16),
+                            style: const TextStyle(fontSize: 16),
                           ),
                         ),
                 ),
@@ -192,11 +205,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     TextButton(
                       onPressed: () => context.push('/find'),
-                      child: const Text(
-                        '닉네임 / 비밀번호 찾기',
+                      child: Text(
+                        l10n.authFindNicknamePassword,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: EggplantColors.textSecondary,
                           fontSize: 13,
                         ),
@@ -207,11 +220,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             TextStyle(color: EggplantColors.textTertiary)),
                     TextButton(
                       onPressed: () => context.push('/register'),
-                      child: const Text(
-                        '회원가입',
+                      child: Text(
+                        l10n.authRegisterTitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: EggplantColors.primary,
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -228,16 +241,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: EggplantColors.background,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.shield_outlined,
+                      const Icon(Icons.shield_outlined,
                           color: EggplantColors.primary, size: 18),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '다른 기기에서 같은 계정으로 로그인하면 '
-                          '이전 기기의 세션은 즉시 종료돼요.',
-                          style: TextStyle(
+                          l10n.authSessionInfo,
+                          style: const TextStyle(
                             fontSize: 12,
                             color: EggplantColors.textSecondary,
                             height: 1.5,

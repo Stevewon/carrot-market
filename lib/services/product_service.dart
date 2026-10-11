@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../app/l10n.dart';
 import '../models/product.dart';
 import '../models/review.dart';
 import 'auth_service.dart';
@@ -28,6 +29,10 @@ class ProductService extends ChangeNotifier {
 
   List<Product> get products => _products;
   bool get loading => _loading;
+
+  /// 마지막 피드 로드 실패 문구 (성공하면 null). 실패를 "상품 없음" 과 구분해서 보여준다.
+  String? _loadError;
+  String? get loadError => _loadError;
   String get currentCategory => _currentCategory;
 
   List<Product> get myLikes => _myLikes;
@@ -73,9 +78,11 @@ class ProductService extends ChangeNotifier {
           .map((e) => Product.fromJson(e as Map<String, dynamic>))
           .toList();
       _products = list;
+      _loadError = null;
     } catch (e) {
       debugPrint('fetchProducts error: $e');
       _products = [];
+      _loadError = _serverError(e) ?? L10n.current.productLoadFailed;
     } finally {
       _loading = false;
       notifyListeners();
@@ -103,6 +110,12 @@ class ProductService extends ChangeNotifier {
   void setMiningUpdateCallback(void Function(Map<String, dynamic>)? cb) {
     _onMiningUpdate = cb;
   }
+
+  /// 마지막 상품 등록으로 채굴된 QTA (등록 가격의 10%, 1 QTA = 10원).
+  int lastListingReward = 0;
+
+  /// 마지막 상품 삭제로 차감된 등록 채굴 QTA.
+  int lastListingClawback = 0;
 
   Future<String?> createProduct({
     required String title,
@@ -157,6 +170,9 @@ class ProductService extends ChangeNotifier {
         ),
       );
       if (res.statusCode == 200 || res.statusCode == 201) {
+        lastListingReward = (res.data is Map)
+            ? ((res.data['listing_reward'] as num?)?.toInt() ?? 0)
+            : 0;
         // Refresh caches so new product shows up on the feed and on
         // "내가 판매중인 상품" immediately.
         // Fire-and-forget; UI has already navigated away.
@@ -168,10 +184,10 @@ class ProductService extends ChangeNotifier {
         fetchMyProducts(silent: true);
         return null; // success
       }
-      return res.data?['error']?.toString() ?? '등록 실패';
+      return res.data?['error']?.toString() ?? L10n.current.productCreateFailed;
     } catch (e) {
       debugPrint('createProduct error: $e');
-      return '등록 실패: $e';
+      return _serverError(e) ?? L10n.current.productCreateFailedRetry;
     }
   }
 
@@ -271,7 +287,7 @@ class ProductService extends ChangeNotifier {
         _myLikesLoaded = true;
         dataChanged = true;
       }
-      final newErr = '찜한 상품을 불러올 수 없어요';
+      final newErr = L10n.current.productLikesLoadFailed;
       if (_myLikesError != newErr) {
         _myLikesError = newErr;
         errorChanged = true;
@@ -349,7 +365,7 @@ class ProductService extends ChangeNotifier {
       // Empty string means "clear YouTube URL" (server understands this).
       if (youtubeUrl != null) data['youtube_url'] = youtubeUrl;
 
-      if (data.isEmpty) return '수정할 내용이 없어요';
+      if (data.isEmpty) return L10n.current.productNothingToUpdate;
 
       final res = await auth.api.dio.patch(
         '/api/products/$productId',
@@ -371,16 +387,16 @@ class ProductService extends ChangeNotifier {
         return null;
       }
       return (res.data is Map)
-          ? (res.data['error']?.toString() ?? '수정 실패')
-          : '수정 실패';
+          ? (res.data['error']?.toString() ?? L10n.current.productUpdateFailed)
+          : L10n.current.productUpdateFailed;
     } on DioException catch (e) {
       debugPrint('updateProduct error: ${e.response?.data ?? e.message}');
       return (e.response?.data is Map)
-          ? (e.response!.data['error']?.toString() ?? '수정 실패')
-          : '수정 실패';
+          ? (e.response!.data['error']?.toString() ?? L10n.current.productUpdateFailed)
+          : L10n.current.productUpdateFailed;
     } catch (e) {
       debugPrint('updateProduct error: $e');
-      return '수정 실패';
+      return L10n.current.productUpdateFailed;
     }
   }
 
@@ -408,17 +424,17 @@ class ProductService extends ChangeNotifier {
         return null;
       }
       return (res.data is Map)
-          ? (res.data['error']?.toString() ?? '끌어올리기 실패')
-          : '끌어올리기 실패';
+          ? (res.data['error']?.toString() ?? L10n.current.productBumpFailed)
+          : L10n.current.productBumpFailed;
     } on DioException catch (e) {
       debugPrint('bumpProduct error: ${e.response?.data ?? e.message}');
       // 429 cooldown returns a friendly Korean message we should pass through.
       return (e.response?.data is Map)
-          ? (e.response!.data['error']?.toString() ?? '끌어올리기 실패')
-          : '끌어올리기 실패';
+          ? (e.response!.data['error']?.toString() ?? L10n.current.productBumpFailed)
+          : L10n.current.productBumpFailed;
     } catch (e) {
       debugPrint('bumpProduct error: $e');
-      return '끌어올리기 실패';
+      return L10n.current.productBumpFailed;
     }
   }
 
@@ -457,15 +473,15 @@ class ProductService extends ChangeNotifier {
         notifyListeners();
         return null;
       }
-      return (res.data is Map) ? (res.data['error']?.toString() ?? '변경 실패') : '변경 실패';
+      return (res.data is Map) ? (res.data['error']?.toString() ?? L10n.current.productChangeFailed) : L10n.current.productChangeFailed;
     } on DioException catch (e) {
       debugPrint('updateStatus error: ${e.response?.data ?? e.message}');
       return (e.response?.data is Map)
-          ? (e.response!.data['error']?.toString() ?? '변경 실패')
-          : '변경 실패';
+          ? (e.response!.data['error']?.toString() ?? L10n.current.productChangeFailed)
+          : L10n.current.productChangeFailed;
     } catch (e) {
       debugPrint('updateStatus error: $e');
-      return '변경 실패';
+      return L10n.current.productChangeFailed;
     }
   }
 
@@ -474,21 +490,47 @@ class ProductService extends ChangeNotifier {
     try {
       final res = await auth.api.delete('/api/products/$productId');
       if (res.statusCode == 200) {
+        lastListingClawback = (res.data is Map)
+            ? ((res.data['listing_reward_clawback'] as num?)?.toInt() ?? 0)
+            : 0;
         _products.removeWhere((p) => p.id == productId);
         _mySelling.removeWhere((p) => p.id == productId);
         _myLikes.removeWhere((p) => p.id == productId);
         notifyListeners();
         return null;
       }
-      return (res.data is Map) ? (res.data['error']?.toString() ?? '삭제 실패') : '삭제 실패';
+      return (res.data is Map) ? (res.data['error']?.toString() ?? L10n.current.productDeleteFailed) : L10n.current.productDeleteFailed;
     } on DioException catch (e) {
       debugPrint('deleteProduct error: ${e.response?.data ?? e.message}');
       return (e.response?.data is Map)
-          ? (e.response!.data['error']?.toString() ?? '삭제 실패')
-          : '삭제 실패';
+          ? (e.response!.data['error']?.toString() ?? L10n.current.productDeleteFailed)
+          : L10n.current.productDeleteFailed;
     } catch (e) {
       debugPrint('deleteProduct error: $e');
-      return '삭제 실패';
+      return L10n.current.productDeleteFailed;
+    }
+  }
+
+  /// 판매자가 거래완료로 지정한 구매자 본인이 거래를 확인한다.
+  /// 서버가 이때 QTA 결제(qta_price > 0)와 거래 보너스를 실행한다.
+  /// Returns null on success, error string on failure.
+  Future<String?> confirmPurchase(String productId, {int? expectedQtaPrice}) async {
+    try {
+      // 화면에서 본 QTA 가격을 함께 보낸다 — 판매자가 그사이 바꿨으면 서버가 거부.
+      final res = await auth.api.post(
+        '/api/products/$productId/confirm-purchase',
+        data: {if (expectedQtaPrice != null) 'expected_qta_price': expectedQtaPrice},
+      );
+      if (res.statusCode == 200) return null;
+      return (res.data is Map) ? (res.data['error']?.toString() ?? L10n.current.productConfirmFailed) : L10n.current.productConfirmFailed;
+    } on DioException catch (e) {
+      debugPrint('confirmPurchase error: ${e.response?.data ?? e.message}');
+      return (e.response?.data is Map)
+          ? (e.response!.data['error']?.toString() ?? L10n.current.productConfirmFailed)
+          : L10n.current.productConfirmFailed;
+    } catch (e) {
+      debugPrint('confirmPurchase error: $e');
+      return L10n.current.productConfirmFailed;
     }
   }
 
@@ -500,6 +542,7 @@ class ProductService extends ChangeNotifier {
       price: p.price,
       category: p.category,
       region: p.region,
+      market: p.market,
       images: p.images,
       videoUrl: p.videoUrl,
       sellerId: p.sellerId,
@@ -511,6 +554,12 @@ class ProductService extends ChangeNotifier {
       chatCount: p.chatCount,
       isLiked: p.isLiked,
       createdAt: p.createdAt,
+      // 나머지 필드도 그대로 복사 — 빠뜨리면 목록 캐시에서 QTA 가격·구매자·확인 시각이 사라진다.
+      qtaPrice: p.qtaPrice,
+      sellerWalletAddress: p.sellerWalletAddress,
+      bumpedAt: p.bumpedAt,
+      buyerId: p.buyerId,
+      buyerConfirmedAt: p.buyerConfirmedAt,
     );
   }
 
@@ -522,6 +571,7 @@ class ProductService extends ChangeNotifier {
       price: p.price,
       category: p.category,
       region: p.region,
+      market: p.market,
       images: p.images,
       videoUrl: p.videoUrl,
       sellerId: p.sellerId,
@@ -535,12 +585,19 @@ class ProductService extends ChangeNotifier {
       chatCount: p.chatCount,
       isLiked: liked,
       createdAt: p.createdAt,
+      // 나머지 필드도 그대로 복사 — 빠뜨리면 목록 캐시에서 QTA 가격·구매자·확인 시각이 사라진다.
+      qtaPrice: p.qtaPrice,
+      sellerWalletAddress: p.sellerWalletAddress,
+      bumpedAt: p.bumpedAt,
+      buyerId: p.buyerId,
+      buyerConfirmedAt: p.buyerConfirmedAt,
     );
   }
 
   /// Drop all cached data (used on logout).
   void clearCaches() {
     _products = [];
+    _loadError = null;
     _myLikes = [];
     _myLikesLoaded = false;
     _mySelling = [];
@@ -550,19 +607,25 @@ class ProductService extends ChangeNotifier {
 
   // ─── Reviews / 거래후기 ──────────────────────────────────────────────
 
-  /// Owner-only: list of buyer candidates (everyone who chatted about this
-  /// product). Used as the picker when marking a listing as 'sold'.
-  /// Returns `[ {id, nickname, manner_score} ]` — empty list on error.
-  Future<List<Map<String, dynamic>>> fetchBuyerCandidates(String productId) async {
+  /// 거래완료 시 구매자 지정용 닉네임 검색 (GET /api/users/search).
+  ///
+  /// 예전에는 `GET /api/products/:id/buyers`(이 상품으로 대화한 사람 목록)를
+  /// 불렀는데, 휘발성 채팅 정책으로 서버에서 그 엔드포인트가 삭제돼 항상 404 →
+  /// "구매자와 채팅한 기록이 없어요" 만 뜨고 거래완료가 불가능했다.
+  /// 이제 화면이 (1) 이 기기의 채팅방 중 이 상품 대화 상대 + (2) 닉네임 검색을
+  /// 함께 보여준다. Returns `[ {id, nickname, manner_score} ]`, 실패 시 빈 목록.
+  Future<List<Map<String, dynamic>>> searchUsersByNickname(String nickname) async {
+    final q = nickname.trim();
+    if (q.isEmpty) return [];
     try {
-      final res = await auth.api.get('/api/products/$productId/buyers');
-      final list = (res.data?['buyers'] as List?) ?? [];
+      final res = await auth.api.get('/api/users/search', query: {'nickname': q});
+      final list = (res.data?['users'] as List?) ?? [];
       return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } on DioException catch (e) {
-      debugPrint('fetchBuyerCandidates error: ${e.response?.data ?? e.message}');
+      debugPrint('searchUsersByNickname error: ${e.response?.data ?? e.message}');
       return [];
     } catch (e) {
-      debugPrint('fetchBuyerCandidates error: $e');
+      debugPrint('searchUsersByNickname error: $e');
       return [];
     }
   }
@@ -591,16 +654,16 @@ class ProductService extends ChangeNotifier {
       return res.statusCode == 200
           ? null
           : (res.data is Map
-              ? (res.data['error']?.toString() ?? '후기 등록 실패')
-              : '후기 등록 실패');
+              ? (res.data['error']?.toString() ?? L10n.current.productReviewFailed)
+              : L10n.current.productReviewFailed);
     } on DioException catch (e) {
       debugPrint('postReview error: ${e.response?.data ?? e.message}');
       return (e.response?.data is Map)
-          ? (e.response!.data['error']?.toString() ?? '후기 등록 실패')
-          : '후기 등록 실패';
+          ? (e.response!.data['error']?.toString() ?? L10n.current.productReviewFailed)
+          : L10n.current.productReviewFailed;
     } catch (e) {
       debugPrint('postReview error: $e');
-      return '후기 등록 실패';
+      return L10n.current.productReviewFailed;
     }
   }
 
@@ -648,4 +711,22 @@ class ProductService extends ChangeNotifier {
       return [];
     }
   }
+}
+
+/// DioException 에서 서버가 준 한국어 오류 문구를 꺼낸다 (없으면 null).
+/// 사용자 화면에 "DioException [bad response]..." 같은 원문이 보이지 않게 한다.
+String? _serverError(Object e) {
+  if (e is DioException) {
+    final data = e.response?.data;
+    if (data is Map && data['error'] != null) return data['error'].toString();
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.sendTimeout) {
+      return L10n.current.productNetworkSlow;
+    }
+    if (e.type == DioExceptionType.connectionError) {
+      return L10n.current.productNetworkUnreachable;
+    }
+  }
+  return null;
 }

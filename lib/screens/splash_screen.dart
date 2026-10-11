@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
 import '../services/moderation_service.dart';
@@ -111,9 +112,9 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              '익명으로 안전한 중고거래 🍆',
-              style: TextStyle(
+            Text(
+              context.l10n.authSplashTagline,
+              style: const TextStyle(
                 fontSize: 15,
                 color: EggplantColors.textSecondary,
               ),

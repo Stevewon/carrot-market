@@ -18,6 +18,8 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types';
 import { authMiddleware } from '../jwt';
+import { tr, reqLang } from '../market';
+import { checkKeyword } from '../prohibited';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -66,16 +68,18 @@ app.post('/keywords', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: '잘못된 요청' }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
 
   const kw = normalizeKeyword(body.keyword || '');
   if (kw.length < MIN_KEYWORD_LEN) {
-    return c.json({ error: `키워드는 ${MIN_KEYWORD_LEN}자 이상이어야 해요` }, 400);
+    return c.json({ error: tr(c, `키워드는 ${MIN_KEYWORD_LEN}자 이상이어야 해요`, `キーワードは${MIN_KEYWORD_LEN}文字以上で入力してください`) }, 400);
   }
   if (kw.length > MAX_KEYWORD_LEN) {
-    return c.json({ error: `키워드는 ${MAX_KEYWORD_LEN}자 이하로 입력해주세요` }, 400);
+    return c.json({ error: tr(c, `키워드는 ${MAX_KEYWORD_LEN}자 이하로 입력해주세요`, `キーワードは${MAX_KEYWORD_LEN}文字以内で入力してください`) }, 400);
   }
+  const kwPolicyErr = checkKeyword(kw, reqLang(c));
+  if (kwPolicyErr) return c.json({ error: kwPolicyErr, code: 'prohibited' }, 400);
 
   // 개수 체크.
   const cnt = await c.env.DB
@@ -83,7 +87,7 @@ app.post('/keywords', async (c) => {
     .bind(me.id)
     .first<{ n: number }>();
   if ((cnt?.n ?? 0) >= MAX_KEYWORDS_PER_USER) {
-    return c.json({ error: `키워드는 최대 ${MAX_KEYWORDS_PER_USER}개까지 등록할 수 있어요` }, 400);
+    return c.json({ error: tr(c, `키워드는 최대 ${MAX_KEYWORDS_PER_USER}개까지 등록할 수 있어요`, `キーワードは最大${MAX_KEYWORDS_PER_USER}件まで登録できます`) }, 400);
   }
 
   const id = crypto.randomUUID();
@@ -94,7 +98,7 @@ app.post('/keywords', async (c) => {
       .run();
   } catch (e: any) {
     if (String(e?.message || '').includes('UNIQUE')) {
-      return c.json({ error: '이미 등록된 키워드예요' }, 409);
+      return c.json({ error: tr(c, '이미 등록된 키워드예요', 'すでに登録されているキーワードです') }, 409);
     }
     throw e;
   }

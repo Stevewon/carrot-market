@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
@@ -70,30 +71,38 @@ class _HomeShellState extends State<HomeShell> {
     final reason = bonus['reason']?.toString() ?? '';
     String? msg;
     if (reason == 'signup') {
-      msg = '🎉 가입을 환영해요! +500 QTA 가 지급됐어요';
+      msg = context.l10n.homeSignupBonus;
     } else if (reason == 'login_daily') {
       final credited = bonus['credited'] == true;
       final amount = (bonus['amount'] as num?)?.toInt() ?? 0;
       final remaining = (bonus['remaining'] as num?)?.toInt() ?? 0;
       if (credited && amount > 0) {
-        final tail = remaining > 0 ? ' · 오늘 ${remaining}회 더 받을 수 있어요' : ' · 오늘 한도 끝!';
-        msg = '📅 출석 보너스 +$amount QTA$tail';
+        final tail = remaining > 0
+            ? context.l10n.homeLoginBonusRemaining(remaining)
+            : context.l10n.homeLoginBonusLimitReached;
+        msg = context.l10n.homeLoginBonus(amount, tail);
       }
     }
     if (msg == null || !mounted) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      // 버튼(action) 달린 스낵바는 접근성 설정 등에서 안 사라지고 탭마다 따라다닌다.
+      // → 버튼 없이 3초 뒤 반드시 닫히게 하고, 알림 자체를 누르면 채굴 내역으로.
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(
         SnackBar(
-          content: Text(msg!),
-          backgroundColor: EggplantColors.primary,
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: '내역',
-            textColor: Colors.white,
-            onPressed: () => context.push('/qta/ledger'),
+          content: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              messenger.hideCurrentSnackBar();
+              context.push('/qta/mining');
+            },
+            child: Text('${msg!}  ›'),
           ),
+          backgroundColor: EggplantColors.primary,
+          duration: const Duration(seconds: 3),
+          persist: false,
         ),
       );
     });
@@ -156,15 +165,19 @@ class _HomeShellState extends State<HomeShell> {
                 borderRadius: BorderRadius.circular(28),
               ),
               icon: const Icon(Icons.edit_outlined, size: 20),
-              label: const Text(
-                '글쓰기',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              label: Text(
+                context.l10n.homeWrite,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
               ),
             )
           : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        onTap: (i) {
+          // 탭을 옮기면 떠 있던 안내 알림은 닫는다 (페이지마다 따라다니지 않게).
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          setState(() => _currentIndex = i);
+        },
         selectedItemColor: EggplantColors.primary,
         unselectedItemColor: EggplantColors.textTertiary,
         selectedFontSize: 12,
@@ -176,25 +189,25 @@ class _HomeShellState extends State<HomeShell> {
         showSelectedLabels: true,
         showUnselectedLabels: true,
         items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.storefront_outlined),
-            activeIcon: Icon(Icons.storefront),
-            label: '홈',
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.storefront_outlined),
+            activeIcon: const Icon(Icons.storefront),
+            label: context.l10n.homeTabHome,
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border),
-            activeIcon: Icon(Icons.favorite),
-            label: '찜',
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.favorite_border),
+            activeIcon: const Icon(Icons.favorite),
+            label: context.l10n.homeTabLikes,
           ),
           BottomNavigationBarItem(
             icon: _withBadge(const Icon(Icons.chat_bubble_outline), unread),
             activeIcon: _withBadge(const Icon(Icons.chat_bubble), unread),
-            label: '채팅',
+            label: context.l10n.homeTabChat,
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: '내 정보',
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.person_outline),
+            activeIcon: const Icon(Icons.person),
+            label: context.l10n.homeTabMy,
           ),
         ],
       ),

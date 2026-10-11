@@ -1,38 +1,39 @@
 import 'package:flutter/material.dart';
+import '../../app/l10n.dart';
 import '../../app/theme.dart';
 
 /// Shared widgets + validators for login / register / find screens.
 
 String? validateWalletAddress(String? v) {
   final s = (v ?? '').trim();
-  if (s.isEmpty) return '지갑주소를 입력해주세요';
+  if (s.isEmpty) return L10n.current.authWalletRequired;
   final re = RegExp(r'^0x[a-fA-F0-9]{40}$');
-  if (!re.hasMatch(s)) return '0x로 시작하는 42자리 형식이어야 해요';
+  if (!re.hasMatch(s)) return L10n.current.authWalletFormat;
   return null;
 }
 
 String? validateNickname(String? v) {
   final s = (v ?? '').trim();
-  if (s.isEmpty) return '닉네임을 입력해주세요';
-  if (s.length < 2) return '닉네임은 2자 이상이어야 해요';
-  if (s.length > 12) return '닉네임은 12자 이하여야 해요';
-  // 한글/영문/숫자/밑줄만 허용 — 공백/특수문자/이모지 차단
-  final re = RegExp(r'^[가-힣a-zA-Z0-9_]{2,12}$');
+  if (s.isEmpty) return L10n.current.authNicknameRequired;
+  if (s.length < 2) return L10n.current.authNicknameTooShort;
+  if (s.length > 12) return L10n.current.authNicknameTooLong;
+  // 한글·일본어(히라가나·가타카나·한자)·영문·숫자·밑줄만 — 공백/특수문자/이모지 차단
+  final re = RegExp(r'^[가-힣ぁ-ゖァ-ヺー一-龯々a-zA-Z0-9_]{2,12}$');
   if (!re.hasMatch(s)) {
-    return '한글·영문·숫자·_ 만 사용 가능해요 (공백·특수문자 금지)';
+    return L10n.current.authNicknameCharset;
   }
   return null;
 }
 
 String? validatePassword(String? v) {
-  if (v == null || v.isEmpty) return '비밀번호를 입력해주세요';
-  if (v.length < 8) return '비밀번호는 8자 이상이어야 해요';
-  if (v.length > 64) return '비밀번호는 64자 이하여야 해요';
+  if (v == null || v.isEmpty) return L10n.current.authPasswordRequired;
+  if (v.length < 8) return L10n.current.authPasswordTooShort;
+  if (v.length > 64) return L10n.current.authPasswordTooLong;
   // 영문 + 숫자 혼합 강제 — "12345678", "aaaaaaaa" 같은 약한 비번 차단
   final hasLetter = RegExp(r'[a-zA-Z]').hasMatch(v);
   final hasDigit = RegExp(r'[0-9]').hasMatch(v);
   if (!hasLetter || !hasDigit) {
-    return '영문과 숫자를 모두 포함해야 해요';
+    return L10n.current.authPasswordMix;
   }
   return null;
 }

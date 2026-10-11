@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../app/constants.dart';
+import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../models/product.dart';
 
@@ -75,13 +76,18 @@ class ProductCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                      Text(
+                      // 상태 뱃지 + 8자리 가격이 320폭·큰 글씨에서 넘쳤다 → 남는 폭에 맞춰 말줄임.
+                      Flexible(
+                        child: Text(
                         product.priceFormatted,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                           color: EggplantColors.textPrimary,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       ),
                     ],
                   ),
@@ -151,6 +157,8 @@ class _Thumbnail extends StatelessWidget {
                   )
                 : CachedNetworkImage(
                     imageUrl: url!,
+                    // 썸네일을 원본 해상도로 디코딩하지 않게 (저사양 폰 메모리·스크롤 끊김).
+                    memCacheWidth: 400,
                     fit: BoxFit.cover,
                     placeholder: (_, __) => Container(color: EggplantColors.background),
                     errorWidget: (_, __, ___) => const Center(
@@ -167,10 +175,10 @@ class _Thumbnail extends StatelessWidget {
                 color: Colors.black.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
-                  '거래완료',
-                  style: TextStyle(
+                  context.l10n.productStatusSold,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -190,14 +198,14 @@ class _Thumbnail extends StatelessWidget {
                 color: Colors.black.withOpacity(0.65),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.play_arrow_rounded,
+                  const Icon(Icons.play_arrow_rounded,
                       color: Colors.white, size: 14),
-                  SizedBox(width: 2),
-                  Text('영상',
-                      style: TextStyle(
+                  const SizedBox(width: 2),
+                  Text(context.l10n.productVideo,
+                      style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.w700)),

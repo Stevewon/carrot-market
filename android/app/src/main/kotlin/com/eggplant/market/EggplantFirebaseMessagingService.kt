@@ -63,9 +63,19 @@ class EggplantFirebaseMessagingService : FlutterFirebaseMessagingService() {
         //   문제 사례 방지: Flutter 미동작 시에도 NativeIncomingCallActivity 종료 보장.
         // ================================================================
         if (type == "call_cancelled" || type == "call_ended" || type == "call_cancel" || type == "call_end") {
-            val cancelSessionId = data["sessionId"] ?: ""
+            // 서버(chat-hub handleCallEnd)는 call_id 로 보낸다. 예전엔 sessionId 만 읽어
+            // 항상 빈 값 → 어떤 통화든 무조건 정리했다.
+            val cancelSessionId = data["sessionId"] ?: data["call_id"] ?: ""
             val reason = data["reason"] ?: "unknown"
             Log.e("CALL_PATH", "[CALL_PATH] $type session=$cancelSessionId reason=$reason")
+            // 이미 받아서 네이티브 통화 화면에 있는 같은 통화면 그 화면도 닫는다.
+            AgoraCallActivity.cancelIfSession(cancelSessionId)
+            // 지금 울리는 통화와 다른 통화의 늦게 도착한 취소면 무시 (새 통화 벨을 끄지 않도록).
+            val ringingSession = CallNotificationHelper.getNativeIncomingSessionId(this)
+            if (cancelSessionId.isNotEmpty() && ringingSession.isNotEmpty() && ringingSession != cancelSessionId) {
+                Log.e("CALL_PATH", "[CALL_PATH] stale cancel ignored (ringing=$ringingSession)")
+                return
+            }
             try {
                 // cleanupIncomingState: stopRingtone + cancelIncomingCallNotification + clearNativeIncomingActive
                 CallNotificationHelper.cleanupIncomingState(this, cancelSessionId)
@@ -105,6 +115,14 @@ class EggplantFirebaseMessagingService : FlutterFirebaseMessagingService() {
         //   v1.0.158 까지 native 가 이 필드를 읽지 않아서 Flutter 측 _peerWalletAddress
         //   가 user_id 로 잘못 들어가 'wallet missing (my=ok, peer=empty)' 발생.
         val callerWallet = data["callerWallet"] ?: data["caller_wallet"] ?: ""
+
+        // 네이티브 통화 화면으로 이미 통화 중 → 새 전화는 울리지 않고 "통화 중" 거절.
+        //   (Flutter 통화 중이면 포그라운드 서비스가 돌고 있음 — 그것도 통화 중으로 본다)
+        if (AgoraCallActivity.isActive || MainActivity.nativeAnswerInProgress || CallForegroundService.isRunning) {
+            Log.e("CALL_PATH", "[CALL_PATH] busy (native call active) — auto-reject session=$sessionId")
+            CallSignalClient.sendResponse(this, sessionId, callerId, accepted = false)
+            return
+        }
         // Eggplant: 본인 지갑주소 (수신자) — SharedPreferences 에서 fallback
         val walletAddress = AgoraTokenService.readWalletAddress(this)
 

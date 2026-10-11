@@ -33,7 +33,10 @@
 
 import type { Env } from './types';
 import { sendFcm } from './utils/fcm';
-import { walletToAgoraUid } from './utils/agoraToken';
+import { callIdentity, walletToAgoraUid } from './utils/agoraToken';
+import { checkSession } from './jwt';
+import { maskChatText } from './prohibited';
+import { normalizeMarket, type Lang } from './market';
 
 interface AttachedMeta {
   userId: string;
@@ -53,9 +56,18 @@ interface AttachedMeta {
    *   → 이중 표시 (Flutter 풀스크린 + native 헤드업 동시 노출) 원천 차단.
    */
   appState?: 'foreground' | 'background';
+  /** 서버 안내 메시지 언어 (users.market 기준, 없으면 'ko'). */
+  lang?: Lang;
 }
 
 type Binding = { JWT_SECRET: string } & Env;
+
+/** DO 저장소의 통화 기록 — 응답·종료 신호를 보낸 사람이 그 통화의 당사자인지 확인. */
+interface CallRecord {
+  caller: string;
+  callee: string;
+  at: number;
+}
 
 export class ChatHub {
   private state: DurableObjectState;
@@ -119,6 +131,34 @@ export class ChatHub {
       return new Response('ok');
     }
 
+    // 계정 정지 시 열려 있는 소켓을 즉시 끊는다 (checkSession 은 접속 때만 검사하므로
+    // 이미 연결된 소켓은 정지 후에도 채팅·통화를 계속할 수 있었다).
+    if (url.pathname === '/internal/kick-user' && request.method === 'POST') {
+      const body = (await request.json().catch(() => ({}))) as { user_id?: string };
+      if (body.user_id) {
+        for (const ws of this.state.getWebSockets()) {
+          const meta = ws.deserializeAttachment() as AttachedMeta | null;
+          if (meta && meta.userId === body.user_id) {
+            try { ws.close(4003, 'banned'); } catch { /* ignore */ }
+          }
+        }
+      }
+      return new Response('ok');
+    }
+
+    // 네이티브 통화 화면(앱 백그라운드·종료·잠금 상태에서 받은 통화)의
+    // 수락/거절/종료 신호. routes/calls.ts 가 JWT 로 보낸 사람을 확인한 뒤 호출.
+    // body: { from_user_id, type: 'response'|'end', call_id, to_user_id, accepted? }
+    if (url.pathname === '/internal/call-signal' && request.method === 'POST') {
+      const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+      const from = String(body.from_user_id || '');
+      if (from) {
+        if (body.type === 'response') await this.handleCallResponse(from, null, body);
+        else if (body.type === 'end') await this.handleCallEnd(from, null, body);
+      }
+      return new Response('ok');
+    }
+
     // 키워드 알림 fanout: products.ts 가 새 상품 등록 직후 호출.
     // body: { user_ids: string[], payload: object }
     // 알림 이력은 DB 에 남기지 않는다 — 사생활 보호.
@@ -173,6 +213,28 @@ export class ChatHub {
     if (!payload) {
       return new Response('Invalid token', { status: 401 });
     }
+    // REST 와 같은 DB 기준 검사 — 로그아웃/비밀번호 재설정/다른 기기 로그인으로
+    // 무효화된 토큰, 정지된 계정은 채팅·통화 소켓도 열 수 없다.
+    const failure = await checkSession(this.env.DB, payload);
+    if (failure) {
+      return new Response(failure === 'banned' ? 'Banned' : 'Session expired', {
+        status: failure === 'banned' ? 403 : 401,
+      });
+    }
+
+    // 안내 메시지 언어 — ?market= / X-Market / Accept-Language, 없으면 회원 시장(users.market).
+    let lang: Lang = 'ko';
+    const hinted = normalizeMarket((url.searchParams.get('market') || request.headers.get('x-market') || '').trim().toLowerCase());
+    if (hinted) {
+      lang = hinted === 'jp' ? 'ja' : 'ko';
+    } else if ((request.headers.get('accept-language') || '').trim().toLowerCase().startsWith('ja')) {
+      lang = 'ja';
+    } else {
+      try {
+        const row = await this.env.DB.prepare('SELECT market FROM users WHERE id = ?').bind(payload.id).first<{ market: string | null }>();
+        if (row?.market === 'jp') lang = 'ja';
+      } catch { /* market 컬럼 미적용 — 한국어 */ }
+    }
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
@@ -186,6 +248,7 @@ export class ChatHub {
       nickname: payload.nickname,
       rooms: [],
       appState: 'background',
+      lang,
     };
     server.serializeAttachment(meta);
 
@@ -253,7 +316,7 @@ export class ChatHub {
         const read_at = String(msg.read_at || new Date().toISOString());
         if (!room_id) return;
         const tokens = room_id.split('_');
-        if (!tokens.includes(meta.userId)) return;
+        if (!isRoomMember(room_id, meta.userId)) return;
         const peerId = tokens.find((t) => t.length >= 30 && t !== meta.userId);
         if (peerId) {
           this.sendToUser(peerId, {
@@ -269,6 +332,12 @@ export class ChatHub {
       case 'join_room': {
         const room_id = String(msg.room_id || '');
         if (!room_id) return;
+        // 방 참여자(roomId 앞 두 토큰)만 입장 가능. 예전엔 검사가 없어
+        // 아무 roomId 로 join 해서 남의 대화를 broadcast 로 받을 수 있었다.
+        if (!isRoomMember(room_id, meta.userId)) {
+          this.sendSafe(ws, { type: 'error', message: meta.lang === 'ja' ? 'このチャットルームには参加できません' : '이 채팅방에 참여할 수 없어요' });
+          return;
+        }
 
         if (!meta.rooms.includes(room_id)) {
           meta.rooms.push(room_id);
@@ -298,15 +367,16 @@ export class ChatHub {
 
       case 'message': {
         const room_id = String(msg.room_id || '');
-        const text = String(msg.text || '').slice(0, 2000);
+        // 욕설·혐오 표현만 *** 마스킹 (저장 없음 — 릴레이 직전 변환).
+        const text = maskChatText(String(msg.text || '').slice(0, 2000));
         if (!room_id || !text.trim()) return;
 
         // 휘발성: 멤버십 검증을 DB 로 하지 않는다 (chat_rooms 자체가 없음).
         // 대신 roomId 형식이 'a_b' / 'a_b_productId' 이므로 sender 의 ID 가
         // roomId 토큰 안에 있어야 한다. 이게 spoof 방지의 1차 게이트.
         const tokens = room_id.split('_');
-        if (!tokens.includes(meta.userId)) {
-          this.sendSafe(ws, { type: 'error', message: '이 채팅방에 참여할 수 없어요' });
+        if (!isRoomMember(room_id, meta.userId)) {
+          this.sendSafe(ws, { type: 'error', message: meta.lang === 'ja' ? 'このチャットルームには参加できません' : '이 채팅방에 참여할 수 없어요' });
           return;
         }
         // 자동으로 join 처리 (peer 가 먼저 메시지를 보낸 경우에도 broadcast 받도록)
@@ -323,8 +393,8 @@ export class ChatHub {
           id: msgId,
           room_id,
           sender_id: meta.userId,
-          sender_nickname:
-            (msg.sender_nickname as string | undefined) || meta.nickname || '익명',
+          // 클라이언트가 보낸 닉네임은 신뢰하지 않는다 (사칭 방지).
+          sender_nickname: meta.nickname || '익명',
           text,
           msg_type: 'text',
           sent_at: sentAt,
@@ -383,8 +453,8 @@ export class ChatHub {
         const price = Number(msg.price);
         if (!room_id || !Number.isFinite(price) || price < 0 || price > 1_000_000_000) return;
         const tokens = room_id.split('_');
-        if (!tokens.includes(meta.userId)) {
-          this.sendSafe(ws, { type: 'error', message: '이 채팅방에 참여할 수 없어요' });
+        if (!isRoomMember(room_id, meta.userId)) {
+          this.sendSafe(ws, { type: 'error', message: meta.lang === 'ja' ? 'このチャットルームには参加できません' : '이 채팅방에 참여할 수 없어요' });
           return;
         }
         if (!meta.rooms.includes(room_id)) {
@@ -431,7 +501,7 @@ export class ChatHub {
         if (!room_id || !offer_id) return;
         if (!['accept', 'reject', 'cancel'].includes(action)) return;
         const tokens = room_id.split('_');
-        if (!tokens.includes(meta.userId)) return;
+        if (!isRoomMember(room_id, meta.userId)) return;
         const status =
           action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : 'cancelled';
         const updatedAt = new Date().toISOString();
@@ -459,8 +529,19 @@ export class ChatHub {
         //   산정 가능. 클라이언트가 보내준 값 신뢰 (서버는 wallet 검증 안 함 — Agora
         //   채널명 산정용 단순 페어 키이고, 토큰은 별도 인증으로 발급되므로 위·변조해도
         //   실효성 0).
-        const caller_wallet_raw = String(msg.caller_wallet || '');
-        const caller_wallet = caller_wallet_raw.trim().toLowerCase();
+        //   → 보안 핫픽스: 클라이언트 값 대신 DB 의 발신자 지갑을 쓴다. 채널명이
+        //     토큰 발급 시 참여자 검증 기준이 되므로 위조된 지갑으로 남의 채널을
+        //     만들 수 없게 한다. 조회 실패 시에만 클라이언트 값으로 fallback.
+        let caller_wallet = String(msg.caller_wallet || '').trim().toLowerCase();
+        try {
+          const me = await this.env.DB.prepare('SELECT wallet_address FROM users WHERE id = ?')
+            .bind(meta.userId)
+            .first<{ wallet_address: string | null }>();
+          // 지갑 없는 회원은 'u_<id>' (callIdentity)
+          if (me) caller_wallet = callIdentity(me.wallet_address, meta.userId);
+        } catch (e) {
+          console.log('[call_invite] caller wallet lookup failed:', e);
+        }
         // ★ v1.0.142: callType 도 페이로드에 포함시켜야 native FCM 서비스가
         //   audio/video 분기 가능. 기본 'audio'.
         const call_type_raw = String(msg.callType || msg.call_type || 'audio');
@@ -485,7 +566,7 @@ export class ChatHub {
               type: 'call_failed',
               call_id,
               reason: 'blocked',
-              message: '연결할 수 없는 상대에요',
+              message: meta.lang === 'ja' ? 'この相手とは通話できません' : '연결할 수 없는 상대에요',
             });
             return;
           }
@@ -509,7 +590,7 @@ export class ChatHub {
           )
             .bind(to_user_id)
             .first<{ wallet_address: string | null }>();
-          peer_wallet = (peerRow?.wallet_address || '').trim().toLowerCase();
+          peer_wallet = peerRow ? callIdentity(peerRow.wallet_address, to_user_id) : '';
           if (caller_wallet && peer_wallet) {
             // ★ v1.0.143 (2026-05-09): raw wallet 두 개 join 시 99자 → 서버
             //   `/api/users/agora/token` 의 64자 한도 초과 (HTTP 400 'channel too long').
@@ -524,6 +605,15 @@ export class ChatHub {
           }
         } catch (e) {
           console.log('[call_invite] peer wallet lookup failed:', e);
+        }
+
+        // 통화 기록 (응답·종료 신호의 당사자 확인용). 다른 사람의 통화 id 를 덮어쓰지 않는다.
+        {
+          const key = `call:${call_id}`;
+          const prev = await this.state.storage.get<CallRecord>(key);
+          if (prev && prev.caller !== meta.userId) return;
+          await this.state.storage.put(key, { caller: meta.userId, callee: to_user_id, at: Date.now() });
+          if (Math.random() < 0.02) await this.pruneCallRecords();
         }
 
         const delivered = this.sendToUser(to_user_id, {
@@ -629,7 +719,7 @@ export class ChatHub {
             type: 'call_failed',
             call_id,
             reason: 'offline',
-            message: '연결할 수 없어요. 잠시 후 다시 걸어주세요.',
+            message: meta.lang === 'ja' ? '接続できませんでした。しばらくしてからもう一度おかけください。' : '연결할 수 없어요. 잠시 후 다시 걸어주세요.',
           });
         }
         // ★ v1.0.162: !delivered && needPush 분기는 call_failed 발사 금지!!
@@ -638,36 +728,9 @@ export class ChatHub {
       }
 
       case 'call_response': {
-        // ★ v1.0.124: 거절(accepted=false) 인 경우 발신자에게도 call_cancel 효과를
-        //  주고, 백그라운드 CallKit 이 떠있던 발신자 단말도 즉시 닫아야 함.
-        //  하지만 발신자측은 이미 chat.on('call_response') 에서 자체 teardown 함.
-        //  여기서는 단순히 응답을 발신자에게 relay 만 하고, 추가로 발신자가
-        //  이미 끊은 뒤 거절이 들어왔을 가능성 대비해 to_user_id 에게도 call_cancel
-        //  보낸다 (수신자 자기 자신 — CallKit UI 종료 보장).
-        this.relayTo(msg, meta, 'call_response', ['accepted']);
-        const accepted = msg.accepted === true;
-        if (!accepted) {
-          // 거절: 양쪽 단말 모두 CallKit 닫기.
-          const cidR = String(msg.call_id || '');
-          const peerR = String(msg.to_user_id || '');
-          if (cidR && peerR) {
-            // 발신자에게도 call_cancel — 발신자가 백그라운드에서 ringback 만 듣고
-            // 있었다면 즉시 종료되도록.
-            this.sendToUser(peerR, {
-              type: 'call_cancel',
-              call_id: cidR,
-              from_user_id: meta.userId,
-              reason: 'rejected',
-            });
-            // 거절자 본인 단말이 여러 개일 때 다른 단말의 CallKit 도 닫기.
-            this.sendToUser(meta.userId, {
-              type: 'call_cancel',
-              call_id: cidR,
-              from_user_id: meta.userId,
-              reason: 'rejected',
-            });
-          }
-        }
+        // 실제 처리는 handleCallResponse — 네이티브 수신 화면이 REST
+        // (/api/calls/signal → /internal/call-signal) 로 보내는 응답과 같은 경로.
+        await this.handleCallResponse(meta.userId, ws, msg);
         return;
       }
       case 'webrtc_offer': {
@@ -683,52 +746,7 @@ export class ChatHub {
         return;
       }
       case 'call_end': {
-        // ★ v1.0.124 핵심 핫픽스 (사장님 2026-05-07 보고):
-        //   발신자가 통화를 끊었을 때, 수신측이 백그라운드/앱 종료 상태이면
-        //   WebSocket 으로는 도달 못 하므로 그 단말의 벨소리(CallKit UI)가
-        //   30초 타임아웃까지 절대 안 꺼짐 → "전화벨 무한 울림" 사장님 신고.
-        //   해결: 1) WebSocket 으로 call_cancel relay (online 단말 즉시 종료)
-        //         2) FCM data-only 푸시로 call_cancel 발사 (offline/background 단말
-        //            의 background isolate 가 받아서 FlutterCallkitIncoming.endCall(callId)
-        //            호출 → CallKit 시스템 UI 강제 종료)
-        const cid = String(msg.call_id || '');
-        const peer = String(msg.to_user_id || '');
-        if (!cid || !peer) return;
-
-        // (1) 온라인 단말에는 WS 로 즉시 통보.
-        const onlineDelivered = this.sendToUser(peer, {
-          type: 'call_cancel',
-          call_id: cid,
-          from_user_id: meta.userId,
-          reason: 'caller_ended',
-        });
-
-        // (2) 오프라인 단말에도 FCM 으로 취소 통보 (CallKit UI 닫기 위해).
-        //     온라인 단말이면 이미 (1)에서 처리됐지만, 멀티디바이스 상황에선
-        //     다른 디바이스도 닫아야 하므로 항상 발사.
-        if (!onlineDelivered) {
-          this.sendOfflinePush(peer, {
-            // notification 영역은 비우고 data-only 로 보내야 OS 가 알림 안 띄움.
-            // (notification 이 있으면 새 알림 + 기존 알림 동시 표시될 수 있음)
-            title: '',
-            body: '',
-            data: {
-              type: 'call_cancel',
-              call_id: cid,
-              from_user_id: meta.userId,
-              reason: 'caller_ended',
-            },
-            isCall: true, // high priority — background isolate 즉시 깨움
-          });
-        }
-
-        // 자기(발신자) 다른 디바이스도 정리.
-        this.sendToUser(meta.userId, {
-          type: 'call_cancel',
-          call_id: cid,
-          from_user_id: meta.userId,
-          reason: 'caller_ended',
-        });
+        await this.handleCallEnd(meta.userId, ws, msg);
         return;
       }
 
@@ -802,6 +820,111 @@ export class ChatHub {
   }
 
   /** Send directly to a user (first socket we find for them). Returns true if delivered. */
+  /**
+   * 수신자의 통화 응답(수락/거절) 처리. WS(call_response) 와 네이티브 REST
+   * (/internal/call-signal) 가 같이 쓴다. origin = 요청을 보낸 소켓 (REST 면 null).
+   */
+  private async handleCallResponse(fromUserId: string, origin: WebSocket | null, msg: Record<string, unknown>): Promise<void> {
+    const cid = String(msg.call_id || '');
+    const peer = String(msg.to_user_id || '');
+    if (!cid || !peer) return;
+    const accepted = msg.accepted === true;
+    // 이 통화의 수신자만 응답할 수 있다 (아무나 남의 통화를 거절·수락 처리하지 못하게).
+    const rec = await this.state.storage.get<CallRecord>(`call:${cid}`);
+    if (!rec || rec.callee !== fromUserId || rec.caller !== peer) return;
+    if (!accepted) await this.state.storage.delete(`call:${cid}`);
+
+    // 발신자에게 응답 전달.
+    this.sendToUser(peer, { type: 'call_response', call_id: cid, from_user_id: fromUserId, accepted });
+
+    // 응답한 사람의 다른 소켓에 "이미 처리됨" 통보 — 네이티브 화면에서 받거나
+    // 거절했을 때, 백그라운드에 살아 있던 Flutter 쪽 수신 상태·벨소리를 정리.
+    this.sendToUserExcept(fromUserId, origin, { type: 'call_answered_elsewhere', call_id: cid, accepted });
+
+    if (!accepted) {
+      // 발신자가 백그라운드에서 신호음만 듣고 있었다면 즉시 종료되도록.
+      this.sendToUser(peer, { type: 'call_cancel', call_id: cid, from_user_id: fromUserId, reason: 'rejected' });
+      // 거절한 사람 본인 단말의 네이티브 벨·수신 화면도 닫는다. 예: Flutter 로 통화 중인
+      // 사람이 백그라운드에서 새 전화를 "통화 중" 자동 거절 → FCM 으로 이미 울리기
+      // 시작한 네이티브 벨이 계속 울리던 문제. (앱이 화면에 있으면 네이티브는 안 울림)
+      if (!this.isUserForeground(fromUserId)) {
+        this.sendOfflinePush(fromUserId, {
+          title: '',
+          body: '',
+          data: { type: 'call_cancel', call_id: cid, from_user_id: fromUserId, reason: 'rejected' },
+          isCall: true,
+        });
+      }
+    }
+  }
+
+  /**
+   * 통화 종료/취소 처리 (발신 취소, 무응답 타임아웃, 통화 중 끊기).
+   * 상대가 앱을 화면에 띄워 두지 않았으면(백그라운드·종료·잠금) WS 가 살아
+   * 있어도 FCM 취소를 같이 보낸다 — 네이티브 벨소리·수신 화면은 FCM 으로만 닫힌다.
+   */
+  private async handleCallEnd(fromUserId: string, origin: WebSocket | null, msg: Record<string, unknown>): Promise<void> {
+    const cid = String(msg.call_id || '');
+    const peer = String(msg.to_user_id || '');
+    if (!cid || !peer) return;
+    // 이 통화의 두 당사자만 종료 신호를 보낼 수 있다 — 아무 사용자에게나 high-priority
+    // FCM 취소를 보내는 스팸·배터리 소모를 막는다.
+    const rec = await this.state.storage.get<CallRecord>(`call:${cid}`);
+    if (!rec) return;
+    const isParty = (rec.caller === fromUserId && rec.callee === peer) || (rec.callee === fromUserId && rec.caller === peer);
+    if (!isParty) return;
+    await this.state.storage.delete(`call:${cid}`);
+    const cancel = { type: 'call_cancel', call_id: cid, from_user_id: fromUserId, reason: 'caller_ended' };
+
+    const onlineDelivered = this.sendToUser(peer, cancel);
+    if (!onlineDelivered || !this.isUserForeground(peer)) {
+      this.sendOfflinePush(peer, {
+        // data-only (notification 비움) — OS 가 새 알림을 띄우지 않게.
+        title: '',
+        body: '',
+        data: cancel,
+        isCall: true, // high priority — 잠든 단말도 즉시 깨움
+      });
+    }
+    // 끊은 사람의 다른 단말/소켓도 정리.
+    this.sendToUserExcept(fromUserId, origin, cancel);
+  }
+
+  /** 2시간 지난 통화 기록 정리 (종료 신호가 없던 통화). 가끔(초대의 2%)만 실행. */
+  private async pruneCallRecords(): Promise<void> {
+    const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+    const all = await this.state.storage.list<CallRecord>({ prefix: 'call:', limit: 500 });
+    const stale: string[] = [];
+    for (const [k, v] of all) if (!v || v.at < cutoff) stale.push(k);
+    if (stale.length) await this.state.storage.delete(stale);
+  }
+
+  /** origin 소켓을 뺀 같은 사용자의 소켓들에 전송. */
+  private sendToUserExcept(user_id: string, except: WebSocket | null, payload: unknown): boolean {
+    const data = JSON.stringify(payload);
+    let delivered = false;
+    for (const ws of this.state.getWebSockets()) {
+      if (except && ws === except) continue;
+      const meta = ws.deserializeAttachment() as AttachedMeta | null;
+      if (meta && meta.userId === user_id) {
+        try {
+          ws.send(data);
+          delivered = true;
+        } catch { /* ignore */ }
+      }
+    }
+    return delivered;
+  }
+
+  /** 이 사용자의 소켓 중 앱이 화면에 떠 있는(presence=foreground) 것이 있는지. */
+  private isUserForeground(user_id: string): boolean {
+    for (const ws of this.state.getWebSockets()) {
+      const meta = ws.deserializeAttachment() as AttachedMeta | null;
+      if (meta && meta.userId === user_id && meta.appState === 'foreground') return true;
+    }
+    return false;
+  }
+
   private sendToUser(user_id: string, payload: unknown): boolean {
     const data = JSON.stringify(payload);
     let delivered = false;
@@ -924,7 +1047,20 @@ export class ChatHub {
 // --- Minimal inline JWT verification (no external import to keep DO slim) ---
 // The main worker already uses @tsndr/cloudflare-worker-jwt, but that package
 // doesn't work inside DO stub fetch handshake path, so we replicate HS256 here.
-async function verifyJwt(token: string, secret: string): Promise<{ id: string; nickname: string } | null> {
+/**
+ * roomId 형식은 'userA_userB' 또는 'userA_userB_productId' (클라이언트
+ * ChatService._makeRoomId). 참여자는 앞 두 토큰뿐이다. productId 자리에
+ * 자기 id 를 넣은 roomId 로 남의 방에 끼어들지 못하도록 앞 두 토큰만 본다.
+ */
+function isRoomMember(roomId: string, userId: string): boolean {
+  const parts = roomId.split('_');
+  return parts.length >= 2 && (parts[0] === userId || parts[1] === userId);
+}
+
+async function verifyJwt(
+  token: string,
+  secret: string,
+): Promise<{ id: string; nickname: string; device_uuid: string; tv: number } | null> {
   try {
     const [h, p, s] = token.split('.');
     if (!h || !p || !s) return null;

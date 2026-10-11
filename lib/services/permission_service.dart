@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../app/l10n.dart';
+
 /// Requests all runtime permissions the app needs **once** during onboarding
 /// (GCON / 당근 style). After the first successful pass we remember it in
 /// SharedPreferences so later flows never prompt again.
@@ -69,7 +71,7 @@ class PermissionService {
       final r = await Permission.microphone.request();
       if (r.isGranted) return true;
     }
-    _showDenied(context, '마이크 권한이 필요해요', '설정 > 앱 > Eggplant에서 마이크를 켜주세요.');
+    _showDenied(context, L10n.current.chatMicPermissionRequired, L10n.current.chatPermMicBody);
     return false;
   }
 
@@ -80,7 +82,7 @@ class PermissionService {
       final r = await Permission.camera.request();
       if (r.isGranted) return true;
     }
-    _showDenied(context, '카메라 권한이 필요해요', '설정 > 앱 > Eggplant에서 카메라를 켜주세요.');
+    _showDenied(context, L10n.current.chatPermCameraTitle, L10n.current.chatPermCameraBody);
     return false;
   }
 
@@ -95,14 +97,14 @@ class PermissionService {
       if (photos.isGranted || photos.isLimited) return true;
       // isDenied on older Android means "not applicable" — image_picker still works.
       if (photos.isPermanentlyDenied) {
-        _showDenied(context, '갤러리 권한이 필요해요', '설정 > 앱 > Eggplant에서 사진/동영상 권한을 켜주세요.');
+        _showDenied(context, L10n.current.chatPermGalleryTitle, L10n.current.chatPermGalleryBodyAndroid);
         return false;
       }
       return true;
     }
     final status = await Permission.photos.request();
     if (status.isGranted || status.isLimited) return true;
-    _showDenied(context, '갤러리 권한이 필요해요', '설정 > Eggplant에서 사진 권한을 켜주세요.');
+    _showDenied(context, L10n.current.chatPermGalleryTitle, L10n.current.chatPermGalleryBodyIos);
     return false;
   }
 
@@ -127,22 +129,19 @@ class PermissionService {
       barrierDismissible: true,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('🔔 알림 권한이 꺼져 있어요'),
-        content: const Text(
-          '알림이 꺼져 있으면 새 메시지·통화·키워드 매물 알림을 놓칠 수 있어요.\n\n'
-          '설정에서 알림을 켜시겠어요?\n\n'
-          '※ Eggplant는 알림 본문을 잠금화면에서 가리는 옵션도 제공해요. '
-          '"나의 Eggplant > 알림 본문 가리기" 에서 켤 수 있어요.',
-          style: TextStyle(height: 1.5),
+        title: Text(context.l10n.chatPermNotifTitle),
+        content: Text(
+          context.l10n.chatPermNotifBody,
+          style: const TextStyle(height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('나중에'),
+            child: Text(context.l10n.commonLater),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('설정 열기'),
+            child: Text(context.l10n.chatPermOpenSettings),
           ),
         ],
       ),
@@ -159,10 +158,11 @@ class PermissionService {
       SnackBar(
         content: Text('$title\n$body'),
         action: SnackBarAction(
-          label: '설정 열기',
+          label: context.l10n.chatPermOpenSettings,
           onPressed: () => openAppSettings(),
         ),
         duration: const Duration(seconds: 4),
+        persist: false,
       ),
     );
   }
@@ -243,23 +243,19 @@ class PermissionService {
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('🔒 잠금화면 통화 알림 권한'),
-        content: const Text(
-          '잠금화면에서 통화 수신을 표시하려면\n'
-          '"전체 화면 알림" 권한이 필요해요.\n\n'
-          '권한이 꺼져 있으면 잠금화면에서는\n'
-          '벨소리만 울리고 통화 화면이 뜨지 않아요.\n\n'
-          '한 번만 설정하면 끝나요.',
-          style: TextStyle(height: 1.5),
+        title: Text(context.l10n.chatPermFsiTitle),
+        content: Text(
+          context.l10n.chatPermFsiBody,
+          style: const TextStyle(height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('나중에'),
+            child: Text(context.l10n.commonLater),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('권한 허용'),
+            child: Text(context.l10n.chatPermAllow),
           ),
         ],
       ),

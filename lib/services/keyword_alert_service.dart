@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../app/l10n.dart';
 import 'auth_service.dart';
 
 /// 사용자가 등록한 키워드 알림을 관리한다.
@@ -76,9 +77,9 @@ class KeywordAlertService extends ChangeNotifier {
   /// 추가. 성공 시 null, 실패 시 에러 문자열 반환.
   Future<String?> add(String raw) async {
     final keyword = raw.trim();
-    if (keyword.length < 2) return '키워드는 2자 이상이어야 해요';
-    if (keyword.length > 30) return '키워드는 30자 이하로 입력해주세요';
-    if (_items.length >= _max) return '키워드는 최대 $_max개까지 등록할 수 있어요';
+    if (keyword.length < 2) return L10n.current.productKeywordTooShort;
+    if (keyword.length > 30) return L10n.current.productKeywordTooLong;
+    if (_items.length >= _max) return L10n.current.productKeywordMax(_max);
     try {
       final res = await auth.api.post('/api/alerts/keywords',
           data: {'keyword': keyword});
@@ -91,7 +92,7 @@ class KeywordAlertService extends ChangeNotifier {
         notifyListeners();
         return null;
       }
-      return '등록 실패';
+      return L10n.current.productCreateFailed;
     } catch (e) {
       // dio Error 는 response.data 의 error 메시지를 반환.
       try {
@@ -99,7 +100,7 @@ class KeywordAlertService extends ChangeNotifier {
         final msg = (e as dynamic).response?.data?['error']?.toString();
         if (msg != null && msg.isNotEmpty) return msg;
       } catch (_) {}
-      return '등록 실패: $e';
+      return L10n.current.productKeywordAddFailed;
     }
   }
 

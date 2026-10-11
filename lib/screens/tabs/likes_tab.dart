@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/l10n.dart';
 import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../models/product.dart';
@@ -80,7 +81,7 @@ class _LikesTabState extends State<LikesTab> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          items.isEmpty ? '찜한 상품' : '찜한 상품 ${items.length}',
+          items.isEmpty ? context.l10n.homeLikesTitle : context.l10n.homeLikesTitleCount(items.length),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -119,7 +120,7 @@ class _LikesTabState extends State<LikesTab> {
                 const Text('⚠️', style: TextStyle(fontSize: 56)),
                 const SizedBox(height: 12),
                 Text(
-                  svc.myLikesError ?? '불러올 수 없어요',
+                  svc.myLikesError ?? context.l10n.homeLoadFailed,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -128,9 +129,9 @@ class _LikesTabState extends State<LikesTab> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  '잠시 후 다시 시도해주세요',
-                  style: TextStyle(
+                Text(
+                  context.l10n.homeTryLater,
+                  style: const TextStyle(
                     fontSize: 13,
                     color: EggplantColors.textSecondary,
                   ),
@@ -139,7 +140,7 @@ class _LikesTabState extends State<LikesTab> {
                 ElevatedButton.icon(
                   onPressed: () => svc.fetchMyLikes(silent: false),
                   icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('다시 시도'),
+                  label: Text(context.l10n.commonRetry),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: EggplantColors.primary,
                     foregroundColor: Colors.white,
@@ -158,26 +159,26 @@ class _LikesTabState extends State<LikesTab> {
     if (items.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 120),
+        children: [
+          const SizedBox(height: 120),
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('💜', style: TextStyle(fontSize: 56)),
-                SizedBox(height: 12),
+                const Text('💜', style: TextStyle(fontSize: 56)),
+                const SizedBox(height: 12),
                 Text(
-                  '찜한 상품이 없어요',
-                  style: TextStyle(
+                  context.l10n.homeNoLikes,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: EggplantColors.textPrimary,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  '관심있는 상품에 하트를 눌러보세요',
-                  style: TextStyle(
+                  context.l10n.homeNoLikesHint,
+                  style: const TextStyle(
                     fontSize: 13,
                     color: EggplantColors.textSecondary,
                   ),

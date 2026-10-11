@@ -15,6 +15,7 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types';
 import { authMiddleware } from '../jwt';
+import { tr } from '../market';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -31,7 +32,7 @@ app.post('/:productId', async (c) => {
     .bind(productId)
     .first();
   if (!exists) {
-    return c.json({ error: '존재하지 않는 게시물이에요' }, 404);
+    return c.json({ error: tr(c, '존재하지 않는 게시물이에요', 'この投稿は存在しません') }, 404);
   }
 
   await c.env.DB

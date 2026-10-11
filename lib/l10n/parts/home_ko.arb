@@ -1,0 +1,164 @@
+{
+  "homeSearchHint": "상품명 검색",
+  "homeSetRegion": "동네 설정",
+  "homeSearchClose": "검색 닫기",
+  "homeSearch": "검색",
+  "homeQrScan": "QR 스캔",
+  "homeRecentSearches": "최근 검색어",
+  "homeClearAll": "전체 삭제",
+  "homeNoRecentSearches": "최근 검색 기록이 없어요",
+  "homeRangeAll": "전체",
+  "homeDistance": "거리",
+  "homeNoProducts": "아직 상품이 없어요",
+  "homeCheckNetwork": "네트워크를 확인하고 다시 시도해주세요",
+  "homeFirstProduct": "첫 번째 상품을 등록해보세요!",
+  "homeRefresh": "새로고침",
+  "homeMyRegionsTitle": "내 동네 {count}/{max}",
+  "@homeMyRegionsTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "homeMyRegionsHint": "보고 싶은 동네를 누르면 바로 바뀌어요.",
+  "homeRemoveRegion": "이 동네 빼기",
+  "homeMaxRegions": "최대 {max}곳까지 설정할 수 있어요",
+  "@homeMaxRegions": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "homeAddRegion": "동네 추가하기",
+  "homeCategoryAll": "전체",
+  "homeCategoryDigital": "디지털기기",
+  "homeCategoryAppliance": "생활가전",
+  "homeCategoryFurniture": "가구/인테리어",
+  "homeCategoryClothing": "의류",
+  "homeCategoryBeauty": "뷰티/미용",
+  "homeCategoryBook": "도서/티켓",
+  "homeCategorySports": "스포츠/레저",
+  "homeCategoryHobby": "취미/게임",
+  "homeCategoryKids": "유아동",
+  "homeCategoryPet": "반려동물",
+  "homeCategoryFood": "식품",
+  "homeCategoryEtc": "기타",
+  "homeLikesTitle": "찜한 상품",
+  "homeLikesTitleCount": "찜한 상품 {count}",
+  "@homeLikesTitleCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeLoadFailed": "불러올 수 없어요",
+  "homeTryLater": "잠시 후 다시 시도해주세요",
+  "homeNoLikes": "찜한 상품이 없어요",
+  "homeNoLikesHint": "관심있는 상품에 하트를 눌러보세요",
+  "homeSignupBonus": "🎉 가입을 환영해요! +500 QTA 가 지급됐어요",
+  "homeLoginBonusRemaining": " · 오늘 {remaining}회 더 받을 수 있어요",
+  "@homeLoginBonusRemaining": {
+    "placeholders": {
+      "remaining": {
+        "type": "int"
+      }
+    }
+  },
+  "homeLoginBonusLimitReached": " · 오늘 한도 끝!",
+  "homeLoginBonus": "📅 출석 보너스 +{amount} QTA{tail}",
+  "@homeLoginBonus": {
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      },
+      "tail": {
+        "type": "String"
+      }
+    }
+  },
+  "homeWrite": "글쓰기",
+  "homeTabHome": "홈",
+  "homeTabLikes": "찜",
+  "homeTabChat": "채팅",
+  "homeTabMy": "내 정보",
+  "homeLocationServiceOff": "위치 서비스를 켜주세요 (설정 > 위치)",
+  "homeLocationPermissionNeeded": "위치 권한이 필요해요. 설정에서 허용해주세요.",
+  "homeRegionVerifiedToast": "{region} 인증 완료 🎉",
+  "@homeRegionVerifiedToast": {
+    "placeholders": {
+      "region": {
+        "type": "String"
+      }
+    }
+  },
+  "homeMyRegion": "내 동네",
+  "homeLocationFailed": "현재 위치를 확인하지 못했어요. 위치 권한과 GPS 를 확인해주세요",
+  "homeRegionVerified": "동네 인증 완료",
+  "homeRegionVerifyNeeded": "동네 인증 필요",
+  "homeRegionVerifiedDesc": "{region} · GPS 4km 이내 확인됨",
+  "@homeRegionVerifiedDesc": {
+    "placeholders": {
+      "region": {
+        "type": "String"
+      }
+    }
+  },
+  "homeRegionVerifyDesc": "{region} · GPS 인증으로 거리순 검색 가능해져요",
+  "@homeRegionVerifyDesc": {
+    "placeholders": {
+      "region": {
+        "type": "String"
+      }
+    }
+  },
+  "homeReverify": "재인증",
+  "homeVerify": "인증하기",
+  "homeRegionSettingsTitle": "내 동네 설정",
+  "homeRegionSearchHint": "동, 읍, 면으로 검색 (예: 강남)",
+  "homeRegionVerifyDialogTitle": "동네 인증할까요?",
+  "homeRegionVerifyDialogBody": "{region} 에 정말 사는지 GPS 로 한 번만 확인하면 거리순 검색을 쓸 수 있어요.\n\n정확한 위치는 서버에 저장하지 않아요.",
+  "@homeRegionVerifyDialogBody": {
+    "placeholders": {
+      "region": {
+        "type": "String"
+      }
+    }
+  },
+  "homeVerifyNow": "지금 인증",
+  "homeRegionSet": "{region} 으로 설정되었어요",
+  "@homeRegionSet": {
+    "placeholders": {
+      "region": {
+        "type": "String"
+      }
+    }
+  },
+  "homeLoginToUse": "로그인 후 이용해주세요",
+  "homeMyQr": "내 QR 코드",
+  "homeShowQr": "상대방에게 QR을 보여주세요",
+  "homeQrDesc": "QR을 스캔하면 바로 익명 채팅이 시작돼요 💨",
+  "homeQrAnonymous": "🔐 완전 익명 · 대화 저장 X",
+  "homeQrLinkCopied": "QR 링크가 복사되었어요",
+  "homeQrCopyLink": "QR 링크 복사",
+  "homeQrNotEggplant": "Eggplant QR이 아니에요",
+  "homeQrInvalid": "잘못된 QR 형식이에요",
+  "homeQrOwn": "내 QR은 스캔할 수 없어요",
+  "homeQrChatFailed": "채팅방을 열지 못했어요",
+  "homeQrScanGuide": "Eggplant QR을 프레임 안에 맞춰주세요",
+  "homeQrScanDesc": "스캔 즉시 익명 채팅이 시작돼요",
+  "homeAnonymous": "익명",
+  "homePageNotFound": "페이지를 찾을 수 없어요: {error}",
+  "@homePageNotFound": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../services/keyword_alert_service.dart';
 
@@ -55,17 +56,17 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('키워드 삭제'),
-        content: Text('"${k.keyword}" 알림을 끌까요?'),
+        title: Text(context.l10n.productKeywordDeleteTitle),
+        content: Text(context.l10n.productKeywordDeleteBody(k.keyword)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
+            child: Text(context.l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('삭제'),
+            child: Text(context.l10n.commonDelete),
           ),
         ],
       ),
@@ -82,7 +83,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen> {
         return Scaffold(
           backgroundColor: EggplantColors.background,
           appBar: AppBar(
-            title: const Text('키워드 알림'),
+            title: Text(context.l10n.productKeywordAlertsTitle),
             elevation: 0,
             backgroundColor: Colors.white,
           ),
@@ -96,7 +97,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '관심 키워드를 등록하면 동네에 새 매물이 올라올 때 알림을 보내드려요. (최대 ${svc.max}개)',
+                      context.l10n.productKeywordAlertsIntro(svc.max),
                       style: const TextStyle(
                         fontSize: 13,
                         color: EggplantColors.textSecondary,
@@ -115,8 +116,8 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen> {
                             maxLength: 30,
                             decoration: InputDecoration(
                               hintText: svc.isFull
-                                  ? '키워드 슬롯이 모두 찼어요'
-                                  : '예: 닌텐도, 자전거, 캠핑',
+                                  ? context.l10n.productKeywordFull
+                                  : context.l10n.productKeywordHint,
                               counterText: '',
                               filled: true,
                               fillColor: EggplantColors.background,
@@ -146,7 +147,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Text('등록'),
+                                : Text(context.l10n.productKeywordAdd),
                           ),
                         ),
                       ],
@@ -208,25 +209,25 @@ class _Empty extends StatelessWidget {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(
+        children: [
+          const Icon(
             Icons.notifications_off_outlined,
             size: 56,
             color: EggplantColors.textTertiary,
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text(
-            '등록한 키워드가 없어요',
-            style: TextStyle(
+            context.l10n.productKeywordEmpty,
+            style: const TextStyle(
               fontSize: 15,
               color: EggplantColors.textSecondary,
               fontWeight: FontWeight.w600,
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
-            '위에서 관심 키워드를 추가해보세요',
-            style: TextStyle(
+            context.l10n.productKeywordEmptyHint,
+            style: const TextStyle(
               fontSize: 13,
               color: EggplantColors.textTertiary,
             ),

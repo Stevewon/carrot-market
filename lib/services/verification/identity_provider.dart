@@ -13,6 +13,8 @@
 ///   - [IdentityProviderRegistry.resolve] 에 등록하면 끝.
 library;
 
+import '../../app/l10n.dart';
+
 /// 본인인증 시도 결과 — 서버로 그대로 올리는 페이로드 형태.
 class IdentityVerifyResult {
   /// 'pass' / 'sms' / 'kisa' / 'dummy'
@@ -147,7 +149,7 @@ class PassIdentityProvider implements IdentityProvider {
       try {
         return await PassNativeBridge.verify(
           siteCode: siteCode,
-          popupTitle: '가지마켓 본인인증',
+          popupTitle: L10n.current.authPassPopupTitle,
         );
       } catch (e) {
         // MissingPluginException → 네이티브 등록 안 됨 → 미연결로 처리.

@@ -42,6 +42,9 @@ import android.app.Activity
  */
 class NativeIncomingCallActivity : Activity() {
 
+    /** 앱 언어(app_market)에 맞춘 문자열 — AppLang 참고 */
+    private fun tr(ko: String, ja: String): String = AppLang.t(this, ko, ja)
+
     companion object {
         private const val TAG = "CALL_FULLSCREEN"
         // 발신자가 통화를 끊으면 이 broadcast 로 수신화면을 종료.
@@ -235,7 +238,7 @@ class NativeIncomingCallActivity : Activity() {
             setPadding(48, 160, 48, 160)
         }
 
-        val typeText = if (callType == "video") "📹 영상통화" else "📞 음성통화"
+        val typeText = if (callType == "video") tr("📹 영상통화", "📹 ビデオ通話") else tr("📞 음성통화", "📞 音声通話")
 
         val typeLabel = TextView(this).apply {
             text = typeText
@@ -247,7 +250,7 @@ class NativeIncomingCallActivity : Activity() {
         layout.addView(typeLabel)
 
         val statusLabel = TextView(this).apply {
-            text = "걸려오는 전화"
+            text = tr("걸려오는 전화", "着信")
             textSize = 16f
             setTextColor(Color.parseColor("#8892B0"))
             gravity = Gravity.CENTER
@@ -280,7 +283,7 @@ class NativeIncomingCallActivity : Activity() {
         }
 
         val rejectBtn = Button(this).apply {
-            text = "거절"
+            text = tr("거절", "拒否")
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#E53935"))
             setPadding(64, 40, 64, 40)
@@ -295,7 +298,7 @@ class NativeIncomingCallActivity : Activity() {
         buttonRow.addView(rejectBtn)
 
         val answerBtn = Button(this).apply {
-            text = "수락"
+            text = tr("수락", "応答")
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#43A047"))
             setPadding(64, 40, 64, 40)
@@ -335,10 +338,10 @@ class NativeIncomingCallActivity : Activity() {
      *   1. stopRingtone -> 즉시 벨소리 중지
      *   2. cancelIncomingCallNotification -> FSI 알림 제거
      *   3. cleanupIncomingState -> ringing 상태 정리
-     *   4. savePendingNativeAnswer -> SharedPreferences (cold-start 방어, MainActivity 가 깨어나면 소비)
-     *   5. nativeAnswerInProgress = true -> Flutter IncomingCallScreen 차단
-     *   6. AgoraCallActivity.start() -> 즉시 통화 화면 (Flutter 안 깨움)
-     *   7. finish() -> 이 Activity 종료
+     *   4. nativeAnswerInProgress = true -> 같은 통화의 수신화면 중복 표시 차단
+     *   5. AgoraCallActivity.start() -> 즉시 통화 화면 (Flutter 안 깨움).
+     *      채널 입장 성공 시 AgoraCallActivity 가 서버에 "수락" 신호를 직접 보냄 (CallSignalClient)
+     *   6. finish() -> 이 Activity 종료
      *
      * 절대 금지:
      *   - 수락 후 또 다른 수신화면 열기
@@ -357,31 +360,14 @@ class NativeIncomingCallActivity : Activity() {
         // 3. Clear ringing state
         CallNotificationHelper.cleanupIncomingState(this, sessionId)
 
-        // 4. Save pending native answer -> SharedPreferences (cold-start 방어)
-        //    MainActivity 가 다른 시점에 깨어나면 이 데이터를 소비해 Flutter 측 상태 동기화
-        CallNotificationHelper.savePendingNativeAnswer(
-            context = this,
-            sessionId = sessionId,
-            callerId = callerId,
-            callerNickname = callerName,
-            callType = callType,
-            callerProfilePhoto = callerPhoto
-        )
-
-        // 5. Block Flutter ringing UI re-entry + set pending data
-        //    flag와 pendingData를 BEFORE AgoraCallActivity 실행 시점에 설정.
-        // ★ v1.0.159: callerWallet 포함 — cold-start 시에도 Flutter peerWallet 산정 보장
+        // 4. 수락 진행 중 표시 — 같은 통화의 전체화면/헤드업이 중복으로 뜨는 것 차단.
+        //    AgoraCallActivity.onDestroy 에서 false 로 되돌린다 (예전엔 Dart 가 되돌려야
+        //    했는데 호출이 없어, 두 번째 수신부터 화면 없이 벨만 울렸다).
+        //    발신자에게 보내는 "수락" 신호는 AgoraCallActivity 가 채널 입장 성공 직후
+        //    REST(CallSignalClient)로 직접 보낸다 — Flutter 를 깨우지 않는다.
         MainActivity.nativeAnswerInProgress = true
-        MainActivity.pendingNativeAnswerData = mapOf(
-            "sessionId" to sessionId,
-            "callerId" to callerId,
-            "callerNickname" to callerName,
-            "callType" to callType,
-            "callerProfilePhoto" to callerPhoto,
-            "callerWallet" to callerWallet
-        )
 
-        // 6. Q3=생략: 항상 AgoraCallActivity 직행 (Flutter 미경유)
+        // 5. Q3=생략: 항상 AgoraCallActivity 직행 (Flutter 미경유)
         //   Eggplant 는 채널명 + 본인 지갑주소를 추가로 전달
         Log.e(TAG, "[CALL_FULLSCREEN] AgoraCallActivity direct launch sessionId=$sessionId channel=$channelName walletEmpty=${walletAddress.isEmpty()}")
         AgoraCallActivity.start(
@@ -396,40 +382,7 @@ class NativeIncomingCallActivity : Activity() {
             isIncoming = true,
         )
 
-        // 6.5 ★ v1.0.150 (2026-05-10): MainActivity 깨워서 Flutter 측에 accept 통보.
-        //   v1.0.144~149 에서 양쪽 폰 "연결 중..." + 벨소리 무한 유지 root cause:
-        //   onAnswerClicked() 가 AgoraCallActivity 직행만 하고 MainActivity 를
-        //   깨우지 않음 → Flutter CallService 가 "수신자가 수락했다" 모름 →
-        //   chat.emit('call_response', accepted=true) WebSocket 송신 0건 →
-        //   발신자 단말 무한 ringback. (사장님 v1.0.149 테스트 보고로 확정)
-        //   reject 흐름은 line 389~398 에서 이미 동일 패턴 사용 중. accept 도
-        //   동일하게 MainActivity 를 깨워서 from_native_answer=true 인텐트 전달.
-        //   MainActivity.handleNativeCallIntent (line 124) 가 onNativeAnswer
-        //   MethodChannel invoke → Flutter setMethodCallHandler → CallService
-        //   handleNativeAnswer() → chat.emit('call_response', accepted=true) →
-        //   서버 → 발신자 단말 → 벨소리 정지 + joinChannel → 양쪽 통화 연결.
-        try {
-            val answerIntent = Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra("from_native_answer", true)
-                putExtra("sessionId", sessionId)
-                putExtra("callerId", callerId)
-                putExtra("callerNickname", callerName)
-                putExtra("callType", callType)
-                putExtra("callerProfilePhoto", callerPhoto)
-                // ★ v1.0.159: 발신자 지갑주소를 MainActivity → Flutter 로 전파.
-                //   handleNativeCallIntent 이 callerWallet 을 onNativeAnswer data 에 포함.
-                if (callerWallet.isNotEmpty()) putExtra("callerWallet", callerWallet)
-            }
-            startActivity(answerIntent)
-            Log.e(TAG, "[CALL_FULLSCREEN] MainActivity launched for native answer sessionId=$sessionId callerWalletEmpty=${callerWallet.isEmpty()}")
-        } catch (e: Exception) {
-            Log.e(TAG, "[CALL_FULLSCREEN] MainActivity launch (answer) failed: ${e.message}")
-        }
-
-        // 7. Finish this activity (no second UI)
+        // 6. Finish this activity (no second UI)
         finish()
     }
 
@@ -441,27 +394,9 @@ class NativeIncomingCallActivity : Activity() {
         CallNotificationHelper.cancelIncomingCallNotification(this)
         CallNotificationHelper.cleanupIncomingState(this, sessionId)
 
-        // MainActivity 로 reject 신호 전달 — Flutter MethodChannel 이 WebSocket call_response(rejected) 송신
-        try {
-            val rejectIntent = Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra("reject_call_from_native", true)
-                putExtra("sessionId", sessionId)
-            }
-            startActivity(rejectIntent)
-            Log.e(TAG, "[CALL_FULLSCREEN] MainActivity launched for reject sessionId=$sessionId")
-        } catch (e: Exception) {
-            Log.e(TAG, "[CALL_FULLSCREEN] reject launch failed: ${e.message}")
-            // Fallback: broadcast (Eggplant package)
-            val rejectBroadcast = Intent("com.eggplant.market.CALL_ACTION").apply {
-                setPackage(packageName)
-                putExtra("action", "reject")
-                putExtra("sessionId", sessionId)
-            }
-            sendBroadcast(rejectBroadcast)
-        }
+        // 발신자에게 거절 신호를 서버로 직접 보낸다 (Flutter 를 깨우지 않음 —
+        // 콜드 스타트에서 신호가 유실되던 문제, Android 12+ 트램펄린 제한 회피).
+        CallSignalClient.sendResponse(this, sessionId, callerId, accepted = false)
 
         finish()
     }

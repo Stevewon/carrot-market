@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
+import '../app/market.dart';
+import '../app/regions.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
@@ -20,33 +23,48 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
   String _query = '';
   bool _verifying = false;
 
-  static const List<String> _regions = [
-    '서울 강남구', '서울 강동구', '서울 강북구', '서울 강서구',
-    '서울 관악구', '서울 광진구', '서울 구로구', '서울 금천구',
-    '서울 노원구', '서울 도봉구', '서울 동대문구', '서울 동작구',
-    '서울 마포구', '서울 서대문구', '서울 서초구', '서울 성동구',
-    '서울 성북구', '서울 송파구', '서울 양천구', '서울 영등포구',
-    '서울 용산구', '서울 은평구', '서울 종로구', '서울 중구', '서울 중랑구',
-    '경기 수원시', '경기 성남시', '경기 용인시', '경기 고양시',
-    '경기 부천시', '경기 안산시', '경기 안양시', '경기 남양주시',
-    '경기 화성시', '경기 평택시', '경기 의정부시', '경기 시흥시',
-    '경기 파주시', '경기 광명시', '경기 김포시', '경기 광주시',
-    '인천 중구', '인천 동구', '인천 미추홀구', '인천 연수구',
-    '인천 남동구', '인천 부평구', '인천 계양구', '인천 서구',
-    '부산 해운대구', '부산 수영구', '부산 남구', '부산 연제구',
-    '대구 중구', '대구 동구', '대구 서구', '대구 남구', '대구 북구',
-    '대전 서구', '대전 유성구', '대전 중구',
-    '광주 북구', '광주 남구', '광주 서구', '광주 동구',
-    '울산 남구', '울산 중구', '울산 동구',
-    '세종 세종시',
-    '제주 제주시', '제주 서귀포시',
-  ];
+  /// 일본 2단계 선택에서 고른 都道府県. null 이면 都道府県 목록 단계.
+  String? _pref;
+
+  @override
+  void dispose() {
+    _searchCtl.dispose();
+    super.dispose();
+  }
+
+  bool get _isJp =>
+      AppMarket.isJp(AppMarket.of(context.read<AuthService>().user));
+
+  /// 내 시장(한국/일본) 동네만 — 일본어 사용자에게는 일본 지역만 보인다.
+  List<String> get _regions =>
+      AppRegions.forMarket(AppMarket.of(context.read<AuthService>().user));
 
   List<String> get _filtered {
     if (_query.isEmpty) return _regions;
     return _regions
         .where((r) => r.toLowerCase().contains(_query.toLowerCase()))
         .toList();
+  }
+
+  /// 검색어 정규화 — 소문자, 공백 제거, ひらがな → カタカナ (읽기 가나로도 찾게).
+  static String _norm(String s) {
+    final b = StringBuffer();
+    for (final r in s.toLowerCase().runes) {
+      if (r == 0x20 || r == 0x3000) continue;
+      b.writeCharCode(r >= 0x3041 && r <= 0x3096 ? r + 0x60 : r);
+    }
+    return b.toString();
+  }
+
+  static bool _hit(String q, String name, String kana) =>
+      _norm(name).contains(q) || kana.contains(q);
+
+  void _setPref(String? pref) {
+    _searchCtl.clear();
+    setState(() {
+      _pref = pref;
+      _query = '';
+    });
   }
 
   /// 동네 인증: GPS 좌표를 받아 서버에 검증 요청.
@@ -57,13 +75,14 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
 
     final auth = context.read<AuthService>();
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
 
     try {
       // 1) 위치 서비스(시스템 GPS) 켜져 있는지.
       final svc = await Geolocator.isLocationServiceEnabled();
       if (!svc) {
-        messenger.showSnackBar(const SnackBar(
-          content: Text('위치 서비스를 켜주세요 (설정 > 위치)'),
+        messenger.showSnackBar(SnackBar(
+          content: Text(l10n.homeLocationServiceOff),
         ));
         return;
       }
@@ -74,8 +93,8 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
         perm = await Permission.locationWhenInUse.request();
       }
       if (!perm.isGranted) {
-        messenger.showSnackBar(const SnackBar(
-          content: Text('위치 권한이 필요해요. 설정에서 허용해주세요.'),
+        messenger.showSnackBar(SnackBar(
+          content: Text(l10n.homeLocationPermissionNeeded),
         ));
         return;
       }
@@ -98,7 +117,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
       if (!mounted) return;
       if (err == null) {
         messenger.showSnackBar(SnackBar(
-          content: Text('${auth.user?.region ?? "내 동네"} 인증 완료 🎉'),
+          content: Text(l10n.homeRegionVerifiedToast(auth.user?.region ?? l10n.homeMyRegion)),
           backgroundColor: EggplantColors.primary,
         ));
         if (Navigator.canPop(context)) context.pop();
@@ -107,7 +126,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
       }
     } catch (e) {
       if (mounted) {
-        messenger.showSnackBar(SnackBar(content: Text('GPS 오류: $e')));
+        messenger.showSnackBar(SnackBar(content: Text(l10n.homeLocationFailed)));
       }
     } finally {
       if (mounted) setState(() => _verifying = false);
@@ -146,7 +165,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  verified ? '동네 인증 완료' : '동네 인증 필요',
+                  verified ? context.l10n.homeRegionVerified : context.l10n.homeRegionVerifyNeeded,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -156,8 +175,8 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
                 ),
                 Text(
                   verified
-                      ? '$region · GPS 4km 이내 확인됨'
-                      : '$region · GPS 인증으로 거리순 검색 가능해져요',
+                      ? context.l10n.homeRegionVerifiedDesc(region)
+                      : context.l10n.homeRegionVerifyDesc(region),
                   style: const TextStyle(
                     fontSize: 12,
                     color: EggplantColors.textSecondary,
@@ -173,7 +192,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
                     width: 14, height: 14,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(verified ? '재인증' : '인증하기',
+                : Text(verified ? context.l10n.homeReverify : context.l10n.homeVerify,
                     style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
@@ -181,91 +200,215 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
     );
   }
 
+  /// 동네 고르기 — 내 동네 목록에 추가하고 그 동네로 바꾼다 (최대 10곳).
+  Future<void> _pick(AuthService auth, String r) async {
+    final err = await auth.updateRegion(r);
+    if (!mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(err)));
+      return;
+    }
+    // 변경한 동네에서 바로 GPS 인증을 권유.
+    final verifyNow = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.l10n.homeRegionVerifyDialogTitle),
+        content: Text(ctx.l10n.homeRegionVerifyDialogBody(r)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ctx.l10n.commonLater),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ctx.l10n.homeVerifyNow,
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (verifyNow == true) {
+      await _verifyWithGps(region: r);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.homeRegionSet(r))),
+      );
+      if (Navigator.canPop(context)) context.pop();
+    }
+  }
+
+  /// 동네 한 줄. [region] 은 서버에 보내는 전체 이름, [label] 은 화면에 보이는 이름.
+  Widget _regionTile(AuthService auth, String region, String label) {
+    final isCurrent = region == auth.user?.region;
+    return ListTile(
+      title: Text(label,
+          style: TextStyle(
+            fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+            color: isCurrent ? EggplantColors.primary : EggplantColors.textPrimary,
+          )),
+      trailing: isCurrent
+          ? const Icon(Icons.check, color: EggplantColors.primary)
+          : null,
+      onTap: () => _pick(auth, region),
+    );
+  }
+
+  Widget _searchField(String hint) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: TextField(
+          controller: _searchCtl,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: const Icon(Icons.search),
+          ),
+          onChanged: (v) => setState(() => _query = v),
+        ),
+      );
+
+  Widget _empty() => Padding(
+        padding: const EdgeInsets.all(32),
+        child: Text(context.l10n.regionNoResults,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: EggplantColors.textSecondary)),
+      );
+
+  /// 한국 — 동네 한 목록 + 검색 (예전 그대로).
+  List<Widget> _krList(AuthService auth) {
+    final list = _filtered;
+    return [
+      _searchField(context.l10n.homeRegionSearchHint),
+      Expanded(
+        child: ListView.separated(
+          itemCount: list.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (_, i) => _regionTile(auth, list[i], list[i]),
+        ),
+      ),
+    ];
+  }
+
+  /// 일본 1단계 — 都道府県 목록. 검색어가 있으면 전국 市区町村도 바로 보여준다.
+  List<Widget> _jpPrefectureStep(AuthService auth) {
+    final l10n = context.l10n;
+    final q = _norm(_query.trim());
+    final currentPref = AppRegions.jpPrefectureOf(auth.user?.region ?? '');
+    final prefs = AppRegions.jpPrefectures
+        .where((p) => q.isEmpty || _norm(p).contains(q))
+        .toList();
+    final cities = q.isEmpty
+        ? const <(String, String, String)>[]
+        : [
+            for (final p in AppRegions.jpPrefectures)
+              ...AppRegions.jpCities(p).where((c) => _hit(q, c.$2, c.$3)),
+          ];
+    return [
+      _searchField(l10n.regionPrefectureSearchHint),
+      Expanded(
+        child: prefs.isEmpty && cities.isEmpty
+            ? _empty()
+            : ListView(
+                children: [
+                  for (final p in prefs) ...[
+                    ListTile(
+                      title: Text(p,
+                          style: TextStyle(
+                            fontWeight: p == currentPref
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: p == currentPref
+                                ? EggplantColors.primary
+                                : EggplantColors.textPrimary,
+                          )),
+                      subtitle: Text(
+                          l10n.regionCityCount(AppRegions.jpCities(p).length),
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: EggplantColors.textSecondary)),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _setPref(p),
+                    ),
+                    const Divider(height: 1),
+                  ],
+                  for (final c in cities) ...[
+                    _regionTile(auth, c.$1, c.$1),
+                    const Divider(height: 1),
+                  ],
+                ],
+              ),
+      ),
+    ];
+  }
+
+  /// 일본 2단계 — 고른 都道府県의 市区町村.
+  List<Widget> _jpCityStep(AuthService auth, String pref) {
+    final l10n = context.l10n;
+    final q = _norm(_query.trim());
+    final cities = AppRegions.jpCities(pref)
+        .where((c) => q.isEmpty || _hit(q, c.$2, c.$3))
+        .toList();
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 8, 8, 0),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: l10n.regionChangePrefecture,
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+              onPressed: () => _setPref(null),
+            ),
+            Expanded(
+              child: Text(pref,
+                  style: const TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.w800)),
+            ),
+            TextButton(
+              onPressed: () => _setPref(null),
+              child: Text(l10n.regionChangePrefecture),
+            ),
+          ],
+        ),
+      ),
+      _searchField(l10n.regionCitySearchHint(pref)),
+      Expanded(
+        child: cities.isEmpty
+            ? _empty()
+            : ListView.separated(
+                itemCount: cities.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, i) =>
+                    _regionTile(auth, cities[i].$1, cities[i].$2),
+              ),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
+    final isJp = _isJp;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('내 동네 설정')),
-      body: SafeArea(
-        top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
-            child: Column(
-        children: [
-          _buildVerifiedBanner(auth),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchCtl,
-              decoration: const InputDecoration(
-                hintText: '동, 읍, 면으로 검색 (예: 강남)',
-                prefixIcon: Icon(Icons.search),
+    // 일본 2단계(市区町村)에서 뒤로가기는 都道府県 목록으로.
+    return PopScope(
+      canPop: _pref == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _pref != null) _setPref(null);
+      },
+      child: Scaffold(
+        appBar: AppBar(title: Text(context.l10n.homeRegionSettingsTitle)),
+        body: SafeArea(
+          top: false,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
+              child: Column(
+                children: [
+                  _buildVerifiedBanner(auth),
+                  if (!isJp) ..._krList(auth),
+                  if (isJp && _pref == null) ..._jpPrefectureStep(auth),
+                  if (isJp && _pref != null) ..._jpCityStep(auth, _pref!),
+                ],
               ),
-              onChanged: (v) => setState(() => _query = v),
-            ),
-          ),
-          Expanded(
-            child: ListView.separated(
-              itemCount: _filtered.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (_, i) {
-                final r = _filtered[i];
-                final isCurrent = r == auth.user?.region;
-                return ListTile(
-                  title: Text(r,
-                      style: TextStyle(
-                        fontWeight:
-                            isCurrent ? FontWeight.w700 : FontWeight.w500,
-                        color: isCurrent
-                            ? EggplantColors.primary
-                            : EggplantColors.textPrimary,
-                      )),
-                  trailing: isCurrent
-                      ? const Icon(Icons.check, color: EggplantColors.primary)
-                      : null,
-                  onTap: () async {
-                    // 단순 region 변경 — GPS 인증은 풀린다.
-                    await auth.updateRegion(r);
-                    if (!context.mounted) return;
-                    // 변경한 동네에서 바로 GPS 인증을 권유.
-                    final verifyNow = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('동네 인증할까요?'),
-                        content: Text(
-                            '$r 에 정말 사는지 GPS 로 한 번만 확인하면 거리순 검색을 쓸 수 있어요.\n\n정확한 위치는 서버에 저장하지 않아요.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('나중에'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('지금 인증',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w700)),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (verifyNow == true) {
-                      await _verifyWithGps(region: r);
-                    } else if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('$r 으로 설정되었어요')),
-                      );
-                      if (context.mounted && Navigator.canPop(context)) {
-                        context.pop();
-                      }
-                    }
-                  },
-                );
-              },
-            ),
-          ),
-        ],
             ),
           ),
         ),

@@ -31,6 +31,7 @@ import 'package:flutter_callkit_incoming/entities/android_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../app/l10n.dart';
 import 'api_client.dart';
 import 'auth_service.dart';
 import 'launcher_badge.dart';
@@ -180,7 +181,7 @@ Future<void> _showIncomingCall(Map<String, dynamic> data) async {
   // 빈 값/누락 대비 fallback 으로만 '익명' 사용.
   final callerNickname = (data['caller_nickname']?.toString().trim().isNotEmpty ?? false)
       ? data['caller_nickname']!.toString().trim()
-      : '익명';
+      : L10n.current.chatAnonymous;
   // ★ v1.0.136: caller_wallet 도 보존. acceptCall 시 main isolate 로 전달돼
   //   Agora 채널명(eggplant_<sortedPair>) 산정에 사용됨. 누락되면 채널 join
   //   직전 "통화 정보를 불러올 수 없어요" 로 즉시 teardown 되어 사장님이 본
@@ -189,19 +190,20 @@ Future<void> _showIncomingCall(Map<String, dynamic> data) async {
   final callerWallet = data['caller_wallet']?.toString() ?? '';
   if (callId.isEmpty) return;
 
+  final t = L10n.current;
   final params = CallKitParams(
     id: callId,
     nameCaller: callerNickname,
-    appName: '가지마켓',
+    appName: t.chatCallkitAppName,
     handle: callerNickname, // 닉네임을 통화 헤더에 표시
     type: 0, // 0 = audio call (1 = video)
     duration: 30000, // 30 초 안에 안 받으면 자동 종료
-    textAccept: '받기',
-    textDecline: '거절',
-    missedCallNotification: const NotificationParams(
+    textAccept: t.chatCallkitAccept,
+    textDecline: t.chatCallkitDecline,
+    missedCallNotification: NotificationParams(
       showNotification: true,
       isShowCallback: false,
-      subtitle: '부재중 전화',
+      subtitle: t.chatMissedCall,
     ),
     extra: <String, dynamic>{
       'call_id': callId,
@@ -211,7 +213,7 @@ Future<void> _showIncomingCall(Map<String, dynamic> data) async {
       //   가 그대로 받음. _attachCallkitListener 가 caller_wallet 도 같이 stream 으로 발사.
       'caller_wallet': callerWallet,
     },
-    android: const AndroidParams(
+    android: AndroidParams(
       // ★ false 로 변경: Android 기본 통화 알림 사용 → 헤드업/풀스크린 자동 트리거.
       // true 인 경우 커스텀 노티 사용 → 잠금화면에서 받기/거절 버튼이 안 뜨고
       // 작은 노티 줄로만 표시되어 사장님이 보신 화면 같이 깨짐.
@@ -230,8 +232,8 @@ Future<void> _showIncomingCall(Map<String, dynamic> data) async {
       //   해결책 2) isShowFullLockedScreen + isImportant 명시 → 라이브러리가
       //   Notification.Builder 에 setFullScreenIntent + Person.setImportant
       //   를 적용하도록 강제.
-      incomingCallNotificationChannelName: '전화 수신 (V2)',
-      missedCallNotificationChannelName: '부재중 전화 (V2)',
+      incomingCallNotificationChannelName: t.chatIncomingCallChannel,
+      missedCallNotificationChannelName: t.chatMissedCallChannel,
       // 잠금화면 위에 풀스크린 인텐트로 띄움 (USE_FULL_SCREEN_INTENT 권한 필요).
       isShowFullLockedScreen: true,
       isImportant: true,
@@ -300,7 +302,7 @@ class PushService extends ChangeNotifier {
         'caller_wallet': callerWallet,
         'caller_nickname': data['callerNickname']?.toString() ??
             data['caller_nickname']?.toString() ??
-            '익명',
+            L10n.current.chatAnonymous,
       };
       debugPrint('[push] dispatchNativeAnswer → _callAcceptCtrl '
           'callIdEmpty=${(entry['call_id'] as String).isEmpty} '
@@ -425,7 +427,7 @@ class PushService extends ChangeNotifier {
             'call_id': extra['call_id']?.toString() ?? '',
             'from_user_id': extra['from_user_id']?.toString() ?? '',
             'caller_wallet': extra['caller_wallet']?.toString() ?? '',
-            'caller_nickname': extra['caller_nickname']?.toString() ?? '익명',
+            'caller_nickname': extra['caller_nickname']?.toString() ?? L10n.current.chatAnonymous,
           });
         }
         // DECLINE/TIMEOUT 는 CallKit 이 자동으로 UI 정리. 추가 처리 불필요.
@@ -493,7 +495,7 @@ class PushService extends ChangeNotifier {
         'call_id': data['call_id']?.toString() ?? '',
         'from_user_id': data['from_user_id']?.toString() ?? '',
         'caller_wallet': data['caller_wallet']?.toString() ?? '',
-        'caller_nickname': data['caller_nickname']?.toString() ?? '익명',
+        'caller_nickname': data['caller_nickname']?.toString() ?? L10n.current.chatAnonymous,
       });
       return;
     }
@@ -507,8 +509,15 @@ class PushService extends ChangeNotifier {
         _messageOpenedCtrl.add({
           'room_id': roomId,
           'sender_id': data['sender_id']?.toString() ?? '',
-          'sender_nickname': data['sender_nickname']?.toString() ?? '익명',
+          'sender_nickname': data['sender_nickname']?.toString() ?? L10n.current.chatAnonymous,
         });
+      }
+    }
+    // 판매자가 나를 구매자로 지정함 → 상품 상세(거래 확인 카드)로 이동.
+    if (type == 'purchase_confirm') {
+      final productId = data['product_id']?.toString() ?? '';
+      if (productId.isNotEmpty) {
+        _messageOpenedCtrl.add({'product_id': productId});
       }
     }
   }

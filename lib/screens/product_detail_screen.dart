@@ -10,6 +10,8 @@ import 'package:video_player/video_player.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../app/constants.dart';
+import '../app/l10n.dart';
+import '../app/market.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/product.dart';
@@ -17,6 +19,7 @@ import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
 import '../services/product_service.dart';
+import '../services/qta_service.dart';
 import '../services/moderation_service.dart';
 import '../services/hidden_products_service.dart';
 import 'profile_verify_screen.dart';
@@ -38,7 +41,7 @@ class MarketItem {
   final int priceKrw;
   final int? priceQta;
   final String sellerName;
-  final String status; // 판매중, 예약중, 판매완료
+  final String status; // 'sale' | 'reserved' | 'sold'
   final List<String> imageUrls;
 
   const MarketItem({
@@ -53,18 +56,22 @@ class MarketItem {
   });
 }
 
-/// 백엔드 Product → 화면용 MarketItem 어댑터.
-String _statusKoLabel(String raw) {
+/// 상태 원본값('sale'|'reserved'|'sold') → 상세 화면 표시 문구.
+String _statusDisplayLabel(BuildContext context, String raw) {
   switch (raw) {
     case 'reserved':
-      return '예약중';
+      return context.l10n.productStatusReserved;
     case 'sold':
-      return '판매완료';
+      return context.l10n.productStatusSoldOut;
     case 'sale':
     default:
-      return '판매중';
+      return context.l10n.productStatusSale;
   }
 }
+
+/// 백엔드 Product → 화면용 MarketItem 어댑터.
+String _statusKey(String raw) =>
+    (raw == 'reserved' || raw == 'sold') ? raw : 'sale';
 
 MarketItem _toMarketItem(Product p) {
   return MarketItem(
@@ -74,7 +81,7 @@ MarketItem _toMarketItem(Product p) {
     priceKrw: p.price,
     priceQta: p.qtaPrice > 0 ? p.qtaPrice : null,
     sellerName: p.sellerNickname,
-    status: _statusKoLabel(p.status),
+    status: _statusKey(p.status),
     imageUrls: p.images,
   );
 }
@@ -110,7 +117,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       if (p == null) {
         setState(() {
-          _errorMessage = '상품 정보를 불러오지 못했습니다.';
+          _errorMessage = context.l10n.productDetailLoadFailed;
           _isLoading = false;
         });
         return;
@@ -138,7 +145,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     } on TimeoutException {
       if (!mounted) return;
       setState(() {
-        _errorMessage = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요.';
+        _errorMessage = context.l10n.productDetailTimeout;
         _isLoading = false;
       });
     } catch (e, st) {
@@ -148,7 +155,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (!mounted) return;
 
       setState(() {
-        _errorMessage = '상품 정보를 불러오지 못했습니다.';
+        _errorMessage = context.l10n.productDetailLoadFailed;
         _isLoading = false;
       });
     }
@@ -171,6 +178,119 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return p != null && u != null && p.sellerId == u.id;
   }
 
+  /// 판매자가 나를 구매자로 지정했고 아직 확인하지 않은 거래.
+  bool get _awaitingMyConfirmation {
+    final p = _product;
+    final u = context.read<AuthService>().user;
+    return p != null &&
+        u != null &&
+        p.status == 'sold' &&
+        p.buyerId == u.id &&
+        p.buyerConfirmedAt == null;
+  }
+
+  Future<void> _confirmPurchase() async {
+    final p = _product;
+    if (p == null) return;
+    final user = context.read<AuthService>().user;
+    // QTA 결제 거래만 본인인증 필요 (원화 거래는 인증 없이 확인 가능).
+    if (p.hasQtaPrice && user != null && !user.verificationLevel.canTrade) {
+      if (!AppConfig.identityVerificationEnabled) {
+        // 본인인증이 아직 없는 빌드 — 인증하러 갈 수 없으므로 해결 방법을 안내.
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(ctx.l10n.productQtaConfirmUnavailableTitle),
+            content: Text(ctx.l10n.productQtaConfirmUnavailableBody),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(ctx.l10n.commonConfirm)),
+            ],
+          ),
+        );
+        return;
+      }
+      await showVerificationGuard(
+        context,
+        current: user.verificationLevel,
+        required: VerificationLevel.identity,
+        customTitle: context.l10n.productConfirmVerifyTitle,
+        customMessage: context.l10n.productConfirmVerifyBody,
+      );
+      return;
+    }
+    if (!mounted) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.l10n.productConfirmDialogTitle),
+        content: Text(p.hasQtaPrice
+            ? ctx.l10n.productConfirmDialogBodyQta(p.qtaPriceFormatted)
+            : ctx.l10n.productConfirmDialogBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(ctx.l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(ctx.l10n.productConfirmDeal),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    final err = await context.read<ProductService>().confirmPurchase(p.id, expectedQtaPrice: p.qtaPrice);
+    if (!mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      return;
+    }
+    await context.read<AuthService>().refreshFromServer();
+    await _loadDetail();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.productConfirmDone)),
+    );
+  }
+
+  Widget _buildBuyerConfirmCard() {
+    final p = _product!;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: EggplantColors.background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: EggplantColors.primaryLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.l10n.productBuyerAssignedTitle,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            p.hasQtaPrice
+                ? context.l10n.productBuyerAssignedBodyQta(p.qtaPriceFormatted)
+                : context.l10n.productBuyerAssignedBody,
+            style: const TextStyle(fontSize: 13, color: EggplantColors.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _confirmPurchase,
+              child: Text(context.l10n.productConfirmDealButton),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _changeStatus(String status) async {
     final p = _product;
     if (p == null) return;
@@ -179,15 +299,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     Map<String, dynamic>? buyer;
     if (status == 'sold') {
       final user = context.read<AuthService>().user;
-      if (user != null && !user.verificationLevel.canTrade) {
+      if (p.hasQtaPrice && user != null && !user.verificationLevel.canTrade) {
         await showVerificationGuard(
           context,
           current: user.verificationLevel,
           required: VerificationLevel.identity,
-          customTitle: '거래완료에는 본인 인증이 필요해요',
-          customMessage: '돈(KRW·QTA)이 오가는 단계라 1인 1계정 보장을 위해 '
-              '판매자 본인 인증이 필수입니다.\n'
-              '인증해도 채팅·통화는 익명 그대로 유지돼요.',
+          customTitle: context.l10n.productSoldVerifyTitle,
+          customMessage: context.l10n.productSoldVerifyBody,
         );
         return;
       }
@@ -207,83 +325,54 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     await _loadDetail();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('상태를 ${_statusLabel(status)}(으)로 변경했어요')),
+      SnackBar(
+        content: Text(status == 'sold' && buyerId != null
+            ? context.l10n.productStatusChangedSold
+            : context.l10n.productStatusChanged(_statusLabel(status))),
+      ),
     );
 
     if (status == 'sold' && buyer != null) {
-      await _showReviewSheet(buyerNickname: buyer['nickname']?.toString() ?? '구매자');
+      await _showReviewSheet(
+          buyerNickname: buyer['nickname']?.toString() ?? context.l10n.productBuyer);
     }
   }
 
   String _statusLabel(String s) {
     switch (s) {
       case 'reserved':
-        return '예약중';
+        return context.l10n.productStatusReserved;
       case 'sold':
-        return '거래완료';
+        return context.l10n.productStatusSold;
       case 'sale':
       default:
-        return '판매중';
+        return context.l10n.productStatusSale;
     }
   }
 
+  /// 거래완료 구매자 선택 시트.
+  ///   (1) 이 기기에 남아 있는 채팅방 중 이 상품으로 대화한 상대
+  ///   (2) 닉네임 검색 (서버 /api/users/search)
+  /// 휘발성 채팅이라 서버엔 대화 기록이 없으므로 둘을 함께 쓴다.
   Future<Map<String, dynamic>?> _pickBuyer(Product p) async {
-    final candidates =
-        await context.read<ProductService>().fetchBuyerCandidates(p.id);
-    if (!mounted) return null;
-    if (candidates.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('구매자와 채팅한 기록이 없어요. 먼저 채팅을 열어주세요.'),
-        ),
-      );
-      return null;
-    }
+    final me = context.read<AuthService>().user?.id;
+    final chatPartners = context
+        .read<ChatService>()
+        .rooms
+        .where((r) => r.productId == p.id && r.peerId.isNotEmpty && r.peerId != me)
+        .map((r) => <String, dynamic>{
+              'id': r.peerId,
+              'nickname': r.peerNickname,
+              'manner_score': r.peerMannerScore,
+            })
+        .toList();
     return showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.black12,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: Text(
-                  '거래한 구매자를 선택해주세요',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...candidates.map((c) => ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: Color(0xFFEEEEEE),
-                      child: Icon(Icons.person, color: Colors.black54),
-                    ),
-                    title: Text(c['nickname']?.toString() ?? '구매자'),
-                    subtitle:
-                        Text('매너온도 ${c['manner_score'] ?? 36.5}'),
-                    onTap: () => Navigator.of(ctx).pop(c),
-                  )),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
+      builder: (ctx) => _BuyerPickerSheet(chatPartners: chatPartners),
     );
   }
 
@@ -307,7 +396,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               child: StatefulBuilder(
-                builder: (ctx, setSt) => Column(
+                // 큰 글씨 + 키보드에서 넘치지 않게 스크롤.
+                builder: (ctx, setSt) => SingleChildScrollView(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -322,7 +413,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                       ),
                     ),
-                    Text('$buyerNickname 님과의 거래는 어떠셨나요?',
+                    Text(ctx.l10n.productReviewQuestion(buyerNickname),
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 12),
@@ -342,8 +433,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     TextField(
                       controller: controller,
                       maxLines: 3,
-                      decoration: const InputDecoration(
-                        hintText: '거래 후기를 남겨주세요 (선택)',
+                      decoration: InputDecoration(
+                        hintText: ctx.l10n.productReviewHint,
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -364,14 +455,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           if (ctx.mounted) Navigator.of(ctx).pop();
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('후기 등록 감사합니다 🙏')),
+                              SnackBar(content: Text(context.l10n.productReviewThanks)),
                             );
                           }
                         },
-                        child: const Text('후기 등록'),
+                        child: Text(ctx.l10n.productReviewSubmit),
                       ),
                     ),
                   ],
+                ),
                 ),
               ),
             ),
@@ -398,7 +490,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (!mounted) return;
       if (room == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('채팅방을 열 수 없어요')),
+          SnackBar(content: Text(context.l10n.productChatOpenFailed)),
         );
         return;
       }
@@ -410,7 +502,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('채팅을 시작하지 못했어요: $e')),
+        SnackBar(content: Text(context.l10n.productChatStartFailed)),
       );
     }
   }
@@ -419,13 +511,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final p = _product;
     if (p == null) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('안전결제 화면으로 이동합니다')),
+      SnackBar(content: Text(context.l10n.productEscrowNavigating)),
     );
   }
 
   void _showOwnerMenu() {
     showModalBottomSheet<void>(
       context: context,
+      // 메뉴 5개 — 기본(화면 9/16 제한)이면 작은 폰·큰 글씨에서 잘림.
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -435,23 +529,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.local_offer),
-              title: const Text('판매중으로 변경'),
+              title: Text(ctx.l10n.productChangeToSale),
               onTap: () { Navigator.pop(ctx); _changeStatus('sale'); },
             ),
             ListTile(
               leading: const Icon(Icons.event_available),
-              title: const Text('예약중으로 변경'),
+              title: Text(ctx.l10n.productChangeToReserved),
               onTap: () { Navigator.pop(ctx); _changeStatus('reserved'); },
             ),
             ListTile(
               leading: const Icon(Icons.check_circle),
-              title: const Text('거래완료로 변경'),
+              title: Text(ctx.l10n.productChangeToSold),
               onTap: () { Navigator.pop(ctx); _changeStatus('sold'); },
             ),
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.edit_outlined),
-              title: const Text('수정'),
+              title: Text(ctx.l10n.productEdit),
               onTap: () async {
                 Navigator.pop(ctx);
                 final p = _product;
@@ -466,13 +560,42 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('삭제', style: TextStyle(color: Colors.red)),
+              title: Text(ctx.l10n.commonDelete, style: const TextStyle(color: Colors.red)),
               onTap: () async {
                 Navigator.pop(ctx);
                 final p = _product;
                 if (p == null) return;
-                final err = await context.read<ProductService>().deleteProduct(p.id);
-                if (err == null && mounted) context.pop();
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (dctx) => AlertDialog(
+                    title: Text(dctx.l10n.productDeleteTitle),
+                    content: Text(dctx.l10n.productDeleteBody),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(dctx, false),
+                          child: Text(dctx.l10n.commonCancel)),
+                      TextButton(
+                        onPressed: () => Navigator.pop(dctx, true),
+                        style: TextButton.styleFrom(
+                            foregroundColor: EggplantColors.error),
+                        child: Text(dctx.l10n.commonDelete),
+                      ),
+                    ],
+                  ),
+                );
+                if (ok != true || !mounted) return;
+                final ps = context.read<ProductService>();
+                final err = await ps.deleteProduct(p.id);
+                if (!mounted) return;
+                final clawback = err == null ? ps.lastListingClawback : 0;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(err ??
+                      (clawback > 0
+                          ? context.l10n.productDeletedWithClawback(clawback)
+                          : context.l10n.productDeleted)),
+                ));
+                if (clawback > 0) context.read<QtaService>().load(force: true);
+                if (err == null) context.pop();
               },
             ),
           ],
@@ -493,7 +616,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.visibility_off_outlined),
-              title: const Text('숨기기'),
+              title: Text(ctx.l10n.productHide),
               onTap: () async {
                 Navigator.pop(ctx);
                 final p = _product;
@@ -504,7 +627,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.flag_outlined),
-              title: const Text('신고'),
+              title: Text(ctx.l10n.productReport),
               onTap: () async {
                 Navigator.pop(ctx);
                 final p = _product;
@@ -512,7 +635,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 // ModerationService는 reportUser만 존재. 상품 신고 API는 추후 추가.
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('신고가 접수되었습니다')),
+                    SnackBar(content: Text(context.l10n.productReportReceived)),
                   );
                 }
               },
@@ -530,13 +653,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('상품상세'),
+        title: Text(context.l10n.productDetailTitle),
         centerTitle: true,
         actions: [
           if (!_isLoading && _product != null)
             IconButton(
               icon: const Icon(Icons.more_vert),
-              tooltip: _isMine ? '상태 변경 / 삭제' : '더보기',
+              tooltip: _isMine
+                  ? context.l10n.productOwnerMenuTooltip
+                  : context.l10n.productMore,
               onPressed: _isMine ? _showOwnerMenu : _showViewerMenu,
             ),
         ],
@@ -570,7 +695,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: _loadDetail,
-                child: const Text('다시 시도'),
+                child: Text(context.l10n.commonRetry),
               ),
             ],
           ),
@@ -579,8 +704,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     if (_item == null) {
-      return const Center(
-        child: Text('상품 정보가 없습니다.'),
+      return Center(
+        child: Text(context.l10n.productDetailEmpty),
       );
     }
 
@@ -593,6 +718,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         children: [
           _buildImageSection(item),
           const SizedBox(height: 20),
+          if (_product != null && _product!.hasVideo) ...[
+            _ProductVideo(
+                key: ValueKey(_product!.videoUrl), product: _product!),
+            const SizedBox(height: 20),
+          ],
+          if (_awaitingMyConfirmation) ...[
+            _buildBuyerConfirmCard(),
+            const SizedBox(height: 20),
+          ],
           _buildSellerSection(item),
           const SizedBox(height: 20),
           _buildTitleSection(item),
@@ -634,6 +768,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             borderRadius: BorderRadius.circular(16),
             child: CachedNetworkImage(
               imageUrl: url,
+              memCacheWidth: 1080,
               fit: BoxFit.cover,
               width: double.infinity,
               placeholder: (_, __) => Container(color: Colors.grey.shade100),
@@ -655,7 +790,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _buildTitleSection(MarketItem item) {
     return Text(
-      item.title.isEmpty ? '제목 없음' : item.title,
+      item.title.isEmpty ? context.l10n.productNoTitle : item.title,
       style: const TextStyle(
         fontSize: 22,
         fontWeight: FontWeight.w700,
@@ -688,7 +823,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.sellerName.isEmpty ? '판매자 정보 없음' : item.sellerName,
+                  item.sellerName.isEmpty
+                      ? context.l10n.productNoSellerInfo
+                      : item.sellerName,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -697,7 +834,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  item.status,
+                  _statusDisplayLabel(context, item.status),
                   style: TextStyle(
                     fontSize: 13,
                     color: _statusColor(item.status),
@@ -726,9 +863,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '상품 설명',
-            style: TextStyle(
+          Text(
+            context.l10n.productDescriptionTitle,
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
               color: Colors.black,
@@ -736,7 +873,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            desc.isEmpty ? '설명 없음' : desc,
+            desc.isEmpty ? context.l10n.productNoDescription : desc,
             style: const TextStyle(
               fontSize: 15,
               height: 1.6,
@@ -794,7 +931,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '${_formatPrice(item.priceKrw)}원',
+                    AppMarket.isJp(_product?.market ?? 'kr')
+                        ? context.l10n.priceJpy(_formatPrice(item.priceKrw))
+                        : context.l10n.priceKrw(_formatPrice(item.priceKrw)),
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -820,7 +959,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ? OutlinedButton.icon(
                     onPressed: _showOwnerMenu,
                     icon: const Icon(Icons.tune, size: 18),
-                    label: const Text('관리'),
+                    label: Text(context.l10n.productManage),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Colors.deepPurple),
                       foregroundColor: Colors.deepPurple,
@@ -834,7 +973,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 : ElevatedButton.icon(
                     onPressed: _startChat,
                     icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                    label: const Text('채팅하기'),
+                    label: Text(context.l10n.productChatButton),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.deepPurple,
                       foregroundColor: Colors.white,
@@ -868,11 +1007,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Color _statusColor(String status) {
     switch (status) {
-      case '예약중':
+      case 'reserved':
         return Colors.orange;
-      case '판매완료':
+      case 'sold':
         return Colors.grey;
-      case '판매중':
+      case 'sale':
       default:
         return const Color(0xFF16A34A);
     }
@@ -1170,6 +1309,306 @@ class _LikeButton extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 거래완료 구매자 선택 시트 — 대화 상대 + 닉네임 검색.
+/// 작은 화면·키보드에서도 넘치지 않도록 높이를 화면의 85% 로 제한하고 목록만 스크롤.
+class _BuyerPickerSheet extends StatefulWidget {
+  final List<Map<String, dynamic>> chatPartners;
+  const _BuyerPickerSheet({required this.chatPartners});
+
+  @override
+  State<_BuyerPickerSheet> createState() => _BuyerPickerSheetState();
+}
+
+class _BuyerPickerSheetState extends State<_BuyerPickerSheet> {
+  final _searchCtl = TextEditingController();
+  Timer? _debounce;
+  List<Map<String, dynamic>> _results = [];
+  bool _searching = false;
+  String _lastQuery = '';
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchCtl.dispose();
+    super.dispose();
+  }
+
+  void _onQueryChanged(String q) {
+    // 입력하자마자 "검색 중" 으로 바꿔, 디바운스 동안 대화 상대 목록이 남아 보이지 않게.
+    setState(() => _searching = q.trim().isNotEmpty);
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () => _search(q.trim()));
+  }
+
+  Future<void> _search(String q) async {
+    if (q == _lastQuery) return;
+    _lastQuery = q;
+    if (q.isEmpty) {
+      setState(() {
+        _results = [];
+        _searching = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    final r = await context.read<ProductService>().searchUsersByNickname(q);
+    if (!mounted || q != _lastQuery) return;
+    setState(() {
+      _results = r;
+      _searching = false;
+    });
+  }
+
+  String _manner(dynamic raw) {
+    final n = raw is num ? raw : num.tryParse('$raw') ?? 365;
+    // 서버는 ×10 정수(365 = 36.5°)로 준다.
+    final t = n > 100 ? n / 10 : n;
+    return '${t.toStringAsFixed(1)}°';
+  }
+
+  Widget _tile(Map<String, dynamic> u) => ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const CircleAvatar(
+          backgroundColor: Color(0xFFEEEEEE),
+          child: Icon(Icons.person, color: Colors.black54),
+        ),
+        title: Text(
+          u['nickname']?.toString() ?? context.l10n.productBuyer,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(context.l10n.productMannerTemp(_manner(u['manner_score']))),
+        onTap: () => Navigator.of(context).pop(u),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final searching = _searchCtl.text.trim().isNotEmpty;
+    final list = searching ? _results : widget.chatPartners;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Text(
+                  context.l10n.productPickBuyerTitle,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.l10n.productPickBuyerHint,
+                  style: const TextStyle(fontSize: 12, color: EggplantColors.textSecondary),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _searchCtl,
+                  onChanged: _onQueryChanged,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: context.l10n.productPickBuyerSearchHint,
+                    prefixIcon: const Icon(Icons.search),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (!searching && list.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      context.l10n.productPickBuyerChatPartners,
+                      style: const TextStyle(fontSize: 12, color: EggplantColors.textSecondary),
+                    ),
+                  ),
+                Flexible(
+                  child: _searching
+                      ? const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      : list.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              child: Text(
+                                searching
+                                    ? context.l10n.productPickBuyerNoResults
+                                    : context.l10n.productPickBuyerEmpty,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: EggplantColors.textSecondary),
+                              ),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: list.length,
+                              itemBuilder: (_, i) => _tile(list[i]),
+                            ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== Product Video (YouTube or MP4) ====================
+
+class _ProductVideo extends StatefulWidget {
+  final Product product;
+  const _ProductVideo({super.key, required this.product});
+
+  @override
+  State<_ProductVideo> createState() => _ProductVideoState();
+}
+
+class _ProductVideoState extends State<_ProductVideo> {
+  YoutubePlayerController? _ytCtl;
+  VideoPlayerController? _vpCtl;
+  ChewieController? _chewieCtl;
+  bool _initError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _setup();
+  }
+
+  Future<void> _setup() async {
+    try {
+      if (widget.product.isYouTubeVideo) {
+        final id = widget.product.youTubeId;
+        if (id.isEmpty) {
+          setState(() => _initError = true);
+          return;
+        }
+        _ytCtl = YoutubePlayerController(
+          initialVideoId: id,
+          flags: const YoutubePlayerFlags(
+            autoPlay: false,
+            mute: false,
+            enableCaption: true,
+          ),
+        );
+        if (mounted) setState(() {});
+      } else {
+        final raw = widget.product.videoUrl;
+        final url = raw.startsWith('http')
+            ? raw
+            : '${AppConfig.apiBase}${raw.startsWith('/') ? '' : '/'}$raw';
+        _vpCtl = VideoPlayerController.networkUrl(Uri.parse(url));
+        await _vpCtl!.initialize();
+        _chewieCtl = ChewieController(
+          videoPlayerController: _vpCtl!,
+          autoPlay: false,
+          looping: false,
+          aspectRatio: _vpCtl!.value.aspectRatio == 0
+              ? 16 / 9
+              : _vpCtl!.value.aspectRatio,
+          materialProgressColors: ChewieProgressColors(
+            playedColor: EggplantColors.primary,
+            handleColor: EggplantColors.primary,
+            backgroundColor: Colors.grey.shade300,
+            bufferedColor: Colors.grey.shade400,
+          ),
+          placeholder: Container(color: Colors.black),
+        );
+        if (mounted) setState(() {});
+      }
+    } catch (e) {
+      debugPrint('video setup error: $e');
+      if (mounted) setState(() => _initError = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ytCtl?.dispose();
+    _chewieCtl?.dispose();
+    _vpCtl?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 동영상 placeholder/오류 화면 높이도 화면 폭에 비례 (180 고정 → 9:16 비율).
+    final w = MediaQuery.of(context).size.width;
+    final fallbackHeight = (w * 9 / 16).clamp(180.0, 320.0).toDouble();
+    if (_initError) {
+      return Container(
+        height: fallbackHeight,
+        decoration: BoxDecoration(
+          color: EggplantColors.background,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Text(
+            context.l10n.productVideoLoadFailed,
+            style: const TextStyle(color: EggplantColors.textSecondary),
+          ),
+        ),
+      );
+    }
+
+    if (widget.product.isYouTubeVideo) {
+      if (_ytCtl == null) {
+        return SizedBox(
+          height: fallbackHeight,
+          child: const Center(
+              child: CircularProgressIndicator(color: EggplantColors.primary)),
+        );
+      }
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: YoutubePlayer(
+          controller: _ytCtl!,
+          showVideoProgressIndicator: true,
+          progressIndicatorColor: EggplantColors.primary,
+          progressColors: const ProgressBarColors(
+            playedColor: EggplantColors.primary,
+            handleColor: EggplantColors.primary,
+          ),
+        ),
+      );
+    }
+
+    if (_chewieCtl == null ||
+        _vpCtl == null ||
+        !_vpCtl!.value.isInitialized) {
+      return SizedBox(
+        height: fallbackHeight,
+        child: const Center(
+            child: CircularProgressIndicator(color: EggplantColors.primary)),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: AspectRatio(
+        aspectRatio: _vpCtl!.value.aspectRatio == 0
+            ? 16 / 9
+            : _vpCtl!.value.aspectRatio,
+        child: Chewie(controller: _chewieCtl!),
       ),
     );
   }

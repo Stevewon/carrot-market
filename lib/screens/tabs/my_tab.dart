@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/constants.dart';
+import '../../app/l10n.dart';
 import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../services/auth_service.dart';
@@ -85,7 +87,7 @@ class _MyTabState extends State<MyTab> {
     final likeCount = svc.myLikes.length;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('나의 Eggplant')),
+      appBar: AppBar(title: Text(context.l10n.myTabTitle)),
       // 태블릿/폴드 펼침에서 600dp 가운데 정렬.
       body: Center(
         child: ConstrainedBox(
@@ -146,13 +148,13 @@ class _MyTabState extends State<MyTab> {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text('매너온도 ${user.mannerScore}.5°C',
+                        Text(context.l10n.myMannerTemp(user.mannerTemperature.toStringAsFixed(1)),
                             style: const TextStyle(
                                 fontSize: 13,
                                 color: EggplantColors.primary,
                                 fontWeight: FontWeight.w600)),
                         const SizedBox(height: 2),
-                        Text(user.region ?? '동네 미설정',
+                        Text(user.region ?? context.l10n.myRegionUnset,
                             style: const TextStyle(
                                 fontSize: 12,
                                 color: EggplantColors.textSecondary)),
@@ -167,9 +169,11 @@ class _MyTabState extends State<MyTab> {
               ),
             ),
 
-            // 인증 단계 CTA 카드 (Lv0/1 일 때만 노출)
-            if (user.verificationLevel != VerificationLevel.bankAccount)
-              _VerificationCta(level: user.verificationLevel),
+            // 인증 단계 CTA 카드 — 두 단계를 다 마칠 때까지 항상.
+            //   1단계 지갑 인증 → 2단계 휴대폰 인증. 둘 다 끝나면 +1,000 QTA.
+            //   문자 인증이 아직 안 열린 빌드에서도 2단계가 있다는 건 보여준다.
+            if (!user.isWalletVerified || !user.isIdentityVerified)
+              _VerificationCta(walletDone: user.isWalletVerified),
 
             // Quick stats row
             _StatsRow(
@@ -183,7 +187,7 @@ class _MyTabState extends State<MyTab> {
 
             _MenuTile(
               icon: Icons.shopping_bag_outlined,
-              title: '내가 판매중인 상품',
+              title: context.l10n.myMenuSelling,
               trailing: svc.mySellingLoading && !svc.mySellingLoaded
                   ? '…'
                   : '$sellingCount',
@@ -191,7 +195,7 @@ class _MyTabState extends State<MyTab> {
             ),
             _MenuTile(
               icon: Icons.favorite_border,
-              title: '찜한 상품',
+              title: context.l10n.myMenuLikes,
               trailing: svc.myLikesLoading && !svc.myLikesLoaded
                   ? '…'
                   : '$likeCount',
@@ -199,22 +203,22 @@ class _MyTabState extends State<MyTab> {
             ),
             _MenuTile(
               icon: Icons.chat_bubble_outline,
-              title: '채팅',
+              title: context.l10n.myMenuChat,
               onTap: () => context.go('/?tab=2'),
             ),
             // ★ v1.0.112: 프로필 등록/수정 — 닉네임 변경. 채팅·통화에
             //   즉시 자동 연동됨 (auth.user!.nickname 직접 참조).
             _MenuTile(
               icon: Icons.person_outline,
-              title: '프로필 등록 / 닉네임 수정',
-              subtitle: '채팅·통화에 표시될 내 닉네임 설정',
+              title: context.l10n.myMenuProfile,
+              subtitle: context.l10n.myMenuProfileSub,
               trailing: user.nickname,
               onTap: () => context.push('/profile/edit'),
             ),
             _MenuTile(
               icon: Icons.location_on_outlined,
-              title: '내 동네 설정',
-              trailing: user.region ?? '설정 필요',
+              title: context.l10n.myMenuRegion,
+              trailing: user.region ?? context.l10n.myRegionNeeded,
               onTap: () => context.push('/region'),
             ),
             // QTA 지갑 카드 (지갑주소 마스킹 + 복사 + 잔액)
@@ -226,55 +230,48 @@ class _MyTabState extends State<MyTab> {
 
             _MenuTile(
               icon: Icons.qr_code_2,
-              title: '내 QR 코드',
-              subtitle: '친구에게 보여주고 대화 시작',
+              title: context.l10n.myMenuQr,
+              subtitle: context.l10n.myMenuQrSub,
               onTap: () => context.push('/qr'),
             ),
             const Divider(height: 1),
             _MenuTile(
               icon: Icons.card_giftcard_outlined,
-              title: '친구 초대 (+200 QTA)',
-              subtitle: '친구가 가입할 때 내 닉네임을 입력하면 +200 QTA · 무제한',
+              title: context.l10n.myMenuInvite,
+              subtitle: context.l10n.myMenuInviteSub,
               onTap: () => context.push('/referrals'),
             ),
             _MenuTile(
               icon: Icons.notifications_active_outlined,
-              title: '키워드 알림',
-              subtitle: '관심 키워드 등록하고 새 매물 알림 받기',
+              title: context.l10n.myMenuKeyword,
+              subtitle: context.l10n.myMenuKeywordSub,
               onTap: () => context.push('/alerts/keywords'),
             ),
             const _MaskBodySwitchTile(),
             _MenuTile(
               icon: Icons.visibility_off_outlined,
-              title: '숨긴 게시물',
-              subtitle: '내가 가린 게시물 다시 보기',
+              title: context.l10n.myMenuHidden,
+              subtitle: context.l10n.myMenuHiddenSub,
               onTap: () => context.push('/hidden'),
             ),
             const Divider(height: 1),
             _MenuTile(
               icon: Icons.shield_outlined,
-              title: '개인정보 보호',
-              subtitle: '채팅·통화 절대 저장 안 함 · 한 번 흘러간 메시지는 영구 소실',
+              title: context.l10n.myMenuPrivacy,
+              subtitle: context.l10n.myMenuPrivacySub,
               onTap: () {
                 showDialog(
                   context: context,
                   builder: (_) => AlertDialog(
-                    title: const Text('🔐 개인정보 보호'),
-                    content: const Text(
-                      'Eggplant는 다음을 수집하지 않아요:\n\n'
-                      '• 전화번호 · 이메일 · 실명\n'
-                      '• 정확한 GPS (동네 인증 시 즉시 폐기)\n'
-                      '• 채팅 내용 (DB 저장 0)\n'
-                      '• 통화 내용 (P2P, 서버 미경유)\n\n'
-                      '채팅은 휘발성이에요. 한 번 흘러간 메시지는 양쪽 기기 어디에도 '
-                      '복원되지 않아요. 앱을 종료하거나 다른 기기로 로그인하면 '
-                      '모든 대화가 빈 상태에서 시작돼요 💨',
-                      style: TextStyle(height: 1.6),
+                    title: Text(context.l10n.myPrivacyDialogTitle),
+                    content: Text(
+                      context.l10n.myPrivacyDialogBody,
+                      style: const TextStyle(height: 1.6),
                     ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('확인'),
+                        child: Text(context.l10n.commonConfirm),
                       ),
                     ],
                   ),
@@ -283,21 +280,21 @@ class _MyTabState extends State<MyTab> {
             ),
             _MenuTile(
               icon: Icons.info_outline,
-              title: '앱 정보',
+              title: context.l10n.myMenuAppInfo,
               trailing: _appVersionLabel,
               onTap: () {
                 showAboutDialog(
                   context: context,
                   applicationName: 'Eggplant 🍆',
                   applicationVersion: _appVersionLabel,
-                  applicationLegalese: '© 2026 Eggplant Team\n익명으로 안전한 중고거래',
+                  applicationLegalese: context.l10n.myAppLegalese,
                 );
               },
             ),
             const Divider(height: 1),
             _MenuTile(
               icon: Icons.logout,
-              title: '로그아웃',
+              title: context.l10n.myMenuLogout,
               titleColor: EggplantColors.error,
               onTap: () async {
                 // Wipe cached lists so next user starts fresh.
@@ -313,8 +310,8 @@ class _MyTabState extends State<MyTab> {
             ),
             _MenuTile(
               icon: Icons.delete_forever_outlined,
-              title: '계정 영구 삭제 (탈퇴)',
-              subtitle: '한 번 사라지면 복구되지 않아요 · 잔여 QTA·추천 보너스 즉시 회수',
+              title: context.l10n.myMenuDeleteAccount,
+              subtitle: context.l10n.myMenuDeleteAccountSub,
               titleColor: EggplantColors.error,
               onTap: () => context.push('/account/delete'),
             ),
@@ -395,7 +392,7 @@ class _StatsRow extends StatelessWidget {
           Expanded(
             child: _StatCard(
               icon: Icons.shopping_bag_outlined,
-              label: '판매중',
+              label: context.l10n.myStatSelling,
               value: '$selling',
               onTap: onSellingTap,
             ),
@@ -404,7 +401,7 @@ class _StatsRow extends StatelessWidget {
           Expanded(
             child: _StatCard(
               icon: Icons.favorite_border,
-              label: '찜',
+              label: context.l10n.myStatLikes,
               value: '$likes',
               onTap: onLikesTap,
             ),
@@ -533,9 +530,9 @@ class _QtaWalletCardState extends State<_QtaWalletCard> {
     await Clipboard.setData(ClipboardData(text: widget.walletAddress));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('지갑주소를 복사했어요. 닉네임·비밀번호 찾기에 붙여넣을 수 있어요.'),
-        duration: Duration(seconds: 3),
+      SnackBar(
+        content: Text(context.l10n.myWalletCopied),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -576,9 +573,9 @@ class _QtaWalletCardState extends State<_QtaWalletCard> {
                 const Text('🍆',
                     style: TextStyle(fontSize: 22)),
                 const SizedBox(width: 8),
-                const Text(
-                  'QTA 잔액',
-                  style: TextStyle(
+                Text(
+                  context.l10n.myQtaBalance,
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -593,16 +590,16 @@ class _QtaWalletCardState extends State<_QtaWalletCard> {
                         horizontal: 10, vertical: 6),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: const [
+                      children: [
                         Text(
-                          '내역',
-                          style: TextStyle(
+                          context.l10n.myHistory,
+                          style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.w700),
                         ),
-                        SizedBox(width: 2),
-                        Icon(Icons.chevron_right,
+                        const SizedBox(width: 2),
+                        const Icon(Icons.chevron_right,
                             size: 16, color: Colors.white),
                       ],
                     ),
@@ -666,7 +663,7 @@ class _QtaWalletCardState extends State<_QtaWalletCard> {
                     ),
                   ),
                   IconButton(
-                    tooltip: _revealed ? '가리기' : '전체 보기',
+                    tooltip: _revealed ? context.l10n.myHide : context.l10n.myShowAll,
                     icon: Icon(
                       _revealed
                           ? Icons.visibility_off_outlined
@@ -680,7 +677,7 @@ class _QtaWalletCardState extends State<_QtaWalletCard> {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                   ),
                   IconButton(
-                    tooltip: '복사',
+                    tooltip: context.l10n.myCopy,
                     icon: const Icon(Icons.copy_rounded,
                         color: Colors.white, size: 18),
                     onPressed: _copy,
@@ -708,8 +705,8 @@ class _QtaWalletCardState extends State<_QtaWalletCard> {
                 icon: const Icon(Icons.send_rounded, size: 18),
                 label: Text(
                   balance >= 5000
-                      ? '지갑으로 출금 신청'
-                      : '출금하려면 5,000 QTA 이상 필요해요',
+                      ? context.l10n.myWithdrawRequestBtn
+                      : context.l10n.myWithdrawNeedMin,
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -719,10 +716,9 @@ class _QtaWalletCardState extends State<_QtaWalletCard> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              '닉네임·비밀번호 분실 시 이 지갑주소로 복구할 수 있어요.\n'
-              '5,000 QTA 부터 5,000 단위로 본인 지갑으로 출금할 수 있어요.',
-              style: TextStyle(
+            Text(
+              context.l10n.myWalletCardNote,
+              style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 11.5,
                 height: 1.4,
@@ -776,8 +772,8 @@ class _MaskBodySwitchTileState extends State<_MaskBodySwitchTile> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(v
-                      ? '알림 본문이 가려져요. 잠금화면에서 안전하게 사용하세요 🔒'
-                      : '알림 본문이 표시돼요'),
+                      ? context.l10n.myMaskOnSnack
+                      : context.l10n.myMaskOffSnack),
                   duration: const Duration(seconds: 2),
                 ),
               );
@@ -788,13 +784,13 @@ class _MaskBodySwitchTileState extends State<_MaskBodySwitchTile> {
         Icons.lock_outline,
         color: EggplantColors.textSecondary,
       ),
-      title: const Text(
-        '알림 본문 가리기',
-        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      title: Text(
+        context.l10n.myMaskTitle,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
       ),
-      subtitle: const Text(
-        '잠금화면/푸시 미리보기에 메시지 내용 대신 "새 메시지가 있어요" 표시',
-        style: TextStyle(fontSize: 12, color: EggplantColors.textSecondary),
+      subtitle: Text(
+        context.l10n.myMaskSub,
+        style: const TextStyle(fontSize: 12, color: EggplantColors.textSecondary),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
@@ -826,8 +822,8 @@ class _VerificationBadge extends StatelessWidget {
           color: const Color(0xFFF3F4F6),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text('미인증',
-            style: TextStyle(
+        child: Text(context.l10n.myUnverified,
+            style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF6B7280))),
@@ -861,19 +857,25 @@ class _VerificationBadge extends StatelessWidget {
 
 /// 인증 CTA 카드 — 프로필 헤더 아래, 통계행 위에 노출.
 class _VerificationCta extends StatelessWidget {
-  final VerificationLevel level;
-  const _VerificationCta({required this.level});
+  final bool walletDone;
+  const _VerificationCta({required this.walletDone});
 
   @override
   Widget build(BuildContext context) {
-    final isLv0 = level == VerificationLevel.none;
-    final title = isLv0 ? '본인 인증하고 거래 시작하기' : '계좌 등록하고 QTA 출금하기';
-    final desc = isLv0
-        ? '인증해도 채팅·통화는 익명 그대로 유지돼요.'
-        : 'QTA 출금을 위해 본인 명의 계좌 등록이 필요합니다.';
-    final icon = isLv0
+    final phoneOpen = AppConfig.identityVerificationEnabled;
+    final title = walletDone
+        ? (phoneOpen
+            ? context.l10n.myCtaPhoneOpenTitle
+            : context.l10n.myCtaPhoneSoonTitle)
+        : context.l10n.myCtaWalletTitle;
+    final desc = walletDone
+        ? (phoneOpen
+            ? context.l10n.myCtaPhoneOpenDesc
+            : context.l10n.myCtaPhoneSoonDesc)
+        : context.l10n.myCtaWalletDesc;
+    final icon = walletDone
         ? Icons.verified_user_outlined
-        : Icons.account_balance_outlined;
+        : Icons.account_balance_wallet_outlined;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -951,11 +953,11 @@ class _BrowseMiningCard extends StatelessWidget {
         ? const Color(0xFF22C55E)
         : EggplantColors.primary;
     final title = credited
-        ? '오늘 채굴 보너스 받았어요!'
-        : '오늘 둘러보기 채굴';
+        ? context.l10n.myBrowseCreditedTitle
+        : context.l10n.myBrowseTitle;
     final subtitle = credited
-        ? '내일 자정(KST)에 다시 시작돼요.'
-        : '상품 $threshold개 보면 +10 QTA 적립';
+        ? context.l10n.myBrowseCreditedSub
+        : context.l10n.myBrowseSub(threshold);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -1023,15 +1025,39 @@ class _BrowseMiningCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 count == 0
-                    ? '홈 탭에서 상품을 둘러보세요 🛍️'
+                    ? context.l10n.myBrowseStart
                     : (threshold - count > 0
-                        ? '${threshold - count}개 더 보면 +10 QTA!'
-                        : '곧 적립돼요…'),
+                        ? context.l10n.myBrowseRemaining(threshold - count)
+                        : context.l10n.myBrowseSoon),
                 style: const TextStyle(
                     fontSize: 11.5,
                     color: EggplantColors.textSecondary),
               ),
             ],
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () => context.push('/qta/mining'),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    const Icon(Icons.bolt_rounded,
+                        size: 16, color: EggplantColors.primary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(context.l10n.myBrowseLink,
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: EggplantColors.primary)),
+                    ),
+                    const Icon(Icons.chevron_right,
+                        size: 18, color: EggplantColors.primary),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

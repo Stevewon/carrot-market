@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../app/constants.dart';
+import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
@@ -42,24 +44,40 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
     final qta = context.read<QtaService>();
     final auth = context.read<AuthService>();
     final user = auth.user;
-    // Lv2 (계좌 등록) 미완료 시 가드 모달 노출 후 종료.
-    if (user != null && !user.verificationLevel.canWithdraw) {
-      await showVerificationGuard(
-        context,
-        current: user.verificationLevel,
-        required: VerificationLevel.bankAccount,
-      );
+    // 출금 조건: 1단계 지갑 인증 + 2단계 휴대폰 인증. 서버(requestWithdrawal)도 같은 기준.
+    if (user != null && !user.canWithdraw) {
+      if (!user.isWalletVerified) {
+        await showVerificationGuard(
+          context,
+          current: user.verificationLevel,
+          required: VerificationLevel.bankAccount,
+          customTitle: context.l10n.myWdNeedWalletTitle,
+          customMessage: context.l10n.myWdNeedWalletBody,
+        );
+      } else {
+        await showVerificationGuard(
+          context,
+          current: user.verificationLevel,
+          required: VerificationLevel.identity,
+          customTitle: AppConfig.identityVerificationEnabled
+              ? context.l10n.myWdNeedPhoneTitle
+              : context.l10n.myWdPreparingTitle,
+          customMessage: AppConfig.identityVerificationEnabled
+              ? context.l10n.myWdNeedPhoneBody
+              : context.l10n.myWdPreparingBody,
+        );
+      }
       return;
     }
     final wallet = user?.walletAddress;
     if (wallet == null || wallet.isEmpty) {
-      _toast('지갑 주소가 등록되지 않았어요');
+      _toast(context.l10n.myWdNoWallet);
       return;
     }
     final maxAmount = qta.maxRequestableAmount;
     if (maxAmount < qta.withdrawalMin) {
       _toast(
-        '잔액이 부족해요. 최소 ${_fmt(qta.withdrawalMin)} QTA 부터 신청할 수 있어요.',
+        context.l10n.myWdInsufficientMin(_fmt(qta.withdrawalMin)),
       );
       return;
     }
@@ -85,19 +103,18 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('출금 신청'),
+        title: Text(context.l10n.myWdConfirmTitle),
         content: Text(
-          '${_fmt(result)} QTA 를\n${_maskWallet(wallet)}\n로 출금 신청할까요?\n\n'
-          '신청 즉시 잔액에서 차감되며, 운영자가 1~3일 내에 송금 처리합니다.',
+          context.l10n.myWdConfirmBody(_fmt(result), _maskWallet(wallet)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
+            child: Text(context.l10n.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('신청'),
+            child: Text(context.l10n.myWdApply),
           ),
         ],
       ),
@@ -107,7 +124,7 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
     final err = await qta.requestWithdrawal(result);
     if (!mounted) return;
     if (err == null) {
-      _toast('출금 신청 완료 — 처리되면 알려드릴게요', success: true);
+      _toast(context.l10n.myWdRequested, success: true);
     } else {
       _toast(err);
     }
@@ -117,18 +134,18 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('신청 취소'),
+        title: Text(context.l10n.myWdCancelTitle),
         content: Text(
-          '${_fmt(w.amount)} QTA 출금 신청을 취소할까요?\n취소 즉시 잔액으로 환불돼요.',
+          context.l10n.myWdCancelBody(_fmt(w.amount)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('아니요'),
+            child: Text(context.l10n.myWdNo),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('취소하기'),
+            child: Text(context.l10n.myWdCancelDo),
           ),
         ],
       ),
@@ -137,7 +154,7 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
     final err = await context.read<QtaService>().cancelWithdrawal(w.id);
     if (!mounted) return;
     if (err == null) {
-      _toast('취소 및 환불 완료', success: true);
+      _toast(context.l10n.myWdCancelled, success: true);
     } else {
       _toast(err);
     }
@@ -155,13 +172,13 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
   @override
   Widget build(BuildContext context) {
     final qta = context.watch<QtaService>();
-    final df = DateFormat('M월 d일 HH:mm');
+    final df = DateFormat(context.l10n.myDateTimeFormat);
     final pending = qta.pendingWithdrawal;
     final canRequest = pending == null && qta.maxRequestableAmount >= qta.withdrawalMin;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('QTA 출금'),
+        title: Text(context.l10n.myWdTitle),
       ),
       body: SafeArea(
         top: false,
@@ -187,9 +204,9 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '출금 가능 잔액',
-                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  Text(
+                    context.l10n.myWdAvailable,
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -219,7 +236,7 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '5,000 QTA 부터 5,000 단위로 신청',
+                    context.l10n.myWdRuleShort,
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: 12,
@@ -246,7 +263,7 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '${_fmt(pending.amount)} QTA 출금이 ${pending.statusLabel} 이에요',
+                        context.l10n.myWdPendingStatus(_fmt(pending.amount), pending.statusLabel),
                         style: const TextStyle(
                           color: Color(0xFF7A5500),
                           fontWeight: FontWeight.w700,
@@ -264,7 +281,7 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
                   label: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Text(
-                      canRequest ? '출금 신청하기' : '잔액이 부족해요',
+                      canRequest ? context.l10n.myWdRequestBtn : context.l10n.myWdInsufficient,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -276,11 +293,11 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
               ),
 
             const SizedBox(height: 24),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               child: Text(
-                '신청 내역',
-                style: TextStyle(
+                context.l10n.myWdHistory,
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                   color: EggplantColors.textPrimary,
@@ -298,10 +315,10 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 28),
                 alignment: Alignment.center,
-                child: const Text(
-                  '아직 출금 신청 내역이 없어요',
+                child: Text(
+                  context.l10n.myWdHistoryEmpty,
                   style:
-                      TextStyle(color: EggplantColors.textTertiary, fontSize: 13),
+                      const TextStyle(color: EggplantColors.textTertiary, fontSize: 13),
                 ),
               )
             else
@@ -318,17 +335,16 @@ class _QtaWithdrawScreenState extends State<QtaWithdrawScreen> {
                 color: EggplantColors.background,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Row(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline,
+                  const Icon(Icons.info_outline,
                       color: EggplantColors.primary, size: 18),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '출금은 가입 시 등록된 퀀타리움 지갑주소로만 송금돼요. '
-                      '운영자가 1~3일 안에 처리합니다. 처리 시작 후엔 취소할 수 없어요.',
-                      style: TextStyle(
+                      context.l10n.myWdNotice,
+                      style: const TextStyle(
                         fontSize: 12,
                         color: EggplantColors.textSecondary,
                         height: 1.55,
@@ -440,7 +456,7 @@ class _WithdrawalTile extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     minimumSize: const Size(0, 32),
                   ),
-                  child: const Text('취소'),
+                  child: Text(context.l10n.commonCancel),
                 ),
             ],
           ),
@@ -451,7 +467,7 @@ class _WithdrawalTile extends StatelessWidget {
                 await Clipboard.setData(ClipboardData(text: w.txHash!));
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('트랜잭션 해시를 복사했어요')),
+                    SnackBar(content: Text(context.l10n.myWdTxCopied)),
                   );
                 }
               },
@@ -479,7 +495,7 @@ class _WithdrawalTile extends StatelessWidget {
           if (w.rejectReason != null && w.rejectReason!.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              '사유: ${w.rejectReason}',
+              context.l10n.myWdReason(w.rejectReason!),
               style: const TextStyle(
                 color: EggplantColors.textTertiary,
                 fontSize: 12,
@@ -558,9 +574,9 @@ class _RequestSheetState extends State<_RequestSheet> {
               ),
             ),
           ),
-          const Text(
-            '출금 금액 입력',
-            style: TextStyle(
+          Text(
+            context.l10n.myWdAmountTitle,
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
               color: EggplantColors.textPrimary,
@@ -568,7 +584,7 @@ class _RequestSheetState extends State<_RequestSheet> {
           ),
           const SizedBox(height: 4),
           Text(
-            '${_fmt(widget.min)} QTA 부터 ${_fmt(widget.unit)} QTA 단위로 신청 가능',
+            context.l10n.myWdAmountRule(_fmt(widget.min), _fmt(widget.unit)),
             style: const TextStyle(
               fontSize: 12,
               color: EggplantColors.textSecondary,
@@ -627,7 +643,7 @@ class _RequestSheetState extends State<_RequestSheet> {
                 child: OutlinedButton(
                   onPressed: () => _setSafe(widget.min),
                   child: Text(
-                    '최소 ${_fmt(widget.min)}',
+                    context.l10n.myWdMinBtn(_fmt(widget.min)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -638,7 +654,7 @@ class _RequestSheetState extends State<_RequestSheet> {
                 child: OutlinedButton(
                   onPressed: () => _setSafe(widget.max),
                   child: Text(
-                    '전액 ${_fmt(widget.max)}',
+                    context.l10n.myWdMaxBtn(_fmt(widget.max)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -659,9 +675,9 @@ class _RequestSheetState extends State<_RequestSheet> {
                 const Icon(Icons.account_balance_wallet_outlined,
                     color: EggplantColors.primary, size: 18),
                 const SizedBox(width: 8),
-                const Text(
-                  '받는 지갑',
-                  style: TextStyle(
+                Text(
+                  context.l10n.myWdToWallet,
+                  style: const TextStyle(
                     fontSize: 13,
                     color: EggplantColors.textSecondary,
                   ),
@@ -688,7 +704,7 @@ class _RequestSheetState extends State<_RequestSheet> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Text(
-                  '${_fmt(_amount)} QTA 신청하기',
+                  context.l10n.myWdSubmitAmount(_fmt(_amount)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 15),

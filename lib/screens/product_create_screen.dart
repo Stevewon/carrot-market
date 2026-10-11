@@ -9,10 +9,15 @@ import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../app/constants.dart';
+import '../app/l10n.dart';
+import '../app/market.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
+import '../models/product.dart';
 import '../services/auth_service.dart';
 import '../services/product_service.dart';
+import '../services/qta_service.dart';
+import 'prohibited_items_screen.dart';
 
 class ProductCreateScreen extends StatefulWidget {
   const ProductCreateScreen({super.key});
@@ -28,6 +33,13 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
   final _titleCtl = TextEditingController();
   final _priceCtl = TextEditingController();
   final _qtaPriceCtl = TextEditingController();
+
+  /// QTA 가격 입력은 본인인증(Lv1) 판매자에게만 보인다.
+  bool get _canSetQtaPrice =>
+      context.read<AuthService>().user?.isIdentityVerified ?? false;
+
+  /// 가격 입력 화폐 — 지금 회원의 시장(kr 원 / jp 엔).
+  String get _market => AppMarket.of(context.read<AuthService>().user);
   final _descCtl = TextEditingController();
   final _youtubeCtl = TextEditingController();
 
@@ -53,7 +65,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
   Future<void> _showImageSourceSheet() async {
     if (_images.length >= _maxImages) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('최대 $_maxImages장까지 등록 가능해요')),
+        SnackBar(content: Text(context.l10n.productMaxImages(_maxImages))),
       );
       return;
     }
@@ -63,8 +75,8 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       backgroundColor: Colors.white,
-      builder: (_) => const _PickSourceSheet(
-        title: '사진 추가',
+      builder: (_) => _PickSourceSheet(
+        title: context.l10n.productAddPhoto,
         showGallery: true,
         showCamera: true,
       ),
@@ -78,6 +90,9 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
         final picked = await picker.pickImage(
           source: ImageSource.camera,
           imageQuality: 80,
+          // 12~50MP 원본을 그대로 올리면 LTE 에서 느리고 타임아웃 위험 — 1600px 로 축소.
+          maxWidth: 1600,
+          maxHeight: 1600,
           preferredCameraDevice: CameraDevice.rear,
         );
         if (picked != null) {
@@ -87,6 +102,9 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
         final remaining = _maxImages - _images.length;
         final picked = await picker.pickMultiImage(
           imageQuality: 80,
+          // 12~50MP 원본을 그대로 올리면 LTE 에서 느리고 타임아웃 위험 — 1600px 로 축소.
+          maxWidth: 1600,
+          maxHeight: 1600,
           limit: remaining,
         );
         if (picked.isNotEmpty) {
@@ -100,7 +118,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
       debugPrint('image pick error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('사진을 가져오지 못했어요: $e')),
+        SnackBar(content: Text(context.l10n.productPhotoPickFailed)),
       );
     }
   }
@@ -114,8 +132,8 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       backgroundColor: Colors.white,
-      builder: (_) => const _PickSourceSheet(
-        title: '영상 추가',
+      builder: (_) => _PickSourceSheet(
+        title: context.l10n.productAddVideo,
         showGallery: true,
         showCamera: true,
         showYouTube: true,
@@ -146,7 +164,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
       debugPrint('video pick error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('영상을 가져오지 못했어요: $e')),
+        SnackBar(content: Text(context.l10n.productVideoPickFailed)),
       );
     }
   }
@@ -156,7 +174,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
     if (size > 50 * 1024 * 1024) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('영상 크기는 50MB 이하여야 해요')),
+        SnackBar(content: Text(context.l10n.productVideoTooLarge)),
       );
       return;
     }
@@ -180,14 +198,14 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
       context: context,
       builder: (dialogCtx) {
         return AlertDialog(
-          title: const Text('유튜브 링크 추가'),
+          title: Text(dialogCtx.l10n.productYoutubeAddTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '유튜브 영상 URL을 붙여넣어 주세요.\n예: https://youtu.be/xxxxxxxxxxx',
-                style: TextStyle(fontSize: 13, color: EggplantColors.textSecondary),
+              Text(
+                dialogCtx.l10n.productYoutubeAddBody,
+                style: const TextStyle(fontSize: 13, color: EggplantColors.textSecondary),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -204,11 +222,11 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('취소'),
+              child: Text(dialogCtx.l10n.commonCancel),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(dialogCtx, ctl.text.trim()),
-              child: const Text('확인'),
+              child: Text(dialogCtx.l10n.commonConfirm),
             ),
           ],
         );
@@ -223,7 +241,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
     );
     if (!re.hasMatch(trimmed)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('유튜브 링크 형식이 올바르지 않아요')),
+        SnackBar(content: Text(context.l10n.productYoutubeInvalid)),
       );
       return;
     }
@@ -251,7 +269,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
     final auth = context.read<AuthService>();
     if (auth.user?.region == null || auth.user!.region!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('먼저 동네를 설정해주세요')),
+        SnackBar(content: Text(context.l10n.productSetRegionFirst)),
       );
       context.push('/region');
       return;
@@ -286,20 +304,27 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
           )
           .timeout(const Duration(minutes: 5, seconds: 30));
     } on TimeoutException {
-      err = '업로드가 너무 오래 걸려요. 사진/영상 크기를 줄이거나 Wi-Fi에서 다시 시도해주세요.';
+      err = L10n.current.productUploadTimeout;
     } catch (e) {
-      err = '등록 중 오류: $e';
+      debugPrint('[product-create] unexpected error: $e');
+      err = L10n.current.productCreateUnexpectedError;
     }
 
     if (!mounted) return;
     setState(() => _submitting = false);
 
     if (err != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      showProductError(context, err);
     } else {
+      final reward = context.read<ProductService>().lastListingReward;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('상품이 등록되었어요 🍆')),
+        SnackBar(
+          content: Text(reward > 0
+              ? context.l10n.productCreatedWithReward(reward)
+              : context.l10n.productCreated),
+        ),
       );
+      if (reward > 0) context.read<QtaService>().load(force: true);
       context.read<ProductService>().fetchProducts(region: auth.user!.region);
       context.pop();
     }
@@ -311,7 +336,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('중고거래 글쓰기'),
+        title: Text(context.l10n.productCreateTitle),
         actions: [
           TextButton(
             onPressed: _submitting ? null : _submit,
@@ -322,9 +347,9 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: EggplantColors.primary),
                   )
-                : const Text(
-                    '완료',
-                    style: TextStyle(
+                : Text(
+                    context.l10n.productDone,
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: EggplantColors.primary,
@@ -340,8 +365,12 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
             constraints: const BoxConstraints(maxWidth: Responsive.maxContentWidth),
             child: Form(
               key: _formKey,
-              child: ListView(
+              // ListView 는 화면 밖 필드를 build 하지 않아서, 작은 폰에서 아래쪽 설명 필드의
+              // 검증(10자 이상)이 건너뛰어졌다 → 모든 필드가 항상 만들어지는 스크롤 Column.
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
+                child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
             _buildImageStrip(),
             const SizedBox(height: 16),
@@ -349,17 +378,17 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
             const SizedBox(height: 24),
             TextFormField(
               controller: _titleCtl,
-              decoration: const InputDecoration(
-                labelText: '제목',
-                hintText: '상품명을 입력해주세요',
+              decoration: InputDecoration(
+                labelText: context.l10n.productFieldTitle,
+                hintText: context.l10n.productFieldTitleHint,
               ),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return '제목을 입력해주세요';
+                if (v == null || v.trim().isEmpty) return context.l10n.productFieldTitleRequired;
                 return null;
               },
             ),
             const SizedBox(height: 16),
-            const Text('카테고리', style: TextStyle(fontWeight: FontWeight.w600)),
+            Text(context.l10n.productFieldCategory, style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
@@ -367,7 +396,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
               children: Categories.all
                   .where((c) => c.id != 'all')
                   .map((c) => ChoiceChip(
-                        label: Text('${c.emoji} ${c.label}'),
+                        label: Text('${c.emoji} ${categoryLabel(c.id)}'),
                         selected: _category == c.id,
                         onSelected: (_) => setState(() => _category = c.id),
                         selectedColor: EggplantColors.primary,
@@ -388,48 +417,66 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
                 FilteringTextInputFormatter.digitsOnly,
                 _ThousandsSeparatorFormatter(),
               ],
-              decoration: const InputDecoration(
-                labelText: '가격',
-                hintText: '0 (나눔하려면 0원)',
-                prefixText: '₩ ',
+              decoration: InputDecoration(
+                labelText: context.l10n.productFieldPrice,
+                hintText: AppMarket.isJp(_market)
+                    ? context.l10n.productFieldPriceHintJpy
+                    : context.l10n.productFieldPriceHintKrw,
+                prefixText: AppMarket.isJp(_market) ? '¥ ' : '₩ ',
               ),
               validator: (v) {
-                if (v == null || v.isEmpty) return '가격을 입력해주세요';
+                if (v == null || v.isEmpty) return context.l10n.productFieldPriceRequired;
                 return null;
               },
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _qtaPriceCtl,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                _ThousandsSeparatorFormatter(),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'QTA 결제 (선택)',
-                hintText: '0 = 사용 안 함 / 거래완료 시 자동 차감',
-                prefixIcon: Icon(Icons.token_outlined, size: 20),
-                helperText: '예) 5,000 → 거래완료 토글하면 구매자 잔액 5,000 QTA 가 자동 이체돼요',
+            // QTA 가격은 본인인증한 판매자만 (서버도 같은 기준). 1차 출시는 본인인증이
+            // 준비 중이라 대부분 숨겨진다 — 원화 가격만으로 거래.
+            if (_canSetQtaPrice) ...[
+              TextFormField(
+                controller: _qtaPriceCtl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  _ThousandsSeparatorFormatter(),
+                ],
+                decoration: InputDecoration(
+                  labelText: context.l10n.productFieldQtaPrice,
+                  hintText: context.l10n.productFieldQtaPriceHint,
+                  prefixIcon: const Icon(Icons.token_outlined, size: 20),
+                  helperText: context.l10n.productFieldQtaPriceHelper,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+            ],
             TextFormField(
               controller: _descCtl,
               maxLines: 8,
-              decoration: const InputDecoration(
-                labelText: '자세한 설명',
-                hintText:
-                    '게시글 등록 전에 체크해주세요.\n- 판매금지물품인지 확인\n- 카테고리가 적절한지 확인\n\n상품의 상태, 사용기간 등을 자세히 적어주세요.',
+              decoration: InputDecoration(
+                labelText: context.l10n.productFieldDescription,
+                hintText: context.l10n.productFieldDescriptionHint,
                 alignLabelWithHint: true,
               ),
               validator: (v) {
-                if (v == null || v.trim().length < 10) return '10자 이상 입력해주세요';
+                if (v == null || v.trim().length < 10) return context.l10n.productFieldDescriptionMin;
                 return null;
               },
             ),
-            const SizedBox(height: 32),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => ProhibitedItemsScreen.open(context),
+                icon: const Icon(Icons.block, size: 16),
+                label: Text(context.l10n.productProhibitedGuide),
+                style: TextButton.styleFrom(
+                  foregroundColor: EggplantColors.textSecondary,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
           ],
+              ),
               ),
             ),
           ),
@@ -444,8 +491,8 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
       children: [
         Row(
           children: [
-            const Text('사진',
-                style: TextStyle(
+            Text(context.l10n.productPhotos,
+                style: const TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w700)),
             const SizedBox(width: 8),
             Text(
@@ -497,13 +544,13 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
       children: [
         Row(
           children: [
-            const Text('영상',
-                style: TextStyle(
+            Text(context.l10n.productVideo,
+                style: const TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w700)),
             const SizedBox(width: 6),
-            const Text(
-              '(선택)',
-              style: TextStyle(
+            Text(
+              context.l10n.productOptional,
+              style: const TextStyle(
                 fontSize: 12,
                 color: EggplantColors.textSecondary,
               ),
@@ -513,7 +560,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
               TextButton.icon(
                 onPressed: _removeVideo,
                 icon: const Icon(Icons.close_rounded, size: 16),
-                label: const Text('제거'),
+                label: Text(context.l10n.productRemove),
                 style: TextButton.styleFrom(
                   foregroundColor: EggplantColors.error,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -527,7 +574,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
         if (!hasYouTube && !hasFile)
           _AddThumbnail(
             onTap: _showVideoSourceSheet,
-            label: '영상 추가',
+            label: context.l10n.productAddVideo,
             icon: Icons.videocam_outlined,
             wide: true,
           )
@@ -592,26 +639,26 @@ class _PickSourceSheet extends StatelessWidget {
             if (showCamera)
               _SheetTile(
                 icon: Icons.camera_alt_rounded,
-                label: '카메라로 촬영',
+                label: context.l10n.productPickCamera,
                 onTap: () => Navigator.pop(context, _PickSource.camera),
               ),
             if (showGallery)
               _SheetTile(
                 icon: Icons.photo_library_rounded,
-                label: '갤러리에서 선택',
+                label: context.l10n.productPickGallery,
                 onTap: () => Navigator.pop(context, _PickSource.gallery),
               ),
             if (showYouTube)
               _SheetTile(
                 icon: Icons.play_circle_fill_rounded,
                 iconColor: Colors.red,
-                label: '유튜브 링크 붙여넣기',
+                label: context.l10n.productPickYoutube,
                 onTap: () => Navigator.pop(context, _PickSource.youtube),
               ),
             const SizedBox(height: 4),
             _SheetTile(
               icon: Icons.close_rounded,
-              label: '취소',
+              label: context.l10n.commonCancel,
               onTap: () => Navigator.pop(context),
               dense: true,
             ),
@@ -728,7 +775,7 @@ class _ImageThumbnail extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Image.file(file, width: 92, height: 92, fit: BoxFit.cover),
+          child: Image.file(file, width: 92, height: 92, fit: BoxFit.cover, cacheWidth: 276),
         ),
         if (isRepresentative)
           Positioned(
@@ -741,9 +788,9 @@ class _ImageThumbnail extends StatelessWidget {
                 color: Colors.black.withOpacity(0.7),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
-                '대표',
-                style: TextStyle(
+              child: Text(
+                context.l10n.productCoverPhoto,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
@@ -797,9 +844,9 @@ class _YouTubeCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '유튜브 영상',
-                    style: TextStyle(
+                  Text(
+                    context.l10n.productYoutubeVideo,
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: Colors.red,

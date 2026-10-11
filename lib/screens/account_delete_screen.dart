@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
@@ -44,33 +45,33 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
   }
 
   Future<void> _confirmDelete() async {
+    final l10n = context.l10n;
     if (!_agreed) {
-      setState(() => _error = '안내 사항에 동의해야 탈퇴할 수 있어요.');
+      setState(() => _error = l10n.authDeleteAgreeRequired);
       return;
     }
     if (_pwCtl.text.isEmpty) {
-      setState(() => _error = '비밀번호를 입력해주세요.');
+      setState(() => _error = l10n.authDeletePasswordRequired);
       return;
     }
 
     final go = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('정말 탈퇴할까요?'),
-        content: const Text(
-          '계정과 모든 데이터가 즉시 영구 삭제돼요.\n'
-          '복구는 불가능하며, 잔여 QTA·받은 추천 보너스는 회수돼요.',
-          style: TextStyle(height: 1.6),
+        title: Text(l10n.authDeleteDialogTitle),
+        content: Text(
+          l10n.authDeleteDialogBody,
+          style: const TextStyle(height: 1.6),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
+            child: Text(l10n.commonCancel),
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: EggplantColors.error),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('영구 삭제'),
+            child: Text(l10n.authDeleteDialogConfirm),
           ),
         ],
       ),
@@ -92,14 +93,14 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐';
+        _error = l10n.authServerSlow;
       });
       return;
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = '탈퇴 처리 중 문제가 생겼어요. 다시 시도해주세요.';
+        _error = l10n.authDeleteFailed;
       });
       return;
     }
@@ -128,9 +129,9 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('탈퇴가 완료되었어요. 이용해주셔서 감사했어요. 🍆'),
-        duration: Duration(seconds: 3),
+      SnackBar(
+        content: Text(l10n.authDeleteDone),
+        duration: const Duration(seconds: 3),
       ),
     );
     context.go('/onboarding');
@@ -140,9 +141,10 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
   Widget build(BuildContext context) {
     final user = context.watch<AuthService>().user;
     final balance = user?.qtaBalance ?? 0;
+    final l10n = context.l10n;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('계정 영구 삭제')),
+      appBar: AppBar(title: Text(l10n.authDeleteTitle)),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -162,17 +164,16 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
                     color: EggplantColors.error.withValues(alpha: 0.4),
                   ),
                 ),
-                child: const Row(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.warning_amber_rounded,
+                    const Icon(Icons.warning_amber_rounded,
                         color: EggplantColors.error, size: 24),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '탈퇴하면 즉시 영구 삭제돼요\n'
-                        '한 번 사라진 데이터는 복구되지 않아요.',
-                        style: TextStyle(
+                        l10n.authDeleteWarning,
+                        style: const TextStyle(
                           color: EggplantColors.error,
                           fontWeight: FontWeight.w800,
                           fontSize: 14,
@@ -186,22 +187,22 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
               const SizedBox(height: 18),
 
               // 어떤 데이터가 사라지는지
-              const Text(
-                '삭제되는 데이터',
-                style: TextStyle(
+              Text(
+                l10n.authDeleteDataTitle,
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
                   color: EggplantColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 6),
-              _bullet('내 닉네임 · 동네 · 매너 점수 · 매너 리뷰'),
-              _bullet('내가 등록한 모든 상품'),
-              _bullet('잔여 QTA 잔액 ($balance QTA) 폐기'),
-              _bullet('받은 친구 초대 보너스는 즉시 회수 (−200 QTA × 인원)'),
-              _bullet('내가 추천인이 됐던 친구의 보너스도 즉시 회수'),
-              _bullet('숨김/차단/키워드 알림/검색 기록 모두 사라짐'),
-              _bullet('채팅 메시지·통화 기록은 원래부터 저장된 게 없어요 🔐'),
+              _bullet(l10n.authDeleteBullet1),
+              _bullet(l10n.authDeleteBullet2),
+              _bullet(l10n.authDeleteBullet3('$balance')),
+              _bullet(l10n.authDeleteBullet4),
+              _bullet(l10n.authDeleteBullet5),
+              _bullet(l10n.authDeleteBullet6),
+              _bullet(l10n.authDeleteBullet7),
 
               const SizedBox(height: 18),
 
@@ -211,18 +212,18 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
                 value: _agreed,
                 onChanged: (v) => setState(() => _agreed = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
-                title: const Text(
-                  '위 사항을 모두 이해했고, 영구 삭제에 동의해요.',
-                  style: TextStyle(fontSize: 13, height: 1.5),
+                title: Text(
+                  l10n.authDeleteAgree,
+                  style: const TextStyle(fontSize: 13, height: 1.5),
                 ),
               ),
 
               const SizedBox(height: 8),
 
               // 비밀번호 재확인
-              const Text(
-                '비밀번호 재확인',
-                style: TextStyle(
+              Text(
+                l10n.authDeletePasswordTitle,
+                style: const TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 13,
                 ),
@@ -234,7 +235,7 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
                 autocorrect: false,
                 enableSuggestions: false,
                 decoration: InputDecoration(
-                  hintText: '비밀번호',
+                  hintText: l10n.authPasswordLabel,
                   prefixIcon: const Icon(Icons.lock_outline,
                       color: EggplantColors.primary),
                   suffixIcon: IconButton(
@@ -290,13 +291,13 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 4),
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Text(
-                          '영구 삭제하기',
+                          l10n.authDeleteButton,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: const TextStyle(
                               fontSize: 15, fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -305,11 +306,11 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
               Center(
                 child: TextButton(
                   onPressed: () => context.pop(),
-                  child: const Text(
-                    '취소하고 돌아가기',
+                  child: Text(
+                    l10n.authDeleteCancelBack,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: EggplantColors.textSecondary),
+                    style: const TextStyle(color: EggplantColors.textSecondary),
                   ),
                 ),
               ),

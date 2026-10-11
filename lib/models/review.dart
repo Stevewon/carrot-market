@@ -1,3 +1,5 @@
+import '../app/l10n.dart';
+
 /// 거래후기(Transaction review) — written by the seller about the buyer
 /// (or vice versa) once a product has been marked as 'sold'.
 ///
@@ -52,11 +54,11 @@ class Review {
   String get ratingLabel {
     switch (rating) {
       case 'good':
-        return '좋아요';
+        return L10n.current.productReviewGood;
       case 'bad':
-        return '별로예요';
+        return L10n.current.productReviewBad;
       default:
-        return '보통이에요';
+        return L10n.current.productReviewSoso;
     }
   }
 

@@ -6,7 +6,10 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_localizations/flutter_localizations.dart';
+
 import 'app/app_router.dart';
+import 'app/l10n.dart';
 import 'app/responsive.dart';
 import 'app/theme.dart';
 import 'services/agora_service.dart';
@@ -24,6 +27,9 @@ import 'services/qta_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 세로 고정 — 온보딩·통화·QR·스플래시처럼 높이가 고정된 화면이 가로에서 넘친다.
+  // (Android 16 은 600dp 이상 큰 화면에서 이 설정을 무시하지만, 그때는 maxWidth 처리로 버팀)
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -43,7 +49,20 @@ void main() async {
     prefs = await SharedPreferences.getInstance();
   }
 
+  // 언어·시장: 접속 IP 의 나라로 (일본 IP → 일본어). 처음 한 번만 서버에 묻고 기억.
+  try {
+    await L10n.init(prefs).timeout(const Duration(seconds: 4));
+  } catch (_) {/* 기기 언어로 진행 */}
+
   final authService = AuthService(prefs);
+  // 로그인하면 계정 시장(가입 때 정해진 값)을 따른다 — 화면 언어도 같이 바뀐다.
+  authService.addListener(() {
+    final m = authService.user?.market;
+    if (m != null && m != L10n.market) {
+      // ignore: discarded_futures
+      L10n.adopt(m, prefs);
+    }
+  });
 
   // loadFromStorage 는 더 이상 await 하지 않는다.
   // - 내부에 /api/auth/me 5초 타임아웃이 있긴 하지만,
@@ -99,7 +118,7 @@ class EggplantApp extends StatelessWidget {
             final agora = AgoraService(api: authService.api);
             authService.attachAgora(agora);
             // 앱 시작 시 이미 로그인된 상태(자동 로그인)면 즉시 prepare.
-            final wallet = authService.user?.walletAddress;
+            final wallet = authService.user?.callIdentity;
             if (wallet != null && wallet.isNotEmpty) {
               // ignore: discarded_futures
               agora.prepare(walletAddress: wallet);
@@ -152,6 +171,15 @@ class EggplantApp extends StatelessWidget {
             title: 'Eggplant 🍆',
             debugShowCheckedModeBanner: false,
             theme: eggplantTheme,
+            // 기기 언어가 일본어면 일본어, 그 외는 한국어.
+            locale: L10n.locale,
+            supportedLocales: L10n.supported,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             routerConfig: router,
             builder: (context, child) {
               // Global wrappers (apply in nesting order, from outside-in):
@@ -303,7 +331,7 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
       final callId = data['call_id']?.toString() ?? '';
       final callerWallet = data['caller_wallet']?.toString() ?? '';
       final nickRaw = data['caller_nickname']?.toString().trim() ?? '';
-      final nick = nickRaw.isEmpty ? '익명' : nickRaw;
+      final nick = nickRaw.isEmpty ? L10n.current.homeAnonymous : nickRaw;
       final peerEncoded = Uri.encodeComponent(nick);
       final walletEncoded = Uri.encodeComponent(callerWallet);
 
@@ -371,25 +399,13 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
         }
         switch (call.method) {
           case 'onNativeAnswer':
-            // Native NativeIncomingCallActivity.onAnswerClicked() →
-            // MainActivity.handleNativeCallIntent() → 여기로 도달.
-            // 기존 CallKit accept 인프라 (_attachCallkitAccept) 가 자동으로 받음.
-            try {
-              ctx.read<PushService>().dispatchNativeAnswer(data);
-            } catch (e) {
-              debugPrint('[native-bridge] dispatchNativeAnswer failed: $e');
-            }
-            break;
           case 'onNativeReject':
-            // Native 거절 버튼: NativeIncomingCallActivity.onRejectClicked() →
-            // MainActivity 깨우기 putExtra(reject_call_from_native=true) → 여기로 invoke.
-            // CallService.rejectCall() 이 chat.emit('call_response', accepted=false)
-            // 까지 자동으로 처리.
-            try {
-              await ctx.read<CallService>().rejectCall(reason: 'declined');
-            } catch (e) {
-              debugPrint('[native-bridge] rejectCall failed: $e');
-            }
+            // 네이티브 수신 화면(앱 백그라운드·종료·잠금 상태)의 받기/거절은 이제
+            // 네이티브가 끝까지 처리한다: 받기 = AgoraCallActivity 가 채널 입장 +
+            // 서버에 수락 신호(POST /api/calls/signal), 거절 = 서버에 거절 신호.
+            // 예전처럼 여기서 Flutter 통화 화면을 열고 acceptCall 을 부르면 같은
+            // 채널에 엔진 두 개가 들어가 통화가 끊겼다 → 아무것도 하지 않는다.
+            debugPrint('[native-bridge] ${call.method} ignored — handled natively');
             break;
           case 'onEndFromNotification':
             // 통화 알림의 "종료" 버튼 → endCall.
@@ -441,6 +457,16 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
     if (_msgOpenedSub != null) return;
     final push = ctx.read<PushService>();
     _msgOpenedSub = push.onMessageOpened.listen((data) {
+      // 거래 확인 요청 알림 → 상품 상세 (구매자용 "거래 확인하기" 카드).
+      final productId = data['product_id']?.toString() ?? '';
+      if (productId.isNotEmpty) {
+        try {
+          widget.router.push('/product/$productId');
+        } catch (e) {
+          debugPrint('[push-msg] product route failed: $e');
+        }
+        return;
+      }
       final roomId = data['room_id']?.toString() ?? '';
       if (roomId.isEmpty) return;
       // ★ 7차 푸시 (이슈 3): 알림 탭 → 채팅방 진입 직전,
@@ -612,7 +638,7 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
     if (s == CallState.incoming && _lastState != CallState.incoming) {
       // Navigate to the call screen in "incoming" mode
       final peerId = call.peerUserId ?? '';
-      final peer = Uri.encodeComponent(call.peerNickname ?? '익명');
+      final peer = Uri.encodeComponent(call.peerNickname ?? L10n.current.homeAnonymous);
       widget.router.push('/call?peerId=$peerId&peer=$peer&incoming=1');
     }
     _lastState = s;

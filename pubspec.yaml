@@ -1,7 +1,7 @@
 name: eggplant
 description: "Eggplant - QR 기반 익명 중고거래 마켓 🍆"
 publish_to: 'none'
-version: 1.0.162+162
+version: 1.0.170+170
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -43,7 +43,7 @@ dependencies:
   uuid: ^4.5.0
 
   # Utils
-  intl: ^0.19.0
+  intl: ^0.20.2
   jwt_decoder: ^2.0.1
 
   # SHA-256 해시 (지갑주소 → Agora UID 결정론적 변환에 사용).
@@ -56,6 +56,8 @@ dependencies:
   # try/catch 로 감쌈 (lib/services/push_service.dart).
   firebase_core: ^3.6.0
   firebase_messaging: ^15.1.3
+  # 2단계 휴대폰 인증 (문자 인증 → ID 토큰을 서버가 확인). 전화번호는 서버에 해시만.
+  firebase_auth: ^5.7.0
   # 백그라운드/앱 종료 상태에서 전화 수신 UI 띄우기 (Android: full-screen intent).
   flutter_callkit_incoming: ^2.5.2
 
@@ -94,6 +96,9 @@ dependencies:
 
   # 앱 버전·빌드번호 동적 조회 (앱 정보 화면, 디버그 표시 등)
   package_info_plus: ^8.0.0
+  url_launcher: ^6.3.3
+  flutter_localizations:
+    sdk: flutter
 
   # Note: Screen security (FLAG_SECURE) is implemented natively in
   # MainActivity.kt via MethodChannel (lib/services/secure_screen.dart).
@@ -126,6 +131,7 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.1
 
 flutter:
+  generate: true
   uses-material-design: true
 
   assets:

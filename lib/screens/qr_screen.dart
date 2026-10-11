@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
 
@@ -16,7 +17,7 @@ class QrScreen extends StatelessWidget {
     if (user == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: const Center(child: Text('로그인 후 이용해주세요')),
+        body: Center(child: Text(context.l10n.homeLoginToUse)),
       );
     }
 
@@ -27,11 +28,11 @@ class QrScreen extends StatelessWidget {
       backgroundColor: EggplantColors.background,
       appBar: AppBar(
         backgroundColor: EggplantColors.background,
-        title: const Text('내 QR 코드'),
+        title: Text(context.l10n.homeMyQr),
         actions: [
           IconButton(
             icon: const Icon(Icons.qr_code_scanner),
-            tooltip: 'QR 스캔',
+            tooltip: context.l10n.homeQrScan,
             onPressed: () => context.push('/qr/scan'),
           ),
         ],
@@ -42,18 +43,18 @@ class QrScreen extends StatelessWidget {
           child: Column(
             children: [
               const SizedBox(height: 16),
-              const Text(
-                '상대방에게 QR을 보여주세요',
-                style: TextStyle(
+              Text(
+                context.l10n.homeShowQr,
+                style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                   color: EggplantColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'QR을 스캔하면 바로 익명 채팅이 시작돼요 💨',
-                style: TextStyle(
+              Text(
+                context.l10n.homeQrDesc,
+                style: const TextStyle(
                   fontSize: 13,
                   color: EggplantColors.textSecondary,
                 ),
@@ -61,6 +62,8 @@ class QrScreen extends StatelessWidget {
               const SizedBox(height: 24),
               Expanded(
                 child: Center(
+                  // 큰 글씨(1.3배)에서 세로로 넘치면 스크롤.
+                  child: SingleChildScrollView(
                   child: Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
@@ -80,7 +83,8 @@ class QrScreen extends StatelessWidget {
                         QrImageView(
                           data: payload,
                           version: QrVersions.auto,
-                          size: 240,
+                          // 320폭(폴드 커버 등)에서 고정 240 이 가로로 넘쳤다 → 화면 폭에 맞춤.
+                          size: (MediaQuery.of(context).size.width - 112).clamp(160.0, 240.0),
                           eyeStyle: const QrEyeStyle(
                             eyeShape: QrEyeShape.square,
                             color: EggplantColors.primary,
@@ -107,7 +111,7 @@ class QrScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '🔐 완전 익명 · 대화 저장 X',
+                          context.l10n.homeQrAnonymous,
                           style: TextStyle(
                             fontSize: 12,
                             color: EggplantColors.textSecondary,
@@ -115,6 +119,7 @@ class QrScreen extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
                   ),
                 ),
               ),
@@ -124,11 +129,11 @@ class QrScreen extends StatelessWidget {
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: payload));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('QR 링크가 복사되었어요')),
+                      SnackBar(content: Text(context.l10n.homeQrLinkCopied)),
                     );
                   },
                   icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('QR 링크 복사'),
+                  label: Text(context.l10n.homeQrCopyLink),
                 ),
               ),
             ],

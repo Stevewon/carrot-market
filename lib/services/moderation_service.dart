@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../app/l10n.dart';
 import 'auth_service.dart';
 
 /// Lightweight client for the /api/moderation/* endpoints.
@@ -44,13 +45,13 @@ class ModerationService extends ChangeNotifier {
         notifyListeners();
         return null;
       }
-      return _err(res.data) ?? '차단 실패';
+      return _err(res.data) ?? L10n.current.productBlockFailed;
     } on DioException catch (e) {
       debugPrint('blockUser error: ${e.response?.data ?? e.message}');
-      return _err(e.response?.data) ?? '차단 실패';
+      return _err(e.response?.data) ?? L10n.current.productBlockFailed;
     } catch (e) {
       debugPrint('blockUser error: $e');
-      return '차단 실패';
+      return L10n.current.productBlockFailed;
     }
   }
 
@@ -62,13 +63,13 @@ class ModerationService extends ChangeNotifier {
         notifyListeners();
         return null;
       }
-      return _err(res.data) ?? '차단 해제 실패';
+      return _err(res.data) ?? L10n.current.productUnblockFailed;
     } on DioException catch (e) {
       debugPrint('unblockUser error: ${e.response?.data ?? e.message}');
-      return _err(e.response?.data) ?? '차단 해제 실패';
+      return _err(e.response?.data) ?? L10n.current.productUnblockFailed;
     } catch (e) {
       debugPrint('unblockUser error: $e');
-      return '차단 해제 실패';
+      return L10n.current.productUnblockFailed;
     }
   }
 
@@ -114,13 +115,13 @@ class ModerationService extends ChangeNotifier {
           if (detail.isNotEmpty) 'detail': detail,
         },
       );
-      return res.statusCode == 200 ? null : (_err(res.data) ?? '신고 접수 실패');
+      return res.statusCode == 200 ? null : (_err(res.data) ?? L10n.current.productReportFailed);
     } on DioException catch (e) {
       debugPrint('reportUser error: ${e.response?.data ?? e.message}');
-      return _err(e.response?.data) ?? '신고 접수 실패';
+      return _err(e.response?.data) ?? L10n.current.productReportFailed;
     } catch (e) {
       debugPrint('reportUser error: $e');
-      return '신고 접수 실패';
+      return L10n.current.productReportFailed;
     }
   }
 

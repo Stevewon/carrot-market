@@ -1,0 +1,425 @@
+/**
+ * 1단계 지갑 인증 — 본사 지갑이 보내고, 회원이 받은 수량을 입력 (migration 0029).
+ *
+ * 1) createReceiveChallenge: 회원이 지갑주소를 넣으면 소수점 6자리 임의 수량
+ *    (0.100000 ~ 0.999999 QTA)을 정하고 송금 대기열(send_status='queued')에 넣는다.
+ * 2) processReceiveSends: 본사 지갑(WALLET_VERIFY_ADDRESS)에서 그 수량을 회원 지갑으로
+ *    보낸다. SPHINCS+ 서명이 무거워 한 번에 한 건씩 — 요청 직후(waitUntil)와 1분 cron.
+ * 3) confirmReceive: 회원이 지갑에 들어온 수량을 입력하면 맞는지 확인. 5번 틀리면 폐기.
+ *
+ * 금액은 응답으로 절대 내려주지 않는다 (지갑에 들어온 걸 보고 입력해야 함).
+ *
+ * 송금 지갑 (큐알쳇 신규회원 자동 송금과 같은 방식):
+ *   가지 서버 전용 송금 지갑. 비밀문구는 Workers 비밀값 HQ_WALLET_MNEMONIC 에만 있고(생성 즉시
+ *   비밀값으로 들어가 사람·AI 누구도 보지 않음), 주소는 WALLET_VERIFY_ADDRESS.
+ *   사장님은 이 주소로 QTA 를 입금만 한다. 잔액이 모자라면 송금이 대기로 남는다.
+ */
+
+import type { Env } from './types';
+import { trl, type Lang } from './market';
+import {
+  deriveAccountFromMnemonic,
+  fromHex,
+  isValidMnemonic,
+  signSphincsTx,
+  toChecksumAddress,
+  toHex,
+} from './chain/qta-sphincs';
+import { getNativeBalance, getNonce, sendRawTransaction, suggestFees, type EvmRpcConfig } from './chain/qta-evm';
+import { keccak_256 } from '@noble/hashes/sha3.js';
+
+const RECEIVE_TTL_HOURS = 24;          // 송금 후 입력까지 허용 시간
+const MAX_CONFIRM_ATTEMPTS = 5;        // 수량 입력 오답 허용 횟수
+const MAX_SEND_ATTEMPTS = 3;           // 송금 실패 재시도
+const SENDING_LEASE_MIN = 3;           // 'sending' 이 이보다 오래 멈춰 있으면 회수
+const MAX_PER_USER_DAY = 3;            // 회원 1명당 하루 송금 요청 수
+const MAX_PER_WALLET_DAY = 3;          // 지갑 1개당 하루 송금 요청 수
+const MAX_PER_IP_DAY = 10;             // IP 1개당 하루 송금 요청 수
+const DECIMALS = 6;
+const WEI_PER_UNIT = 10n ** 12n;       // 0.000001 QTA (18 decimals)
+const GAS_LIMIT = 100_000n;            // 거래소 자동반환과 같은 값
+const DEFAULT_RPC = 'https://rpc.quantarium.io';
+const DEFAULT_CHAIN_ID = 60000;
+
+export interface ReceiveRow {
+  id: string;
+  user_id: string;
+  wallet_address: string;
+  amount_wei: string;
+  amount_display: string;
+  status: 'pending' | 'verified' | 'used';
+  send_status: 'queued' | 'sending' | 'sent' | 'failed' | null;
+  send_tx_hash: string | null;
+  send_started_at: string | null;
+  send_error: string | null;
+  send_attempts: number;
+  confirm_attempts: number;
+  created_at: string;
+  expires_at: string;
+}
+
+function sqliteUtcMs(s: string): number {
+  return Date.parse(s.replace(' ', 'T') + 'Z');
+}
+
+export function hqAddress(env: Env): string {
+  return (env.WALLET_VERIFY_ADDRESS || '').trim().toLowerCase();
+}
+
+function hasLocalKey(env: Env): boolean {
+  return !!(env.HQ_WALLET_MNEMONIC || '').trim() || !!(env.HQ_WALLET_SECRET_KEY || '').trim();
+}
+
+
+/** 클라이언트용 — 금액은 빼고 보낸다. */
+export function receiveView(row: ReceiveRow, env: Env) {
+  return {
+    challenge_id: row.id,
+    wallet_address: row.wallet_address,
+    send_from: hqAddress(env),
+    decimals: DECIMALS,
+    send_status: row.send_status || 'queued',
+    send_tx_hash: row.send_tx_hash,
+    status: row.status,
+    expires_at: row.expires_at,
+    attempts_left: Math.max(0, MAX_CONFIRM_ATTEMPTS - (row.confirm_attempts || 0)),
+  };
+}
+
+// ── 본사 지갑 서명키 ─────────────────────────────────────────────
+
+interface Signer { address: string; publicKey: Uint8Array; secretKey: Uint8Array }
+let cachedSigner: { key: string; signer: Signer } | null = null;
+
+/**
+ * HQ_WALLET_MNEMONIC(+HQ_WALLET_INDEX) 또는 HQ_WALLET_SECRET_KEY(SPHINCS+ 64바이트 hex).
+ * 만든 주소가 WALLET_VERIFY_ADDRESS 와 다르면 보내지 않는다.
+ */
+export function hqSigner(env: Env): { ok: true; signer: Signer } | { ok: false; reason: string } {
+  const expected = hqAddress(env);
+  if (!expected) return { ok: false, reason: 'no_verify_address' };
+  const mnemonic = (env.HQ_WALLET_MNEMONIC || '').trim();
+  const skHex = (env.HQ_WALLET_SECRET_KEY || '').trim().replace(/^0x/, '');
+  const index = Number(env.HQ_WALLET_INDEX || '0') || 0;
+  const cacheKey = `${expected}|${index}|${mnemonic ? 'm' : ''}|${skHex.length}`;
+  if (cachedSigner && cachedSigner.key === cacheKey) return { ok: true, signer: cachedSigner.signer };
+
+  let signer: Signer;
+  if (mnemonic) {
+    if (!isValidMnemonic(mnemonic)) return { ok: false, reason: 'invalid_mnemonic' };
+    const acc = deriveAccountFromMnemonic(mnemonic, index);
+    signer = { address: acc.address, publicKey: acc.publicKey, secretKey: acc.secretKey };
+  } else if (/^[0-9a-fA-F]{128}$/.test(skHex)) {
+    // SLH-DSA-SHA2-128s: sk = SK.seed‖SK.prf‖PK.seed‖PK.root, pk = 뒤 32바이트.
+    const secretKey = fromHex(skHex);
+    const publicKey = secretKey.slice(32);
+    const address = toChecksumAddress(toHex(keccak_256(publicKey).slice(-20)));
+    signer = { address, publicKey, secretKey };
+  } else {
+    return { ok: false, reason: 'no_signing_key' };
+  }
+  if (signer.address.toLowerCase() !== expected) return { ok: false, reason: 'key_address_mismatch' };
+  cachedSigner = { key: cacheKey, signer };
+  return { ok: true, signer };
+}
+
+/** 송금 기능이 켜져 있는지 (키·주소 설정 여부만, 서명은 안 함). */
+export function receiveEnabled(env: Env): boolean {
+  return !!hqAddress(env) && hasLocalKey(env);
+}
+
+// ── 1) 요청 ─────────────────────────────────────────────────────
+
+export type CreateReceiveResult =
+  | { ok: true; row: ReceiveRow }
+  | { ok: false; status: 409 | 429 | 503; error: string; code: string };
+
+export async function createReceiveChallenge(
+  env: Env,
+  userId: string,
+  deviceUuid: string,
+  walletLower: string,
+  clientIp = '',
+  lang: Lang = 'ko',
+): Promise<CreateReceiveResult> {
+  if (!receiveEnabled(env)) {
+    return { ok: false, status: 503, error: trl(lang, '지갑 인증 송금을 준비 중이에요. 잠시 후 다시 시도해주세요', 'ウォレット認証の送金を準備中です。しばらくしてから再度お試しください'), code: 'sender_not_ready' };
+  }
+  if (walletLower === hqAddress(env)) {
+    return { ok: false, status: 409, error: trl(lang, '이 주소는 등록할 수 없어요', 'このアドレスは登録できません'), code: 'wallet_reserved' };
+  }
+
+  // 같은 회원·같은 지갑으로 아직 살아 있는 요청이 있으면 그대로 (다시 보내지 않음).
+  const existing = await env.DB
+    .prepare(
+      `SELECT * FROM wallet_challenges
+        WHERE direction = 'to_user' AND user_id = ? AND wallet_address = ?
+          AND status = 'pending' AND send_status != 'failed'
+          AND expires_at > datetime('now') AND confirm_attempts < ?
+        ORDER BY created_at DESC LIMIT 1`,
+    )
+    .bind(userId, walletLower, MAX_CONFIRM_ATTEMPTS)
+    .first<ReceiveRow>();
+  if (existing) return { ok: true, row: existing };
+
+  const counts = await env.DB
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM wallet_challenges WHERE direction = 'to_user' AND user_id = ?
+            AND created_at > datetime('now', '-1 day')) AS per_user,
+         (SELECT COUNT(*) FROM wallet_challenges WHERE direction = 'to_user' AND wallet_address = ?
+            AND created_at > datetime('now', '-1 day')) AS per_wallet,
+         (SELECT COUNT(*) FROM wallet_challenges WHERE direction = 'to_user' AND client_ip = ? AND ? != ''
+            AND created_at > datetime('now', '-1 day')) AS per_ip`,
+    )
+    .bind(userId, walletLower, clientIp, clientIp)
+    .first<{ per_user: number; per_wallet: number; per_ip: number }>();
+  if ((counts?.per_user ?? 0) >= MAX_PER_USER_DAY
+    || (counts?.per_wallet ?? 0) >= MAX_PER_WALLET_DAY
+    || (counts?.per_ip ?? 0) >= MAX_PER_IP_DAY) {
+    return {
+      ok: false,
+      status: 429,
+      error: trl(lang, '오늘 지갑 인증 요청을 너무 많이 했어요. 내일 다시 시도해주세요', '本日のウォレット認証リクエストの上限に達しました。明日再度お試しください'),
+      code: 'too_many_requests',
+    };
+  }
+
+  // 100000..999999 × 0.000001 → 0.100000 ~ 0.999999 QTA
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  const units = 100_000 + (buf[0] % 900_000);
+  const amountWei = (BigInt(units) * WEI_PER_UNIT).toString();
+  const amountDisplay = `0.${String(units).padStart(DECIMALS, '0')}`;
+
+  const id = crypto.randomUUID();
+  await env.DB
+    .prepare(
+      `INSERT INTO wallet_challenges
+         (id, wallet_address, purpose, device_uuid, amount_wei, amount_display, expires_at, client_ip,
+          direction, user_id, send_status)
+       VALUES (?, ?, 'verify', ?, ?, ?, datetime('now', ?), ?, 'to_user', ?, 'queued')`,
+    )
+    .bind(id, walletLower, deviceUuid, amountWei, amountDisplay, `+${RECEIVE_TTL_HOURS} hours`, clientIp || null, userId)
+    .run();
+  const row = await env.DB.prepare('SELECT * FROM wallet_challenges WHERE id = ?').bind(id).first<ReceiveRow>();
+  return { ok: true, row: row! };
+}
+
+export async function getReceiveChallenge(env: Env, userId: string, id: string): Promise<ReceiveRow | null> {
+  return env.DB
+    .prepare(`SELECT * FROM wallet_challenges WHERE id = ? AND user_id = ? AND direction = 'to_user'`)
+    .bind(id, userId)
+    .first<ReceiveRow>();
+}
+
+// ── 2) 본사 지갑 송금 ────────────────────────────────────────────
+
+async function rpc<T>(url: string, method: string, params: unknown[]): Promise<T> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  });
+  if (!res.ok) throw new Error(`RPC ${method} HTTP ${res.status}`);
+  const j = (await res.json()) as { result?: T; error?: { message: string } };
+  if (j.error) throw new Error(`RPC ${method} error: ${j.error.message}`);
+  return j.result as T;
+}
+
+export interface SendTickResult { picked: number; id?: string; tx_hash?: string; reason?: string }
+
+/**
+ * 대기열에서 한 건을 골라 본사 지갑에서 보낸다. 동시에 두 건이 서명·전송되지 않도록
+ * 'sending' 중인 행이 있으면 아무것도 하지 않는다 (nonce 충돌 방지).
+ */
+export async function processReceiveSends(env: Env): Promise<SendTickResult> {
+  if (!receiveEnabled(env)) return { picked: 0, reason: 'sender_not_ready' };
+  const cfg: EvmRpcConfig = {
+    rpcUrl: env.QTA_RPC_URL || DEFAULT_RPC,
+    chainId: Number(env.QTA_CHAIN_ID || DEFAULT_CHAIN_ID) || DEFAULT_CHAIN_ID,
+  };
+
+  // 오래 멈춘 'sending' 회수: 거래가 체인에 있으면 sent, 없으면 다시 대기열로.
+  const stuck = await env.DB
+    .prepare(
+      `SELECT * FROM wallet_challenges
+        WHERE direction = 'to_user' AND send_status = 'sending'
+          AND send_started_at < datetime('now', ?)`,
+    )
+    .bind(`-${SENDING_LEASE_MIN} minutes`)
+    .all<ReceiveRow>();
+  for (const s of stuck.results || []) {
+    let onChain = false;
+    if (s.send_tx_hash) {
+      try { onChain = !!(await rpc<unknown>(cfg.rpcUrl, 'eth_getTransactionByHash', [s.send_tx_hash])); } catch { /* 다음 tick */ continue; }
+    }
+    const attempts = (s.send_attempts || 0) + (onChain ? 0 : 1);
+    const next = onChain ? 'sent' : attempts >= MAX_SEND_ATTEMPTS ? 'failed' : 'queued';
+    await env.DB
+      .prepare(
+        `UPDATE wallet_challenges SET send_status = ?, send_attempts = ?,
+                send_tx_hash = CASE WHEN ? = 'sent' THEN send_tx_hash ELSE NULL END
+          WHERE id = ? AND send_status = 'sending'`,
+      )
+      .bind(next, attempts, next, s.id)
+      .run();
+  }
+
+  // 한 건 점유 — 다른 'sending' 이 없을 때만.
+  const pick = await env.DB
+    .prepare(
+      `UPDATE wallet_challenges
+          SET send_status = 'sending', send_started_at = datetime('now')
+        WHERE id = (
+                SELECT id FROM wallet_challenges
+                 WHERE direction = 'to_user' AND send_status = 'queued' AND status = 'pending'
+                   AND expires_at > datetime('now')
+                 ORDER BY created_at ASC LIMIT 1)
+          AND send_status = 'queued'
+          AND NOT EXISTS (SELECT 1 FROM wallet_challenges WHERE direction = 'to_user' AND send_status = 'sending')
+        RETURNING *`,
+    )
+    .first<ReceiveRow>();
+  if (!pick) return { picked: 0 };
+
+  const fail = async (reason: string, terminal: boolean) => {
+    const attempts = (pick.send_attempts || 0) + 1;
+    const next = terminal || attempts >= MAX_SEND_ATTEMPTS ? 'failed' : 'queued';
+    await env.DB
+      .prepare(
+        `UPDATE wallet_challenges SET send_status = ?, send_attempts = ?, send_error = ?, send_tx_hash = NULL
+          WHERE id = ? AND send_status = 'sending'`,
+      )
+      .bind(next, attempts, reason.slice(0, 300), pick.id)
+      .run();
+    console.error('[wallet-receive] send failed', pick.id, reason);
+    return { picked: 1, id: pick.id, reason };
+  };
+
+  const s = hqSigner(env);
+  if (!s.ok) return fail(s.reason, true);
+  const signer = s.signer;
+  const value = BigInt(pick.amount_wei);
+
+  try {
+    const [nonce, fees, balance] = await Promise.all([
+      getNonce(cfg, signer.address),
+      suggestFees(cfg),
+      getNativeBalance(cfg, signer.address),
+    ]);
+    if (balance < value + GAS_LIMIT * fees.maxFeePerGas) {
+      return fail(`hq_wallet_insufficient: have ${balance} need ${value + GAS_LIMIT * fees.maxFeePerGas}`, false);
+    }
+    const { rawTx, txHash } = signSphincsTx(
+      {
+        chainId: cfg.chainId,
+        nonce,
+        maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+        maxFeePerGas: fees.maxFeePerGas,
+        gasLimit: GAS_LIMIT,
+        to: toChecksumAddress(pick.wallet_address),
+        value,
+        data: '0x',
+      },
+      signer.publicKey,
+      signer.secretKey,
+    );
+    // 전송 전에 해시를 남겨 둔다 — 전송 직후 죽어도 회수 단계에서 체인 확인 가능.
+    await env.DB
+      .prepare(`UPDATE wallet_challenges SET send_tx_hash = ? WHERE id = ? AND send_status = 'sending'`)
+      .bind(txHash, pick.id)
+      .run();
+    let finalHash = txHash;
+    try {
+      finalHash = await sendRawTransaction(cfg, rawTx);
+    } catch (e) {
+      const msg = String((e as Error)?.message || e);
+      if (!/already known/i.test(msg)) throw e;
+    }
+    await env.DB
+      .prepare(
+        `UPDATE wallet_challenges SET send_status = 'sent', send_tx_hash = ?, send_error = NULL
+          WHERE id = ? AND send_status = 'sending'`,
+      )
+      .bind(finalHash, pick.id)
+      .run();
+    console.log(`[wallet-receive] sent ${pick.amount_display} QTA → ${pick.wallet_address} tx=${finalHash}`);
+    return { picked: 1, id: pick.id, tx_hash: finalHash };
+  } catch (e) {
+    return fail('send_failed: ' + String((e as Error)?.message || e), false);
+  }
+}
+
+// ── 3) 수량 입력 확인 ────────────────────────────────────────────
+
+/** '0.234567', '.234567', '234567', '0.234567 QTA' → '234567'. 형식이 다르면 null. */
+export function normalizeAmountInput(input: string): string | null {
+  const s = String(input || '').replace(/qta/gi, '').replace(/\s+/g, '');
+  let m = /^0?\.(\d{1,6})$/.exec(s);
+  if (m) return m[1].padEnd(DECIMALS, '0');
+  m = /^(\d{6})$/.exec(s);
+  if (m) return m[1];
+  return null;
+}
+
+export type ConfirmResult =
+  | { ok: true; row: ReceiveRow }
+  | { ok: false; status: 400 | 404 | 409 | 410 | 429; error: string; code: string; attempts_left?: number };
+
+export async function confirmReceive(env: Env, userId: string, id: string, input: string, lang: Lang = 'ko'): Promise<ConfirmResult> {
+  const row = await getReceiveChallenge(env, userId, id);
+  if (!row) return { ok: false, status: 404, error: trl(lang, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません'), code: 'not_found' };
+  if (row.status !== 'pending') {
+    return { ok: false, status: 409, error: trl(lang, '이미 끝난 인증이에요. 처음부터 다시 진행해주세요', 'この認証はすでに終了しています。最初からやり直してください'), code: 'used' };
+  }
+  if (sqliteUtcMs(row.expires_at) < Date.now()) {
+    return { ok: false, status: 410, error: trl(lang, '인증 시간이 지났어요. 다시 요청해주세요', '認証の有効期限が切れました。再度リクエストしてください'), code: 'expired' };
+  }
+  if ((row.confirm_attempts || 0) >= MAX_CONFIRM_ATTEMPTS) {
+    return { ok: false, status: 429, error: trl(lang, '입력 횟수를 넘었어요. 다시 요청해주세요', '入力回数の上限を超えました。再度リクエストしてください'), code: 'too_many_attempts', attempts_left: 0 };
+  }
+  if (row.send_status !== 'sent') {
+    return {
+      ok: false,
+      status: 409,
+      error: row.send_status === 'failed'
+        ? trl(lang, '본사 지갑 송금에 실패했어요. 다시 요청해주세요', '運営ウォレットからの送金に失敗しました。再度リクエストしてください')
+        : trl(lang, '아직 본사 지갑에서 보내는 중이에요. 잠시 후 지갑을 확인해주세요', '運営ウォレットから送金中です。しばらくしてからウォレットをご確認ください'),
+      code: row.send_status === 'failed' ? 'send_failed' : 'not_sent_yet',
+    };
+  }
+  const digits = normalizeAmountInput(input);
+  if (!digits) {
+    return { ok: false, status: 400, error: trl(lang, '받은 수량을 소수점 6자리까지 입력해주세요 (예: 0.234567)', '受け取った数量を小数点以下6桁まで入力してください (例: 0.234567)'), code: 'bad_format' };
+  }
+  const expected = row.amount_display.split('.')[1] || '';
+  if (digits !== expected) {
+    const r = await env.DB
+      .prepare(
+        `UPDATE wallet_challenges SET confirm_attempts = confirm_attempts + 1
+          WHERE id = ? AND status = 'pending' RETURNING confirm_attempts`,
+      )
+      .bind(row.id)
+      .first<{ confirm_attempts: number }>();
+    const left = Math.max(0, MAX_CONFIRM_ATTEMPTS - (r?.confirm_attempts ?? MAX_CONFIRM_ATTEMPTS));
+    return {
+      ok: false,
+      status: 400,
+      error: left > 0
+        ? trl(lang, `수량이 맞지 않아요. 지갑에 들어온 수량을 다시 확인해주세요 (남은 기회 ${left}번)`, `数量が一致しません。ウォレットに届いた数量を再度ご確認ください (残り${left}回)`)
+        : trl(lang, '입력 횟수를 넘었어요. 다시 요청해주세요', '入力回数の上限を超えました。再度リクエストしてください'),
+      code: left > 0 ? 'wrong_amount' : 'too_many_attempts',
+      attempts_left: left,
+    };
+  }
+  const done = await env.DB
+    .prepare(
+      `UPDATE wallet_challenges SET status = 'used', verified_at = datetime('now'), used_at = datetime('now')
+        WHERE id = ? AND status = 'pending' RETURNING *`,
+    )
+    .bind(row.id)
+    .first<ReceiveRow>();
+  if (!done) return { ok: false, status: 409, error: trl(lang, '이미 끝난 인증이에요', 'この認証はすでに終了しています'), code: 'used' };
+  return { ok: true, row: done };
+}

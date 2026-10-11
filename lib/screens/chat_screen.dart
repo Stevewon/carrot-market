@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
+import '../app/market.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/chat_message.dart';
@@ -123,15 +125,18 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ],
             ),
-            const Text(
-              '🔒 나가면 양쪽 모두 완전 삭제돼요',
-              style: TextStyle(fontSize: 11, color: EggplantColors.primary),
+            Text(
+              context.l10n.chatLeaveWarningSubtitle,
+              // 360폭·큰 글씨에서 2줄로 접혀 툴바(56dp)를 넘쳤다 → 1줄 말줄임.
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: EggplantColors.primary),
             ),
           ],
         ),
         actions: [
           IconButton(
-            tooltip: '익명 음성통화',
+            tooltip: context.l10n.chatVoiceCallTooltip,
             icon: const Icon(Icons.call, color: EggplantColors.primary),
             onPressed: () => _startVoiceCall(context),
           ),
@@ -175,6 +180,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 return _PriceOfferCard(
                                   message: msg,
                                   myUserId: auth.user?.id,
+                                  market: AppMarket.of(auth.user),
                                   onRespond: (action) =>
                                       _respondToOffer(msg.offer!.id, action),
                                 );
@@ -206,6 +212,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _openOfferSheet() async {
     final priceCtl = TextEditingController();
+    final l10n = context.l10n;
+    final market = AppMarket.of(context.read<AuthService>().user);
+    final unit = AppMarket.isJp(market) ? l10n.chatCurrencyUnitJpy : l10n.chatCurrencyUnitKrw;
     final result = await showModalBottomSheet<int>(
       context: context,
       isScrollControlled: true,
@@ -219,7 +228,8 @@ class _ChatScreenState extends State<ChatScreen> {
             left: 20,
             right: 20,
             top: 20,
-            bottom: 20 + MediaQuery.of(sheetCtx).viewInsets.bottom,
+            // 키보드가 닫힌 상태에선 제스처/3버튼 내비바 높이만큼 더 띄움.
+            bottom: 20 + MediaQuery.of(sheetCtx).viewInsets.bottom + MediaQuery.of(sheetCtx).viewPadding.bottom,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -236,9 +246,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                '💰 가격 제안하기',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              Text(
+                l10n.chatOfferSheetTitle,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 6),
               Text(
@@ -264,7 +274,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   fontWeight: FontWeight.w700,
                 ),
                 decoration: InputDecoration(
-                  hintText: '제안 금액 (원)',
+                  hintText: l10n.chatOfferAmountHint(unit),
                   prefixIcon: const Icon(Icons.payments_outlined),
                   filled: true,
                   fillColor: EggplantColors.background,
@@ -293,17 +303,17 @@ class _ChatScreenState extends State<ChatScreen> {
                     final n = int.tryParse(priceCtl.text);
                     if (n != null && n > 0) Navigator.pop(sheetCtx, n);
                   },
-                  child: const Text(
-                    '제안 보내기',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  child: Text(
+                    l10n.chatOfferSend,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                '이전에 보낸 미응답 제안은 자동으로 취소돼요.',
+              Text(
+                l10n.chatOfferAutoCancelNote,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: EggplantColors.textSecondary),
+                style: const TextStyle(fontSize: 11, color: EggplantColors.textSecondary),
               ),
             ],
           ),
@@ -323,24 +333,25 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _respondToOffer(String offerId, String action) async {
+    final l10n = context.l10n;
     final label = action == 'accept'
-        ? '수락'
+        ? l10n.chatOfferAccept
         : action == 'reject'
-            ? '거절'
-            : '취소';
+            ? l10n.chatOfferReject
+            : l10n.chatOfferCancelAction;
     // Confirm only the destructive ones.
     if (action != 'cancel') {
       final ok = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
-          title: Text('가격 제안 $label'),
+          title: Text(l10n.chatOfferDialogTitle(label)),
           content: Text(action == 'accept'
-              ? '이 가격에 거래를 진행하시겠어요?'
-              : '제안을 거절할까요?'),
+              ? l10n.chatOfferAcceptConfirm
+              : l10n.chatOfferRejectConfirm),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(_, false),
-              child: const Text('취소'),
+              child: Text(l10n.commonCancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(_, true),
@@ -389,7 +400,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final peerId = _derivePeerUserId(auth.user?.id);
     if (peerId == null || peerId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('상대방 정보를 찾을 수 없어요')),
+        SnackBar(content: Text(context.l10n.chatPeerNotFound)),
       );
       return;
     }
@@ -413,6 +424,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _showOptions(BuildContext context) {
     final rootContext = context;
+    final l10n = context.l10n;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -424,8 +436,8 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.cleaning_services_outlined),
-              title: const Text('대화 내용 삭제'),
-              subtitle: const Text('이 방의 메시지만 비워요 (방은 유지)'),
+              title: Text(l10n.chatClearMessages),
+              subtitle: Text(l10n.chatClearMessagesSubtitle),
               onTap: () async {
                 Navigator.pop(context);
                 await _confirmClearMessages(rootContext);
@@ -434,9 +446,9 @@ class _ChatScreenState extends State<ChatScreen> {
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.exit_to_app, color: EggplantColors.error),
-              title: const Text('채팅방 나가기',
-                  style: TextStyle(color: EggplantColors.error, fontWeight: FontWeight.w700)),
-              subtitle: const Text('양쪽 모두 대화 + 방을 완전 삭제해요 (복구 불가)'),
+              title: Text(l10n.chatLeaveRoom,
+                  style: const TextStyle(color: EggplantColors.error, fontWeight: FontWeight.w700)),
+              subtitle: Text(l10n.chatLeaveRoomSubtitle),
               onTap: () async {
                 Navigator.pop(context);
                 await _confirmDeleteRoom(rootContext);
@@ -449,23 +461,21 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _confirmDeleteRoom(BuildContext ctx) async {
+    final l10n = ctx.l10n;
     final ok = await showDialog<bool>(
       context: ctx,
       builder: (_) => AlertDialog(
-        title: const Text('채팅방 나가기'),
+        title: Text(l10n.chatLeaveRoom),
         content: Text(
-          '${widget.peerNickname}님과의 대화를 완전히 삭제할까요?\n\n'
-          '• 메시지 전부 영구 삭제\n'
-          '• 상대방 화면에서도 즉시 사라짐\n'
-          '• 복구 불가',
+          l10n.chatLeaveRoomConfirm(widget.peerNickname),
           style: const TextStyle(height: 1.5),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(_, false), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(_, false), child: Text(l10n.commonCancel)),
           TextButton(
             onPressed: () => Navigator.pop(_, true),
             style: TextButton.styleFrom(foregroundColor: EggplantColors.error),
-            child: const Text('완전히 삭제'),
+            child: Text(l10n.chatDeletePermanently),
           ),
         ],
       ),
@@ -478,22 +488,23 @@ class _ChatScreenState extends State<ChatScreen> {
       ctx.pop();
     } else {
       ScaffoldMessenger.of(ctx)
-          .showSnackBar(const SnackBar(content: Text('삭제 실패. 잠시 후 다시 시도해주세요')));
+          .showSnackBar(SnackBar(content: Text(l10n.chatDeleteFailedRetry)));
     }
   }
 
   Future<void> _confirmClearMessages(BuildContext ctx) async {
+    final l10n = ctx.l10n;
     final ok = await showDialog<bool>(
       context: ctx,
       builder: (_) => AlertDialog(
-        title: const Text('대화 내용 삭제'),
-        content: const Text('이 방의 모든 메시지를 지울까요?\n방은 유지되며 상대방 화면의 메시지도 같이 지워져요.'),
+        title: Text(l10n.chatClearMessages),
+        content: Text(l10n.chatClearMessagesConfirm),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(_, false), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(_, false), child: Text(l10n.commonCancel)),
           TextButton(
             onPressed: () => Navigator.pop(_, true),
             style: TextButton.styleFrom(foregroundColor: EggplantColors.error),
-            child: const Text('삭제'),
+            child: Text(l10n.commonDelete),
           ),
         ],
       ),
@@ -503,7 +514,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final success = await ctx.read<ChatService>().clearMessages(widget.roomId);
     if (!ctx.mounted) return;
     ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(content: Text(success ? '대화 내용을 비웠어요' : '삭제 실패')),
+      SnackBar(content: Text(success ? l10n.chatMessagesCleared : l10n.chatDeleteFailed)),
     );
   }
 }
@@ -552,7 +563,7 @@ class _EmptyChat extends StatelessWidget {
             const Text('💨', style: TextStyle(fontSize: 56)),
             const SizedBox(height: 16),
             Text(
-              '$peerNickname 님과\n익명 채팅이 시작되었어요',
+              context.l10n.chatEmptyTitle(peerNickname),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 16,
@@ -561,10 +572,10 @@ class _EmptyChat extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              '이 대화는 서버/기기 어디에도 저장되지 않아요.\n화면을 벗어나면 내용이 사라져요.',
+            Text(
+              context.l10n.chatEmptyNote,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
                 color: EggplantColors.textSecondary,
                 height: 1.6,
@@ -626,9 +637,9 @@ class _MessageBubble extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (read)
-                  const Text(
-                    '읽음',
-                    style: TextStyle(
+                  Text(
+                    context.l10n.chatRead,
+                    style: const TextStyle(
                       fontSize: 10,
                       color: EggplantColors.primary,
                       fontWeight: FontWeight.w700,
@@ -726,7 +737,7 @@ class _InputBar extends StatelessWidget {
         children: [
           if (onOffer != null)
             IconButton(
-              tooltip: '가격 제안',
+              tooltip: context.l10n.chatOfferLabel,
               icon: const Icon(
                 Icons.payments_outlined,
                 color: EggplantColors.primary,
@@ -739,7 +750,7 @@ class _InputBar extends StatelessWidget {
               minLines: 1,
               maxLines: 4,
               decoration: InputDecoration(
-                hintText: connected ? '메시지 입력' : '연결 중...',
+                hintText: connected ? context.l10n.chatInputHint : context.l10n.chatConnecting,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 border: OutlineInputBorder(
@@ -778,11 +789,13 @@ class _InputBar extends StatelessWidget {
 class _PriceOfferCard extends StatelessWidget {
   final ChatMessage message;
   final String? myUserId;
+  final String market;
   final void Function(String action) onRespond;
 
   const _PriceOfferCard({
     required this.message,
     required this.myUserId,
+    required this.market,
     required this.onRespond,
   });
 
@@ -811,9 +824,9 @@ class _PriceOfferCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (read)
-                  const Text(
-                    '읽음',
-                    style: TextStyle(
+                  Text(
+                    context.l10n.chatRead,
+                    style: const TextStyle(
                       fontSize: 10,
                       color: EggplantColors.primary,
                       fontWeight: FontWeight.w700,
@@ -862,9 +875,9 @@ class _PriceOfferCard extends StatelessWidget {
                       children: [
                         Icon(Icons.payments_rounded, size: 16, color: accent),
                         const SizedBox(width: 6),
-                        const Text(
-                          '가격 제안',
-                          style: TextStyle(
+                        Text(
+                          context.l10n.chatOfferLabel,
+                          style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: EggplantColors.textSecondary,
@@ -892,7 +905,7 @@ class _PriceOfferCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      offer.priceLabel,
+                      offer.priceLabelFor(market),
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
@@ -901,7 +914,7 @@ class _PriceOfferCard extends StatelessWidget {
                     ),
                     if (offer.isPending) ...[
                       const SizedBox(height: 10),
-                      _buildActionRow(iAmSeller, iAmBuyer),
+                      _buildActionRow(context, iAmSeller, iAmBuyer),
                     ],
                   ],
                 ),
@@ -923,7 +936,7 @@ class _PriceOfferCard extends StatelessWidget {
     );
   }
 
-  Widget _buildActionRow(bool iAmSeller, bool iAmBuyer) {
+  Widget _buildActionRow(BuildContext context, bool iAmSeller, bool iAmBuyer) {
     if (iAmSeller) {
       return Row(
         children: [
@@ -938,9 +951,9 @@ class _PriceOfferCard extends StatelessWidget {
                 ),
               ),
               onPressed: () => onRespond('reject'),
-              child: const Text(
-                '거절',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              child: Text(
+                context.l10n.chatOfferReject,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -957,9 +970,9 @@ class _PriceOfferCard extends StatelessWidget {
                 ),
               ),
               onPressed: () => onRespond('accept'),
-              child: const Text(
-                '수락',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              child: Text(
+                context.l10n.chatOfferAccept,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -975,9 +988,9 @@ class _PriceOfferCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 6),
           ),
           onPressed: () => onRespond('cancel'),
-          child: const Text(
-            '제안 취소하기',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          child: Text(
+            context.l10n.chatOfferCancelButton,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ),
       );

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Env, ProductResponse, ProductRow, UserRow, Variables } from '../types';
 import { authMiddleware, optionalAuth } from '../jwt';
+import { sendFcm } from '../utils/fcm';
 import {
   grantTradeBonus,
   payTrade,
@@ -9,9 +10,15 @@ import {
   getBrowseMiningStatus,
   createEscrowIfEligible,
   ESCROW_MAX_AMOUNT_KRW,
+  grantListingReward,
+  adjustListingRewardOnPrice,
+  deleteProductWithClawback,
 } from '../qta';
+import { checkProductText, recordContentFlags } from '../prohibited';
+import { normalizeMarket, reqLang, requestMarket, tr, type Market } from '../market';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+/** 본인인증(Lv1) 여부 — QTA 결제 거래·QTA 가격 설정의 조건. */async function isVerified(env: Env, userId: string): Promise<boolean> {  const r = await env.DB    .prepare('SELECT verification_level FROM users WHERE id = ?')    .bind(userId)    .first<{ verification_level: number | null }>();  return (r?.verification_level ?? 0) >= 1;}
 
 const MAX_IMAGES = 10;
 const MAX_IMAGE_SIZE = 8 * 1024 * 1024; // 8 MB
@@ -113,6 +120,19 @@ app.get('/', optionalAuth, async (c) => {
 
   const conditions: string[] = [];
   const params: (string | number)[] = [];
+
+  // 같은 시장(한국/일본) 상품만. 로그인 회원은 가입 때 정해진 시장, 아니면 요청 언어.
+  const viewer = c.get('user');
+  let market: Market = requestMarket(c);
+  if (viewer) {
+    const m = await c.env.DB
+      .prepare('SELECT market FROM users WHERE id = ?')
+      .bind(viewer.id)
+      .first<{ market: string | null }>();
+    market = normalizeMarket(m?.market) ?? market;
+  }
+  conditions.push('market = ?');
+  params.push(market);
 
   if (category && category !== 'all') {
     conditions.push('category = ?');
@@ -321,6 +341,13 @@ app.post('/', authMiddleware, async (c) => {
     category = String(form.get('category') || '').trim();
     region = String(form.get('region') || '').trim();
 
+    // 거래 금지 품목 · 금지어 · 외부 연락처 — 이미지/영상 업로드 전에 거절 (R2 고아 파일 방지)
+    const early = checkProductText({ title, description, category });
+    if (early.action === 'block') {
+      c.executionCtx.waitUntil(recordContentFlags(c.env.DB, { userId: user.id, targetType: 'product', targetId: null, result: early }));
+      return c.json({ error: tr(c, early.message ?? '', early.messageJa ?? early.message ?? ''), code: 'prohibited', category: early.blocked ? tr(c, early.blocked.label, early.blocked.labelJa) : undefined }, 400);
+    }
+
     // Collect all "images" files (multer array-style).
     // Cloudflare Workers 환경에선 globalThis.File 의 타입 추론이 약해서
     // instanceof 대신 duck-typing(arrayBuffer 메서드 보유 여부)으로 분기.
@@ -330,11 +357,11 @@ app.post('/', authMiddleware, async (c) => {
       isUploadedFile,
     );
     if (files.length > MAX_IMAGES) {
-      return c.json({ error: `이미지는 최대 ${MAX_IMAGES}장까지에요` }, 400);
+      return c.json({ error: tr(c, `이미지는 최대 ${MAX_IMAGES}장까지에요`, `画像は最大${MAX_IMAGES}枚までです`) }, 400);
     }
     for (const f of files) {
       if (f.size > MAX_IMAGE_SIZE) {
-        return c.json({ error: `파일 크기는 8MB 이하여야 해요` }, 400);
+        return c.json({ error: tr(c, `파일 크기는 8MB 이하여야 해요`, `ファイルサイズは8MB以下にしてください`) }, 400);
       }
       const ext = f.name.split('.').pop()?.toLowerCase() || 'jpg';
       const safeExt = /^(jpg|jpeg|png|gif|webp)$/.test(ext) ? ext : 'jpg';
@@ -351,7 +378,7 @@ app.post('/', authMiddleware, async (c) => {
     if (ytRaw) {
       const normalized = normalizeYouTubeUrl(ytRaw);
       if (!normalized) {
-        return c.json({ error: '유튜브 링크 형식이 올바르지 않아요' }, 400);
+        return c.json({ error: tr(c, '유튜브 링크 형식이 올바르지 않아요', 'YouTubeリンクの形式が正しくありません') }, 400);
       }
       videoUrl = normalized;
     }
@@ -362,7 +389,7 @@ app.post('/', authMiddleware, async (c) => {
       const vFile = isUploadedFile(raw) ? raw : null;
       if (vFile && vFile.size > 0) {
         if (vFile.size > MAX_VIDEO_SIZE) {
-          return c.json({ error: '영상 크기는 50MB 이하여야 해요' }, 400);
+          return c.json({ error: tr(c, '영상 크기는 50MB 이하여야 해요', '動画のサイズは50MB以下にしてください') }, 400);
         }
         const ext = vFile.name.split('.').pop()?.toLowerCase() || 'mp4';
         const safeExt = ALLOWED_VIDEO_EXT.test(ext) ? ext : 'mp4';
@@ -388,23 +415,34 @@ app.post('/', authMiddleware, async (c) => {
       if (ytRaw) {
         const normalized = normalizeYouTubeUrl(ytRaw);
         if (!normalized) {
-          return c.json({ error: '유튜브 링크 형식이 올바르지 않아요' }, 400);
+          return c.json({ error: tr(c, '유튜브 링크 형식이 올바르지 않아요', 'YouTubeリンクの形式が正しくありません') }, 400);
         }
         videoUrl = normalized;
       }
     } catch {
-      return c.json({ error: '잘못된 요청' }, 400);
+      return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
     }
   }
 
   if (!title || !description || !category || !region) {
-    return c.json({ error: '필수 정보가 부족해요' }, 400);
+    return c.json({ error: tr(c, '필수 정보가 부족해요', '必須項目が入力されていません') }, 400);
+  }
+
+  // 거래 금지 품목 · 금지어 · 외부 연락처 (서버가 최종 판단). REVIEW 는 등록 후 검토 큐 적재.
+  const moderation = checkProductText({ title, description, category });
+  if (moderation.action === 'block') {
+    c.executionCtx.waitUntil(recordContentFlags(c.env.DB, { userId: user.id, targetType: 'product', targetId: null, result: moderation }));
+    return c.json({ error: tr(c, moderation.message ?? '', moderation.messageJa ?? moderation.message ?? ''), code: 'prohibited', category: moderation.blocked ? tr(c, moderation.blocked.label, moderation.blocked.labelJa) : undefined }, 400);
   }
 
   const id = crypto.randomUUID();
   const images = imageKeys.join(',');
   const priceInt = parseInt(price, 10) || 0;
   const qtaPriceInt = Math.max(0, parseInt(qtaPriceRaw, 10) || 0);
+  // QTA 가격 상품은 본인인증한 판매자만 — 인증 없이는 거래완료를 할 수 없어 팔 수 없는 상품이 된다.
+  if (qtaPriceInt > 0 && !(await isVerified(c.env, user.id))) {
+    return c.json({ error: tr(c, 'QTA 가격은 본인 인증 후에 설정할 수 있어요', 'QTA価格は本人確認後に設定できます') }, 403);
+  }
 
   // ── 핵심 INSERT 블록을 try/catch 로 감싸 사장님께 정확한 한국어 에러 노출 ──
   // 마이그레이션 누락(qta_price/video_url/lat/lng 컬럼 없음)이나 D1 일시 장애를
@@ -413,6 +451,7 @@ app.post('/', authMiddleware, async (c) => {
   let row: ProductRow | null = null;
   let sellerLat: number | null = null;
   let sellerLng: number | null = null;
+  let sellerMarket: Market = 'kr';
 
   try {
     // 작성자의 동네 좌표를 그대로 복사 — 거리 필터에 사용.
@@ -420,11 +459,12 @@ app.post('/', authMiddleware, async (c) => {
     // users.lat/lng 컬럼이 없으면 0012 마이그레이션 미적용. 이때는 좌표 없이 진행.
     try {
       const seller = await c.env.DB
-        .prepare('SELECT lat, lng FROM users WHERE id = ?')
+        .prepare('SELECT lat, lng, market FROM users WHERE id = ?')
         .bind(user.id)
-        .first<{ lat: number | null; lng: number | null }>();
+        .first<{ lat: number | null; lng: number | null; market: string | null }>();
       sellerLat = seller?.lat ?? null;
       sellerLng = seller?.lng ?? null;
+      sellerMarket = normalizeMarket(seller?.market) ?? 'kr';
     } catch (e) {
       // users.lat/lng 미존재 → 좌표 없이 진행 (거리 필터에서만 빠짐)
       console.error('[products.create] users.lat/lng 조회 실패 (무시):', e);
@@ -432,12 +472,12 @@ app.post('/', authMiddleware, async (c) => {
 
     await c.env.DB
       .prepare(`
-        INSERT INTO products (id, seller_id, title, description, price, qta_price, category, region, images, video_url, lat, lng)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO products (id, seller_id, title, description, price, qta_price, category, region, images, video_url, lat, lng, market)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .bind(
         id, user.id, title, description, priceInt, qtaPriceInt, category, region, images, videoUrl,
-        sellerLat, sellerLng
+        sellerLat, sellerLng, sellerMarket
       )
       .run();
 
@@ -450,16 +490,29 @@ app.post('/', authMiddleware, async (c) => {
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[products.create] INSERT 실패:', msg);
     return c.json({
-      error: '상품 저장 중 서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.',
+      error: tr(c, '상품 저장 중 서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.', '商品の保存中にサーバーエラーが発生しました。しばらくしてから再度お試しください。'),
       detail: msg, // 운영 진단용 — 클라이언트는 표시만 안 하면 됨
     }, 500);
   }
 
   if (!row) {
-    return c.json({ error: '상품 저장 직후 조회 실패 — 잠시 후 다시 시도해주세요.' }, 500);
+    return c.json({ error: tr(c, '상품 저장 직후 조회 실패 — 잠시 후 다시 시도해주세요.', '商品を保存しましたが、読み込みに失敗しました。しばらくしてから再度お試しください。') }, 500);
+  }
+
+  // 상품 등록 채굴 — 가격의 10% 를 QTA 로 (1 QTA = 10원, 건당·하루 상한).
+  let listingReward = 0;
+  try {
+    listingReward = await grantListingReward(c.env, user.id, { id, title, price: priceInt, market: sellerMarket });
+    if (listingReward > 0) row = { ...row, listing_reward: listingReward };
+  } catch (e) {
+    console.error('[products.create] listing reward failed', e);
   }
 
   const product = await hydrate(c.env, row, user.id);
+
+  if (moderation.action === 'review') {
+    c.executionCtx.waitUntil(recordContentFlags(c.env.DB, { userId: user.id, targetType: 'product', targetId: id, result: moderation }));
+  }
 
   // ── 키워드 알림 fanout (당근식 "키워드 알림") ────────────────────────────
   // 본문/제목/카테고리에 등록 키워드가 포함된 사용자를 찾아 WS push.
@@ -483,7 +536,7 @@ app.post('/', authMiddleware, async (c) => {
     }).catch((e) => console.error('[alerts] fanout error', e))
   );
 
-  return c.json({ product }, 201);
+  return c.json({ product, listing_reward: listingReward }, 201);
 });
 
 /** 새 상품 → 매칭 키워드 사용자 fanout. 거리 + 차단 + 본인제외 적용. */
@@ -632,7 +685,7 @@ app.patch('/:id', authMiddleware, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: '잘못된 요청' }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
 
   const row = await c.env.DB
@@ -647,21 +700,21 @@ app.patch('/:id', authMiddleware, async (c) => {
 
   if (typeof body.title === 'string') {
     const t = (body.title as string).trim();
-    if (!t) return c.json({ error: '제목을 입력해주세요' }, 400);
-    if (t.length > 80) return c.json({ error: '제목이 너무 길어요' }, 400);
+    if (!t) return c.json({ error: tr(c, '제목을 입력해주세요', '商品名を入力してください') }, 400);
+    if (t.length > 80) return c.json({ error: tr(c, '제목이 너무 길어요', '商品名が長すぎます') }, 400);
     updates.push('title = ?');
     params.push(t);
   }
   if (typeof body.description === 'string') {
     const d = (body.description as string).trim();
-    if (d.length < 10) return c.json({ error: '설명은 10자 이상 입력해주세요' }, 400);
+    if (d.length < 10) return c.json({ error: tr(c, '설명은 10자 이상 입력해주세요', '商品説明は10文字以上で入力してください') }, 400);
     updates.push('description = ?');
     params.push(d);
   }
   if (body.price !== undefined) {
     const p = parseInt(String(body.price), 10);
     if (!Number.isFinite(p) || p < 0) {
-      return c.json({ error: '가격이 올바르지 않아요' }, 400);
+      return c.json({ error: tr(c, '가격이 올바르지 않아요', '価格が正しくありません') }, 400);
     }
     updates.push('price = ?');
     params.push(p);
@@ -669,11 +722,14 @@ app.patch('/:id', authMiddleware, async (c) => {
   if (body.qta_price !== undefined) {
     const q = parseInt(String(body.qta_price), 10);
     if (!Number.isFinite(q) || q < 0) {
-      return c.json({ error: 'QTA 가격이 올바르지 않아요' }, 400);
+      return c.json({ error: tr(c, 'QTA 가격이 올바르지 않아요', 'QTA価格が正しくありません') }, 400);
     }
     // 거래완료 후에는 결제가 끝났으므로 변경 금지.
     if (row.status === 'sold') {
-      return c.json({ error: '거래완료된 상품은 가격 변경 불가' }, 400);
+      return c.json({ error: tr(c, '거래완료된 상품은 가격 변경 불가', '取引完了した商品は価格を変更できません') }, 400);
+    }
+    if (q > 0 && !(await isVerified(c.env, user.id))) {
+      return c.json({ error: tr(c, 'QTA 가격은 본인 인증 후에 설정할 수 있어요', 'QTA価格は本人確認後に設定できます') }, 403);
     }
     updates.push('qta_price = ?');
     params.push(q);
@@ -711,14 +767,32 @@ app.patch('/:id', authMiddleware, async (c) => {
       }
     } else {
       const normalized = normalizeYouTubeUrl(raw);
-      if (!normalized) return c.json({ error: '유튜브 링크 형식이 올바르지 않아요' }, 400);
+      if (!normalized) return c.json({ error: tr(c, '유튜브 링크 형식이 올바르지 않아요', 'YouTubeリンクの形式が正しくありません') }, 400);
       updates.push('video_url = ?');
       params.push(normalized);
     }
   }
 
   if (updates.length === 0) {
-    return c.json({ error: '수정할 내용이 없어요' }, 400);
+    return c.json({ error: tr(c, '수정할 내용이 없어요', '変更する内容がありません') }, 400);
+  }
+
+  // 거래 금지 품목 · 금지어 · 외부 연락처 — 수정 후 최종 상태(바뀐 필드 + 기존 값)로 검사.
+  const nextTitle = typeof body.title === 'string' ? (body.title as string).trim() : row.title;
+  const nextDesc = typeof body.description === 'string' ? (body.description as string).trim() : row.description;
+  const nextCategory = typeof body.category === 'string' && (body.category as string).trim()
+    ? (body.category as string).trim()
+    : row.category;
+  const textChanged = typeof body.title === 'string' || typeof body.description === 'string' || nextCategory !== row.category;
+  if (textChanged) {
+    const moderation = checkProductText({ title: nextTitle, description: nextDesc, category: nextCategory });
+    if (moderation.action === 'block') {
+      c.executionCtx.waitUntil(recordContentFlags(c.env.DB, { userId: user.id, targetType: 'product', targetId: id, result: moderation }));
+      return c.json({ error: tr(c, moderation.message ?? '', moderation.messageJa ?? moderation.message ?? ''), code: 'prohibited', category: moderation.blocked ? tr(c, moderation.blocked.label, moderation.blocked.labelJa) : undefined }, 400);
+    }
+    if (moderation.action === 'review') {
+      c.executionCtx.waitUntil(recordContentFlags(c.env.DB, { userId: user.id, targetType: 'product', targetId: id, result: moderation }));
+    }
   }
 
   updates.push("updated_at = datetime('now')");
@@ -729,12 +803,28 @@ app.patch('/:id', authMiddleware, async (c) => {
     .bind(...params)
     .run();
 
+  // 가격을 내렸으면 등록 채굴 보상 차액 회수 (올려도 더 주지는 않음).
+  let rewardClawback = 0;
+  if (body.price !== undefined) {
+    try {
+      rewardClawback = await adjustListingRewardOnPrice(c.env, user.id, {
+        id,
+        title: nextTitle,
+        price: parseInt(String(body.price), 10),
+        listing_reward: row.listing_reward ?? 0,
+        market: normalizeMarket(row.market) ?? 'kr',
+      });
+    } catch (e) {
+      console.error('[products.patch] listing reward adjust failed', e);
+    }
+  }
+
   const updated = await c.env.DB
     .prepare('SELECT * FROM products WHERE id = ?')
     .bind(id)
     .first<ProductRow>();
   const product = await hydrate(c.env, updated, user.id);
-  return c.json({ product });
+  return c.json({ product, listing_reward_clawback: rewardClawback });
 });
 
 /**
@@ -745,6 +835,11 @@ app.patch('/:id', authMiddleware, async (c) => {
  *   partners that messaged about this product. Stored on the product so both
  *   sides can leave a review later.
  * • Switching back to 'sale' or 'reserved' clears any previous buyer_id.
+ * • 판매자는 구매자를 "지정"만 한다. QTA 결제와 거래 보너스는 구매자가
+ *   POST /:id/confirm-purchase 로 직접 확인했을 때만 실행된다.
+ *   (예전에는 여기서 바로 payTrade 를 호출해서, 판매자가 아무 사용자나
+ *    구매자로 지정하면 그 사람의 QTA 가 빠져나갔다.)
+ * • 구매자가 확인한 거래(buyer_confirmed_at)는 상태를 더 이상 바꿀 수 없다.
  */
 app.put('/:id/status', authMiddleware, async (c) => {
   const user = c.get('user')!;
@@ -753,10 +848,10 @@ app.put('/:id/status', authMiddleware, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: '잘못된 요청' }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
   if (!['sale', 'reserved', 'sold'].includes(body.status || '')) {
-    return c.json({ error: '잘못된 상태' }, 400);
+    return c.json({ error: tr(c, '잘못된 상태', '不正なステータスです') }, 400);
   }
 
   const row = await c.env.DB
@@ -766,69 +861,72 @@ app.put('/:id/status', authMiddleware, async (c) => {
 
   if (!row) return c.json({ error: 'Not found' }, 404);
   if (row.seller_id !== user.id) return c.json({ error: 'Forbidden' }, 403);
+  if (row.buyer_confirmed_at) {
+    return c.json({ error: tr(c, '구매자가 거래를 확인한 상품은 상태를 바꿀 수 없어요', '購入者が取引を確認した商品はステータスを変更できません') }, 409);
+  }
 
   // Validate buyer_id if provided (must be a real user, not the seller).
   let buyerId: string | null = null;
   if (body.status === 'sold' && body.buyer_id) {
     if (body.buyer_id === user.id) {
-      return c.json({ error: '본인을 구매자로 지정할 수 없어요' }, 400);
+      return c.json({ error: tr(c, '본인을 구매자로 지정할 수 없어요', 'ご自身を購入者に指定することはできません') }, 400);
+    }
+    // QTA 결제 거래만 본인인증(Lv1) 판매자로 제한 — 돈(QTA)이 오가는 거래.
+    // 원화 거래는 인증 없이 거래완료·후기 가능 (거래 보너스는 양쪽 인증 시에만 지급).
+    if ((row.qta_price ?? 0) > 0) {
+      const seller = await c.env.DB
+        .prepare('SELECT verification_level FROM users WHERE id = ?')
+        .bind(user.id)
+        .first<{ verification_level: number | null }>();
+      if ((seller?.verification_level ?? 0) < 1) {
+        return c.json({ error: tr(c, 'QTA 결제 거래는 본인 인증 후에 완료할 수 있어요', 'QTA決済の取引は本人確認後に完了できます') }, 403);
+      }
     }
     const buyer = await c.env.DB
       .prepare('SELECT id FROM users WHERE id = ?')
       .bind(body.buyer_id)
       .first<{ id: string }>();
-    if (!buyer) return c.json({ error: '구매자를 찾을 수 없어요' }, 400);
+    if (!buyer) return c.json({ error: tr(c, '구매자를 찾을 수 없어요', '購入者が見つかりません') }, 400);
+    // QTA 결제 거래는 구매자도 본인인증이 있어야 확인(결제)할 수 있다. 미인증 구매자를
+    // 지정하면 구매자가 영영 확인할 수 없는 거래가 되므로 여기서 미리 막는다.
+    if ((row.qta_price ?? 0) > 0 && !(await isVerified(c.env, body.buyer_id))) {
+      return c.json(
+        { error: tr(c, '구매자가 본인 인증을 해야 QTA 결제 거래를 완료할 수 있어요', 'QTA決済の取引を完了するには、購入者の本人確認が必要です'), code: 'buyer_not_verified' },
+        403,
+      );
+    }
     buyerId = body.buyer_id;
   }
 
-  // ── QTA 결제 (qta_price > 0 인 상품 한정) ─────────────────────────
-  // 거래완료(sold) + 구매자 지정 시점에 buyer→seller 로 자동 이체.
-  // 결제 실패 (잔액부족 등) 면 status 변경 자체를 거부 → 거래 미완료.
-  let qtaPayment:
-    | { ok: true; charged: number; already_paid?: boolean }
-    | null = null;
-  if (body.status === 'sold' && buyerId && (row.qta_price ?? 0) > 0) {
-    const pay = await payTrade(
-      c.env,
-      id,
-      user.id,
-      buyerId,
-      row.qta_price,
-    );
-    if (!pay.ok) {
-      const code = pay.reason === 'insufficient' ? 402 : 400;
-      return c.json({ error: pay.error, reason: pay.reason }, code);
-    }
-    qtaPayment = pay;
+  // buyer_confirmed_at IS NULL 조건 — 위 체크와 이 UPDATE 사이에 구매자가
+  // 확인한 경우까지 막는다.
+  const res = await c.env.DB
+    .prepare(
+      `UPDATE products SET status = ?, buyer_id = ?, updated_at = datetime('now')
+        WHERE id = ? AND buyer_confirmed_at IS NULL`,
+    )
+    .bind(body.status, body.status === 'sold' ? buyerId : null, id)
+    .run();
+  if ((res.meta?.changes ?? 0) !== 1) {
+    return c.json({ error: tr(c, '구매자가 거래를 확인한 상품은 상태를 바꿀 수 없어요', '購入者が取引を確認した商品はステータスを変更できません') }, 409);
   }
 
-  if (body.status === 'sold') {
-    await c.env.DB
-      .prepare(
-        "UPDATE products SET status = ?, buyer_id = ?, updated_at = datetime('now') WHERE id = ?"
-      )
-      .bind(body.status, buyerId, id)
-      .run();
-  } else {
-    // sale / reserved → clear any stored buyer.
-    await c.env.DB
-      .prepare(
-        "UPDATE products SET status = ?, buyer_id = NULL, updated_at = datetime('now') WHERE id = ?"
-      )
-      .bind(body.status, id)
-      .run();
-  }
-
-  // ── 거래완료 보너스 (양쪽 +10 QTA, 멱등) ────────────────────────
-  // sold + buyer_id 가 모두 있을 때만. idem_key='trade:<pid>:seller|buyer' 가
-  // UNIQUE 라 다시 sale → sold 토글되어도 한 번만 지급된다.
-  let qtaBonus: { seller_credited: boolean; buyer_credited: boolean; amount: number } | null = null;
+  // 구매자에게 "거래 확인 요청" 푸시 — 안 보내면 구매자가 상품 상세에 직접
+  // 들어가기 전까지 요청을 알 수 없다. 탭하면 상품 상세(거래 확인 카드)로 이동.
   if (body.status === 'sold' && buyerId) {
-    try {
-      const r = await grantTradeBonus(c.env, id, user.id, buyerId);
-      qtaBonus = { ...r, amount: 10 };
-    } catch (e) {
-      console.error('[products/status] trade bonus failed', e);
+    const buyerToken = await c.env.DB
+      .prepare('SELECT fcm_token FROM users WHERE id = ?')
+      .bind(buyerId)
+      .first<{ fcm_token: string | null }>();
+    if (buyerToken?.fcm_token) {
+      c.executionCtx.waitUntil(
+        sendFcm(c.env, {
+          fcmToken: buyerToken.fcm_token,
+          title: '거래 확인 요청',
+          body: '판매자가 거래완료로 표시했어요. 눌러서 거래를 확인해주세요',
+          data: { type: 'purchase_confirm', product_id: id },
+        }).catch((e) => console.error('[products/status] buyer push failed', e)),
+      );
     }
   }
 
@@ -836,9 +934,112 @@ app.put('/:id/status', authMiddleware, async (c) => {
     ok: true,
     status: body.status,
     buyer_id: buyerId,
-    qta_bonus: qtaBonus,
-    qta_payment: qtaPayment,
+    // 결제/보너스는 구매자 확인 후. 구버전 앱 호환을 위해 키는 유지.
+    qta_bonus: null,
+    qta_payment: null,
+    awaiting_buyer_confirmation: body.status === 'sold' && !!buyerId,
   });
+});
+
+/**
+ * POST /api/products/:id/confirm-purchase
+ *
+ * 판매자가 거래완료로 지정한 구매자 본인이 거래를 확인한다.
+ *   1) buyer_confirmed_at 을 먼저 원자적으로 기록 (이후 판매자는 상태/구매자 변경 불가)
+ *   2) qta_price > 0 이면 buyer → seller QTA 결제. 실패하면 1) 을 되돌린다.
+ *   3) 거래완료 보너스 (양쪽 +10, 멱등)
+ */
+app.post('/:id/confirm-purchase', authMiddleware, async (c) => {
+  const user = c.get('user')!;
+  const id = c.req.param('id');
+
+  const row = await c.env.DB
+    .prepare('SELECT * FROM products WHERE id = ?')
+    .bind(id)
+    .first<ProductRow>();
+  if (!row) return c.json({ error: 'Not found' }, 404);
+  if (row.status !== 'sold' || row.buyer_id !== user.id) {
+    return c.json({ error: tr(c, '이 상품의 구매자로 지정되지 않았어요', 'この商品の購入者に指定されていません') }, 403);
+  }
+  if (row.buyer_confirmed_at) {
+    return c.json({ ok: true, already_confirmed: true, qta_payment: null, qta_bonus: null });
+  }
+  // QTA 결제 거래는 구매자도 본인인증(Lv1) 필수. 가입 보너스를 받은 다계정이
+  // 가짜 거래로 한 판매자 계정에 QTA 를 몰아주는 경로를 막는다 (1인 1계정 = CI 중복 차단).
+  const levels = await c.env.DB
+    .prepare(
+      `SELECT (SELECT verification_level FROM users WHERE id = ?) AS buyer_lv,
+              (SELECT verification_level FROM users WHERE id = ?) AS seller_lv`,
+    )
+    .bind(user.id, row.seller_id)
+    .first<{ buyer_lv: number | null; seller_lv: number | null }>();
+  const bothVerified = (levels?.buyer_lv ?? 0) >= 1 && (levels?.seller_lv ?? 0) >= 1;
+  if ((row.qta_price ?? 0) > 0 && (levels?.buyer_lv ?? 0) < 1) {
+    return c.json({ error: tr(c, '거래 확인에는 본인 인증이 필요해요', '取引の確認には本人確認が必要です'), code: 'verification_required' }, 403);
+  }
+
+  // 구매자가 화면에서 본 QTA 가격 (앱이 보냄). 다르면 판매자가 그사이 가격을 바꾼 것 →
+  // 구매자가 보지 못한 가격이 청구되지 않도록 거부. (구버전 앱은 안 보냄 → 검사 생략)
+  let expectedQta: number | null = null;
+  try {
+    const b = (await c.req.json().catch(() => ({}))) as { expected_qta_price?: number };
+    if (typeof b.expected_qta_price === 'number') expectedQta = b.expected_qta_price;
+  } catch { /* body 없음 */ }
+  if (expectedQta !== null && expectedQta !== (row.qta_price ?? 0)) {
+    return c.json({ error: tr(c, '판매자가 가격을 바꿨어요. 상품을 다시 확인해주세요', '出品者が価格を変更しました。商品をもう一度ご確認ください'), code: 'price_changed' }, 409);
+  }
+
+  const lock = await c.env.DB
+    .prepare(
+      `UPDATE products SET buyer_confirmed_at = datetime('now'), updated_at = datetime('now')
+        WHERE id = ? AND status = 'sold' AND buyer_id = ? AND buyer_confirmed_at IS NULL
+          AND qta_price = ?`,
+    )
+    .bind(id, user.id, row.qta_price ?? 0)
+    .run();
+  if ((lock.meta?.changes ?? 0) !== 1) {
+    // 동시에 판매자가 상태·가격을 바꿨거나, 다른 요청이 먼저 확인함.
+    return c.json({ error: tr(c, '거래 상태가 바뀌었어요. 다시 확인해주세요', '取引のステータスが変わりました。もう一度ご確認ください') }, 409);
+  }
+  const unlock = () =>
+    c.env.DB
+      .prepare('UPDATE products SET buyer_confirmed_at = NULL WHERE id = ? AND buyer_id = ?')
+      .bind(id, user.id)
+      .run();
+
+  let qtaPayment: { ok: true; charged: number; already_paid?: boolean } | null = null;
+  if ((row.qta_price ?? 0) > 0) {
+    // 결제 중 예외(D1 일시 오류 등)가 나도 확인 표시를 되돌린다 — 안 그러면
+    // "확인됨·미결제" 로 굳어 다시 확인도, 판매자 변경도 못 하게 된다.
+    let pay: Awaited<ReturnType<typeof payTrade>>;
+    try {
+      pay = await payTrade(c.env, id, row.seller_id, user.id, row.qta_price, reqLang(c));
+    } catch (e) {
+      console.error('[products/confirm-purchase] payTrade threw', e);
+      await unlock().catch(() => {});
+      return c.json({ error: tr(c, '결제 처리 중 문제가 생겼어요. 잠시 후 다시 시도해주세요', '決済処理中に問題が発生しました。しばらくしてから再度お試しください') }, 500);
+    }
+    if (!pay.ok) {
+      await unlock();
+      const code = pay.reason === 'insufficient' ? 402 : 400;
+      return c.json({ error: pay.error, reason: pay.reason }, code);
+    }
+    qtaPayment = pay;
+  }
+
+  // 거래 보너스(+10 씩)는 양쪽 모두 본인인증한 경우에만 — 인증 없는 다계정끼리
+  // 가짜 원화 거래로 보너스를 무한히 만드는 것을 막는다.
+  let qtaBonus: { seller_credited: boolean; buyer_credited: boolean; amount: number } | null = null;
+  if (bothVerified) {
+    try {
+      const r = await grantTradeBonus(c.env, id, row.seller_id, user.id);
+      qtaBonus = { ...r, amount: 10 };
+    } catch (e) {
+      console.error('[products/confirm-purchase] trade bonus failed', e);
+    }
+  }
+
+  return c.json({ ok: true, qta_payment: qtaPayment, qta_bonus: qtaBonus });
 });
 
 // /api/products/:id/buyers 는 제거됨.
@@ -873,10 +1074,10 @@ app.post('/:id/review', authMiddleware, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: '잘못된 요청' }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
   if (!['good', 'soso', 'bad'].includes(body.rating || '')) {
-    return c.json({ error: '평가를 선택해주세요' }, 400);
+    return c.json({ error: tr(c, '평가를 선택해주세요', '評価を選択してください') }, 400);
   }
 
   const product = await c.env.DB
@@ -885,10 +1086,10 @@ app.post('/:id/review', authMiddleware, async (c) => {
     .first<{ seller_id: string; buyer_id: string | null; status: string }>();
   if (!product) return c.json({ error: 'Not found' }, 404);
   if (product.status !== 'sold') {
-    return c.json({ error: '거래완료 후에 후기를 남길 수 있어요' }, 400);
+    return c.json({ error: tr(c, '거래완료 후에 후기를 남길 수 있어요', '評価は取引完了後に投稿できます') }, 400);
   }
   if (!product.buyer_id) {
-    return c.json({ error: '구매자가 지정되지 않았어요' }, 400);
+    return c.json({ error: tr(c, '구매자가 지정되지 않았어요', '購入者が指定されていません') }, 400);
   }
 
   // Determine reviewee.
@@ -896,7 +1097,7 @@ app.post('/:id/review', authMiddleware, async (c) => {
   if (user.id === product.seller_id) revieweeId = product.buyer_id;
   else if (user.id === product.buyer_id) revieweeId = product.seller_id;
   if (!revieweeId) {
-    return c.json({ error: '거래 당사자만 후기를 남길 수 있어요' }, 403);
+    return c.json({ error: tr(c, '거래 당사자만 후기를 남길 수 있어요', '評価は取引の当事者のみ投稿できます') }, 403);
   }
 
   // Duplicate check — UNIQUE(product_id, reviewer_id) is the source of truth,
@@ -905,7 +1106,7 @@ app.post('/:id/review', authMiddleware, async (c) => {
     .prepare('SELECT 1 FROM reviews WHERE product_id = ? AND reviewer_id = ?')
     .bind(id, user.id)
     .first();
-  if (dup) return c.json({ error: '이미 후기를 남기셨어요' }, 409);
+  if (dup) return c.json({ error: tr(c, '이미 후기를 남기셨어요', 'すでに評価を投稿済みです') }, 409);
 
   const tags = Array.isArray(body.tags)
     ? body.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 8).join(',')
@@ -986,7 +1187,7 @@ app.post('/:id/bump', authMiddleware, async (c) => {
   if (!row) return c.json({ error: 'Not found' }, 404);
   if (row.seller_id !== user.id) return c.json({ error: 'Forbidden' }, 403);
   if (row.status !== 'sale') {
-    return c.json({ error: '판매중인 상품만 끌어올릴 수 있어요' }, 400);
+    return c.json({ error: tr(c, '판매중인 상품만 끌어올릴 수 있어요', '上位表示できるのは販売中の商品のみです') }, 400);
   }
 
   // 24h cooldown — we read bumped_at via a typed cast since ProductRow
@@ -1002,9 +1203,10 @@ app.post('/:id/bump', authMiddleware, async (c) => {
         const hours = Math.floor(remainingSec / 3600);
         const mins = Math.ceil((remainingSec % 3600) / 60);
         const wait = hours > 0 ? `${hours}시간 ${mins}분` : `${mins}분`;
+        const waitJa = hours > 0 ? `${hours}時間${mins}分` : `${mins}分`;
         return c.json(
           {
-            error: `${wait} 후에 다시 끌어올릴 수 있어요`,
+            error: tr(c, `${wait} 후에 다시 끌어올릴 수 있어요`, `${waitJa}後に再度上位表示できます`),
             next_allowed_at: new Date(last + COOLDOWN_MS).toISOString(),
             remaining_seconds: remainingSec,
           },
@@ -1049,24 +1251,28 @@ app.post('/:id/escrow', authMiddleware, async (c) => {
     .bind(user.id)
     .first<{ verification_level: number }>();
   if (!meRow || (meRow.verification_level ?? 0) < 1) {
-    return c.json({ error: '본인인증(Lv1) 후 거래할 수 있어요', need_verify: 1 }, 403);
+    return c.json({ error: tr(c, '본인인증(Lv1) 후 거래할 수 있어요', '本人確認（Lv1）後に取引できます'), need_verify: 1 }, 403);
   }
 
   const row = await c.env.DB
-    .prepare('SELECT id, seller_id, price, status FROM products WHERE id = ?')
+    .prepare('SELECT id, seller_id, price, status, market FROM products WHERE id = ?')
     .bind(id)
-    .first<{ id: string; seller_id: string; price: number; status: string }>();
-  if (!row) return c.json({ error: '상품을 찾을 수 없어요' }, 404);
+    .first<{ id: string; seller_id: string; price: number; status: string; market: string | null }>();
+  if (!row) return c.json({ error: tr(c, '상품을 찾을 수 없어요', '商品が見つかりません') }, 404);
+  // 안전거래는 한국 계좌 입금 방식이라 한국 상품만.
+  if ((row.market || 'kr') !== 'kr') {
+    return c.json({ error: tr(c, '이 상품은 안전거래를 쓸 수 없어요', 'この商品は安全取引をご利用いただけません'), reason: 'market' }, 400);
+  }
   if (row.seller_id === user.id) {
-    return c.json({ error: '본인 상품에는 에스크로를 만들 수 없어요' }, 400);
+    return c.json({ error: tr(c, '본인 상품에는 에스크로를 만들 수 없어요', 'ご自身の商品には安全取引を利用できません') }, 400);
   }
   if (row.status === 'sold') {
-    return c.json({ error: '이미 거래 완료된 상품이에요' }, 400);
+    return c.json({ error: tr(c, '이미 거래 완료된 상품이에요', 'すでに取引完了した商品です') }, 400);
   }
   if (row.price >= ESCROW_MAX_AMOUNT_KRW) {
     return c.json(
       {
-        error: '30,000원 이상은 당사자 직거래에요',
+        error: tr(c, '30,000원 이상은 당사자 직거래에요', 'この金額の商品は安全取引の対象外です。当事者間で直接お取引ください'),
         reason: 'over_limit',
         threshold: ESCROW_MAX_AMOUNT_KRW,
       },
@@ -1080,6 +1286,7 @@ app.post('/:id/escrow', authMiddleware, async (c) => {
     user.id,
     row.seller_id,
     row.price,
+    reqLang(c),
   );
   if (!result.ok) {
     const code = result.reason === 'over_limit' ? 400 : 500;
@@ -1191,12 +1398,10 @@ app.delete('/:id', authMiddleware, async (c) => {
     }
   }
 
-  await c.env.DB
-    .prepare('DELETE FROM products WHERE id = ?')
-    .bind(id)
-    .run();
+  // 삭제와 등록 채굴 보상 회수를 한 batch 로.
+  const rewardClawback = await deleteProductWithClawback(c.env, user.id, row);
 
-  return c.json({ ok: true });
+  return c.json({ ok: true, listing_reward_clawback: rewardClawback });
 });
 
 export default app;

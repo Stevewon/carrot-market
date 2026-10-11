@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../models/product.dart';
 import '../services/hidden_products_service.dart';
@@ -60,13 +61,13 @@ class _HiddenProductsScreenState extends State<HiddenProductsScreen> {
     } on TimeoutException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐')),
+          SnackBar(content: Text(context.l10n.productHiddenTimeout)),
         );
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('숨긴 게시물을 불러오지 못했어요')),
+          SnackBar(content: Text(context.l10n.productHiddenLoadFailed)),
         );
       }
     } finally {
@@ -80,11 +81,11 @@ class _HiddenProductsScreenState extends State<HiddenProductsScreen> {
     if (ok) {
       setState(() => _products.removeWhere((x) => x.id == p.id));
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('"${p.title}" 다시 보여요')),
+        SnackBar(content: Text(context.l10n.productUnhidden(p.title))),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('숨김 해제 실패')),
+        SnackBar(content: Text(context.l10n.productUnhideFailed)),
       );
     }
   }
@@ -94,7 +95,7 @@ class _HiddenProductsScreenState extends State<HiddenProductsScreen> {
     return Scaffold(
       backgroundColor: EggplantColors.background,
       appBar: AppBar(
-        title: const Text('숨긴 게시물'),
+        title: Text(context.l10n.productHiddenTitle),
         elevation: 0,
         backgroundColor: Colors.white,
       ),
@@ -125,7 +126,7 @@ class _HiddenProductsScreenState extends State<HiddenProductsScreen> {
                                 Icons.visibility_outlined,
                                 size: 18,
                               ),
-                              label: const Text('숨김 해제'),
+                              label: Text(context.l10n.productUnhide),
                               style: TextButton.styleFrom(
                                 backgroundColor: Colors.white.withOpacity(0.9),
                                 foregroundColor: EggplantColors.primary,
@@ -158,25 +159,25 @@ class _Empty extends StatelessWidget {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(
+        children: [
+          const Icon(
             Icons.visibility_off_outlined,
             size: 56,
             color: EggplantColors.textTertiary,
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text(
-            '숨긴 게시물이 없어요',
-            style: TextStyle(
+            context.l10n.productHiddenEmpty,
+            style: const TextStyle(
               fontSize: 15,
               color: EggplantColors.textSecondary,
               fontWeight: FontWeight.w600,
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
-            '게시물 우측 상단의 ⋯ 메뉴에서 가릴 수 있어요',
-            style: TextStyle(
+            context.l10n.productHiddenEmptyHint,
+            style: const TextStyle(
               fontSize: 13,
               color: EggplantColors.textTertiary,
             ),

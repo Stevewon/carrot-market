@@ -18,7 +18,8 @@
  *
  * 상품:
  *   GET  /api/admin/products?q=...&status=...                -> 상품 목록
- *   POST /api/admin/products/:id/hide  { reason }            -> 강제 숨김 (status=sold 처리)
+ *   POST /api/admin/products/:id/hide  { reason }            -> 강제 숨김 (status=sold 처리) + 채굴 보상 회수
+ *   DELETE /api/admin/products/:id     { reason }            -> 영구 삭제 + 채굴 보상 회수
  *
  * 신고:
  *   GET  /api/admin/reports?status=pending                   -> 신고 큐
@@ -41,6 +42,8 @@
 import { Hono } from 'hono';
 import type { Context, MiddlewareHandler } from 'hono';
 import type { Env, Variables } from '../types';
+import { decryptPhone } from '../phoneVault';
+import { clawbackListingReward } from '../qta';
 import { hashPassword, verifyPassword } from '../crypto';
 
 // ────────────────────────────────────────────────────────────────────
@@ -309,7 +312,7 @@ app.get('/stats', async (c) => {
   ] = await Promise.all([
     c.env.DB.prepare(`SELECT COUNT(*) AS n FROM users`).first<{ n: number }>(),
     c.env.DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE created_at >= datetime('now', '-1 day')`).first<{ n: number }>(),
-    c.env.DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE is_banned = 1`).first<{ n: number }>(),
+    c.env.DB.prepare(`SELECT COUNT(*) AS n FROM user_bans`).first<{ n: number }>(),
     c.env.DB.prepare(`SELECT COUNT(*) AS n FROM products`).first<{ n: number }>(),
     c.env.DB.prepare(`SELECT COUNT(*) AS n FROM products WHERE status = 'sale'`).first<{ n: number }>(),
     c.env.DB.prepare(`SELECT COUNT(*) AS n FROM products WHERE status = 'sold'`).first<{ n: number }>(),
@@ -360,25 +363,29 @@ app.get('/users', async (c) => {
   const where: string[] = [];
   const args: (string | number)[] = [];
   if (q) {
-    where.push(`(nickname LIKE ? OR id LIKE ? OR wallet_address LIKE ?)`);
+    where.push(`(u.nickname LIKE ? OR u.id LIKE ? OR u.wallet_address LIKE ?)`);
     args.push(`%${q}%`, `%${q}%`, `%${q}%`);
   }
-  if (banned === '1') where.push(`is_banned = 1`);
-  if (banned === '0') where.push(`is_banned = 0`);
+  if (banned === '1') where.push(`b.user_id IS NOT NULL`);
+  if (banned === '0') where.push(`b.user_id IS NULL`);
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const sql =
-    `SELECT id, nickname, wallet_address, region, manner_score,
-            qta_balance, verification_level, is_banned, banned_at, ban_reason,
-            created_at
-       FROM users
+    `SELECT u.id, u.nickname, u.wallet_address, u.region, u.manner_score,
+            u.qta_balance, u.verification_level,
+            (b.user_id IS NOT NULL) AS is_banned, b.banned_at, b.reason AS ban_reason,
+            u.created_at
+       FROM users u
+       LEFT JOIN user_bans b ON b.user_id = u.id
        ${whereSql}
-      ORDER BY created_at DESC
+      ORDER BY u.created_at DESC
       LIMIT ? OFFSET ?`;
 
   const rs = await c.env.DB.prepare(sql).bind(...args, limit, offset).all();
   const totalRow = await c.env.DB
-    .prepare(`SELECT COUNT(*) AS n FROM users ${whereSql}`)
+    .prepare(
+      `SELECT COUNT(*) AS n FROM users u LEFT JOIN user_bans b ON b.user_id = u.id ${whereSql}`,
+    )
     .bind(...args)
     .first<{ n: number }>();
 
@@ -395,11 +402,14 @@ app.get('/users/:id', async (c) => {
   const id = c.req.param('id');
   const user = await c.env.DB
     .prepare(
-      `SELECT id, nickname, wallet_address, region, manner_score,
-              qta_balance, verification_level, verified_at,
-              bank_registered_at, is_banned, banned_at, ban_reason,
-              created_at, updated_at
-         FROM users WHERE id = ?`,
+      `SELECT u.id, u.nickname, u.wallet_address, u.region, u.manner_score,
+              u.qta_balance, u.verification_level, u.verified_at,
+              u.bank_registered_at,
+              (b.user_id IS NOT NULL) AS is_banned, b.banned_at, b.reason AS ban_reason,
+              u.created_at, u.updated_at
+         FROM users u
+         LEFT JOIN user_bans b ON b.user_id = u.id
+        WHERE u.id = ?`,
     )
     .bind(id)
     .first();
@@ -418,7 +428,39 @@ app.get('/users/:id', async (c) => {
   });
 });
 
-/** POST /api/admin/users/:id/ban */
+/**
+ * POST /api/admin/users/:id/phone-reveal  body:{ reason }
+ * 불법 사용자 추적용 — 휴대폰 인증 번호 복호화. super_admin 만, 사유 필수, 감사 로그 기록.
+ * 탈퇴하면 번호는 즉시 파기되므로(auth.ts DELETE /me) 현재 회원만 조회된다.
+ */
+app.post('/users/:id/phone-reveal', async (c) => {
+  const admin = c.get('admin')!;
+  if (admin.role !== 'super_admin') return c.json({ error: 'super_admin only' }, 403);
+  const id = c.req.param('id');
+  const body = (await c.req.json().catch(() => ({}))) as { reason?: string };
+  const reason = (body.reason || '').trim();
+  if (reason.length < 5) return c.json({ error: '조회 사유를 5자 이상 입력해주세요' }, 400);
+  const row = await c.env.DB
+    .prepare('SELECT phone_enc, created_at FROM phone_vault WHERE user_id = ?')
+    .bind(id)
+    .first<{ phone_enc: string; created_at: string }>();
+  if (!row) return c.json({ error: '휴대폰 인증 기록이 없어요' }, 404);
+  let phone: string;
+  try {
+    phone = await decryptPhone(c.env, row.phone_enc);
+  } catch (e) {
+    console.error('[admin] phone decrypt failed', e);
+    return c.json({ error: '복호화 실패 (키 확인 필요)' }, 500);
+  }
+  await audit(c, 'reveal_phone', 'user', id, reason);
+  return c.json({ user_id: id, phone, verified_at: row.created_at });
+});
+
+/**
+ * POST /api/admin/users/:id/ban
+ * 정지 상태는 user_bans 행으로 관리 (migration 0026). authMiddleware /
+ * 로그인 / ChatHub 접속이 모두 이 테이블을 확인한다.
+ */
 app.post('/users/:id/ban', async (c) => {
   const id = c.req.param('id');
   let body: { reason?: string } = {};
@@ -426,25 +468,41 @@ app.post('/users/:id/ban', async (c) => {
   const reason = (body.reason || '운영자 정지').slice(0, 200);
 
   const u = await c.env.DB
-    .prepare(`SELECT id, is_banned FROM users WHERE id = ?`)
+    .prepare(`SELECT id FROM users WHERE id = ?`)
     .bind(id)
-    .first<{ id: string; is_banned: number }>();
+    .first<{ id: string }>();
   if (!u) return c.json({ error: 'not found' }, 404);
-  if (u.is_banned) return c.json({ error: '이미 정지된 사용자에요' }, 409);
 
-  // token_version bump 로 즉시 로그아웃 효과
-  await c.env.DB
-    .prepare(
-      `UPDATE users
-          SET is_banned = 1,
-              banned_at = datetime('now'),
-              ban_reason = ?,
-              token_version = token_version + 1,
-              updated_at = datetime('now')
-        WHERE id = ?`,
-    )
-    .bind(reason, id)
-    .run();
+  // token_version bump 로 기존 세션도 즉시 끊는다.
+  const out = await c.env.DB.batch([
+    c.env.DB
+      .prepare(
+        `INSERT INTO user_bans (user_id, reason, banned_by) VALUES (?, ?, ?)
+         ON CONFLICT(user_id) DO NOTHING`,
+      )
+      .bind(id, reason, c.get('admin')?.id ?? null),
+    c.env.DB
+      .prepare(
+        `UPDATE users SET token_version = token_version + 1, updated_at = datetime('now')
+          WHERE id = ?`,
+      )
+      .bind(id),
+  ]);
+  if (((out[0]?.meta as { changes?: number } | undefined)?.changes ?? 0) === 0) {
+    return c.json({ error: '이미 정지된 사용자에요' }, 409);
+  }
+
+  // 이미 열려 있는 채팅·통화 소켓도 즉시 끊는다.
+  try {
+    const stub = c.env.CHAT_HUB.get(c.env.CHAT_HUB.idFromName('global'));
+    await stub.fetch('https://do/internal/kick-user', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ user_id: id }),
+    });
+  } catch (e) {
+    console.error('[admin/ban] kick sockets failed', e);
+  }
 
   await audit(c, 'ban_user', 'user', id, reason);
   return c.json({ ok: true });
@@ -454,12 +512,7 @@ app.post('/users/:id/ban', async (c) => {
 app.post('/users/:id/unban', async (c) => {
   const id = c.req.param('id');
   await c.env.DB
-    .prepare(
-      `UPDATE users
-          SET is_banned = 0, banned_at = NULL, ban_reason = NULL,
-              updated_at = datetime('now')
-        WHERE id = ?`,
-    )
+    .prepare(`DELETE FROM user_bans WHERE user_id = ?`)
     .bind(id)
     .run();
   await audit(c, 'unban_user', 'user', id, null);
@@ -525,20 +578,55 @@ app.post('/products/:id/hide', async (c) => {
   const reason = (body.reason || '운영자 강제 숨김').slice(0, 200);
 
   const p = await c.env.DB
-    .prepare(`SELECT id, status FROM products WHERE id = ?`)
+    .prepare(`SELECT id, status, seller_id, title, listing_reward FROM products WHERE id = ?`)
     .bind(id)
-    .first<{ id: string; status: string }>();
+    .first<{ id: string; status: string; seller_id: string; title: string; listing_reward: number | null }>();
   if (!p) return c.json({ error: 'not found' }, 404);
 
-  await c.env.DB
-    .prepare(
-      `UPDATE products SET status = 'sold', updated_at = datetime('now') WHERE id = ?`,
-    )
-    .bind(id)
-    .run();
+  // 숨김 + 등록 채굴 보상 회수 (판매자에게서).
+  const clawback = await clawbackListingReward(
+    c.env,
+    p.seller_id,
+    p,
+    c.env.DB
+      .prepare(`UPDATE products SET status = 'sold', updated_at = datetime('now') WHERE id = ?`)
+      .bind(id),
+    'admin',
+  );
 
   await audit(c, 'hide_product', 'product', id, reason);
-  return c.json({ ok: true });
+  return c.json({ ok: true, listing_reward_clawback: clawback });
+});
+
+/** DELETE /api/admin/products/:id  { reason } — 영구 삭제 + 등록 채굴 보상 회수 */
+app.delete('/products/:id', async (c) => {
+  const id = c.req.param('id');
+  let body: { reason?: string } = {};
+  try { body = await c.req.json(); } catch { /* ok */ }
+  const reason = (body.reason || '운영자 삭제').slice(0, 200);
+
+  const p = await c.env.DB
+    .prepare(`SELECT id, seller_id, title, images, video_url, listing_reward FROM products WHERE id = ?`)
+    .bind(id)
+    .first<{ id: string; seller_id: string; title: string; images: string | null; video_url: string | null; listing_reward: number | null }>();
+  if (!p) return c.json({ error: 'not found' }, 404);
+
+  const clawback = await clawbackListingReward(
+    c.env,
+    p.seller_id,
+    p,
+    c.env.DB.prepare('DELETE FROM products WHERE id = ?').bind(id),
+    'admin',
+  );
+  for (const path of [...(p.images || '').split(','), p.video_url || '']) {
+    const key = path.startsWith('/uploads/') ? path.slice('/uploads/'.length) : '';
+    if (key) {
+      try { await c.env.UPLOADS.delete(key); } catch { /* best-effort */ }
+    }
+  }
+
+  await audit(c, 'delete_product', 'product', id, reason);
+  return c.json({ ok: true, listing_reward_clawback: clawback });
 });
 
 // ────────────────────────────────────────────────────────────────────
@@ -628,6 +716,68 @@ app.post('/reports/:id/resolve', (c) => handleReport(c, c.req.param('id'), 'reso
 
 /** POST /api/admin/reports/:id/dismiss */
 app.post('/reports/:id/dismiss', (c) => handleReport(c, c.req.param('id'), 'dismissed'));
+
+// ────────────────────────────────────────────────────────────────────
+// 거래 금지 품목 · 금지어 검토 큐 (content_flags — 0030, src/prohibited.ts)
+//   pending = REVIEW 로 등록된 게시글/닉네임 (운영자 확인 필요)
+//   logged  = BLOCK 으로 거절된 시도 기록
+// ────────────────────────────────────────────────────────────────────
+
+/** GET /api/admin/flags?status=pending|logged|resolved|dismissed|all */
+app.get('/flags', async (c) => {
+  const status = c.req.query('status') || 'pending';
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10) || 50, 200);
+  const offset = Math.max(parseInt(c.req.query('offset') || '0', 10) || 0, 0);
+  if (!['pending', 'logged', 'resolved', 'dismissed', 'all'].includes(status)) {
+    return c.json({ error: 'invalid status' }, 400);
+  }
+  const where = status === 'all' ? '' : `WHERE f.status = ?`;
+  const args: string[] = status === 'all' ? [] : [status];
+  const rs = await c.env.DB
+    .prepare(
+      `SELECT f.*, u.nickname AS user_nickname, p.title AS product_title, p.status AS product_status
+         FROM content_flags f
+    LEFT JOIN users u ON u.id = f.user_id
+    LEFT JOIN products p ON f.target_type = 'product' AND p.id = f.target_id
+         ${where}
+        ORDER BY f.created_at DESC
+        LIMIT ? OFFSET ?`,
+    )
+    .bind(...args, limit, offset)
+    .all();
+  const totalRow = await c.env.DB
+    .prepare(`SELECT COUNT(*) AS n FROM content_flags f ${where}`)
+    .bind(...args)
+    .first<{ n: number }>();
+  return c.json({ flags: rs.results || [], total: totalRow?.n ?? 0, limit, offset });
+});
+
+async function handleFlag(
+  c: Context<{ Bindings: Env; Variables: AdminVariables }>,
+  id: string,
+  newStatus: 'resolved' | 'dismissed',
+): Promise<Response> {
+  let body: { note?: string } = {};
+  try { body = await c.req.json(); } catch { /* ok */ }
+  const note = (body.note || '').slice(0, 500);
+  const r = await c.env.DB
+    .prepare(`SELECT id FROM content_flags WHERE id = ?`)
+    .bind(id)
+    .first<{ id: number }>();
+  if (!r) return c.json({ error: 'not found' }, 404);
+  await c.env.DB
+    .prepare(`UPDATE content_flags SET status = ?, resolved_at = datetime('now'), resolved_note = ? WHERE id = ?`)
+    .bind(newStatus, note, id)
+    .run();
+  await audit(c, `flag_${newStatus}`, 'content_flag', String(id), note);
+  return c.json({ ok: true });
+}
+
+/** POST /api/admin/flags/:id/resolve  (게시글 숨김은 /products/:id/hide 별도 호출) */
+app.post('/flags/:id/resolve', (c) => handleFlag(c, c.req.param('id'), 'resolved'));
+
+/** POST /api/admin/flags/:id/dismiss */
+app.post('/flags/:id/dismiss', (c) => handleFlag(c, c.req.param('id'), 'dismissed'));
 
 // ────────────────────────────────────────────────────────────────────
 // 출금 (어드민 콘솔 통합용 — 기존 /api/withdrawals/admin/* 와 별도 노출)

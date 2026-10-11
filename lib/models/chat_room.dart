@@ -1,3 +1,5 @@
+import '../app/l10n.dart';
+
 class ChatRoom {
   final String id;
   final String peerId;
@@ -48,7 +50,7 @@ class ChatRoom {
     return ChatRoom(
       id: json['id']?.toString() ?? '',
       peerId: json['peer_id']?.toString() ?? '',
-      peerNickname: json['peer_nickname']?.toString() ?? '익명',
+      peerNickname: json['peer_nickname']?.toString() ?? L10n.current.chatAnonymous,
       peerMannerScore:
           (json['peer_manner_score'] is num) ? (json['peer_manner_score'] as num).toInt() : 36,
       productId: json['product_id']?.toString(),
@@ -105,12 +107,13 @@ class ChatRoom {
 
   String get timeAgo {
     final diff = DateTime.now().difference(lastMessageAt);
-    if (diff.inSeconds < 60) return '방금 전';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
-    if (diff.inHours < 24) return '${diff.inHours}시간 전';
-    if (diff.inDays < 7) return '${diff.inDays}일 전';
-    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}주 전';
-    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}개월 전';
-    return '${(diff.inDays / 365).floor()}년 전';
+    final t = L10n.current;
+    if (diff.inSeconds < 60) return t.chatTimeJustNow;
+    if (diff.inMinutes < 60) return t.chatTimeMinutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return t.chatTimeHoursAgo(diff.inHours);
+    if (diff.inDays < 7) return t.chatTimeDaysAgo(diff.inDays);
+    if (diff.inDays < 30) return t.chatTimeWeeksAgo((diff.inDays / 7).floor());
+    if (diff.inDays < 365) return t.chatTimeMonthsAgo((diff.inDays / 30).floor());
+    return t.chatTimeYearsAgo((diff.inDays / 365).floor());
   }
 }

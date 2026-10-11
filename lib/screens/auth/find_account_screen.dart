@@ -5,10 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/l10n.dart';
 import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../services/auth_service.dart';
 import '_auth_shared.dart';
+import 'wallet_proof_card.dart';
 
 /// Two-step screen:
 ///   Step 1: enter wallet -> show nickname on file
@@ -32,6 +34,8 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
   bool _loading = false;
   String? _error;
   String? _foundNickname; // non-null once we've looked up the wallet
+  /// 다른 기기에서 재설정할 때 필요한 지갑 소유 증명 challenge id.
+  String? _walletChallengeId;
 
   bool _obscure1 = true;
   bool _obscure2 = true;
@@ -72,10 +76,10 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
       }
     } on TimeoutException {
       if (!mounted) return;
-      setState(() => _error = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐');
+      setState(() => _error = context.l10n.authServerSlow);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = '계정 조회 중 문제가 생겼어요. 다시 시도해주세요.');
+      setState(() => _error = context.l10n.authLookupFailed);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -95,6 +99,7 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
             walletAddress: _walletCtl.text,
             newPassword: _pwCtl.text,
             newPasswordConfirm: _pwConfirmCtl.text,
+            walletChallengeId: _walletChallengeId,
           )
           .timeout(const Duration(seconds: 20));
 
@@ -103,16 +108,16 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
         setState(() => _error = err);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('비밀번호를 새로 설정했어요 🔒')),
+          SnackBar(content: Text(context.l10n.authPasswordResetDone)),
         );
         context.go('/');
       }
     } on TimeoutException {
       if (!mounted) return;
-      setState(() => _error = '서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐');
+      setState(() => _error = context.l10n.authServerSlow);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = '비밀번호 재설정 중 문제가 생겼어요. 다시 시도해주세요.');
+      setState(() => _error = context.l10n.authResetFailed);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -122,6 +127,7 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
     setState(() {
       _foundNickname = null;
       _error = null;
+      _walletChallengeId = null;
       _pwCtl.clear();
       _pwConfirmCtl.clear();
     });
@@ -135,7 +141,7 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: const Text('계정 찾기'),
+        title: Text(context.l10n.authFindAccountTitle),
       ),
       body: SafeArea(
         child: Center(
@@ -153,15 +159,16 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
 
   // -------- Step 1: look up wallet --------
   Widget _buildStep1() {
+    final l10n = context.l10n;
     return Form(
       key: _walletFormKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 12),
-          const Text(
-            '지갑주소로\n계정을 찾아요',
-            style: TextStyle(
+          Text(
+            l10n.authFindHeadline,
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
               color: EggplantColors.textPrimary,
@@ -169,10 +176,9 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          const Text(
-            '가입할 때 사용한 퀀타리움 지갑주소를 입력해주세요.\n'
-            '지갑 소유를 인증하면 닉네임을 확인하고 비밀번호를 다시 설정할 수 있어요.',
-            style: TextStyle(
+          Text(
+            l10n.authFindDesc,
+            style: const TextStyle(
               fontSize: 13,
               color: EggplantColors.textSecondary,
               height: 1.5,
@@ -180,7 +186,7 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
           ),
           const SizedBox(height: 28),
 
-          const FieldLabel('퀀타리움 지갑주소'),
+          FieldLabel(l10n.authQuantariumWalletLabel),
           TextFormField(
             controller: _walletCtl,
             autocorrect: false,
@@ -193,7 +199,7 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
               ),
               suffixIcon: IconButton(
                 icon: const Icon(Icons.content_paste_rounded, size: 20),
-                tooltip: '붙여넣기',
+                tooltip: l10n.authPaste,
                 onPressed: _pasteWallet,
               ),
             ),
@@ -217,13 +223,13 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
                       color: Colors.white,
                     ),
                   )
-                : const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
+                : Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Text(
-                      '계정 확인',
+                      l10n.authCheckAccount,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 16),
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
           ),
@@ -234,6 +240,7 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
 
   // -------- Step 2: reset password --------
   Widget _buildStep2() {
+    final l10n = context.l10n;
     return Form(
       key: _resetFormKey,
       child: Column(
@@ -252,14 +259,14 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.verified_user_outlined,
+                    const Icon(Icons.verified_user_outlined,
                         color: EggplantColors.primary, size: 18),
-                    SizedBox(width: 6),
+                    const SizedBox(width: 6),
                     Text(
-                      '등록된 닉네임',
-                      style: TextStyle(
+                      l10n.authRegisteredNickname,
+                      style: const TextStyle(
                         fontSize: 12,
                         color: EggplantColors.textSecondary,
                         fontWeight: FontWeight.w600,
@@ -290,33 +297,39 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
           ),
 
           const SizedBox(height: 20),
-          const Text(
-            '새 비밀번호 설정',
-            style: TextStyle(
+          Text(
+            l10n.authNewPasswordTitle,
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
               color: EggplantColors.textPrimary,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            '재설정 후 기존에 로그인된 모든 기기는 자동으로 로그아웃돼요.',
-            style: TextStyle(
+          Text(
+            l10n.authNewPasswordDesc,
+            style: const TextStyle(
               fontSize: 12,
               color: EggplantColors.textSecondary,
               height: 1.5,
             ),
           ),
+          const SizedBox(height: 12),
+          WalletProofCard(
+            walletAddress: () => _walletCtl.text,
+            purpose: 'reset',
+            onVerified: (id) => setState(() => _walletChallengeId = id),
+          ),
           const SizedBox(height: 20),
 
-          const FieldLabel('새 비밀번호', hint: '8자 이상'),
+          FieldLabel(l10n.authNewPasswordLabel, hint: l10n.authMin8),
           TextFormField(
             controller: _pwCtl,
             obscureText: _obscure1,
             autocorrect: false,
             enableSuggestions: false,
             decoration: InputDecoration(
-              hintText: '8자 이상',
+              hintText: l10n.authMin8,
               prefixIcon: const Icon(Icons.lock_outline,
                   color: EggplantColors.primary),
               suffixIcon: IconButton(
@@ -331,14 +344,14 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
 
           const SizedBox(height: 18),
 
-          const FieldLabel('새 비밀번호 확인'),
+          FieldLabel(l10n.authNewPasswordConfirmLabel),
           TextFormField(
             controller: _pwConfirmCtl,
             obscureText: _obscure2,
             autocorrect: false,
             enableSuggestions: false,
             decoration: InputDecoration(
-              hintText: '다시 한 번 입력',
+              hintText: l10n.authEnterAgain,
               prefixIcon: const Icon(Icons.lock_outline,
                   color: EggplantColors.primary),
               suffixIcon: IconButton(
@@ -349,8 +362,8 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
               ),
             ),
             validator: (v) {
-              if (v == null || v.isEmpty) return '비밀번호 확인을 입력해주세요';
-              if (v != _pwCtl.text) return '비밀번호가 일치하지 않아요';
+              if (v == null || v.isEmpty) return l10n.authPasswordConfirmRequired;
+              if (v != _pwCtl.text) return l10n.authPasswordMismatch;
               return null;
             },
           ),
@@ -372,13 +385,13 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
                       color: Colors.white,
                     ),
                   )
-                : const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
+                : Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Text(
-                      '비밀번호 재설정',
+                      l10n.authResetPasswordButton,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 16),
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
           ),
@@ -387,9 +400,9 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
           Center(
             child: TextButton(
               onPressed: _loading ? null : _startOver,
-              child: const Text(
-                '다른 지갑주소로 다시 찾기',
-                style: TextStyle(
+              child: Text(
+                l10n.authFindAgain,
+                style: const TextStyle(
                   color: EggplantColors.textSecondary,
                   fontSize: 13,
                 ),

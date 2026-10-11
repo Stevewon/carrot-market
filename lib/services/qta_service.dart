@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../app/l10n.dart';
 import 'auth_service.dart';
 
 /// QTA 토큰 잔액 + 적립 내역 ledger.
@@ -38,19 +39,32 @@ class QtaLedgerItem {
 
   /// 사용자에게 보여줄 한국어 라벨.
   String get label {
+    final t = L10n.current;
     switch (reason) {
       case 'signup':
-        return '가입 보너스';
+        return t.myReasonSignup;
+      case 'verify_bonus':
+        return t.myReasonVerifyBonus;
       case 'login_daily':
-        return '출석 보너스';
+        return t.myReasonLoginDaily;
       case 'trade_seller':
-        return '판매 완료 보상';
+        return t.myReasonTradeSeller;
       case 'trade_buyer':
-        return '구매 완료 보상';
+        return t.myReasonTradeBuyer;
       case 'withdrawal':
-        return '출금 신청';
+        return t.myReasonWithdrawal;
       case 'withdrawal_refund':
-        return '출금 취소·환불';
+        return t.myReasonWithdrawalRefund;
+      case 'listing_reward':
+        return t.myReasonListingReward;
+      case 'listing_reward_adjust':
+        return t.myReasonListingAdjust;
+      case 'listing_reward_clawback':
+        return t.myReasonListingClawback;
+      case 'mining_listing':
+        return t.myReasonMiningListing;
+      case 'mining_browse':
+        return t.myReasonMiningBrowse;
       default:
         return reason;
     }
@@ -100,13 +114,13 @@ class QtaWithdrawal {
   String get statusLabel {
     switch (status) {
       case 'requested':
-        return '대기 중';
+        return L10n.current.myWdStatusRequested;
       case 'processing':
-        return '송금 중';
+        return L10n.current.myWdStatusProcessing;
       case 'completed':
-        return '완료';
+        return L10n.current.myWdStatusCompleted;
       case 'rejected':
-        return '거절·환불';
+        return L10n.current.myWdStatusRejected;
       default:
         return status;
     }
@@ -183,7 +197,7 @@ class QtaService extends ChangeNotifier {
       // ★ 에러여도 캐시는 유지 — 빈 화면 깜빡임 방지.
       notifyListeners();
       debugPrint('[qta] load failed: $e');
-      return 'QTA 잔액을 불러오지 못했어요';
+      return L10n.current.myQtaLoadFail;
     }
   }
 
@@ -343,23 +357,23 @@ class QtaService extends ChangeNotifier {
       _withdrawalsLoading = false;
       notifyListeners();
       debugPrint('[qta] loadWithdrawals failed: $e');
-      return '출금 내역을 불러오지 못했어요';
+      return L10n.current.myWdLoadFail;
     }
   }
 
   /// 새 출금 신청. 성공 시 null 반환, 실패 시 에러 메시지.
   Future<String?> requestWithdrawal(int amount) async {
     if (amount < _withdrawalMin) {
-      return '최소 $_withdrawalMin QTA 부터 신청할 수 있어요';
+      return L10n.current.myWdErrMin('$_withdrawalMin');
     }
     if (amount % _withdrawalUnit != 0) {
-      return '$_withdrawalUnit QTA 단위로만 신청할 수 있어요';
+      return L10n.current.myWdErrUnit('$_withdrawalUnit');
     }
     if (amount > _balance) {
-      return 'QTA 잔액이 부족해요';
+      return L10n.current.myWdErrBalance;
     }
     if (pendingWithdrawal != null) {
-      return '진행 중인 신청이 있어요. 처리되면 다시 시도해주세요.';
+      return L10n.current.myWdErrPending;
     }
     try {
       final res = await auth.api.post(
@@ -385,7 +399,7 @@ class QtaService extends ChangeNotifier {
     } catch (e) {
       final msg = _extractError(e);
       debugPrint('[qta] requestWithdrawal failed: $e');
-      return msg ?? '출금 신청에 실패했어요';
+      return msg ?? L10n.current.myWdErrRequestFail;
     }
   }
 
@@ -412,7 +426,7 @@ class QtaService extends ChangeNotifier {
           requestedAt: old.requestedAt,
           processedAt: DateTime.now(),
           txHash: old.txHash,
-          rejectReason: '사용자 취소',
+          rejectReason: L10n.current.myWdUserCancelled,
         );
       }
       _loaded = false;
@@ -421,7 +435,7 @@ class QtaService extends ChangeNotifier {
     } catch (e) {
       final msg = _extractError(e);
       debugPrint('[qta] cancelWithdrawal failed: $e');
-      return msg ?? '취소에 실패했어요';
+      return msg ?? L10n.current.myWdErrCancelFail;
     }
   }
 

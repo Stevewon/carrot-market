@@ -31,6 +31,8 @@ import 'dart:async';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -43,6 +45,7 @@ import 'package:uuid/uuid.dart';
 //   필요 시 별도 native MethodChannel 로 ContextCompat.startForegroundService
 //   호출하는 안 검토.
 
+import '../app/l10n.dart';
 import '../utils/agora_uid.dart';
 import 'agora_service.dart';
 import 'auth_service.dart';
@@ -101,7 +104,8 @@ class CallService extends ChangeNotifier {
   bool _muted = false;
   bool get muted => _muted;
 
-  bool _speakerOn = true;
+  // 음성통화 기본은 수화기(귀) — 네이티브 통화 화면과 동일. 스피커는 버튼으로 켠다.
+  bool _speakerOn = false;
   bool get speakerOn => _speakerOn;
 
   String? _lastError;
@@ -128,9 +132,64 @@ class CallService extends ChangeNotifier {
   /// 발신 타임아웃 (초). 응답 없으면 자동 취소 + 부재중.
   static const int _outgoingTimeoutSec = 30;
 
+  /// 네이티브 통화 브리지 (MainActivity). 포그라운드 서비스·네이티브 벨소리·
+  /// 네이티브 통화 화면 여부 조회에 사용.
+  static const MethodChannel _native = MethodChannel('eggplant.market/native_call_bridge');
+
+  /// 엔진을 만든 App ID — 서버 토큰의 app_id 와 다르면 엔진을 다시 만든다.
+  String? _engineAppId;
+
+  /// acceptCall 중복 진입 방지 (푸시 자동 수락 + 버튼 탭이 겹치는 경우).
+  bool _accepting = false;
+
+  /// onJoinChannelSuccess 후 5초 안에 상대가 안 들어오면 connected 로 보정하는 타이머.
+  /// 통화가 끝나면 반드시 취소 — 안 그러면 다음 통화를 연결 전에 "연결됨" 으로 만든다.
+  Timer? _graceTimer;
+
+  /// 채널 입장 후 상대가 끝내 들어오지 않으면 종료하는 타이머. 5초 보정으로 화면은
+  /// connected 가 되지만, 상대가 실제로 없으면 무음 '통화 중' 에 영원히 머물렀다.
+  Timer? _noRemoteTimer;
+  bool _remoteJoined = false;
+  static const int _noRemoteTimeoutSec = 25;
+
+  /// 상대 음성이 끊겼을 때 이 시간 동안 Agora 가 재연결을 못 하면 종료.
+  /// (예전 5초는 엘리베이터·터널 같은 짧은 끊김에도 통화를 끊었다.)
+  static const int _reconnectGraceSec = 20;
+
+  Future<dynamic> _invokeNative(String method, [Map<String, dynamic>? args]) async {
+    try {
+      return await _native.invokeMethod(method, args);
+    } catch (e) {
+      debugPrint('[call] native $method failed: $e');
+      return null;
+    }
+  }
+
+  /// 앱이 화면에 떠 있는지. 백그라운드·잠금·종료 상태의 수신은 네이티브 화면이 맡는다.
+  bool get _appInForeground =>
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+
   /// Attach WebSocket signaling listeners.
   void _attachListeners() {
-    _subs.add(chat.on('call_incoming', (data) {
+    _subs.add(chat.on('call_incoming', (data) async {
+      // 네이티브 통화 화면(백그라운드에서 받은 통화)으로 통화 중이면 "통화 중" 거절.
+      if (_state == CallState.idle || _state == CallState.ended) {
+        if (await _invokeNative('isNativeCallActive') == true) {
+          chat.emit('call_response', {
+            'to_user_id': data['from_user_id'],
+            'call_id': data['call_id'],
+            'accepted': false,
+          });
+          return;
+        }
+        // 앱이 화면에 없으면(백그라운드·잠금) 수신은 FCM → 네이티브 화면이 맡는다.
+        // 여기서도 울리면 벨이 두 번 울리고, 네이티브에서 받은 뒤에도 Flutter 쪽
+        // 수신 상태가 남는다.
+        if (!_appInForeground) {
+          debugPrint('[call] call_incoming while app in background — native handles it');
+          return;
+        }
+      }
       // Race condition (양쪽이 동시에 발신): userId 작은 쪽이 우선권.
       // 내가 outgoing 중인데 같은 상대에게서 incoming 이 오면, peer userId 비교.
       if (_state == CallState.outgoing && _peerUserId == data['from_user_id']) {
@@ -145,7 +204,7 @@ class CallService extends ChangeNotifier {
           _stopRingback();
           _outgoingTimeoutTimer?.cancel();
           _activeCallId = data['call_id']?.toString();
-          _peerNickname = data['caller_nickname']?.toString() ?? '익명';
+          _peerNickname = data['caller_nickname']?.toString() ?? L10n.current.chatAnonymous;
           _isCaller = false;
           _state = CallState.incoming;
           notifyListeners();
@@ -177,7 +236,7 @@ class CallService extends ChangeNotifier {
           if (_peerWalletAddress == null || _peerWalletAddress!.isEmpty) {
             _peerWalletAddress = data['caller_wallet']?.toString();
           }
-          if (_peerNickname == null || _peerNickname == '익명') {
+          if (_isPlaceholderNickname(_peerNickname)) {
             final n = data['caller_nickname']?.toString();
             if (n != null && n.isNotEmpty) _peerNickname = n;
           }
@@ -215,7 +274,7 @@ class CallService extends ChangeNotifier {
       }
       _activeCallId = data['call_id']?.toString();
       _peerUserId = data['from_user_id']?.toString();
-      _peerNickname = data['caller_nickname']?.toString() ?? '익명';
+      _peerNickname = data['caller_nickname']?.toString() ?? L10n.current.chatAnonymous;
       _peerWalletAddress = data['caller_wallet']?.toString();
       _isCaller = false;
       _state = CallState.incoming;
@@ -228,7 +287,7 @@ class CallService extends ChangeNotifier {
       if (data['call_id'] != _activeCallId) return;
       final accepted = data['accepted'] == true;
       if (!accepted) {
-        _setError('상대방이 통화를 거절했어요');
+        _setError(L10n.current.chatCallPeerDeclined);
         await _teardown(stateAfter: CallState.ended);
         return;
       }
@@ -260,7 +319,7 @@ class CallService extends ChangeNotifier {
               'call_id': _activeCallId,
             });
           } catch (_) {}
-          _setError('연결을 시도했어요. 잠시 후 다시 걸어주세요.');
+          _setError(L10n.current.chatCallRetryLater);
           await _teardown(stateAfter: CallState.ended);
         }
       }
@@ -278,6 +337,22 @@ class CallService extends ChangeNotifier {
       }
     }));
 
+    // 같은 계정의 다른 화면(네이티브 수신 화면 등)에서 이미 받거나 거절함 →
+    // 이쪽 수신 상태·벨소리만 조용히 정리 (상대에게는 아무것도 보내지 않음).
+    _subs.add(chat.on('call_answered_elsewhere', (data) async {
+      final cid = data['call_id']?.toString();
+      if (cid == null || cid != _activeCallId || _state != CallState.incoming) return;
+      await _stopAllRingtones();
+      _graceTimer?.cancel();
+      _activeCallId = null;
+      _peerUserId = null;
+      _peerNickname = null;
+      _peerWalletAddress = null;
+      _isCaller = false;
+      _state = CallState.idle;
+      notifyListeners();
+    }));
+
     _subs.add(chat.on('call_end', (data) async {
       if (data['call_id'] != _activeCallId) return;
       await _teardown(stateAfter: CallState.ended);
@@ -285,7 +360,7 @@ class CallService extends ChangeNotifier {
 
     _subs.add(chat.on('call_failed', (data) async {
       if (data['call_id'] != _activeCallId) return;
-      final reason = data['message']?.toString() ?? '통화 실패';
+      final reason = data['message']?.toString() ?? L10n.current.chatCallFailed;
       _setError(reason);
       await _teardown(stateAfter: CallState.ended);
     }));
@@ -318,22 +393,24 @@ class CallService extends ChangeNotifier {
         // 진짜로 통화 중 — 사용자 안내 후 차단.
         switch (_state) {
           case CallState.connected:
-            throw '이미 통화 중이에요';
+            throw L10n.current.chatCallAlreadyInCall;
           case CallState.connecting:
-            throw '연결 중이에요';
+            throw L10n.current.chatCallStillConnecting;
           case CallState.outgoing:
-            throw '응답을 기다리고 있어요';
+            throw L10n.current.chatCallWaitingAnswer;
           case CallState.incoming:
-            throw '걸려온 통화가 있어요';
+            throw L10n.current.chatCallHasIncoming;
           default:
-            throw '이미 통화 중이에요';
+            throw L10n.current.chatCallAlreadyInCall;
         }
       }
       // stuck 의심 — 강제 정리 후 새 통화 진행.
       debugPrint('[call] stuck state detected (state=$_state, '
           'ringback=$_ringbackPlaying, timer=${_outgoingTimeoutTimer != null}). '
           'force-resetting before new call.');
-      await _forceReset();
+      // notify 없이 리셋 — idle 을 알리면 막 열린 통화 화면이 자동으로 닫혀
+      // 화면 없이 신호음만 울렸다.
+      await _forceReset(notify: false);
       // ignore: unused_local_variable
       final _ = isStuckOutgoing; // silence linter
     }
@@ -342,9 +419,13 @@ class CallService extends ChangeNotifier {
       _state = CallState.idle;
       _activeCallId = null;
     }
+    // 네이티브 통화 화면으로 통화 중이면 새로 걸 수 없다 (Agora 엔진은 프로세스당 1개).
+    if (await _invokeNative('isNativeCallActive') == true) {
+      throw L10n.current.chatCallAlreadyInCall;
+    }
     final ok = await _ensureMicPermission();
     if (!ok) {
-      throw '마이크 권한이 필요해요';
+      throw L10n.current.chatMicPermissionRequired;
     }
     // ★ P1-#9 (v1.0.127): WebSocket 1회 재시도.
     //   첫 연결 실패 시 즉시 throw 하던 동작 → 4G 약전계에서 통화 시도 자체가
@@ -360,7 +441,7 @@ class CallService extends ChangeNotifier {
       await _waitForSocket(timeoutMs: 4000);
     }
     if (!chat.connected) {
-      throw '서버에 연결되지 않았어요';
+      throw L10n.current.chatCallServerDisconnected;
     }
 
     _activeCallId = const Uuid().v4();
@@ -371,6 +452,9 @@ class CallService extends ChangeNotifier {
     _state = CallState.outgoing;
     _lastError = null;
     notifyListeners();
+    // 포그라운드 서비스는 앱이 화면에 있는 지금 시작한다. 신호음 중 홈으로 나간 뒤
+    // 상대가 받으면 그때는 Android 14 가 백그라운드 시작을 막는다.
+    await _startCallForegroundService();
 
     // Agora 엔진은 미리 초기화 (joinChannel 은 상대 수락 시).
     // ★ v1.0.131: 엔진 초기화 실패 시에도 통화 invite 는 발사.
@@ -378,7 +462,7 @@ class CallService extends ChangeNotifier {
     //   첫 시도 실패 = 일시적 OEM/하드웨어 이슈일 수 있으니 토스트 띄우지 않고
     //   진행. 진짜로 채널 join 까지 실패하면 그때 사용자에게 알림.
     try {
-      await _ensureEngine();
+      await _ensureEngine(appId: agora.lastAppId);
     } catch (e) {
       debugPrint('[call] startCall: engine pre-init failed (will retry on join): $e');
       // throw 하지 않음 — invite 진행, 채널 join 시점에 재시도.
@@ -388,15 +472,22 @@ class CallService extends ChangeNotifier {
       'to_user_id': peerUserId,
       'call_id': _activeCallId,
       'caller_nickname': auth.user?.nickname ?? '익명',
-      'caller_wallet': auth.user?.walletAddress ?? '',
+      'caller_wallet': auth.user?.callIdentity ?? '',
     });
+    final ringingCallId = _activeCallId;
     await _startRingback();
+    // 신호음 시작을 기다리는 사이 거절·차단 응답이 먼저 와서 통화가 정리됐으면
+    // 방금 시작된 신호음을 끈다 (안 그러면 신호음이 끝없이 울린다).
+    if (_state != CallState.outgoing || _activeCallId != ringingCallId) {
+      await _stopRingback();
+      return;
+    }
 
     // 30초 안에 응답 없으면 자동 취소.
     _outgoingTimeoutTimer?.cancel();
     _outgoingTimeoutTimer = Timer(const Duration(seconds: _outgoingTimeoutSec), () async {
       if (_state == CallState.outgoing) {
-        _setError('상대방이 받지 않았어요');
+        _setError(L10n.current.chatCallNoAnswer);
         // 서버에 call_end 보내서 수신측 CallKit UI 도 닫음.
         chat.emit('call_end', {
           'to_user_id': _peerUserId,
@@ -442,7 +533,7 @@ class CallService extends ChangeNotifier {
     debugPrint('[call] bootstrapIncomingFromPush: callId=$callId peer=$peerUserId');
     _activeCallId = callId;
     _peerUserId = peerUserId;
-    _peerNickname = peerNickname.isEmpty ? '익명' : peerNickname;
+    _peerNickname = peerNickname.isEmpty ? L10n.current.chatAnonymous : peerNickname;
     _peerWalletAddress = peerWalletAddress;
     _isCaller = false;
     _connectedAt = null;
@@ -461,9 +552,21 @@ class CallService extends ChangeNotifier {
   ///   chat.connect() + _waitForSocket() 으로 emit 직전 재연결 보장.
   Future<void> acceptCall() async {
     if (_state != CallState.incoming || _activeCallId == null) return;
+    // 상태가 connecting 으로 바뀌기 전까지 여러 await 가 있어서, 버튼 두 번 탭이나
+    // 푸시 자동 수락과 겹치면 채널에 두 번 입장했다.
+    if (_accepting) return;
+    _accepting = true;
+    try {
+      await _acceptCallInner();
+    } finally {
+      _accepting = false;
+    }
+  }
+
+  Future<void> _acceptCallInner() async {
     final ok = await _ensureMicPermission();
     if (!ok) {
-      await rejectCall(reason: '마이크 권한이 필요해요');
+      await rejectCall(reason: L10n.current.chatMicPermissionRequired);
       return;
     }
     // ★ v1.0.137: WS 가 끊겨 있으면 재연결. emit('call_response') 가 silent
@@ -484,7 +587,7 @@ class CallService extends ChangeNotifier {
     //   콜드 부팅 직후 푸시 수락 케이스. auth.user 가 null/wallet 비어있으면
     //   _joinAgoraChannel 이 즉시 false 리턴 → 통화 못 연결.
     //   해결: join 전에 한 번 더 auth.loadFromStorage() await + polling.
-    if ((auth.user?.walletAddress ?? '').isEmpty) {
+    if ((auth.user?.callIdentity ?? '').isEmpty) {
       debugPrint('[call] acceptCall: auth.user wallet empty — awaiting loadFromStorage');
       try {
         await auth.loadFromStorage();
@@ -493,7 +596,7 @@ class CallService extends ChangeNotifier {
       }
       // 그래도 비어있으면 짧은 polling (최대 1.5s, 100ms 간격).
       for (int i = 0; i < 15; i++) {
-        if ((auth.user?.walletAddress ?? '').isNotEmpty) break;
+        if ((auth.user?.callIdentity ?? '').isNotEmpty) break;
         await Future.delayed(const Duration(milliseconds: 100));
       }
     }
@@ -523,7 +626,7 @@ class CallService extends ChangeNotifier {
             _peerWalletAddress = w;
             final n = res.data!['nickname']?.toString();
             if (n != null && n.isNotEmpty &&
-                (_peerNickname == null || _peerNickname == '익명')) {
+                _isPlaceholderNickname(_peerNickname)) {
               _peerNickname = n;
             }
             debugPrint('[call] acceptCall: peerWallet recovered from server');
@@ -541,13 +644,17 @@ class CallService extends ChangeNotifier {
           'native intent extras likely missing callerId/callerWallet');
     }
 
+    // 위의 대기(소켓 재연결·지갑 조회) 중에 발신자가 취소했으면 진행하지 않는다.
+    if (_state != CallState.incoming) return;
+
     await _stopOsRingtone();
     _state = CallState.connecting;
     notifyListeners();
+    await _startCallForegroundService();
 
     // 1) 엔진 초기화 (실패해도 _joinAgoraChannel 안에서 한 번 더 시도).
     try {
-      await _ensureEngine();
+      await _ensureEngine(appId: agora.lastAppId);
     } catch (e) {
       debugPrint('[call] acceptCall: engine pre-init failed (will retry on join): $e');
       // throw 하지 않음 — _joinAgoraChannel() 안에서 재시도.
@@ -576,7 +683,7 @@ class CallService extends ChangeNotifier {
       if (failReason != null && failReason.isNotEmpty) {
         debugPrint('[call] acceptCall: join failed reason=$failReason');
       }
-      _setError('연결을 시도했어요. 잠시 후 다시 걸어주세요.');
+      _setError(L10n.current.chatCallRetryLater);
       // 단 emit('call_response') 는 보내지 않음 — 발신자 보호.
       // _teardown 자체는 WS emit 안 함 (rejectCall/endCall 만 emit).
       await _teardown(stateAfter: CallState.ended);
@@ -664,7 +771,7 @@ class CallService extends ChangeNotifier {
     if (current.isGranted) return true;
     if (current.isPermanentlyDenied) {
       // 사용자가 "다시 묻지 않기" 선택한 상태 → 시스템 설정으로 안내.
-      _setError('설정 > 권한 > 마이크에서 권한을 켜주세요');
+      _setError(L10n.current.chatMicPermissionSettings);
       try {
         await openAppSettings();
       } catch (e) {
@@ -676,7 +783,7 @@ class CallService extends ChangeNotifier {
     final status = await Permission.microphone.request();
     if (status.isGranted) return true;
     if (status.isPermanentlyDenied) {
-      _setError('설정 > 권한 > 마이크에서 권한을 켜주세요');
+      _setError(L10n.current.chatMicPermissionSettings);
       try { await openAppSettings(); } catch (_) {}
     }
     return false;
@@ -749,10 +856,18 @@ class CallService extends ChangeNotifier {
 
   // ── Agora Engine ──────────────────────────────────────────────────────
 
-  Future<void> _ensureEngine() async {
-    if (_engineInitialized && _engine != null) return;
-    if (!AgoraService.isConfigured) {
-      throw 'Agora 설정이 누락되었어요';
+  Future<void> _ensureEngine({String? appId}) async {
+    final wantAppId = (appId != null && appId.isNotEmpty) ? appId : AgoraService.appId;
+    if (_engineInitialized && _engine != null && _engineAppId == wantAppId) return;
+    if (_engine != null) {
+      // App ID 가 바뀜 (서버가 Eggplant 전용 프로젝트로 토큰 발급) → 엔진 재생성.
+      debugPrint('[call] engine appId changed — recreating engine');
+      try { await _engine!.release(); } catch (_) {}
+      _engine = null;
+      _engineInitialized = false;
+    }
+    if (wantAppId.isEmpty) {
+      throw L10n.current.chatCallAgoraConfigMissing;
     }
     // ★ v1.0.131: 각 await 호출을 한 줄씩 try/catch 로 격리.
     //   목표: initialize() 실패가 아닌, 다른 보조 호출(enableAudio, disableVideo,
@@ -775,7 +890,7 @@ class CallService extends ChangeNotifier {
       //   토스트의 진짜 원인이었음. 기본 scenario(default) 만 사용해 호환성 확보.
       await _engine!.initialize(
         RtcEngineContext(
-          appId: AgoraService.appId,
+          appId: wantAppId,
           channelProfile: ChannelProfileType.channelProfileCommunication,
         ),
       );
@@ -809,7 +924,7 @@ class CallService extends ChangeNotifier {
       debugPrint('[call] setAudioProfile failed (non-fatal): $e');
     }
     try {
-      await _engine!.setDefaultAudioRouteToSpeakerphone(true);
+      await _engine!.setDefaultAudioRouteToSpeakerphone(false);
     } catch (e) {
       debugPrint('[call] setDefaultAudioRouteToSpeakerphone failed (non-fatal): $e');
     }
@@ -829,8 +944,22 @@ class CallService extends ChangeNotifier {
           if (_state == CallState.connecting) {
             // 5초 안에 onUserJoined 가 안 오면 connected 로 강제 (네트워크 이슈
             // 로 RemoteAudioStateChanged 가 늦는 안드로이드 일부 기기 대비).
-            Timer(const Duration(seconds: 5), () {
-              if (_state == CallState.connecting) {
+            // 타이머는 _graceTimer 로 보관해 통화 종료 시 취소하고, 같은 통화일 때만 적용.
+            final graceCallId = _activeCallId;
+            _remoteJoined = false;
+            _noRemoteTimer?.cancel();
+            _noRemoteTimer = Timer(const Duration(seconds: _noRemoteTimeoutSec), () {
+              if (!_remoteJoined && _activeCallId == graceCallId &&
+                  (_state == CallState.connecting || _state == CallState.connected)) {
+                debugPrint('[call] remote never joined in ${_noRemoteTimeoutSec}s — ending');
+                _setError(L10n.current.chatCallPeerNotConnected);
+                chat.emit('call_end', {'to_user_id': _peerUserId, 'call_id': _activeCallId});
+                _teardown(stateAfter: CallState.ended);
+              }
+            });
+            _graceTimer?.cancel();
+            _graceTimer = Timer(const Duration(seconds: 5), () {
+              if (_state == CallState.connecting && _activeCallId == graceCallId) {
                 debugPrint('[call] forcing connected after 5s grace period');
                 _state = CallState.connected;
                 _connectedAt = DateTime.now();
@@ -841,6 +970,8 @@ class CallService extends ChangeNotifier {
           }
         },
         onUserJoined: (RtcConnection conn, int remoteUid, int elapsed) {
+          _remoteJoined = true;
+          _noRemoteTimer?.cancel();
           debugPrint('[call] remote user joined uid=$remoteUid');
           // 양쪽 다 join 됨 = 통화 연결 성공.
           _state = CallState.connected;
@@ -860,7 +991,7 @@ class CallService extends ChangeNotifier {
               // 정상 종료 — 토스트 노출 없이 조용히 정리.
               _teardown(stateAfter: CallState.ended);
             } else {
-              _setError('통화가 종료되었어요');
+              _setError(L10n.current.chatCallEndedMessage);
               _teardown(stateAfter: CallState.ended);
             }
           }
@@ -873,9 +1004,9 @@ class CallService extends ChangeNotifier {
             //   • tokenExpired(9) → "통화 인증이 만료되었어요"
             //   • 그 외 (invalidAppId/invalidToken/network 등) → "통화 연결이 끊어졌어요"
             if (reason == ConnectionChangedReasonType.connectionChangedTokenExpired) {
-              _setError('통화 인증이 만료되었어요');
+              _setError(L10n.current.chatCallAuthExpired);
             } else {
-              _setError('통화 연결이 끊어졌어요');
+              _setError(L10n.current.chatCallDisconnected);
             }
             _teardown(stateAfter: CallState.ended);
           } else if (s == ConnectionStateType.connectionStateDisconnected ||
@@ -890,24 +1021,39 @@ class CallService extends ChangeNotifier {
         onError: (ErrorCodeType err, String msg) {
           debugPrint('[call] Agora error code=$err msg=$msg');
         },
+        // 토큰(1시간) 만료 30초 전 — 새 토큰으로 갱신. 없으면 1시간에 통화가 끊긴다.
+        onTokenPrivilegeWillExpire: (RtcConnection conn, String token) async {
+          final channel = _activeChannel;
+          if (channel == null) return;
+          final fresh = await agora.fetchRtcToken(channel: channel);
+          if (fresh != null && fresh.isNotEmpty && _activeChannel == channel) {
+            try {
+              await _engine?.renewToken(fresh);
+              debugPrint('[call] Agora token renewed');
+            } catch (e) {
+              debugPrint('[call] renewToken failed: $e');
+            }
+          }
+        },
       ));
     } catch (e) {
       debugPrint('[call] registerEventHandler failed (non-fatal): $e');
     }
     // ── 여기까지 통과하면 엔진 초기화 성공으로 간주. ──
     _engineInitialized = true;
+    _engineAppId = wantAppId;
   }
 
-  /// Disconnected/Reconnecting 5초 이상 지속되면 자동 종료.
+  /// Disconnected/Reconnecting 이 [_reconnectGraceSec] 초 이상 지속되면 자동 종료.
   ///
   /// ★ v1.0.156 토스트 정상화: triggerReason 값은 debugPrint 로만 남기고
   ///   사용자 토스트는 친화 한국어 한 줄로 통일.
   void _scheduleReconnectGuard({ConnectionChangedReasonType? triggerReason}) {
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(const Duration(seconds: 5), () {
+    _reconnectTimer = Timer(const Duration(seconds: _reconnectGraceSec), () {
       if (_state == CallState.connected || _state == CallState.connecting) {
-        debugPrint('[call] reconnect 5s timeout trigger=$triggerReason');
-        _setError('네트워크가 불안정해요');
+        debugPrint('[call] reconnect ${_reconnectGraceSec}s timeout trigger=$triggerReason');
+        _setError(L10n.current.chatCallNetworkUnstable);
         _teardown(stateAfter: CallState.ended);
       }
     });
@@ -920,7 +1066,7 @@ class CallService extends ChangeNotifier {
   /// ★ P1-#8 (v1.0.127): 토큰 발급 1회 retry — 첫 호출 timeout/일시 오류 대비.
   Future<bool> _joinAgoraChannel() async {
     if (_engine == null) await _ensureEngine();
-    var myWallet = auth.user?.walletAddress ?? '';
+    var myWallet = auth.user?.callIdentity ?? '';
     var peerWallet = _peerWalletAddress ?? '';
 
     // ★ v1.0.141 (2026-05-09): wallet 누락 시 마지막 자가 복구 시도.
@@ -930,7 +1076,7 @@ class CallService extends ChangeNotifier {
       try {
         await auth.loadFromStorage();
       } catch (_) {}
-      myWallet = auth.user?.walletAddress ?? '';
+      myWallet = auth.user?.callIdentity ?? '';
     }
     if (peerWallet.isEmpty && (_peerUserId ?? '').isNotEmpty) {
       try {
@@ -1010,6 +1156,16 @@ class CallService extends ChangeNotifier {
       return false;
     }
 
+    // 서버가 토큰을 발급한 App ID 로 엔진을 맞춘다 (다르면 재생성).
+    try {
+      await _ensureEngine(appId: agora.lastAppId);
+    } catch (e) {
+      _lastJoinFailReason = 'engine init for server appId failed: $e';
+      debugPrint('[call] _joinAgoraChannel: $_lastJoinFailReason');
+      await _teardown(stateAfter: CallState.ended);
+      return false;
+    }
+
     try {
       _activeChannel = channel;
       await _engine!.joinChannel(
@@ -1033,6 +1189,19 @@ class CallService extends ChangeNotifier {
     }
   }
 
+  Future<void> _releaseEngine() async {
+    final engine = _engine;
+    _engine = null;
+    _engineInitialized = false;
+    _engineAppId = null;
+    if (engine == null) return;
+    try {
+      await engine.release();
+    } catch (e) {
+      debugPrint('[call] engine release failed: $e');
+    }
+  }
+
   Future<void> _leaveAgoraChannel() async {
     try {
       if (_activeChannel != null) {
@@ -1048,9 +1217,12 @@ class CallService extends ChangeNotifier {
   ///   stuck 케이스 자가 회복 + 콜드부팅 시 잔존 UI 초기화 양쪽에서 사용.
   ///   _teardown 과 다른 점: stateAfter 옵션 없이 무조건 idle 로 가고,
   ///   엔진/채널/타이머/사운드/CallKit 모두 정리한다.
-  Future<void> _forceReset() async {
+  Future<void> _forceReset({bool notify = true}) async {
     try { await _stopAllRingtones(); } catch (_) {}
     try { await _leaveAgoraChannel(); } catch (_) {}
+    try { await _releaseEngine(); } catch (_) {}
+    _noRemoteTimer?.cancel();
+    _graceTimer?.cancel();
     try { await FlutterCallkitIncoming.endAllCalls(); } catch (_) {}
     // ★ P0-#3: foreground service 도 함께 정리.
     try { await _stopCallForegroundService(); } catch (_) {}
@@ -1059,6 +1231,7 @@ class CallService extends ChangeNotifier {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _muted = false;
+    _speakerOn = false;
     _activeCallId = null;
     _peerUserId = null;
     _peerNickname = null;
@@ -1067,7 +1240,7 @@ class CallService extends ChangeNotifier {
     _connectedAt = null;
     _lastError = null;
     _state = CallState.idle;
-    notifyListeners();
+    if (notify) notifyListeners();
   }
 
   /// ★ v1.0.126: 앱 부팅 직후 1회 호출 — 잔존 CallKit UI/상태 강제 정리.
@@ -1086,30 +1259,35 @@ class CallService extends ChangeNotifier {
   //   _teardown 시 stopService() 호출.
   bool _foregroundServiceStarted = false;
 
-  /// ★ v1.0.128: foreground service 호출 단순화.
-  ///   flutter_foreground_task 8.10.4 API 시그니처 불일치로 직접 호출 불가.
-  ///   현재 상태에서는:
-  ///     - Android 12 이하: foreground service 없이도 백그라운드 마이크 OK
-  ///     - Android 13+: AndroidManifest 의 FOREGROUND_SERVICE_MICROPHONE 권한 +
-  ///       Agora SDK 자체 audio focus 처리로 짧은 시간 백그라운드는 유지됨
-  ///     - Android 14+: 본격적인 fg service 가 필요하면 native plugin 추가 검토
-  ///   당장은 silent no-op — 통화 자체는 정상 작동 보장.
+  /// 통화 중 포그라운드 서비스 — 네이티브 CallForegroundService(phoneCall|microphone)를 MethodChannel 로
+  /// 시작한다. 예전 no-op 상태에서는 통화 중 홈으로 나가거나 화면을 끄면
+  /// Android 11+ 가 마이크를 막고 14+ 는 프로세스를 얼려 상대가 무음을 들었다.
   Future<void> _startCallForegroundService() async {
     if (_foregroundServiceStarted) return;
     _foregroundServiceStarted = true;
-    debugPrint('[call] foreground service: relying on Agora audio focus + manifest perms (no-op)');
+    await _invokeNative('startCallService', {'peerName': _peerNickname ?? ''});
   }
 
   Future<void> _stopCallForegroundService() async {
     if (!_foregroundServiceStarted) return;
     _foregroundServiceStarted = false;
+    await _invokeNative('stopCallService');
   }
 
   Future<void> _teardown({required CallState stateAfter}) async {
-    // 1) 사운드 즉시 정지
+    // 1) 사운드 즉시 정지 (Flutter 벨·신호음 + 혹시 같이 울린 네이티브 벨)
     await _stopAllRingtones();
+    await _invokeNative('stopRingtone');
+    _graceTimer?.cancel();
+    _graceTimer = null;
+    _noRemoteTimer?.cancel();
+    _noRemoteTimer = null;
+    _remoteJoined = false;
     // 2) Agora 채널 leave (음성 즉시 끊김)
     await _leaveAgoraChannel();
+    // 엔진을 통화 단위로 해제 — Agora 는 프로세스당 엔진 1개라, 남겨 두면 같은
+    // 프로세스에서 이어지는 네이티브 통화(백그라운드 수신)와 충돌한다.
+    await _releaseEngine();
     // 3) 백그라운드 CallKit UI 강제 종료
     if (_activeCallId != null) {
       try {
@@ -1130,6 +1308,7 @@ class CallService extends ChangeNotifier {
     _reconnectTimer = null;
 
     _muted = false;
+    _speakerOn = false;
     _state = stateAfter;
     if (stateAfter != CallState.ended) {
       _activeCallId = null;
@@ -1144,15 +1323,21 @@ class CallService extends ChangeNotifier {
     // ★ v1.0.125: 3초 지연 제거 → 즉시 재발신 가능 (사장님 요구사항 11번).
     // ★ v1.0.160: ended 진입 시 800ms 후 clearEnded → idle 전환 + 모든 식별자 null
     //   (수신자 측 발신자 끊김 직후 채팅방 잔재 incoming UI 추가 보정)
+    // ★ 수정: 예전엔 800ms 뒤 endAllCalls() 로 그 사이 들어온 새 수신 UI 까지
+    //   지웠다. 이제 끝난 그 통화가 그대로 ended 상태일 때만 정리한다.
     if (stateAfter == CallState.ended) {
-      Future.delayed(const Duration(milliseconds: 800), () async {
-        try {
-          await FlutterCallkitIncoming.endAllCalls();
-        } catch (_) {}
-        clearEnded();
+      final endedCallId = _activeCallId;
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (_state == CallState.ended && _activeCallId == endedCallId) {
+          clearEnded();
+        }
       });
     }
   }
+
+  /// 닉네임이 비어 있거나 '익명' 대체값인지 (상대 단말 언어와 무관하게 한국어/현지어 모두 인정).
+  static bool _isPlaceholderNickname(String? n) =>
+      n == null || n == '익명' || n == L10n.current.chatAnonymous;
 
   void _setError(String msg) {
     _lastError = msg;
@@ -1166,6 +1351,7 @@ class CallService extends ChangeNotifier {
     _subs.clear();
     _outgoingTimeoutTimer?.cancel();
     _reconnectTimer?.cancel();
+    _graceTimer?.cancel();
     _teardown(stateAfter: CallState.idle);
     try {
       _engine?.release();

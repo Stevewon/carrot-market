@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
@@ -32,17 +34,18 @@ class _QrScanScreenState extends State<QrScanScreen> {
     if (code == null || code.isEmpty) return;
 
     _handled = true;
+    final l10n = context.l10n;
     await _controller.stop();
 
     final uri = Uri.tryParse(code);
     if (uri == null || uri.scheme != 'eggplant') {
-      _showError('Eggplant QR이 아니에요');
+      _showError(l10n.homeQrNotEggplant);
       return;
     }
 
     final parts = uri.pathSegments;
     if (parts.length < 2) {
-      _showError('잘못된 QR 형식이에요');
+      _showError(l10n.homeQrInvalid);
       return;
     }
 
@@ -51,12 +54,12 @@ class _QrScanScreenState extends State<QrScanScreen> {
 
     final auth = context.read<AuthService>();
     if (auth.user == null) {
-      _showError('로그인 후 이용해주세요');
+      _showError(l10n.homeLoginToUse);
       return;
     }
 
     if (peerUserId == auth.user!.id) {
-      _showError('내 QR은 스캔할 수 없어요');
+      _showError(l10n.homeQrOwn);
       return;
     }
 
@@ -67,7 +70,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
     );
     if (!mounted) return;
     if (room == null) {
-      _showError('채팅방을 열지 못했어요');
+      _showError(l10n.homeQrChatFailed);
       return;
     }
     context.go(
@@ -92,10 +95,12 @@ class _QrScanScreenState extends State<QrScanScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
+        // 검은 배경 — 상태바 아이콘을 밝게 (전역 기본은 어두운 아이콘).
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('QR 스캔', style: TextStyle(color: Colors.white)),
+        title: Text(context.l10n.homeQrScan, style: const TextStyle(color: Colors.white)),
         actions: [
           IconButton(
             icon: ValueListenableBuilder<MobileScannerState>(
@@ -143,20 +148,20 @@ class _QrScanScreenState extends State<QrScanScreen> {
             // 제스처바 영역만큼 띄워서 텍스트가 가리지 않게.
             child: SafeArea(
               top: false,
-              child: const Padding(
-                padding: EdgeInsets.only(bottom: 60),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 60),
                 child: Column(
                   children: [
-                    Icon(Icons.qr_code_scanner, color: Colors.white, size: 32),
-                    SizedBox(height: 8),
+                    const Icon(Icons.qr_code_scanner, color: Colors.white, size: 32),
+                    const SizedBox(height: 8),
                     Text(
-                      'Eggplant QR을 프레임 안에 맞춰주세요',
-                      style: TextStyle(color: Colors.white, fontSize: 14),
+                      context.l10n.homeQrScanGuide,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      '스캔 즉시 익명 채팅이 시작돼요',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                      context.l10n.homeQrScanDesc,
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ],
                 ),

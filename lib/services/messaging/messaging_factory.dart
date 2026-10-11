@@ -87,8 +87,8 @@ class MessagingFactory {
   ) async {
     final u = auth.user;
     if (u == null) return;
-    final wallet = u.walletAddress;
-    if (wallet == null || wallet.isEmpty) return;
+    // 지갑 없이 가입한 회원도 채팅·통화를 쓸 수 있게 통화 식별 키를 쓴다.
+    final wallet = u.callIdentity;
     final identity = MessagingIdentity(
       walletAddress: wallet,
       nickname: u.nickname,

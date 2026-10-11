@@ -1,3 +1,6 @@
+import '../app/l10n.dart';
+import '../app/market.dart';
+
 /// 가격 제안(price_offer) 메시지에 첨부되는 흥정 정보.
 ///
 /// 서버는 chat_messages 와 price_offers 를 LEFT JOIN 해서 내려보내고,
@@ -26,29 +29,27 @@ class PriceOfferInfo {
   bool get isRejected => status == 'rejected';
   bool get isCancelled => status == 'cancelled';
 
-  /// "12,300원" 같이 한국식 통화 표기.
-  String get priceLabel {
-    final s = price.toString();
-    final buf = StringBuffer();
-    for (int i = 0; i < s.length; i++) {
-      final fromEnd = s.length - i;
-      buf.write(s[i]);
-      if (fromEnd > 1 && fromEnd % 3 == 1) buf.write(',');
-    }
-    return '${buf.toString()}원';
+  /// "12,300원" / "¥12,300" — 기기 시장 기준.
+  String get priceLabel => priceLabelFor(AppMarket.device);
+
+  /// 시장(kr/jp)에 맞는 통화 표기. 0원도 '나눔' 이 아니라 금액으로 표시.
+  String priceLabelFor(String market) {
+    final t = L10n.current;
+    final n = AppMarket.thousands(price);
+    return AppMarket.isJp(market) ? t.priceJpy(n) : t.priceKrw(n);
   }
 
   String get statusLabel {
     switch (status) {
       case 'accepted':
-        return '수락됨';
+        return L10n.current.chatOfferStatusAccepted;
       case 'rejected':
-        return '거절됨';
+        return L10n.current.chatOfferStatusRejected;
       case 'cancelled':
-        return '취소됨';
+        return L10n.current.chatOfferStatusCancelled;
       case 'pending':
       default:
-        return '응답 대기';
+        return L10n.current.chatOfferStatusPending;
     }
   }
 
@@ -141,7 +142,7 @@ class ChatMessage {
       id: json['id']?.toString() ?? '',
       roomId: json['room_id']?.toString() ?? '',
       senderId: senderId,
-      senderNickname: json['sender_nickname'] ?? '익명',
+      senderNickname: json['sender_nickname'] ?? L10n.current.chatAnonymous,
       text: json['text'] ?? '',
       type: type,
       // 서버는 UTC ISO8601 로 보냄. 반드시 .toLocal() 로 KST(한국시간) 변환.

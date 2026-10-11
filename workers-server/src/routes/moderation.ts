@@ -12,6 +12,7 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types';
 import { authMiddleware } from '../jwt';
+import { tr } from '../market';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -34,12 +35,12 @@ app.post('/block', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: '잘못된 요청' }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
   const target = (body.user_id || '').trim();
   if (!target) return c.json({ error: 'user_id is required' }, 400);
   if (target === me.id) {
-    return c.json({ error: '자기 자신을 차단할 수 없어요' }, 400);
+    return c.json({ error: tr(c, '자기 자신을 차단할 수 없어요', 'ご自身をブロックすることはできません') }, 400);
   }
 
   // Confirm the target exists.
@@ -47,7 +48,7 @@ app.post('/block', async (c) => {
     .prepare('SELECT id FROM users WHERE id = ?')
     .bind(target)
     .first<{ id: string }>();
-  if (!exists) return c.json({ error: '대상을 찾을 수 없어요' }, 404);
+  if (!exists) return c.json({ error: tr(c, '대상을 찾을 수 없어요', '対象が見つかりません') }, 404);
 
   // INSERT OR IGNORE so a re-block is a no-op.
   await c.env.DB
@@ -102,7 +103,7 @@ app.post('/report', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: '잘못된 요청' }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
 
   const target = (body.user_id || '').trim();
@@ -112,10 +113,10 @@ app.post('/report', async (c) => {
 
   if (!target) return c.json({ error: 'user_id is required' }, 400);
   if (target === me.id) {
-    return c.json({ error: '자기 자신을 신고할 수 없어요' }, 400);
+    return c.json({ error: tr(c, '자기 자신을 신고할 수 없어요', 'ご自身を通報することはできません') }, 400);
   }
   if (!VALID_REASONS.has(reason)) {
-    return c.json({ error: '신고 사유가 올바르지 않아요' }, 400);
+    return c.json({ error: tr(c, '신고 사유가 올바르지 않아요', '通報理由が正しくありません') }, 400);
   }
 
   // Make sure target exists.
@@ -123,7 +124,7 @@ app.post('/report', async (c) => {
     .prepare('SELECT id FROM users WHERE id = ?')
     .bind(target)
     .first<{ id: string }>();
-  if (!exists) return c.json({ error: '대상을 찾을 수 없어요' }, 404);
+  if (!exists) return c.json({ error: tr(c, '대상을 찾을 수 없어요', '対象が見つかりません') }, 404);
 
   try {
     await c.env.DB
@@ -141,7 +142,7 @@ app.post('/report', async (c) => {
       return c.json({ ok: true, duplicate: true });
     }
     console.error('[moderation/report] failed:', msg);
-    return c.json({ error: '신고 접수 중 오류가 발생했어요' }, 500);
+    return c.json({ error: tr(c, '신고 접수 중 오류가 발생했어요', '通報の受付中にエラーが発生しました') }, 500);
   }
 
   return c.json({ ok: true });

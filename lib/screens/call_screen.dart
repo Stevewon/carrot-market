@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../services/call_service.dart';
 import '../services/permission_service.dart';
@@ -39,10 +41,14 @@ class _CallScreenState extends State<CallScreen> {
   Timer? _ticker;
   Duration _elapsed = Duration.zero;
   bool _startAttempted = false;
+  bool _sawActiveCall = false;
+  bool _closing = false;
 
   @override
   void initState() {
     super.initState();
+    // 어두운 보라 배경 — 상태바 아이콘을 밝게 (전역 기본은 어두운 아이콘). dispose 에서 복원.
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       final call = context.read<CallService>();
       if (call.connectedAt != null) {
@@ -148,6 +154,12 @@ class _CallScreenState extends State<CallScreen> {
 
   @override
   void dispose() {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    );
     _ticker?.cancel();
     super.dispose();
   }
@@ -167,10 +179,14 @@ class _CallScreenState extends State<CallScreen> {
     final call = context.watch<CallService>();
     final state = call.state;
 
-    // Auto-close when call fully ends and state returns to idle
-    if (state == CallState.idle && _startAttempted) {
+    // 통화가 끝나 idle 로 돌아오면 화면을 닫는다. 예전엔 발신/푸시 수락으로 연
+    // 화면(_startAttempted)만 닫혀서, 앱 화면에서 받은 수신 화면은 통화가 끝나도
+    // 남아 있었다. 한 번이라도 통화 상태를 본 화면이면 닫는다 (pop 은 1회만).
+    if (state != CallState.idle) _sawActiveCall = true;
+    if (state == CallState.idle && (_startAttempted || _sawActiveCall) && !_closing) {
+      _closing = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.pop();
+        if (mounted && context.canPop()) context.pop();
       });
     }
 
@@ -178,20 +194,20 @@ class _CallScreenState extends State<CallScreen> {
     Color statusColor = Colors.white70;
     switch (state) {
       case CallState.outgoing:
-        statusText = '호출 중...';
+        statusText = context.l10n.chatCallOutgoing;
         break;
       case CallState.incoming:
-        statusText = '걸려온 익명 통화';
+        statusText = context.l10n.chatCallIncoming;
         break;
       case CallState.connecting:
-        statusText = '연결 중...';
+        statusText = context.l10n.chatConnecting;
         break;
       case CallState.connected:
         statusText = _formatElapsed(_elapsed);
         statusColor = Colors.white;
         break;
       case CallState.ended:
-        statusText = call.lastError ?? '통화 종료';
+        statusText = call.lastError ?? context.l10n.chatCallEnded;
         statusColor = Colors.white54;
         break;
       case CallState.idle:
@@ -199,14 +215,9 @@ class _CallScreenState extends State<CallScreen> {
         break;
     }
 
-    return WillPopScope(
-      onWillPop: () async {
-        // Don't let the user swipe-back out of an active call — they must end it
-        if (state == CallState.connected || state == CallState.connecting) {
-          return false;
-        }
-        return true;
-      },
+    // 통화 중(연결 중 포함)에는 뒤로가기로 화면을 벗어나지 못하게 — 반드시 종료 버튼으로.
+    return PopScope(
+      canPop: !(state == CallState.connected || state == CallState.connecting),
       child: Scaffold(
         backgroundColor: const Color(0xFF1A0B2E), // deep eggplant purple
         body: SafeArea(
@@ -219,9 +230,9 @@ class _CallScreenState extends State<CallScreen> {
                   children: [
                     const Icon(Icons.lock, size: 14, color: Colors.white54),
                     const SizedBox(width: 6),
-                    const Text(
-                      '완전 익명 음성 통화',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                    Text(
+                      context.l10n.chatCallHeader,
+                      style: const TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                     const Spacer(),
                     Text(
@@ -290,12 +301,12 @@ class _CallScreenState extends State<CallScreen> {
               const SizedBox(height: 48),
 
               // Security note
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 32),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Text(
-                  '이 통화는 P2P로 직접 연결돼요.\n서버에 녹음·저장되지 않아요.',
+                  context.l10n.chatCallP2pNote,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white38,
                     fontSize: 11,
                     height: 1.5,
@@ -312,6 +323,7 @@ class _CallScreenState extends State<CallScreen> {
 
   Widget _buildControls(CallService call) {
     final state = call.state;
+    final l10n = context.l10n;
 
     // Incoming call - reject / accept buttons
     if (state == CallState.incoming) {
@@ -320,13 +332,13 @@ class _CallScreenState extends State<CallScreen> {
         children: [
           _RoundButton(
             icon: Icons.call_end,
-            label: '거절',
+            label: l10n.chatCallDecline,
             color: Colors.red,
             onTap: () => call.rejectCall(),
           ),
           _RoundButton(
             icon: Icons.call,
-            label: '수락',
+            label: l10n.chatCallAccept,
             color: Colors.green,
             onTap: () => call.acceptCall(),
           ),
@@ -343,20 +355,20 @@ class _CallScreenState extends State<CallScreen> {
         children: [
           _RoundButton(
             icon: call.muted ? Icons.mic_off : Icons.mic,
-            label: call.muted ? '음소거 해제' : '음소거',
+            label: call.muted ? l10n.chatCallUnmute : l10n.chatCallMute,
             color: call.muted ? Colors.orange : Colors.white24,
             iconColor: Colors.white,
             onTap: state == CallState.connected ? call.toggleMute : null,
           ),
           _RoundButton(
             icon: Icons.call_end,
-            label: '종료',
+            label: l10n.chatCallHangup,
             color: Colors.red,
             onTap: () => call.endCall(),
           ),
           _RoundButton(
             icon: call.speakerOn ? Icons.volume_up : Icons.volume_down,
-            label: call.speakerOn ? '스피커' : '수화기',
+            label: call.speakerOn ? l10n.chatCallSpeaker : l10n.chatCallEarpiece,
             color: call.speakerOn ? EggplantColors.primary : Colors.white24,
             iconColor: Colors.white,
             onTap: call.toggleSpeaker,
@@ -368,7 +380,7 @@ class _CallScreenState extends State<CallScreen> {
     // Ended - just a close button
     return _RoundButton(
       icon: Icons.close,
-      label: '닫기',
+      label: l10n.commonClose,
       color: Colors.white24,
       iconColor: Colors.white,
       onTap: () {

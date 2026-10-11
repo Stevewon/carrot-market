@@ -18,7 +18,7 @@ import android.util.Log
  *   1. Stop ringtone
  *   2. Cancel incoming notification
  *   3. Cleanup state (including nativeIncomingActive)
- *   4. Launch MainActivity for MethodChannel reject (WebSocket call_response=rejected)
+ *   4. 서버에 거절 신호 직접 전송 (CallSignalClient, POST /api/calls/signal)
  *
  * 절대 금지:
  *   - 통화내역을 서버 D1 에 INSERT (CRITICAL INVARIANT)
@@ -49,30 +49,13 @@ class CallActionReceiver : BroadcastReceiver() {
                 CallNotificationHelper.cleanupIncomingState(context, sessionId)
                 Log.e("CALL_ACTION", "[CALL_ACTION] session cleared sessionId=$sessionId")
 
-                // 4. Launch MainActivity for MethodChannel reject
-                //    BroadcastReceiver cannot hold MethodChannel, so launch MainActivity
-                //    with reject intent. MainActivity will forward via MethodChannel
-                //    → Flutter call_service sends WebSocket call_response(rejected) to caller.
-                try {
-                    val rejectIntent = Intent(context, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                                Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                                Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        putExtra("reject_call_from_native", true)
-                        putExtra("sessionId", sessionId)
-                    }
-                    context.startActivity(rejectIntent)
-                    Log.e("CALL_ACTION", "[CALL_ACTION] MainActivity launched for reject sessionId=$sessionId")
-                } catch (e: Exception) {
-                    Log.e("CALL_ACTION", "[CALL_ACTION] reject launch failed: ${e.message}")
-                    // Fallback: broadcast (may not reach Flutter if engine not ready)
-                    val rejectBroadcast = Intent("com.eggplant.market.CALL_ACTION").apply {
-                        setPackage(context.packageName)
-                        putExtra("action", "reject")
-                        putExtra("sessionId", sessionId)
-                    }
-                    context.sendBroadcast(rejectBroadcast)
-                }
+                // 4. 발신자에게 거절 신호를 서버로 직접 전송.
+                //    예전엔 MainActivity 를 띄워 Flutter 가 WebSocket 으로 보냈지만,
+                //    Android 12+ 는 알림 버튼 → BroadcastReceiver → Activity 실행(트램펄린)을
+                //    막아서 거절이 발신자에게 도달하지 않았다.
+                val callerId = intent.getStringExtra("callerId") ?: ""
+                CallSignalClient.sendResponse(context, sessionId, callerId, accepted = false)
+                Log.e("CALL_ACTION", "[CALL_ACTION] reject signal sent sessionId=$sessionId")
             }
 
             else -> {

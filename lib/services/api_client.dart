@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../app/constants.dart';
+import '../app/l10n.dart';
 
 class ApiClient {
   final Dio _dio;
@@ -14,6 +15,9 @@ class ApiClient {
         )) {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
+        // 서버 안내 문구 언어 + 로그인 전 시장(한국/일본). 요청마다 현재 값으로.
+        options.headers['Accept-Language'] = L10n.isJapanese ? 'ja' : 'ko';
+        options.headers['X-Market'] = L10n.market;
         if (_token != null && _token!.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $_token';
         }

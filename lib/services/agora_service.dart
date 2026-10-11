@@ -66,6 +66,12 @@ class AgoraService extends ChangeNotifier {
   String? _lastTokenError;
   String? get lastTokenError => _lastTokenError;
 
+  /// 마지막 토큰 응답의 app_id. 서버는 Eggplant 전용 Agora 프로젝트 App ID 로
+  /// 토큰을 발급할 수 있으므로, 엔진은 반드시 이 값으로 만들어야 한다
+  /// (빌드에 박힌 [appId] 와 다르면 모든 통화가 invalidToken 으로 실패).
+  String? _lastAppId;
+  String? get lastAppId => _lastAppId;
+
   // ─────────────────────────────────────────────────────────
   // Public API
   // ─────────────────────────────────────────────────────────
@@ -222,6 +228,8 @@ class AgoraService extends ChangeNotifier {
         debugPrint('[agora] _requestToken($kind) ' + _lastTokenError!);
         return null;
       }
+      final serverAppId = res.data!['app_id']?.toString();
+      if (serverAppId != null && serverAppId.isNotEmpty) _lastAppId = serverAppId;
       final expSec = res.data!['expire_at'];
       if (expSec is int) {
         _rtmTokenExpireAt =

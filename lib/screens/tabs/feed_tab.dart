@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/constants.dart';
+import '../../app/l10n.dart';
 import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../models/product.dart';
@@ -39,6 +40,24 @@ class _FeedTabState extends State<FeedTab> {
     _searchCtl.dispose();
     _searchFocus.dispose();
     super.dispose();
+  }
+
+  /// 내 동네 목록 (최대 10곳) — 바꾸기 · 추가 · 삭제.
+  Future<void> _openMyRegions() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _MyRegionsSheet(),
+    );
+    if (!mounted) return;
+    if (picked == '+') {
+      await context.push('/region');
+      if (!mounted) return;
+    }
+    _load();
   }
 
   void _load() {
@@ -84,15 +103,15 @@ class _FeedTabState extends State<FeedTab> {
                 controller: _searchCtl,
                 focusNode: _searchFocus,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: '상품명 검색',
+                decoration: InputDecoration(
+                  hintText: context.l10n.homeSearchHint,
                   border: InputBorder.none,
                   filled: false,
                 ),
                 onSubmitted: _submitSearch,
               )
             : InkWell(
-                onTap: () => context.push('/region'),
+                onTap: _openMyRegions,
                 borderRadius: BorderRadius.circular(20),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -100,7 +119,7 @@ class _FeedTabState extends State<FeedTab> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        auth.user?.region ?? '동네 설정',
+                        auth.user?.region ?? context.l10n.homeSetRegion,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -120,7 +139,7 @@ class _FeedTabState extends State<FeedTab> {
         actions: [
           IconButton(
             icon: Icon(_searchMode ? Icons.close_rounded : Icons.search_rounded),
-            tooltip: _searchMode ? '검색 닫기' : '검색',
+            tooltip: _searchMode ? context.l10n.homeSearchClose : context.l10n.homeSearch,
             onPressed: () {
               setState(() {
                 _searchMode = !_searchMode;
@@ -135,7 +154,7 @@ class _FeedTabState extends State<FeedTab> {
           ),
           IconButton(
             icon: const Icon(Icons.qr_code_scanner_rounded),
-            tooltip: 'QR 스캔',
+            tooltip: context.l10n.homeQrScan,
             onPressed: () => context.push('/qr/scan'),
           ),
           const SizedBox(width: 4),
@@ -176,7 +195,7 @@ class _FeedTabState extends State<FeedTab> {
                                 color: EggplantColors.primary),
                           )
                         : productSvc.products.isEmpty
-                            ? _EmptyView(onRefresh: _load)
+                            ? _EmptyView(onRefresh: _load, error: productSvc.loadError)
                             : RefreshIndicator(
                                 color: EggplantColors.primary,
                                 onRefresh: () async => _load(),
@@ -245,9 +264,9 @@ class _SearchHistoryPanel extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Row(
                 children: [
-                  const Text(
-                    '최근 검색어',
-                    style: TextStyle(
+                  Text(
+                    context.l10n.homeRecentSearches,
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: EggplantColors.textSecondary,
@@ -262,9 +281,9 @@ class _SearchHistoryPanel extends StatelessWidget {
                         minimumSize: const Size(0, 0),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      child: const Text(
-                        '전체 삭제',
-                        style: TextStyle(
+                      child: Text(
+                        context.l10n.homeClearAll,
+                        style: const TextStyle(
                           fontSize: 12,
                           color: EggplantColors.textSecondary,
                         ),
@@ -274,12 +293,12 @@ class _SearchHistoryPanel extends StatelessWidget {
               ),
             ),
             if (terms.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
                 child: Center(
                   child: Text(
-                    '최근 검색 기록이 없어요',
-                    style: TextStyle(
+                    context.l10n.homeNoRecentSearches,
+                    style: const TextStyle(
                       fontSize: 13,
                       color: EggplantColors.textSecondary,
                     ),
@@ -358,8 +377,8 @@ class _RangeBar extends StatelessWidget {
           const Icon(Icons.near_me_rounded,
               size: 16, color: EggplantColors.textSecondary),
           const SizedBox(width: 6),
-          const Text('거리',
-              style: TextStyle(
+          Text(context.l10n.homeDistance,
+              style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: EggplantColors.textSecondary,
@@ -374,7 +393,7 @@ class _RangeBar extends StatelessWidget {
                   return Padding(
                     padding: const EdgeInsets.only(right: 6),
                     child: ChoiceChip(
-                      label: Text(o.$2),
+                      label: Text(o.$1 == 0 ? context.l10n.homeRangeAll : o.$2),
                       selected: selected,
                       onSelected: (_) => onChanged(o.$1),
                       labelStyle: TextStyle(
@@ -475,7 +494,8 @@ class _CategoryBarState extends State<_CategoryBar> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 52,
+      // 고정 52 는 큰 글씨(1.15~1.3배)에서 칩 글자 아래가 잘렸다 → 글자 배율만큼 키움.
+      height: MediaQuery.textScalerOf(context).scale(52).clamp(52.0, 72.0),
       child: Stack(
         children: [
           ListView.separated(
@@ -596,7 +616,9 @@ class _CategoryChip extends StatelessWidget {
 
 class _EmptyView extends StatelessWidget {
   final VoidCallback onRefresh;
-  const _EmptyView({required this.onRefresh});
+  /// 로드 실패 문구 — 있으면 "상품 없음" 대신 오류와 다시 시도를 보여준다.
+  final String? error;
+  const _EmptyView({required this.onRefresh, this.error});
 
   @override
   Widget build(BuildContext context) {
@@ -604,20 +626,22 @@ class _EmptyView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('🍆', style: TextStyle(fontSize: 56)),
+          Text(error != null ? '📡' : '🍆', style: const TextStyle(fontSize: 56)),
           const SizedBox(height: 12),
-          const Text(
-            '아직 상품이 없어요',
-            style: TextStyle(
+          Text(
+            error ?? context.l10n.homeNoProducts,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: EggplantColors.textPrimary,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            '첫 번째 상품을 등록해보세요!',
-            style: TextStyle(
+          Text(
+            error != null ? context.l10n.homeCheckNetwork : context.l10n.homeFirstProduct,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
               fontSize: 13,
               color: EggplantColors.textSecondary,
             ),
@@ -626,9 +650,94 @@ class _EmptyView extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: onRefresh,
             icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('새로고침'),
+            label: Text(error != null ? context.l10n.commonRetry : context.l10n.homeRefresh),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 내 동네 목록 시트. 누르면 그 동네로 바꾸고, ✕ 로 빼고, 아래 버튼으로 추가.
+/// 닫힐 때 '+' 를 돌려주면 동네 추가 화면으로 간다.
+class _MyRegionsSheet extends StatelessWidget {
+  const _MyRegionsSheet();
+
+  static const int maxRegions = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthService>();
+    final user = auth.user;
+    final regions = user?.regions ?? const <String>[];
+    final active = user?.region;
+
+    Future<void> show(String? err) async {
+      if (err != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      }
+    }
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(context.l10n.homeMyRegionsTitle(regions.length, maxRegions),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text(context.l10n.homeMyRegionsHint,
+                style: const TextStyle(fontSize: 12.5, color: EggplantColors.textSecondary)),
+            const SizedBox(height: 8),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final r in regions)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        r == active ? Icons.radio_button_checked : Icons.radio_button_off,
+                        color: r == active ? EggplantColors.primary : EggplantColors.textTertiary,
+                      ),
+                      title: Text(r,
+                          style: TextStyle(
+                            fontWeight: r == active ? FontWeight.w800 : FontWeight.w500,
+                            color: r == active ? EggplantColors.primary : EggplantColors.textPrimary,
+                          )),
+                      trailing: regions.length > 1
+                          ? IconButton(
+                              tooltip: context.l10n.homeRemoveRegion,
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                              onPressed: () async {
+                                final next = [...regions]..remove(r);
+                                await show(await auth.setRegions(next,
+                                    active: r == active ? next.first : active));
+                              },
+                            )
+                          : null,
+                      onTap: () async {
+                        if (r != active) await show(await auth.updateRegion(r));
+                        if (context.mounted) Navigator.pop(context, r);
+                      },
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: regions.length >= maxRegions
+                  ? null
+                  : () => Navigator.pop(context, '+'),
+              icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+              label: Text(regions.length >= maxRegions
+                  ? context.l10n.homeMaxRegions(maxRegions)
+                  : context.l10n.homeAddRegion),
+            ),
+          ],
+        ),
       ),
     );
   }

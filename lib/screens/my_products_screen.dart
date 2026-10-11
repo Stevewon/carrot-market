@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../models/product.dart';
 import '../services/product_service.dart';
+import '../services/qta_service.dart';
 import '../widgets/product_card.dart';
 
 /// Shows the products the current user has uploaded.
@@ -38,16 +40,18 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
       final remaining = p.bumpCooldownRemaining;
       final h = remaining.inHours;
       final m = remaining.inMinutes - h * 60;
-      final wait = h > 0 ? '$h시간 ${m}분' : '${m}분';
+      final wait = h > 0
+          ? context.l10n.productWaitHoursMinutes(h, m)
+          : context.l10n.productWaitMinutes(m);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$wait 후에 다시 끌어올릴 수 있어요')),
+        SnackBar(content: Text(context.l10n.productBumpWait(wait))),
       );
       return;
     }
     final err = await context.read<ProductService>().bumpProduct(p.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(err ?? '🍆 끌어올렸어요! 피드 맨 위로 올라갔어요')),
+      SnackBar(content: Text(err ?? context.l10n.productBumped)),
     );
   }
 
@@ -55,29 +59,36 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('상품 삭제'),
-        content: Text('${p.title}을(를) 정말 삭제할까요?\n\n'
-            '• 상품과 사진/영상이 영구 삭제돼요\n'
-            '• 복구할 수 없어요'),
+        title: Text(ctx.l10n.productDeleteDialogTitle),
+        content: Text('${ctx.l10n.productDeleteConfirmNamed(p.title)}\n\n'
+            '${ctx.l10n.productDeleteBody}'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
+            child: Text(ctx.l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: EggplantColors.error),
-            child: const Text('삭제'),
+            child: Text(ctx.l10n.commonDelete),
           ),
         ],
       ),
     );
     if (ok != true || !mounted) return;
-    final err = await context.read<ProductService>().deleteProduct(p.id);
+    final ps = context.read<ProductService>();
+    final err = await ps.deleteProduct(p.id);
     if (!mounted) return;
+    final clawback = err == null ? ps.lastListingClawback : 0;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(err ?? '상품을 삭제했어요')),
+      SnackBar(
+        content: Text(err ??
+            (clawback > 0
+                ? context.l10n.productDeletedWithClawback(clawback)
+                : context.l10n.productDeleted)),
+      ),
     );
+    if (clawback > 0) context.read<QtaService>().load(force: true);
   }
 
   Future<void> _changeStatus(Product p) async {
@@ -90,9 +101,9 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _statusTile(ctx, 'sale', '판매중', Icons.sell_outlined, p.status == 'sale'),
-            _statusTile(ctx, 'reserved', '예약중', Icons.schedule_outlined, p.status == 'reserved'),
-            _statusTile(ctx, 'sold', '거래완료', Icons.check_circle_outline, p.status == 'sold'),
+            _statusTile(ctx, 'sale', ctx.l10n.productStatusSale, Icons.sell_outlined, p.status == 'sale'),
+            _statusTile(ctx, 'reserved', ctx.l10n.productStatusReserved, Icons.schedule_outlined, p.status == 'reserved'),
+            _statusTile(ctx, 'sold', ctx.l10n.productStatusSold, Icons.check_circle_outline, p.status == 'sold'),
           ],
         ),
       ),
@@ -101,7 +112,7 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
     final err = await context.read<ProductService>().updateStatus(p.id, picked);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(err ?? '상태를 변경했어요')),
+      SnackBar(content: Text(err ?? context.l10n.productStatusChangedGeneric)),
     );
   }
 
@@ -138,7 +149,9 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         title: Text(
-          items.isEmpty ? '내 판매상품' : '내 판매상품 ${items.length}',
+          items.isEmpty
+              ? context.l10n.productMySelling
+              : context.l10n.productMySellingCount(items.length),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w800),
@@ -154,8 +167,8 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
         backgroundColor: EggplantColors.primary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.edit_outlined, size: 20),
-        label: const Text('새 글쓰기',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        label: Text(context.l10n.productNewPost,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
       ),
     );
   }
@@ -169,22 +182,22 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
     if (items.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 120),
+        children: [
+          const SizedBox(height: 120),
           Center(
             child: Column(
               children: [
-                Text('🍆', style: TextStyle(fontSize: 56)),
-                SizedBox(height: 12),
-                Text('등록한 상품이 없어요',
-                    style: TextStyle(
+                const Text('🍆', style: TextStyle(fontSize: 56)),
+                const SizedBox(height: 12),
+                Text(context.l10n.productMySellingEmpty,
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: EggplantColors.textPrimary,
                     )),
-                SizedBox(height: 6),
-                Text('우측 하단 "새 글쓰기"로 올려보세요',
-                    style: TextStyle(
+                const SizedBox(height: 6),
+                Text(context.l10n.productMySellingEmptyHint,
+                    style: const TextStyle(
                       fontSize: 13,
                       color: EggplantColors.textSecondary,
                     )),
@@ -215,7 +228,7 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
               top: 8,
               right: 8,
               child: PopupMenuButton<String>(
-                tooltip: '끌어올리기 / 상태 변경 / 삭제',
+                tooltip: context.l10n.productMyMenuTooltip,
                 icon: const Icon(Icons.more_vert, color: EggplantColors.textSecondary),
                 onSelected: (v) {
                   if (v == 'bump') {
@@ -246,7 +259,9 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            p.canBump ? '끌어올리기' : '끌어올리기 (대기중)',
+                            p.canBump
+                                ? context.l10n.productBump
+                                : context.l10n.productBumpWaiting,
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: p.canBump
@@ -257,34 +272,34 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
                         ],
                       ),
                     ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
-                        Icon(Icons.edit_outlined, size: 20),
-                        SizedBox(width: 8),
-                        Text('수정'),
+                        const Icon(Icons.edit_outlined, size: 20),
+                        const SizedBox(width: 8),
+                        Text(context.l10n.productEdit),
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'status',
                     child: Row(
                       children: [
-                        Icon(Icons.edit_note, size: 20),
-                        SizedBox(width: 8),
-                        Text('상태 변경'),
+                        const Icon(Icons.edit_note, size: 20),
+                        const SizedBox(width: 8),
+                        Text(context.l10n.productChangeStatus),
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(Icons.delete_outline,
+                        const Icon(Icons.delete_outline,
                             size: 20, color: EggplantColors.error),
-                        SizedBox(width: 8),
-                        Text('삭제', style: TextStyle(color: EggplantColors.error)),
+                        const SizedBox(width: 8),
+                        Text(context.l10n.commonDelete, style: const TextStyle(color: EggplantColors.error)),
                       ],
                     ),
                   ),

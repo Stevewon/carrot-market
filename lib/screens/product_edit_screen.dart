@@ -4,11 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../app/constants.dart';
+import '../app/l10n.dart';
+import '../app/market.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/product.dart';
 import '../services/auth_service.dart';
 import '../services/product_service.dart';
+import 'prohibited_items_screen.dart';
 
 /// Edit an existing product.
 ///
@@ -31,6 +34,11 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
   final _titleCtl = TextEditingController();
   final _priceCtl = TextEditingController();
   final _qtaPriceCtl = TextEditingController();
+
+  /// QTA 가격 입력은 본인인증(Lv1) 판매자에게만 (이미 QTA 가격이 있는 상품은 그대로 보여줌).
+  bool get _canSetQtaPrice =>
+      (context.read<AuthService>().user?.isIdentityVerified ?? false) ||
+      (_original?.qtaPrice ?? 0) > 0;
   final _descCtl = TextEditingController();
   final _youtubeCtl = TextEditingController();
 
@@ -64,7 +72,7 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
     if (p == null) {
       setState(() {
         _loading = false;
-        _error = '상품을 찾을 수 없어요';
+        _error = context.l10n.productNotFound;
       });
       return;
     }
@@ -131,7 +139,7 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
 
     if (data.isEmpty) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('변경된 내용이 없어요')));
+          .showSnackBar(SnackBar(content: Text(context.l10n.productNoChanges)));
       return;
     }
 
@@ -150,11 +158,11 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
     setState(() => _submitting = false);
 
     if (err != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      showProductError(context, err);
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('상품을 수정했어요 ✨')),
+      SnackBar(content: Text(context.l10n.productUpdated)),
     );
     // 상세화면에서 즉시 반영(_loadDetail) 트리거하기 위해 true 반환
     context.pop(true);
@@ -172,13 +180,13 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
     if (_error != null || _original == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: Center(child: Text(_error ?? '상품을 찾을 수 없어요')),
+        body: Center(child: Text(_error ?? context.l10n.productNotFound)),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('상품 수정'),
+        title: Text(context.l10n.productEditTitle),
         actions: [
           TextButton(
             onPressed: _submitting ? null : _submit,
@@ -189,9 +197,9 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: EggplantColors.primary),
                   )
-                : const Text(
-                    '완료',
-                    style: TextStyle(
+                : Text(
+                    context.l10n.productDone,
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: EggplantColors.primary,
@@ -207,8 +215,12 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
             constraints: const BoxConstraints(maxWidth: Responsive.maxContentWidth),
             child: Form(
               key: _formKey,
-              child: ListView(
+              // ListView 는 화면 밖 필드를 build 하지 않아서, 작은 폰에서 아래쪽 설명 필드의
+              // 검증(10자 이상)이 건너뛰어졌다 → 모든 필드가 항상 만들어지는 스크롤 Column.
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
+                child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
             _Banner(product: _original!),
             const SizedBox(height: 20),
@@ -216,21 +228,21 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
             // Title
             TextFormField(
               controller: _titleCtl,
-              decoration: const InputDecoration(
-                labelText: '제목',
-                hintText: '상품명을 입력해주세요',
+              decoration: InputDecoration(
+                labelText: context.l10n.productFieldTitle,
+                hintText: context.l10n.productFieldTitleHint,
               ),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return '제목을 입력해주세요';
-                if (v.trim().length > 80) return '제목이 너무 길어요';
+                if (v == null || v.trim().isEmpty) return context.l10n.productFieldTitleRequired;
+                if (v.trim().length > 80) return context.l10n.productFieldTitleTooLong;
                 return null;
               },
             ),
             const SizedBox(height: 16),
 
             // Category
-            const Text('카테고리',
-                style: TextStyle(fontWeight: FontWeight.w600)),
+            Text(context.l10n.productFieldCategory,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
@@ -239,7 +251,7 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                   .where((c) => c.id != 'all')
                   .map(
                     (c) => ChoiceChip(
-                      label: Text('${c.emoji} ${c.label}'),
+                      label: Text('${c.emoji} ${categoryLabel(c.id)}'),
                       selected: _category == c.id,
                       onSelected: (_) => setState(() => _category = c.id),
                       selectedColor: EggplantColors.primary,
@@ -256,8 +268,8 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
             const SizedBox(height: 16),
 
             // Region (당근마켓 스타일 — 동네 + 변경 버튼)
-            const Text('동네',
-                style: TextStyle(fontWeight: FontWeight.w600)),
+            Text(context.l10n.productFieldRegion,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             InkWell(
               onTap: _submitting ? null : _changeRegion,
@@ -277,7 +289,7 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _region.isEmpty ? '동네를 설정해주세요' : _region,
+                        _region.isEmpty ? context.l10n.productSetRegion : _region,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -289,9 +301,9 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Text(
-                      '변경',
-                      style: TextStyle(
+                    Text(
+                      context.l10n.productChange,
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: EggplantColors.primary,
@@ -314,46 +326,52 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                 FilteringTextInputFormatter.digitsOnly,
                 _ThousandsSeparatorFormatter(),
               ],
-              decoration: const InputDecoration(
-                labelText: '가격',
-                hintText: '0 (나눔하려면 0원)',
-                prefixText: '₩ ',
+              decoration: InputDecoration(
+                labelText: context.l10n.productFieldPrice,
+                hintText: AppMarket.isJp(_original!.market)
+                    ? context.l10n.productFieldPriceHintJpy
+                    : context.l10n.productFieldPriceHintKrw,
+                prefixText: AppMarket.isJp(_original!.market) ? '¥ ' : '₩ ',
               ),
               validator: (v) {
-                if (v == null || v.isEmpty) return '가격을 입력해주세요';
+                if (v == null || v.isEmpty) return context.l10n.productFieldPriceRequired;
                 return null;
               },
             ),
             const SizedBox(height: 16),
 
             // QTA Price (optional)
-            TextFormField(
-              controller: _qtaPriceCtl,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                _ThousandsSeparatorFormatter(),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'QTA 결제 (선택)',
-                hintText: '0 = 사용 안 함 / 거래완료 시 자동 차감',
-                prefixIcon: Icon(Icons.token_outlined, size: 20),
-                helperText: '예) 5,000 → 거래완료 토글하면 구매자 잔액 5,000 QTA 가 자동 이체돼요',
+            // QTA 가격은 본인인증한 판매자만 (서버도 같은 기준). 1차 출시는 본인인증이
+            // 준비 중이라 대부분 숨겨진다 — 원화 가격만으로 거래.
+            if (_canSetQtaPrice) ...[
+              TextFormField(
+                controller: _qtaPriceCtl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  _ThousandsSeparatorFormatter(),
+                ],
+                decoration: InputDecoration(
+                  labelText: context.l10n.productFieldQtaPrice,
+                  hintText: context.l10n.productFieldQtaPriceHint,
+                  prefixIcon: const Icon(Icons.token_outlined, size: 20),
+                  helperText: context.l10n.productFieldQtaPriceHelper,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+            ],
 
             // Description
             TextFormField(
               controller: _descCtl,
               maxLines: 8,
-              decoration: const InputDecoration(
-                labelText: '자세한 설명',
-                hintText: '상품의 상태, 사용기간 등을 자세히 적어주세요.',
+              decoration: InputDecoration(
+                labelText: context.l10n.productFieldDescription,
+                hintText: context.l10n.productFieldDescriptionEditHint,
                 alignLabelWithHint: true,
               ),
               validator: (v) {
-                if (v == null || v.trim().length < 10) return '10자 이상 입력해주세요';
+                if (v == null || v.trim().length < 10) return context.l10n.productFieldDescriptionMin;
                 return null;
               },
             ),
@@ -368,16 +386,15 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                   color: EggplantColors.background,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.video_library_outlined,
+                    const Icon(Icons.video_library_outlined,
                         color: EggplantColors.primary, size: 18),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '업로드한 영상은 수정할 수 없어요.\n'
-                        '변경하려면 상품을 삭제 후 다시 등록해주세요.',
-                        style: TextStyle(
+                        context.l10n.productUploadedVideoLocked,
+                        style: const TextStyle(
                           fontSize: 12,
                           color: EggplantColors.textSecondary,
                           height: 1.5,
@@ -392,10 +409,10 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                 controller: _youtubeCtl,
                 autocorrect: false,
                 keyboardType: TextInputType.url,
-                decoration: const InputDecoration(
-                  labelText: '유튜브 링크 (선택)',
+                decoration: InputDecoration(
+                  labelText: context.l10n.productYoutubeLinkOptional,
                   hintText: 'https://youtu.be/...',
-                  prefixIcon: Icon(
+                  prefixIcon: const Icon(
                     Icons.play_circle_outline,
                     color: Colors.red,
                   ),
@@ -406,13 +423,14 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                   final re = RegExp(
                     r'(?:youtu\.be/|youtube\.com/(?:watch\?v=|shorts/|embed/))([A-Za-z0-9_-]{6,20})',
                   );
-                  if (!re.hasMatch(t)) return '유튜브 링크 형식이 올바르지 않아요';
+                  if (!re.hasMatch(t)) return context.l10n.productYoutubeInvalid;
                   return null;
                 },
               ),
 
             const SizedBox(height: 40),
           ],
+              ),
               ),
             ),
           ),
@@ -442,7 +460,7 @@ class _Banner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '수정 중: ${product.title}',
+              context.l10n.productEditingBanner(product.title),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(

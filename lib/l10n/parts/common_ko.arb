@@ -1,0 +1,16 @@
+{
+  "commonCancel": "취소",
+  "commonConfirm": "확인",
+  "commonDelete": "삭제",
+  "commonSave": "저장",
+  "commonClose": "닫기",
+  "commonRetry": "다시 시도",
+  "commonLater": "나중에",
+  "commonFree": "나눔",
+  "commonLoginRequired": "로그인이 필요해요",
+  "commonNetworkError": "네트워크 오류가 발생했어요. 잠시 후 다시 시도해주세요",
+  "priceKrw": "{amount}원",
+  "@priceKrw": { "placeholders": { "amount": { "type": "String" } } },
+  "priceJpy": "¥{amount}",
+  "@priceJpy": { "placeholders": { "amount": { "type": "String" } } }
+}

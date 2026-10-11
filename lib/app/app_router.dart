@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'l10n.dart';
 import '../services/auth_service.dart';
 import '../screens/splash_screen.dart';
 import '../screens/onboarding_screen.dart';
@@ -21,6 +22,7 @@ import '../screens/user_profile_screen.dart';
 import '../screens/keyword_alerts_screen.dart';
 import '../screens/hidden_products_screen.dart';
 import '../screens/qta_ledger_screen.dart';
+import '../screens/qta_mining_screen.dart';
 import '../screens/qta_withdraw_screen.dart';
 import '../screens/referrals_screen.dart';
 import '../screens/account_delete_screen.dart';
@@ -87,7 +89,7 @@ GoRouter createRouter(AuthService auth) {
         path: '/chat/:roomId',
         builder: (_, state) => ChatScreen(
           roomId: state.pathParameters['roomId']!,
-          peerNickname: state.uri.queryParameters['peer'] ?? '익명',
+          peerNickname: state.uri.queryParameters['peer'] ?? L10n.current.homeAnonymous,
           productTitle: state.uri.queryParameters['product'],
           peerUserId: state.uri.queryParameters['peerId'],
           productId: state.uri.queryParameters['productId'],
@@ -107,7 +109,7 @@ GoRouter createRouter(AuthService auth) {
         path: '/call',
         builder: (_, state) => CallScreen(
           peerUserId: state.uri.queryParameters['peerId'] ?? '',
-          peerNickname: state.uri.queryParameters['peer'] ?? '익명',
+          peerNickname: state.uri.queryParameters['peer'] ?? L10n.current.homeAnonymous,
           // ★ Agora 채널명 산정에 양쪽 지갑주소가 필요 (sorted pair).
           //  발신자: 상대방 프로필 → /call?peerWallet=0x... 로 전달.
           //  수신자: incoming=1 일 때는 CallService 가 이미 시그널링 페이로드에서
@@ -136,6 +138,10 @@ GoRouter createRouter(AuthService auth) {
         builder: (_, __) => const QtaLedgerScreen(),
       ),
       GoRoute(
+        path: '/qta/mining',
+        builder: (_, __) => const QtaMiningScreen(),
+      ),
+      GoRoute(
         path: '/qta/withdraw',
         builder: (_, __) => const QtaWithdrawScreen(),
       ),
@@ -158,7 +164,7 @@ GoRouter createRouter(AuthService auth) {
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
-      body: Center(child: Text('페이지를 찾을 수 없어요: ${state.error}')),
+      body: Center(child: Text(context.l10n.homePageNotFound('${state.error}'))),
     ),
   );
 }

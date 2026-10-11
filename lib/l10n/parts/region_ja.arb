@@ -1,0 +1,7 @@
+{
+  "regionPrefectureSearchHint": "都道府県・市区町村名で検索(例:渋谷)",
+  "regionCitySearchHint": "{prefecture}の市区町村を検索",
+  "regionCityCount": "{count}市区町村",
+  "regionChangePrefecture": "都道府県を選び直す",
+  "regionNoResults": "該当する地域がありません"
+}

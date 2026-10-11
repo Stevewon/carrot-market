@@ -77,7 +77,7 @@ object AgoraTokenService {
         }
 
         val urlStr = buildString {
-            append(AgoraConfig.API_BASE_URL)
+            append(AgoraConfig.apiBaseUrl(context))
             append(AgoraConfig.TOKEN_PATH)
             append("?kind=").append(URLEncoder.encode(kind, "UTF-8"))
             append("&uid=").append(uid)

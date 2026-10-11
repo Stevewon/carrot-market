@@ -10,6 +10,8 @@
  * 기존처럼 텍스트 region 만 사용된다.
  */
 
+import { JP_PREFECTURES, JP_REGION_CENTERS, JP_REGION_ALIASES } from './regions_jp';
+
 export interface RegionCenter {
   lat: number;
   lng: number;
@@ -125,8 +127,42 @@ export const REGION_CENTERS: Record<string, RegionCenter> = {
   '제주 서귀포시': { lat: 33.2541, lng: 126.5601 },
 };
 
+/**
+ * 일본 지역 (market='jp') — 47 都道府県의 모든 市区町村 (政令市는 行政区 단위).
+ * 이름 '<都道府県> <市区町村>' (예: '東京都 渋谷区', '大阪府 大阪市北区').
+ * 데이터는 regions_jp.ts (tool/gen_jp_regions.mjs 로 생성), 앱 lib/app/regions_jp.dart 와 같아야 한다.
+ * JP_REGION_ALIASES: 예전 앱의 政令市 통째 이름('大阪府 大阪市' 등) — 저장된 값이 계속 유효하도록.
+ */
+export { JP_PREFECTURES, JP_REGION_CENTERS, JP_REGION_ALIASES };
+
+/** 이 지역 이름이 어느 시장(한국/일본) 소속인가. 모르는 이름이면 null. */
+export function regionMarket(region: string | null | undefined): 'kr' | 'jp' | null {
+  if (!region) return null;
+  if (Object.hasOwn(REGION_CENTERS, region)) return 'kr';
+  if (Object.hasOwn(JP_REGION_CENTERS, region) || Object.hasOwn(JP_REGION_ALIASES, region)) return 'jp';
+  return null;
+}
+
 /** region 문자열로 중심 좌표를 얻는다. 매핑 없으면 null. */
 export function regionCenter(region: string | null | undefined): RegionCenter | null {
   if (!region) return null;
-  return REGION_CENTERS[region] ?? null;
+  for (const t of [REGION_CENTERS, JP_REGION_CENTERS, JP_REGION_ALIASES]) {
+    if (Object.hasOwn(t, region)) return t[region];
+  }
+  return null;
 }
+
+/** 내 동네 최대 개수. */
+export const MAX_REGIONS = 10;
+
+/** users.regions(JSON) → 배열. 예전 회원(regions NULL)은 현재 region 한 곳. */
+export function parseRegions(raw: string | null | undefined, region: string | null | undefined): string[] {
+  let list: string[] = [];
+  try {
+    const v = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(v)) list = v.map((x) => String(x)).filter(Boolean);
+  } catch { /* 깨진 값은 무시 */ }
+  if (region && !list.includes(region)) list.unshift(region);
+  return list.slice(0, MAX_REGIONS);
+}
+

@@ -1,0 +1,417 @@
+{
+  "myTabTitle": "나의 Eggplant",
+  "myMannerTemp": "매너온도 {temp}°C",
+  "@myMannerTemp": {
+    "placeholders": {
+      "temp": {
+        "type": "String"
+      }
+    }
+  },
+  "myRegionUnset": "동네 미설정",
+  "myMenuSelling": "내가 판매중인 상품",
+  "myMenuLikes": "찜한 상품",
+  "myMenuChat": "채팅",
+  "myMenuProfile": "프로필 등록 / 닉네임 수정",
+  "myMenuProfileSub": "채팅·통화에 표시될 내 닉네임 설정",
+  "myMenuRegion": "내 동네 설정",
+  "myRegionNeeded": "설정 필요",
+  "myMenuQr": "내 QR 코드",
+  "myMenuQrSub": "친구에게 보여주고 대화 시작",
+  "myMenuInvite": "친구 초대 (+200 QTA)",
+  "myMenuInviteSub": "친구가 가입할 때 내 닉네임을 입력하면 +200 QTA · 무제한",
+  "myMenuKeyword": "키워드 알림",
+  "myMenuKeywordSub": "관심 키워드 등록하고 새 매물 알림 받기",
+  "myMenuHidden": "숨긴 게시물",
+  "myMenuHiddenSub": "내가 가린 게시물 다시 보기",
+  "myMenuPrivacy": "개인정보 보호",
+  "myMenuPrivacySub": "채팅·통화 절대 저장 안 함 · 한 번 흘러간 메시지는 영구 소실",
+  "myPrivacyDialogTitle": "🔐 개인정보 보호",
+  "myPrivacyDialogBody": "Eggplant는 다음을 수집하지 않아요:\\n\\n• 전화번호 · 이메일 · 실명\\n• 정확한 GPS (동네 인증 시 즉시 폐기)\\n• 채팅 내용 (DB 저장 0)\\n• 통화 내용 (P2P, 서버 미경유)\\n\\n채팅은 휘발성이에요. 한 번 흘러간 메시지는 양쪽 기기 어디에도 복원되지 않아요. 앱을 종료하거나 다른 기기로 로그인하면 모든 대화가 빈 상태에서 시작돼요 💨",
+  "myMenuAppInfo": "앱 정보",
+  "myAppLegalese": "© 2026 Eggplant Team\\n익명으로 안전한 중고거래",
+  "myMenuLogout": "로그아웃",
+  "myMenuDeleteAccount": "계정 영구 삭제 (탈퇴)",
+  "myMenuDeleteAccountSub": "한 번 사라지면 복구되지 않아요 · 잔여 QTA·추천 보너스 즉시 회수",
+  "myStatSelling": "판매중",
+  "myStatLikes": "찜",
+  "myWalletCopied": "지갑주소를 복사했어요. 닉네임·비밀번호 찾기에 붙여넣을 수 있어요.",
+  "myQtaBalance": "QTA 잔액",
+  "myHistory": "내역",
+  "myHide": "가리기",
+  "myShowAll": "전체 보기",
+  "myCopy": "복사",
+  "myWithdrawRequestBtn": "지갑으로 출금 신청",
+  "myWithdrawNeedMin": "출금하려면 5,000 QTA 이상 필요해요",
+  "myWalletCardNote": "닉네임·비밀번호 분실 시 이 지갑주소로 복구할 수 있어요.\\n5,000 QTA 부터 5,000 단위로 본인 지갑으로 출금할 수 있어요.",
+  "myMaskOnSnack": "알림 본문이 가려져요. 잠금화면에서 안전하게 사용하세요 🔒",
+  "myMaskOffSnack": "알림 본문이 표시돼요",
+  "myMaskTitle": "알림 본문 가리기",
+  "myMaskSub": "잠금화면/푸시 미리보기에 메시지 내용 대신 \"새 메시지가 있어요\" 표시",
+  "myUnverified": "미인증",
+  "myCtaPhoneOpenTitle": "2단계 휴대폰 인증하고 1,000 QTA 받기",
+  "myCtaPhoneSoonTitle": "2단계 휴대폰 인증 · 곧 열려요",
+  "myCtaWalletTitle": "1단계 지갑 인증부터 시작하기",
+  "myCtaPhoneOpenDesc": "마지막 단계예요! 인증해도 채팅·통화는 익명 그대로예요.",
+  "myCtaPhoneSoonDesc": "1단계 완료! 휴대폰 인증이 열리면 마치고 1,000 QTA 를 받으세요.",
+  "myCtaWalletDesc": "지갑·휴대폰 인증을 모두 마치면 1,000 QTA 를 드려요.",
+  "myBrowseCreditedTitle": "오늘 채굴 보너스 받았어요!",
+  "myBrowseTitle": "오늘 둘러보기 채굴",
+  "myBrowseCreditedSub": "내일 자정(KST)에 다시 시작돼요.",
+  "myBrowseSub": "상품 {threshold}개 보면 +10 QTA 적립",
+  "@myBrowseSub": {
+    "placeholders": {
+      "threshold": {
+        "type": "int"
+      }
+    }
+  },
+  "myBrowseStart": "홈 탭에서 상품을 둘러보세요 🛍️",
+  "myBrowseRemaining": "{count}개 더 보면 +10 QTA!",
+  "@myBrowseRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myBrowseSoon": "곧 적립돼요…",
+  "myBrowseLink": "채굴 내역 보기 · 상품 등록하면 가격의 10% 채굴",
+  "myUserNotFound": "사용자를 찾을 수 없어요",
+  "myServerSlow": "서버 응답이 늦어요. 잠시 후 다시 시도해주세요 🕐",
+  "myLoadError": "불러오는 중 오류가 발생했어요",
+  "myMoreReviewsSlow": "추가 리뷰 로딩이 늦어요. 잠시 후 다시 시도해주세요 🕐",
+  "myThisUser": "이 사용자",
+  "myBlockConfirmTitle": "차단할까요?",
+  "myBlockConfirmBody": "{nick}님을 차단하면 서로의 게시글과 채팅이 모두 안 보이게 돼요. 언제든 해제할 수 있어요.",
+  "@myBlockConfirmBody": {
+    "placeholders": {
+      "nick": {
+        "type": "String"
+      }
+    }
+  },
+  "myBlock": "차단",
+  "myBlockedSnack": "{nick}님을 차단했어요",
+  "@myBlockedSnack": {
+    "placeholders": {
+      "nick": {
+        "type": "String"
+      }
+    }
+  },
+  "myUnblockConfirmTitle": "차단 해제할까요?",
+  "myUnblockConfirmBody": "{nick}님을 다시 볼 수 있게 돼요.",
+  "@myUnblockConfirmBody": {
+    "placeholders": {
+      "nick": {
+        "type": "String"
+      }
+    }
+  },
+  "myUnblockShort": "해제",
+  "myUnblockedSnack": "차단을 해제했어요",
+  "myReportSpam": "스팸·광고",
+  "myReportFraud": "사기 의심",
+  "myReportAbuse": "욕설·비방",
+  "myReportInappropriate": "부적절한 내용",
+  "myReportFake": "허위 매물",
+  "myReportOther": "기타",
+  "myReportTitle": "신고 사유를 골라주세요",
+  "myReportDesc": "여러 명이 같은 사유로 신고하면 운영팀이 검토해요.",
+  "myReportDetailHint": "추가 설명 (선택)",
+  "myReportDone": "신고를 접수했어요",
+  "myReportSubmit": "신고하기",
+  "myProfileMine": "내 프로필",
+  "myProfileSeller": "판매자 정보",
+  "myUnblockMenu": "차단 해제",
+  "myBlockMenu": "차단하기",
+  "myTopPraise": "많이 받은 매너 칭찬",
+  "myReceivedReviews": "받은 거래 후기",
+  "myNoReviews": "아직 받은 후기가 없어요",
+  "myAnonNickname": "익명가지",
+  "myMannerLabel": "매너온도",
+  "myReviewsLabel": "받은 후기",
+  "myRatingGood": "좋아요",
+  "myRatingSoso": "보통이에요",
+  "myRatingBad": "별로예요",
+  "myAgoMinutes": "{n}분 전",
+  "@myAgoMinutes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "myAgoHours": "{n}시간 전",
+  "@myAgoHours": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "myAgoDays": "{n}일 전",
+  "@myAgoDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "myAgoWeeks": "{n}주 전",
+  "@myAgoWeeks": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "myAgoMonths": "{n}개월 전",
+  "@myAgoMonths": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "myPhotoLoadFail": "사진을 불러올 수 없어요. 권한을 확인하고 다시 시도해주세요",
+  "myNicknameEmpty": "닉네임을 입력해주세요",
+  "myNicknameTooShort": "닉네임은 2자 이상이어야 해요",
+  "myNicknameTooLong": "닉네임은 12자 이하여야 해요",
+  "myProfileSaved": "프로필이 저장됐어요. 채팅·통화에 바로 반영돼요 ✨",
+  "myProfilePhotoSaved": "프로필 사진이 저장됐어요 ✨",
+  "myProfileEditTitle": "프로필 등록",
+  "myPhotoChange": "사진 변경",
+  "myPhotoAdd": "사진 등록",
+  "myPhotoReset": "기본 가지로 변경",
+  "myNicknameIntro": "채팅·통화에 표시될 내 닉네임을 설정하세요",
+  "myNicknameLabel": "닉네임",
+  "myNicknameHint": "2~12자, 한글/영문/숫자",
+  "myNicknameGuideTitle": "닉네임 안내",
+  "myNicknameGuideBody": "• 변경 즉시 채팅·통화에 반영돼요\\n• 다른 사용자와 중복될 수 없어요\\n• 본인인증과 무관하게 닉네임만 사용해요",
+  "mySaveButton": "저장하기",
+  "myWdNeedWalletTitle": "1단계 지갑 인증이 필요해요",
+  "myWdNeedWalletBody": "출금한 QTA 는 인증한 지갑으로 송금돼요.\\n본사 지갑이 보낸 수량을 입력해 지갑 주인임을 확인해주세요.",
+  "myWdNeedPhoneTitle": "2단계 휴대폰 인증이 필요해요",
+  "myWdPreparingTitle": "출금은 준비 중이에요",
+  "myWdNeedPhoneBody": "1인 1계정 보장을 위해 출금 전에 휴대폰 인증이 필요해요.\\n마치면 1,000 QTA 도 드려요.",
+  "myWdPreparingBody": "출금에는 휴대폰 인증이 필요한데, 준비하고 있어요.\\n열리면 앱 업데이트로 알려드릴게요. 그동안 QTA 는 그대로 쌓여요.",
+  "myWdNoWallet": "지갑 주소가 등록되지 않았어요",
+  "myWdInsufficientMin": "잔액이 부족해요. 최소 {min} QTA 부터 신청할 수 있어요.",
+  "@myWdInsufficientMin": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      }
+    }
+  },
+  "myWdConfirmTitle": "출금 신청",
+  "myWdConfirmBody": "{amount} QTA 를\\n{wallet}\\n로 출금 신청할까요?\\n\\n신청 즉시 잔액에서 차감되며, 운영자가 1~3일 내에 송금 처리합니다.",
+  "@myWdConfirmBody": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "wallet": {
+        "type": "String"
+      }
+    }
+  },
+  "myWdApply": "신청",
+  "myWdRequested": "출금 신청 완료 — 처리되면 알려드릴게요",
+  "myWdCancelTitle": "신청 취소",
+  "myWdCancelBody": "{amount} QTA 출금 신청을 취소할까요?\\n취소 즉시 잔액으로 환불돼요.",
+  "@myWdCancelBody": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "myWdNo": "아니요",
+  "myWdCancelDo": "취소하기",
+  "myWdCancelled": "취소 및 환불 완료",
+  "myDateTimeFormat": "M월 d일 HH:mm",
+  "myWdTitle": "QTA 출금",
+  "myWdAvailable": "출금 가능 잔액",
+  "myWdRuleShort": "5,000 QTA 부터 5,000 단위로 신청",
+  "myWdPendingStatus": "{amount} QTA 출금이 {status} 이에요",
+  "@myWdPendingStatus": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "myWdRequestBtn": "출금 신청하기",
+  "myWdInsufficient": "잔액이 부족해요",
+  "myWdHistory": "신청 내역",
+  "myWdHistoryEmpty": "아직 출금 신청 내역이 없어요",
+  "myWdNotice": "출금은 가입 시 등록된 퀀타리움 지갑주소로만 송금돼요. 운영자가 1~3일 안에 처리합니다. 처리 시작 후엔 취소할 수 없어요.",
+  "myWdTxCopied": "트랜잭션 해시를 복사했어요",
+  "myWdReason": "사유: {reason}",
+  "@myWdReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "myWdAmountTitle": "출금 금액 입력",
+  "myWdAmountRule": "{min} QTA 부터 {unit} QTA 단위로 신청 가능",
+  "@myWdAmountRule": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "myWdMinBtn": "최소 {amount}",
+  "@myWdMinBtn": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "myWdMaxBtn": "전액 {amount}",
+  "@myWdMaxBtn": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "myWdToWallet": "받는 지갑",
+  "myWdSubmitAmount": "{amount} QTA 신청하기",
+  "@myWdSubmitAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "myLedgerTitle": "QTA 내역",
+  "myLedgerWithdraw": "출금",
+  "myLedgerBalance": "현재 잔액",
+  "myLedgerRecent": "최근 내역",
+  "myLedgerEmpty": "아직 내역이 없어요. 출석·거래로 QTA를 적립해보세요!",
+  "myRuleTitle": "QTA 적립 규칙",
+  "myRuleVerify": "지갑·휴대폰 인증 완료 시 +1,000 QTA (1회)",
+  "myRuleListing": "상품 등록 시 가격의 10%를 QTA로 채굴 (1 QTA = {rate}원) · 삭제하면 차감",
+  "@myRuleListing": {
+    "placeholders": {
+      "rate": {
+        "type": "int"
+      }
+    }
+  },
+  "myRuleLogin": "로그인할 때마다 +10 QTA · 하루 3번까지",
+  "myRuleTrade": "거래완료 시 판매자·구매자 각각 +10 QTA",
+  "myRuleWithdraw": "5,000 QTA 부터 5,000 단위로 지갑 출금 가능",
+  "myMiningLoadFail": "채굴 내역을 불러오지 못했어요. 당겨서 다시 시도해주세요",
+  "myMiningTitle": "채굴 내역",
+  "myMiningTotalLabel": "지금까지 채굴한 QTA",
+  "myMiningTotalSub": "상품 등록 채굴 {listing} QTA · 약 {money}",
+  "@myMiningTotalSub": {
+    "placeholders": {
+      "listing": {
+        "type": "String"
+      },
+      "money": {
+        "type": "String"
+      }
+    }
+  },
+  "myMiningRule": "⛏️ 상품을 올리면 가격의 {percent}%를 QTA로 채굴해요 (1 QTA = {rate}원)\\n   예) {examplePrice} 상품 → +{exampleQta} QTA\\n• 상품 1개 최대 {maxPerListing} QTA · 하루 최대 {maxPerDay} QTA\\n• 가격을 내리면 차액만큼, 상품을 삭제하면 받은 만큼 차감돼요\\n• 판매 완료된 상품은 차감되지 않아요 (삭제하면 차감)",
+  "@myMiningRule": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      },
+      "rate": {
+        "type": "int"
+      },
+      "examplePrice": {
+        "type": "String"
+      },
+      "exampleQta": {
+        "type": "String"
+      },
+      "maxPerListing": {
+        "type": "String"
+      },
+      "maxPerDay": {
+        "type": "String"
+      }
+    }
+  },
+  "myMiningRecords": "채굴 기록",
+  "myMiningEmpty": "아직 채굴 기록이 없어요. 상품을 올려 QTA를 채굴해보세요!",
+  "myRefLoadFail": "내 초대 내역을 불러올 수 없어요.",
+  "myRefNetworkError": "네트워크 오류: 잠시 후 다시 시도해주세요.",
+  "myRefTitle": "친구 초대",
+  "myRefHeadline": "친구가 가입할 때\\n내 닉네임을 입력하면 +200 QTA",
+  "myRefCopyNick": "닉네임 복사",
+  "myRefNickCopied": "닉네임을 복사했어요",
+  "myRefOncePerPerson": "한 사람당 1번만 처리되지만, 내가 초대할 수 있는 친구 수에는 제한이 없어요.",
+  "myRefStatValid": "유효한 초대",
+  "myRefStatEarned": "누적 적립",
+  "myRefStatClawed": "회수 (탈퇴)",
+  "myRefRuleTitle": "친구 초대 보너스 규칙",
+  "myRefRuleBody": "• 친구 1명당 +200 QTA · 무제한\\n• 친구가 회원가입 마지막 칸에 내 닉네임 입력\\n• 친구가 탈퇴하면 그 200 QTA는 즉시 회수돼요\\n• 자기 자신은 추천인이 될 수 없어요",
+  "myRefListTitle": "내가 초대한 친구",
+  "myRefEmpty": "아직 초대한 친구가 없어요",
+  "myRefDeletedFriend": "(탈퇴한 친구)",
+  "myRefUnknown": "(알 수 없음)",
+  "myRefClawedBadge": "−200 QTA 회수",
+  "myReasonSignup": "가입 보너스",
+  "myReasonVerifyBonus": "인증 완료 보너스",
+  "myReasonLoginDaily": "출석 보너스",
+  "myReasonTradeSeller": "판매 완료 보상",
+  "myReasonTradeBuyer": "구매 완료 보상",
+  "myReasonWithdrawal": "출금 신청",
+  "myReasonWithdrawalRefund": "출금 취소·환불",
+  "myReasonListingReward": "상품 등록 채굴",
+  "myReasonListingAdjust": "가격 인하 차감",
+  "myReasonListingClawback": "상품 삭제 차감",
+  "myReasonMiningListing": "상품 7일 유지 채굴",
+  "myReasonMiningBrowse": "둘러보기 채굴",
+  "myWdStatusRequested": "대기 중",
+  "myWdStatusProcessing": "송금 중",
+  "myWdStatusCompleted": "완료",
+  "myWdStatusRejected": "거절·환불",
+  "myQtaLoadFail": "QTA 잔액을 불러오지 못했어요",
+  "myWdLoadFail": "출금 내역을 불러오지 못했어요",
+  "myWdErrMin": "최소 {min} QTA 부터 신청할 수 있어요",
+  "@myWdErrMin": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      }
+    }
+  },
+  "myWdErrUnit": "{unit} QTA 단위로만 신청할 수 있어요",
+  "@myWdErrUnit": {
+    "placeholders": {
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "myWdErrBalance": "QTA 잔액이 부족해요",
+  "myWdErrPending": "진행 중인 신청이 있어요. 처리되면 다시 시도해주세요.",
+  "myWdErrRequestFail": "출금 신청에 실패했어요",
+  "myWdUserCancelled": "사용자 취소",
+  "myWdErrCancelFail": "취소에 실패했어요",
+  "myVerifyLabelNone": "미인증",
+  "myVerifyLabelIdentity": "본인인증 완료",
+  "myVerifyLabelBank": "출금 인증 완료"
+}

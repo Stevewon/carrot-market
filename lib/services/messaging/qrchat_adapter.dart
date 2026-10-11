@@ -16,6 +16,7 @@ library;
 
 import 'dart:async';
 
+import '../../app/l10n.dart';
 import '../../models/chat_message.dart';
 import '../../models/chat_room.dart';
 import 'messaging_adapter.dart';
@@ -137,8 +138,8 @@ class QRChatMessagingAdapter implements MessagingAdapter {
 
   @override
   Future<String?> sendText(String roomId, String text) async {
-    if (_identity == null) return '로그인이 필요해요';
-    if (text.trim().isEmpty) return '내용을 입력해주세요';
+    if (_identity == null) return L10n.current.commonLoginRequired;
+    if (text.trim().isEmpty) return L10n.current.chatEnterMessage;
     // TODO(qrchat-sdk): await _sdk.sendText(roomId, text);
     return 'QRChat SDK 미연결';
   }

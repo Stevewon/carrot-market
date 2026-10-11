@@ -23,6 +23,7 @@ import {
   completeWithdrawal,
   type WithdrawalRow,
 } from '../qta';
+import { reqLang, tr } from '../market';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -31,9 +32,12 @@ app.get('/policy', (c) => {
   return c.json({
     min: QTA_WITHDRAWAL_MIN,
     unit: QTA_WITHDRAWAL_UNIT,
-    note:
+    note: tr(
+      c,
       `최소 ${QTA_WITHDRAWAL_MIN.toLocaleString('ko-KR')} QTA 부터 ` +
-      `${QTA_WITHDRAWAL_UNIT.toLocaleString('ko-KR')} QTA 단위로만 신청할 수 있어요`,
+        `${QTA_WITHDRAWAL_UNIT.toLocaleString('ko-KR')} QTA 단위로만 신청할 수 있어요`,
+      `${QTA_WITHDRAWAL_MIN.toLocaleString('ja-JP')} QTAから${QTA_WITHDRAWAL_UNIT.toLocaleString('ja-JP')} QTA単位でのみ申請できます`,
+    ),
   });
 });
 
@@ -66,19 +70,19 @@ app.post('/', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: '잘못된 요청' }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
 
   const raw = body.amount;
   const amount =
     typeof raw === 'number' ? raw : typeof raw === 'string' ? parseInt(raw, 10) : NaN;
   if (!Number.isFinite(amount)) {
-    return c.json({ error: '출금 금액을 입력해주세요' }, 400);
+    return c.json({ error: tr(c, '출금 금액을 입력해주세요', '出金額を入力してください') }, 400);
   }
 
-  const result = await requestWithdrawal(c.env, me.id, amount);
+  const result = await requestWithdrawal(c.env, me.id, amount, reqLang(c));
   if (!result.ok) {
-    return c.json({ error: result.error }, (result.status as 400 | 404 | 409 | 500) || 400);
+    return c.json({ error: result.error }, (result.status as 400 | 403 | 404 | 409 | 500) || 400);
   }
 
   // 출금 후 잔액도 같이 응답해서 UI 가 즉시 반영하기 쉽게.
@@ -113,17 +117,23 @@ app.post('/:id/cancel', async (c) => {
     .prepare('SELECT user_id, status FROM qta_withdrawals WHERE id = ?')
     .bind(wid)
     .first<{ user_id: string; status: string }>();
-  if (!w) return c.json({ error: '신청을 찾을 수 없어요' }, 404);
-  if (w.user_id !== me.id) return c.json({ error: '권한이 없어요' }, 403);
+  if (!w) return c.json({ error: tr(c, '신청을 찾을 수 없어요', '申請が見つかりません') }, 404);
+  if (w.user_id !== me.id) return c.json({ error: tr(c, '권한이 없어요', '権限がありません') }, 403);
   if (w.status !== 'requested') {
     return c.json(
-      { error: `이미 처리되고 있어 취소할 수 없어요 (${w.status})` },
+      { error: tr(c, `이미 처리되고 있어 취소할 수 없어요 (${w.status})`, `すでに処理中のため取り消しできません (${w.status})`) },
       409,
     );
   }
 
-  const r = await refundWithdrawal(c.env, wid, '사용자 취소');
-  if (!r.ok) return c.json({ error: r.error || '취소 실패' }, 500);
+  const r = await refundWithdrawal(c.env, wid, '사용자 취소', ['requested'], reqLang(c));
+  // 경쟁으로 이미 처리된 경우(운영자가 먼저 처리 시작 등)는 409, 그 외만 500.
+  if (!r.ok) {
+    return c.json(
+      { error: r.error || tr(c, '취소 실패', '取り消しに失敗しました') },
+      /^(이미 처리된|すでに処理)/.test(r.error ?? '') ? 409 : 500,
+    );
+  }
 
   const u = await c.env.DB
     .prepare('SELECT qta_balance FROM users WHERE id = ?')
@@ -196,7 +206,7 @@ app.post('/admin/:id/reject', adminMiddleware, async (c) => {
   }
 
   const r = await refundWithdrawal(c.env, wid, reason);
-  if (!r.ok) return c.json({ error: r.error || 'reject failed' }, 500);
+  if (!r.ok) return c.json({ error: r.error || 'reject failed' }, r.error?.startsWith('이미 처리된') ? 409 : 500);
   return c.json({ ok: true });
 });
 

@@ -3,7 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../app/l10n.dart';
+import '../app/market.dart';
 import '../app/theme.dart';
+import '../services/auth_service.dart';
 import '../services/qta_service.dart';
 
 /// QTA 적립/사용 내역 화면. 마이페이지 지갑 카드의 "내역" 버튼에서 진입.
@@ -36,19 +39,19 @@ class _QtaLedgerScreenState extends State<QtaLedgerScreen> {
   @override
   Widget build(BuildContext context) {
     final qta = context.watch<QtaService>();
-    final df = DateFormat('M월 d일 HH:mm');
+    final df = DateFormat(context.l10n.myDateTimeFormat);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('QTA 내역'),
+        title: Text(context.l10n.myLedgerTitle),
         actions: [
           TextButton.icon(
             onPressed: () => context.push('/qta/withdraw'),
             icon: const Icon(Icons.send_rounded,
                 size: 16, color: EggplantColors.primary),
-            label: const Text(
-              '출금',
-              style: TextStyle(
+            label: Text(
+              context.l10n.myLedgerWithdraw,
+              style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
                 color: EggplantColors.primary,
@@ -80,8 +83,8 @@ class _QtaLedgerScreenState extends State<QtaLedgerScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('현재 잔액',
-                      style: TextStyle(
+                  Text(context.l10n.myLedgerBalance,
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -117,9 +120,9 @@ class _QtaLedgerScreenState extends State<QtaLedgerScreen> {
             const _RuleBox(),
 
             const SizedBox(height: 20),
-            const Text(
-              '최근 내역',
-              style: TextStyle(
+            Text(
+              context.l10n.myLedgerRecent,
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: EggplantColors.textPrimary,
@@ -141,9 +144,9 @@ class _QtaLedgerScreenState extends State<QtaLedgerScreen> {
                   color: EggplantColors.background,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
-                  '아직 내역이 없어요. 출석·거래로 QTA를 적립해보세요!',
-                  style: TextStyle(
+                child: Text(
+                  context.l10n.myLedgerEmpty,
+                  style: const TextStyle(
                     fontSize: 13,
                     color: EggplantColors.textSecondary,
                     height: 1.5,
@@ -227,6 +230,7 @@ class _ReasonIcon extends StatelessWidget {
     Color color;
     switch (reason) {
       case 'signup':
+      case 'verify_bonus':
         icon = Icons.celebration_outlined;
         color = Colors.orange;
         break;
@@ -250,6 +254,17 @@ class _ReasonIcon extends StatelessWidget {
         icon = Icons.undo_rounded;
         color = Colors.teal;
         break;
+      case 'listing_reward':
+      case 'mining_listing':
+      case 'mining_browse':
+        icon = Icons.bolt_rounded;
+        color = EggplantColors.primary;
+        break;
+      case 'listing_reward_adjust':
+      case 'listing_reward_clawback':
+        icon = Icons.remove_circle_outline;
+        color = Colors.red;
+        break;
       default:
         icon = Icons.account_balance_wallet_outlined;
         color = Colors.grey;
@@ -271,6 +286,8 @@ class _RuleBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.l10n;
+    final market = AppMarket.of(context.watch<AuthService>().user);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -279,28 +296,30 @@ class _RuleBox extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           Row(
             children: [
-              Icon(Icons.info_outline,
+              const Icon(Icons.info_outline,
                   color: EggplantColors.primary, size: 18),
-              SizedBox(width: 8),
-              Text('QTA 적립 규칙',
-                  style: TextStyle(
+              const SizedBox(width: 8),
+              Text(t.myRuleTitle,
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: EggplantColors.textPrimary,
                   )),
             ],
           ),
-          SizedBox(height: 10),
-          _RuleLine(emoji: '🎁', text: '회원가입 시 +500 QTA (1회)'),
-          SizedBox(height: 4),
-          _RuleLine(emoji: '📅', text: '로그인할 때마다 +10 QTA · 하루 3번까지'),
-          SizedBox(height: 4),
-          _RuleLine(emoji: '🤝', text: '거래완료 시 판매자·구매자 각각 +10 QTA'),
-          SizedBox(height: 4),
-          _RuleLine(emoji: '💸', text: '5,000 QTA 부터 5,000 단위로 지갑 출금 가능'),
+          const SizedBox(height: 10),
+          _RuleLine(emoji: '🎁', text: t.myRuleVerify),
+          const SizedBox(height: 4),
+          _RuleLine(emoji: '⛏️', text: t.myRuleListing(AppMarket.moneyPerQta(market))),
+          const SizedBox(height: 4),
+          _RuleLine(emoji: '📅', text: t.myRuleLogin),
+          const SizedBox(height: 4),
+          _RuleLine(emoji: '🤝', text: t.myRuleTrade),
+          const SizedBox(height: 4),
+          _RuleLine(emoji: '💸', text: t.myRuleWithdraw),
         ],
       ),
     );

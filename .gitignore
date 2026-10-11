@@ -50,3 +50,7 @@ server/.env
 # Secrets
 *.keystore
 *.jks
+
+# Flutter 가 빌드할 때 자동 생성 (커밋 금지)
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+release/

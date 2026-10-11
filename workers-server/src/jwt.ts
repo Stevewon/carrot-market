@@ -1,6 +1,7 @@
 import jwt from '@tsndr/cloudflare-worker-jwt';
 import type { Context, MiddlewareHandler, Next } from 'hono';
 import type { AuthPayload, Env, UserRow, Variables } from './types';
+import { tr } from './market';
 
 const JWT_EXPIRY_SECONDS = 60 * 60 * 24 * 90; // 90 days
 
@@ -27,12 +28,53 @@ export async function verifyToken(token: string, secret: string): Promise<AuthPa
   }
 }
 
+export type SessionFailure = 'not_found' | 'token_revoked' | 'device_mismatch' | 'banned';
+
+/** 정지 여부 (migration 0026 user_bans — 행이 있으면 정지). */
+export async function isUserBanned(db: D1Database, userId: string): Promise<boolean> {
+  const row = await db
+    .prepare('SELECT 1 AS b FROM user_bans WHERE user_id = ?')
+    .bind(userId)
+    .first<{ b: number }>();
+  return !!row;
+}
+
+/**
+ * JWT 서명 검증 이후의 DB 기준 세션 검사. REST 미들웨어와 WebSocket(ChatHub)
+ * 접속이 같은 기준을 쓰도록 한 곳에 둔다.
+ *   - `tv` (token_version) + `device_uuid` 가 users 행과 일치해야 함
+ *     (비밀번호 재설정·로그아웃·다른 기기 로그인 시 기존 토큰 무효화)
+ *   - 정지(user_bans)된 계정이면 거부
+ * 통과하면 null, 아니면 실패 사유.
+ */
+export async function checkSession(
+  db: D1Database,
+  payload: Pick<AuthPayload, 'id' | 'device_uuid' | 'tv'>,
+): Promise<SessionFailure | null> {
+  const row = await db
+    .prepare(
+      `SELECT u.token_version, u.device_uuid,
+              EXISTS (SELECT 1 FROM user_bans b WHERE b.user_id = u.id) AS banned
+         FROM users u WHERE u.id = ?`,
+    )
+    .bind(payload.id)
+    .first<{ token_version: number; device_uuid: string; banned: number }>();
+
+  if (!row) return 'not_found';
+  if ((row.token_version ?? 1) !== (payload.tv ?? 1)) return 'token_revoked';
+  if (payload.device_uuid && row.device_uuid && payload.device_uuid !== row.device_uuid) {
+    return 'device_mismatch';
+  }
+  if (row.banned) return 'banned';
+  return null;
+}
+
 /**
  * Required auth middleware.
  *
  * Two layers of validation:
  *   1. JWT signature + expiry via verifyToken.
- *   2. `tv` (token_version) + `device_uuid` must match the row in D1.
+ *   2. checkSession: token_version / device_uuid / 정지 여부를 D1 과 대조.
  *      This means when a password is reset, or another device logs in with
  *      the same wallet, the previous device's token gets 401 on the very
  *      next request — "someone else logging in" no longer sticks.
@@ -48,21 +90,16 @@ export const authMiddleware: MiddlewareHandler<{
   const payload = await verifyToken(token, c.env.JWT_SECRET);
   if (!payload) return c.json({ error: 'Invalid token' }, 401);
 
-  // Re-validate against DB.
-  const row = await c.env.DB
-    .prepare('SELECT token_version, device_uuid FROM users WHERE id = ?')
-    .bind(payload.id)
-    .first<{ token_version: number; device_uuid: string }>();
-
-  if (!row) return c.json({ error: 'Account not found' }, 401);
-
-  const currentTv = row.token_version ?? 1;
-  const tokenTv = payload.tv ?? 1;
-  if (currentTv !== tokenTv) {
-    return c.json({ error: 'Session expired', code: 'token_revoked' }, 401);
-  }
-  if (payload.device_uuid && row.device_uuid && payload.device_uuid !== row.device_uuid) {
-    return c.json({ error: 'Session moved to another device', code: 'device_mismatch' }, 401);
+  const failure = await checkSession(c.env.DB, payload);
+  switch (failure) {
+    case 'not_found':
+      return c.json({ error: 'Account not found' }, 401);
+    case 'token_revoked':
+      return c.json({ error: 'Session expired', code: 'token_revoked' }, 401);
+    case 'device_mismatch':
+      return c.json({ error: 'Session moved to another device', code: 'device_mismatch' }, 401);
+    case 'banned':
+      return c.json({ error: tr(c, '이용이 정지된 계정이에요. 고객센터로 문의해주세요', 'このアカウントは利用停止中です。お問い合わせ窓口までご連絡ください'), code: 'banned' }, 403);
   }
 
   c.set('user', payload);
@@ -78,16 +115,9 @@ export const optionalAuth: MiddlewareHandler<{
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (token) {
     const payload = await verifyToken(token, c.env.JWT_SECRET);
-    if (payload) {
-      // Same DB-backed check as authMiddleware, but silently ignore on failure.
-      const row = await c.env.DB
-        .prepare('SELECT token_version, device_uuid FROM users WHERE id = ?')
-        .bind(payload.id)
-        .first<{ token_version: number; device_uuid: string }>();
-      if (row && (row.token_version ?? 1) === (payload.tv ?? 1) &&
-          (!payload.device_uuid || row.device_uuid === payload.device_uuid)) {
-        c.set('user', payload);
-      }
+    // Same DB-backed check as authMiddleware, but silently ignore on failure.
+    if (payload && (await checkSession(c.env.DB, payload)) === null) {
+      c.set('user', payload);
     }
   }
   await next();

@@ -1,0 +1,14 @@
+{
+  "commonCancel": "キャンセル",
+  "commonConfirm": "OK",
+  "commonDelete": "削除",
+  "commonSave": "保存",
+  "commonClose": "閉じる",
+  "commonRetry": "再試行",
+  "commonLater": "あとで",
+  "commonFree": "無料",
+  "commonLoginRequired": "ログインが必要です",
+  "commonNetworkError": "通信エラーが発生しました。しばらくしてから再度お試しください",
+  "priceKrw": "{amount}ウォン",
+  "priceJpy": "¥{amount}"
+}

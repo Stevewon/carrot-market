@@ -19,7 +19,9 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env, Variables } from './types';
+import { ipCountry, ipMarket } from './market';
 import authRoutes from './routes/auth';
+import callsRoutes from './routes/calls';
 import usersRoutes from './routes/users';
 import productsRoutes from './routes/products';
 import chatRoutes from './routes/chat';
@@ -29,6 +31,7 @@ import hiddenRoutes from './routes/hidden';
 import withdrawalsRoutes from './routes/withdrawals';
 import referralsRoutes from './routes/referrals';
 import adminRoutes from './routes/admin';
+import { processReceiveSends } from './walletReceive';
 
 // Re-export the Durable Object class so Wrangler can bind it
 export { ChatHub } from './chat-hub';
@@ -62,6 +65,13 @@ app.get('/api/health', (c) => c.json(HEALTH));
 // ---------- Root ----------
 app.get('/', (c) => c.json(HEALTH));
 
+// 접속 IP 의 나라로 언어·시장을 정한다 (일본 IP → 일본어·일본 지역·엔화, 그 외 한국어).
+// 앱이 처음 실행할 때 한 번 부르고 기억한다.
+app.get('/api/geo', (c) => {
+  const country = ipCountry(c);
+  return c.json({ country, market: ipMarket(c) });
+});
+
 // ---------- REST routes ----------
 app.route('/api/auth', authRoutes);
 app.route('/api/users', usersRoutes);
@@ -73,6 +83,7 @@ app.route('/api/hidden', hiddenRoutes);
 app.route('/api/withdrawals', withdrawalsRoutes);
 app.route('/api/referrals', referralsRoutes);
 app.route('/api/admin', adminRoutes);
+app.route('/api/calls', callsRoutes);
 
 // ---------- R2 uploads passthrough ----------
 // Serves /uploads/<key> from the R2 bucket with basic caching.
@@ -85,15 +96,34 @@ app.get('/uploads/:key{.+}', async (c) => {
     return c.redirect(`${c.env.PUBLIC_UPLOAD_URL.replace(/\/$/, '')}/${key}`, 302);
   }
 
-  const obj = await c.env.UPLOADS.get(key);
+  // 영상 플레이어(ExoPlayer/AVPlayer)는 Range 로 조각 요청한다. 206 을 못 주면
+  // moov 가 파일 끝에 있는 mp4 는 전체를 다 받아야 재생이 시작된다.
+  const rangeHeader = c.req.header('range');
+  const obj = await c.env.UPLOADS.get(key, rangeHeader ? { range: c.req.raw.headers } : undefined);
   if (!obj) return c.json({ error: 'Not found' }, 404);
 
   const headers = new Headers();
   obj.writeHttpMetadata(headers);
   headers.set('etag', obj.httpEtag);
   headers.set('cache-control', 'public, max-age=31536000, immutable');
+  headers.set('accept-ranges', 'bytes');
   if (!headers.has('content-type')) {
     headers.set('content-type', 'application/octet-stream');
+  }
+  const r = obj.range as { offset?: number; length?: number; suffix?: number } | undefined;
+  if (rangeHeader && r) {
+    let start = 0;
+    let len = obj.size;
+    if (r.suffix !== undefined) {
+      len = Math.min(r.suffix, obj.size);
+      start = obj.size - len;
+    } else {
+      start = r.offset ?? 0;
+      len = r.length ?? obj.size - start;
+    }
+    headers.set('content-range', `bytes ${start}-${start + len - 1}/${obj.size}`);
+    headers.set('content-length', String(len));
+    return new Response(obj.body, { status: 206, headers });
   }
   return new Response(obj.body, { headers });
 });
@@ -139,4 +169,14 @@ app.onError((err, c) => {
   );
 });
 
-export default app;
+// 1분 cron — 1단계 지갑 인증 송금 대기열 처리 (요청 직후 처리가 실패했을 때의 재시도).
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      processReceiveSends(env)
+        .then((r) => { if (r.picked) console.log('[cron] wallet-receive', JSON.stringify(r)); })
+        .catch((e) => console.error('[cron] wallet-receive failed', e)),
+    );
+  },
+};

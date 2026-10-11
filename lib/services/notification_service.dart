@@ -6,6 +6,8 @@ import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../app/l10n.dart';
+
 /// Local notifications for incoming chat messages.
 ///
 /// We don't use Firebase Cloud Messaging — Eggplant is anonymous and we keep
@@ -83,20 +85,21 @@ class NotificationService {
       // Create the chat channel up-front so per-channel mute settings work.
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
+      final t = L10n.current;
       await android?.createNotificationChannel(
-        const AndroidNotificationChannel(
+        AndroidNotificationChannel(
           'chat_messages',
-          '채팅 메시지',
-          description: '새 채팅 메시지 알림',
+          t.chatChannelChatName,
+          description: t.chatChannelChatDesc,
           importance: Importance.high,
         ),
       );
       // 키워드 알림 채널 — 매너온도/사운드를 채팅과 분리해서 사용자가 채널별로 끌 수 있게.
       await android?.createNotificationChannel(
-        const AndroidNotificationChannel(
+        AndroidNotificationChannel(
           'keyword_alerts',
-          '키워드 알림',
-          description: '관심 키워드와 일치하는 새 상품 알림',
+          t.chatChannelKeywordName,
+          description: t.chatChannelKeywordDesc,
           importance: Importance.high,
         ),
       );
@@ -105,18 +108,18 @@ class NotificationService {
       //  채널 사전 생성 안 하면 Android 가 fallback default 채널로 표시 → 사용자가
       //  채널별 음소거 설정 못함 + 일부 OEM 에서 알림 동작 불일치.
       await android?.createNotificationChannel(
-        const AndroidNotificationChannel(
+        AndroidNotificationChannel(
           'eggplant_messages',
-          'Eggplant 메시지',
-          description: '새 채팅 메시지 푸시 알림',
+          t.chatChannelPushName,
+          description: t.chatChannelPushDesc,
           importance: Importance.high,
         ),
       );
       await android?.createNotificationChannel(
-        const AndroidNotificationChannel(
+        AndroidNotificationChannel(
           'eggplant_calls',
-          'Eggplant 전화',
-          description: '음성 통화 수신 알림',
+          t.chatChannelCallName,
+          description: t.chatChannelCallDesc,
           importance: Importance.max,
         ),
       );
@@ -133,24 +136,25 @@ class NotificationService {
     if (!_initialized) {
       await init();
     }
-    final maskedTitle = '🔔 새 매물 알림';
-    final maskedBody = _maskBody ? '관심 키워드와 일치하는 새 상품이 있어요' : '$region · $title';
+    final t = L10n.current;
+    final maskedTitle = t.chatKeywordAlertTitle;
+    final maskedBody = _maskBody ? t.chatKeywordAlertMaskedBody : '$region · $title';
     try {
       await _plugin.show(
         ('kw_$productId').hashCode,
         maskedTitle,
         maskedBody,
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
             'keyword_alerts',
-            '키워드 알림',
-            channelDescription: '관심 키워드와 일치하는 새 상품 알림',
+            t.chatChannelKeywordName,
+            channelDescription: t.chatChannelKeywordDesc,
             importance: Importance.high,
             priority: Priority.high,
-            ticker: '새 매물',
+            ticker: t.chatKeywordTicker,
             category: AndroidNotificationCategory.recommendation,
           ),
-          iOS: DarwinNotificationDetails(
+          iOS: const DarwinNotificationDetails(
             presentAlert: true,
             presentBadge: false,
             presentSound: true,
@@ -178,24 +182,25 @@ class NotificationService {
       await init();
     }
     // 본문 숨김 옵션이 켜져 있으면 발신자/메시지 모두 마스킹.
-    final displayTitle = _maskBody ? '💬 새 메시지가 있어요' : senderNickname;
-    final displayBody = _maskBody ? '메시지를 보려면 탭하세요' : text;
+    final t = L10n.current;
+    final displayTitle = _maskBody ? t.chatMaskedMessageTitle : senderNickname;
+    final displayBody = _maskBody ? t.chatMaskedMessageBody : text;
     try {
       await _plugin.show(
         roomId.hashCode,
         displayTitle,
         displayBody,
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
             'chat_messages',
-            '채팅 메시지',
-            channelDescription: '새 채팅 메시지 알림',
+            t.chatChannelChatName,
+            channelDescription: t.chatChannelChatDesc,
             importance: Importance.high,
             priority: Priority.high,
-            ticker: '새 메시지',
+            ticker: t.chatNewMessage,
             category: AndroidNotificationCategory.message,
           ),
-          iOS: DarwinNotificationDetails(
+          iOS: const DarwinNotificationDetails(
             presentAlert: true,
             presentBadge: true,
             presentSound: true,

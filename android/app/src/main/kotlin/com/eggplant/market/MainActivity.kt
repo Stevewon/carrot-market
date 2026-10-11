@@ -58,10 +58,32 @@ class MainActivity: FlutterActivity() {
         @Volatile
         var pendingNativeAnswerData: Map<String, String>? = null
 
+        /** Flutter 엔진이 살아 있을 때의 통화 브리지 채널 (알림 "통화 종료" 전달용). */
+        @Volatile
+        private var bridgeRef: MethodChannel? = null
+
+        /**
+         * Flutter 통화의 알림 "통화 종료" → Dart CallService.endCall().
+         * BroadcastReceiver 에서 Activity 를 띄우지 않고 바로 전달 (Android 12+ 트램펄린 제한 회피).
+         * @return 전달했으면 true (Flutter 엔진 없음 = false)
+         */
+        fun notifyFlutterEndFromNotification(): Boolean {
+            val ch = bridgeRef ?: return false
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                try {
+                    ch.invokeMethod("onEndFromNotification", mapOf("sessionId" to ""))
+                } catch (e: Exception) {
+                    Log.e(TAG, "[MAIN] onEndFromNotification invoke failed: ${e.message}")
+                }
+            }
+            return true
+        }
+
         // SharedPreferences 이름 — AgoraTokenService 와 동일해야 함
         const val NATIVE_CALL_PREFS = "eggplant_native_call"
         const val KEY_JWT = "jwt_token"
         const val KEY_WALLET = "wallet_address"
+        const val KEY_API_BASE = "api_base"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -171,6 +193,11 @@ class MainActivity: FlutterActivity() {
         }
     }
 
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        if (bridgeRef === nativeCallBridge) bridgeRef = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -257,11 +284,13 @@ class MainActivity: FlutterActivity() {
                     "setAuth" -> {
                         val jwt = call.argument<String>("jwt") ?: ""
                         val wallet = call.argument<String>("walletAddress") ?: ""
+                        val apiBase = call.argument<String>("apiBase") ?: ""
                         try {
                             val prefs = getSharedPreferences(NATIVE_CALL_PREFS, Context.MODE_PRIVATE)
                             prefs.edit().apply {
                                 if (jwt.isNotEmpty()) putString(KEY_JWT, jwt)
                                 if (wallet.isNotEmpty()) putString(KEY_WALLET, wallet.lowercase())
+                                if (apiBase.isNotEmpty()) putString(KEY_API_BASE, apiBase)
                                 apply()
                             }
                             Log.d(TAG, "[MAIN] setAuth: jwtLen=${jwt.length} walletLen=${wallet.length}")
@@ -315,10 +344,36 @@ class MainActivity: FlutterActivity() {
                         CallNotificationHelper.stopRingtone()
                         result.success(true)
                     }
+                    // Flutter 통화(포그라운드에서 걸거나 받은 통화)의 포그라운드 서비스.
+                    //   없으면 통화 중 홈으로 나가거나 화면을 끄면 Android 11+ 가 마이크를 막고
+                    //   14+ 는 프로세스를 얼려 상대가 무음을 듣는다.
+                    //   네이티브 통화 화면이 떠 있으면 그쪽이 이미 서비스를 돌리므로 건드리지 않음.
+                    "startCallService" -> {
+                        if (!AgoraCallActivity.isActive) {
+                            val name = call.argument<String>("peerName") ?: ""
+                            try {
+                                CallForegroundService.start(this@MainActivity, name, "audio")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "[MAIN] startCallService failed: ${e.message}")
+                            }
+                        }
+                        result.success(true)
+                    }
+                    "stopCallService" -> {
+                        if (!AgoraCallActivity.isActive) {
+                            try { CallForegroundService.stop(this@MainActivity) } catch (_: Exception) {}
+                        }
+                        result.success(true)
+                    }
+                    // 네이티브 화면으로 통화 중인지 — Dart 가 새 수신 전화를 "통화 중" 으로 거절할 때 사용.
+                    "isNativeCallActive" -> {
+                        result.success(AgoraCallActivity.isActive || nativeAnswerInProgress)
+                    }
                     else -> result.notImplemented()
                 }
             }
         }
+        bridgeRef = nativeCallBridge
 
         // ★ v1.0.161 (2026-05-12): FSI 권한 체크/요청 MethodChannel.
         //   Android 14 (API 34) 부터 USE_FULL_SCREEN_INTENT 권한이 기본 OFF.

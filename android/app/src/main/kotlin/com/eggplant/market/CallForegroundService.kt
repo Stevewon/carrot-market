@@ -256,7 +256,9 @@ class CallForegroundService : Service() {
             stopSelf()
         }
 
-        return START_STICKY
+        // NOT_STICKY: 프로세스가 죽은 뒤 서비스만 되살아나 통화 없는 "통화 중" 알림이
+        // 남는 것을 막는다 (통화가 끝났으면 다시 시작할 이유가 없음).
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
@@ -640,7 +642,7 @@ class CallForegroundService : Service() {
             // IMPORTANCE_MIN: 상태바 아이콘/알림그림자 안보임 → 알림 드로어 펼쳐야 보임.
             //   Foreground Service 유지를 위해 알림 자체는 필요 — 최소화만.
             nm.createNotificationChannel(NotificationChannel(
-                CHANNEL_ID, "Ongoing Calls", NotificationManager.IMPORTANCE_MIN
+                CHANNEL_ID, AppLang.t(this, "통화 중", "通話中"), NotificationManager.IMPORTANCE_MIN
             ).apply {
                 description = "Shows while a call is in progress"
                 setSound(null, null)
@@ -653,10 +655,11 @@ class CallForegroundService : Service() {
     }
 
     private fun buildOngoingNotification(callerName: String, callType: String): Notification {
-        val typeText = if (callType == "video") "Video call" else "Voice call"
-
-        val returnIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        val typeText = if (callType == "video") AppLang.t(this, "영상통화", "ビデオ通話") else AppLang.t(this, "음성통화", "音声通話")
+        // 네이티브 통화 화면이 떠 있으면 그 화면으로, 아니면(Flutter 통화) 앱으로 복귀.
+        val returnTarget = if (AgoraCallActivity.isActive) AgoraCallActivity::class.java else MainActivity::class.java
+        val returnIntent = Intent(this, returnTarget).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("from_ongoing_call_notification", true)
         }
         val returnPi = PendingIntent.getActivity(
@@ -676,8 +679,8 @@ class CallForegroundService : Service() {
         //   Foreground Service 요건은 충족(알림 자체는 있음).
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_phone_call)
-            .setContentTitle("$typeText with $callerName")
-            .setContentText("Tap to return to call")
+            .setContentTitle(AppLang.t(this, "$callerName 님과 $typeText 중", "${callerName} さんと${typeText}中"))
+            .setContentText(AppLang.t(this, "눌러서 통화 화면으로 돌아가기", "タップして通話画面に戻る"))
             .setContentIntent(returnPi)
             .setOngoing(true)
             .setAutoCancel(false)
@@ -685,8 +688,8 @@ class CallForegroundService : Service() {
             .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setSilent(true)
-            .addAction(android.R.drawable.ic_menu_call, "Return", returnPi)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "End call", endPi)
+            .addAction(android.R.drawable.ic_menu_call, AppLang.t(this, "돌아가기", "戻る"), returnPi)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, AppLang.t(this, "통화 종료", "通話終了"), endPi)
             .build()
     }
 }

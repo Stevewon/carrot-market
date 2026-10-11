@@ -26,6 +26,7 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types';
 import { authMiddleware } from '../jwt';
+import { tr } from '../market';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -74,15 +75,15 @@ app.post('/rooms', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: '잘못된 요청' }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
 
   const peerUserId = (body.peer_user_id || '').trim();
   if (!peerUserId) {
-    return c.json({ error: 'peer_user_id 가 필요해요' }, 400);
+    return c.json({ error: tr(c, 'peer_user_id 가 필요해요', 'peer_user_id が必要です') }, 400);
   }
   if (peerUserId === me.id) {
-    return c.json({ error: '자기 자신과는 채팅할 수 없어요' }, 400);
+    return c.json({ error: tr(c, '자기 자신과는 채팅할 수 없어요', 'ご自身とはチャットできません') }, 400);
   }
 
   // 상대방 닉네임/매너온도만 조회 — wallet, device_uuid 같은 식별자는 절대 노출하지 않음.
@@ -91,7 +92,7 @@ app.post('/rooms', async (c) => {
     .bind(peerUserId)
     .first<{ id: string; nickname: string; manner_score: number }>();
   if (!peer) {
-    return c.json({ error: '상대방을 찾을 수 없어요' }, 404);
+    return c.json({ error: tr(c, '상대방을 찾을 수 없어요', 'お相手が見つかりません') }, 404);
   }
 
   const roomId = makeRoomId(me.id, peer.id, body.product_id);
