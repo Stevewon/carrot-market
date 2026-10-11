@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'app/app_router.dart';
+import 'screens/language_select_screen.dart';
 import 'app/l10n.dart';
 import 'app/responsive.dart';
 import 'app/theme.dart';
@@ -49,20 +50,13 @@ void main() async {
     prefs = await SharedPreferences.getInstance();
   }
 
-  // 언어·시장: 접속 IP 의 나라로 (일본 IP → 일본어). 처음 한 번만 서버에 묻고 기억.
+  // 언어: 고른 값을 읽는다. 아직 안 골랐으면 IP 로 첫 화면의 기본 선택을 정한다.
   try {
     await L10n.init(prefs).timeout(const Duration(seconds: 4));
   } catch (_) {/* 기기 언어로 진행 */}
 
+  // 언어는 사용자가 고른 값 (첫 실행 언어 선택 · 마이페이지 "언어"). 계정 시장은 동네·화폐에만 쓴다.
   final authService = AuthService(prefs);
-  // 로그인하면 계정 시장(가입 때 정해진 값)을 따른다 — 화면 언어도 같이 바뀐다.
-  authService.addListener(() {
-    final m = authService.user?.market;
-    if (m != null && m != L10n.market) {
-      // ignore: discarded_futures
-      L10n.adopt(m, prefs);
-    }
-  });
 
   // loadFromStorage 는 더 이상 await 하지 않는다.
   // - 내부에 /api/auth/me 5초 타임아웃이 있긴 하지만,
@@ -167,11 +161,13 @@ class EggplantApp extends StatelessWidget {
       child: Consumer<AuthService>(
         builder: (context, auth, _) {
           final router = createRouter(auth);
-          return MaterialApp.router(
+          return ValueListenableBuilder<int>(
+            valueListenable: L10n.notifier,
+            builder: (context, _, __) => MaterialApp.router(
             title: 'Eggplant 🍆',
             debugShowCheckedModeBanner: false,
             theme: eggplantTheme,
-            // 기기 언어가 일본어면 일본어, 그 외는 한국어.
+            // 사용자가 고른 언어 (한국어 / 日本語).
             locale: L10n.locale,
             supportedLocales: L10n.supported,
             localizationsDelegates: const [
@@ -187,6 +183,10 @@ class EggplantApp extends StatelessWidget {
               //                         (접근성 모드에서 UI 깨짐 방지)
               //   2. KeyboardDismissOnTap - 빈 영역 탭하면 키보드 닫기 (모든 입력 화면 자동 적용)
               //   3. _IncomingCallOverlay - 어떤 화면에서든 통화 수신을 가로채기
+              // 첫 실행: 큐알챗처럼 언어부터 고른다.
+              if (!L10n.hasChosen) {
+                return const TextScaleClamper(child: LanguageSelectScreen());
+              }
               return TextScaleClamper(
                 child: KeyboardDismissOnTap(
                   child: _IncomingCallOverlay(
@@ -196,6 +196,7 @@ class EggplantApp extends StatelessWidget {
                 ),
               );
             },
+          ),
           );
         },
       ),

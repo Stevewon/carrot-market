@@ -13,21 +13,29 @@ extension L10nX on BuildContext {
   AppLocalizations get l10n => AppLocalizations.of(this);
 }
 
-/// 앱 언어·시장 — 접속 IP 의 나라로 정한다.
-///   일본 IP → 일본어 · 일본 지역 · 엔화, 그 외 → 한국어 · 한국 동네 · 원화.
-/// 처음 실행할 때 서버 GET /api/geo (Cloudflare 가 IP 로 판별) 로 정해 기억하고,
-/// 로그인하면 계정의 시장(users.market)을 따른다.
-/// 시험용: `--dart-define=FORCE_LOCALE=ja` 로 강제.
+/// 앱 언어 — 큐알챗처럼 사용자가 고른다 (첫 실행 언어 선택 화면 · 마이페이지 "언어").
+///   한국어 → 새로 가입하면 한국 회원(한국 동네 · 원화)
+///   日本語 → 새로 가입하면 일본 회원(일본 지역 · 엔화)
+/// 이미 가입한 회원의 지역·화폐는 계정 시장(users.market)을 따르고, 언어만 바뀐다.
+/// 첫 화면의 기본 선택은 접속 IP 의 나라 (GET /api/geo — 일본 IP 면 日本語).
 class L10n {
   static const String _force = String.fromEnvironment('FORCE_LOCALE');
-  static const String _kMarket = 'app_market';
+  static const String _kLang = 'app_lang';
+  static const String _kMarket = 'app_market'; // IP 판별 결과 (기본 선택용)
 
-  static String? _market;
+  static String? _lang;
+  static String? _ipMarket;
 
-  /// runApp 전에 한 번. 저장된 값이 없으면 IP 로 판별 (최대 3초, 실패하면 기기 언어).
+  /// 언어를 고르거나 바꾸면 값이 올라가고 MaterialApp 이 다시 그린다.
+  static final ValueNotifier<int> notifier = ValueNotifier(0);
+
+  /// runApp 전에 한 번. 고른 언어를 읽고, 아직 안 골랐으면 IP 로 기본 선택을 정한다.
   static Future<void> init(SharedPreferences prefs) async {
-    _market = prefs.getString(_kMarket);
-    if (_market != null) return;
+    final saved = prefs.getString(_kLang);
+    _lang = (saved == 'ko' || saved == 'ja') ? saved : null;
+    _ipMarket = prefs.getString(_kMarket);
+    notifier.value++;
+    if (_lang != null || _ipMarket != null) return;
     try {
       final res = await Dio(BaseOptions(
         baseUrl: AppConfig.apiBase,
@@ -36,31 +44,41 @@ class L10n {
       )).get('/api/geo');
       final m = (res.data is Map) ? res.data['market']?.toString() : null;
       if (m == 'jp' || m == 'kr') {
-        _market = m;
+        _ipMarket = m;
         await prefs.setString(_kMarket, m!);
-        return;
       }
     } catch (e) {
       debugPrint('[L10n] geo 판별 실패 → 기기 언어로: $e');
     }
-    // 판별 실패는 저장하지 않는다 → 다음 실행에 다시 IP 로 시도.
-    _market = PlatformDispatcher.instance.locale.languageCode == 'ja' ? 'jp' : 'kr';
+    notifier.value++;
   }
 
-  /// 로그인한 계정의 시장으로 맞춘다 (가입 때 정해진 값이 기준).
-  static Future<void> adopt(String market, SharedPreferences prefs) async {
-    if (market != 'jp' && market != 'kr') return;
-    _market = market;
-    await prefs.setString(_kMarket, market);
+  /// 사용자가 언어를 골랐는지 (안 골랐으면 첫 실행 언어 선택 화면).
+  static bool get hasChosen => _force.isNotEmpty || _lang != null;
+
+  /// 'ko' | 'ja' 저장 후 앱 전체 언어를 바꾼다.
+  static Future<void> setLanguage(String lang, SharedPreferences prefs) async {
+    if (lang != 'ko' && lang != 'ja') return;
+    _lang = lang;
+    await prefs.setString(_kLang, lang);
+    notifier.value++;
   }
 
-  static String get market {
-    if (_force.isNotEmpty) return _force == 'ja' ? 'jp' : 'kr';
-    return _market ??
-        (PlatformDispatcher.instance.locale.languageCode == 'ja' ? 'jp' : 'kr');
+  /// 아직 고르기 전의 기본 언어 — IP(일본 → ja), 판별 실패면 기기 언어.
+  static String get suggested {
+    if (_ipMarket != null) return _ipMarket == 'jp' ? 'ja' : 'ko';
+    return PlatformDispatcher.instance.locale.languageCode == 'ja' ? 'ja' : 'ko';
   }
 
-  static bool get isJapanese => market == 'jp';
+  static String get lang {
+    if (_force.isNotEmpty) return _force == 'ja' ? 'ja' : 'ko';
+    return _lang ?? suggested;
+  }
+
+  static bool get isJapanese => lang == 'ja';
+
+  /// 언어에 따른 시장 — 서버 X-Market 헤더(응답 언어)와 새 가입 시장에 쓴다.
+  static String get market => isJapanese ? 'jp' : 'kr';
 
   static Locale get locale => isJapanese ? const Locale('ja') : const Locale('ko');
 

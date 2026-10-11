@@ -3909,6 +3909,12 @@ abstract class AppLocalizations {
   /// **'출금 인증 완료'**
   String get myVerifyLabelBank;
 
+  /// No description provided for @myMenuLanguage.
+  ///
+  /// In ko, this message translates to:
+  /// **'언어'**
+  String get myMenuLanguage;
+
   /// No description provided for @productCategoryAll.
   ///
   /// In ko, this message translates to:

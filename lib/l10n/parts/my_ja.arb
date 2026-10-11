@@ -211,5 +211,6 @@
   "myWdErrCancelFail": "取り消しに失敗しました",
   "myVerifyLabelNone": "未認証",
   "myVerifyLabelIdentity": "電話番号認証済み",
-  "myVerifyLabelBank": "出金認証済み"
+  "myVerifyLabelBank": "出金認証済み",
+  "myMenuLanguage": "言語"
 }

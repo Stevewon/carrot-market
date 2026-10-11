@@ -2080,6 +2080,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get myVerifyLabelBank => '出金認証済み';
 
   @override
+  String get myMenuLanguage => '言語';
+
+  @override
   String get productCategoryAll => 'すべて';
 
   @override

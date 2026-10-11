@@ -17,7 +17,7 @@
 <title>Eggplant 🍆 — QR로 만나는 동네 중고거래</title>
 <link rel="icon" type="image/png" href="/assets/eggplant-mascot.png" />
 <link rel="apple-touch-icon" href="/assets/eggplant-mascot.png" />
-<link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="/style.css?v=20261012b" />
 </head>
 <body>
 
@@ -43,9 +43,16 @@
       <a href="#verify" data-i18n="nav_verify">인증</a>
       <a href="#faq" data-i18n="nav_faq">FAQ</a>
     </nav>
-    <div class="lang-switch" role="group" aria-label="언어 선택 / 言語">
-      <button type="button" data-lang="ko" aria-pressed="true">한국어</button>
-      <button type="button" data-lang="ja" aria-pressed="false">日本語</button>
+    <div class="lang-select" id="langSelect">
+      <button type="button" class="lang-btn" id="langBtn" aria-haspopup="true" aria-expanded="false" aria-label="언어 선택 / 言語">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18"/></svg>
+        <span id="langLabel">한국어</span>
+        <svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="lang-menu" id="langMenu" role="menu">
+        <button type="button" role="menuitem" data-lang="ko"><b>KR</b> 한국어</button>
+        <button type="button" role="menuitem" data-lang="ja"><b>JP</b> 日本語</button>
+      </div>
     </div>
     <a class="nav-cta" href="#download" data-i18n="nav_cta">앱 받기</a>
     <button class="nav-burger" id="burger" aria-label="메뉴 열기" data-i18n-aria="aria_menu" aria-expanded="false">
@@ -439,6 +446,6 @@
   </div>
 </footer>
 
-<script src="/main.js" defer></script>
+<script src="/main.js?v=20261012b" defer></script>
 </body>
 </html>

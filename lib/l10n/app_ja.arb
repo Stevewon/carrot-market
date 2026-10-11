@@ -635,6 +635,7 @@
   "myVerifyLabelNone": "未認証",
   "myVerifyLabelIdentity": "電話番号認証済み",
   "myVerifyLabelBank": "出金認証済み",
+  "myMenuLanguage": "言語",
   "productCategoryAll": "すべて",
   "productCategoryDigital": "デジタル機器",
   "productCategoryAppliance": "家電",

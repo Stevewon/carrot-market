@@ -413,5 +413,6 @@
   "myWdErrCancelFail": "취소에 실패했어요",
   "myVerifyLabelNone": "미인증",
   "myVerifyLabelIdentity": "본인인증 완료",
-  "myVerifyLabelBank": "출금 인증 완료"
+  "myVerifyLabelBank": "출금 인증 완료",
+  "myMenuLanguage": "언어"
 }

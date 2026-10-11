@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/constants.dart';
 import '../../app/l10n.dart';
+import '../language_select_screen.dart';
 import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../services/auth_service.dart';
@@ -255,6 +256,14 @@ class _MyTabState extends State<MyTab> {
               onTap: () => context.push('/hidden'),
             ),
             const Divider(height: 1),
+            _MenuTile(
+              icon: Icons.language_rounded,
+              title: context.l10n.myMenuLanguage,
+              trailing: L10n.isJapanese ? '日本語' : '한국어',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (ctx) => LanguageSelectScreen(onDone: () => Navigator.of(ctx).pop()),
+              )),
+            ),
             _MenuTile(
               icon: Icons.shield_outlined,
               title: context.l10n.myMenuPrivacy,

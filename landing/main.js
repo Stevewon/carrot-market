@@ -263,9 +263,11 @@
     });
     document.title = lang === 'ja' ? I18N_JA.title : originalTitle;
     document.documentElement.lang = lang;
-    document.querySelectorAll('.lang-switch [data-lang]').forEach((b) => {
+    document.querySelectorAll('.lang-menu [data-lang]').forEach((b) => {
       b.setAttribute('aria-pressed', String(b.getAttribute('data-lang') === lang));
     });
+    const lbl = document.getElementById('langLabel');
+    if (lbl) lbl.textContent = lang === 'ja' ? '日本語' : '한국어';
     current = lang;
   }
 
@@ -280,12 +282,31 @@
     try { return norm(localStorage.getItem(KEY)); } catch (e) { return null; }
   }
 
+  // 드롭다운 열기/닫기 (qrchat.io 방식)
+  const langBtn = document.getElementById('langBtn');
+  const langMenu = document.getElementById('langMenu');
+  const closeMenu = () => {
+    if (!langMenu) return;
+    langMenu.classList.remove('open');
+    if (langBtn) langBtn.setAttribute('aria-expanded', 'false');
+  };
+  if (langBtn && langMenu) {
+    langBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = langMenu.classList.toggle('open');
+      langBtn.setAttribute('aria-expanded', String(open));
+    });
+    document.addEventListener('click', closeMenu);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+  }
+
   // 사용자가 직접 고른 언어
-  document.querySelectorAll('.lang-switch [data-lang]').forEach((b) => {
+  document.querySelectorAll('.lang-menu [data-lang]').forEach((b) => {
     b.addEventListener('click', () => {
       const l = b.getAttribute('data-lang');
       try { localStorage.setItem(KEY, l); } catch (e) { /* 저장 못 해도 화면은 바뀜 */ }
       apply(l);
+      closeMenu();
       try {
         const u = new URL(location.href);
         if (l === 'ja') u.searchParams.set('lang', 'ja'); else u.searchParams.delete('lang');

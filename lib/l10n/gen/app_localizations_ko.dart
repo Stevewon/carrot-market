@@ -2079,6 +2079,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get myVerifyLabelBank => '출금 인증 완료';
 
   @override
+  String get myMenuLanguage => '언어';
+
+  @override
   String get productCategoryAll => '전체';
 
   @override
