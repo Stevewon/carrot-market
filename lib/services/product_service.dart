@@ -89,9 +89,13 @@ class ProductService extends ChangeNotifier {
     }
   }
 
-  Future<Product?> fetchById(String id) async {
+  /// [peek] — 조회수·둘러보기 채굴 없이 읽기만 (채팅방 배너 등 보조 조회용).
+  Future<Product?> fetchById(String id, {bool peek = false}) async {
     try {
-      final res = await auth.api.get('/api/products/$id');
+      final res = await auth.api.get(
+        '/api/products/$id',
+        query: peek ? const {'peek': '1'} : null,
+      );
       final data = res.data as Map<String, dynamic>;
       // 응답에 mining 필드(둘러보기 채굴 진행도)가 있으면 콜백으로 넘긴다.
       final mining = data['mining'];
@@ -560,6 +564,8 @@ class ProductService extends ChangeNotifier {
       bumpedAt: p.bumpedAt,
       buyerId: p.buyerId,
       buyerConfirmedAt: p.buyerConfirmedAt,
+      buyerNickname: p.buyerNickname,
+      myReviewRating: p.myReviewRating,
     );
   }
 
@@ -591,6 +597,8 @@ class ProductService extends ChangeNotifier {
       bumpedAt: p.bumpedAt,
       buyerId: p.buyerId,
       buyerConfirmedAt: p.buyerConfirmedAt,
+      buyerNickname: p.buyerNickname,
+      myReviewRating: p.myReviewRating,
     );
   }
 
@@ -630,9 +638,9 @@ class ProductService extends ChangeNotifier {
     }
   }
 
-  /// Submit a review for a 'sold' product.
-  ///   [rating]   : 'good' | 'soso' | 'bad'
-  ///   [tags]     : up to 8 short labels (e.g. '시간약속을 잘 지켜요').
+  /// Submit a review for a 'sold' product (당근식 3단계 — v2).
+  ///   [rating]   : 'best' | 'good' | 'bad'
+  ///   [tags]     : 매너 항목 코드 ('kind', 'late' …), 최소 1개. 서버가 역할별로 검사.
   ///   [comment]  : optional free-form text (≤ 300 chars on server).
   ///
   /// Returns null on success, Korean error string on failure.
@@ -646,6 +654,7 @@ class ProductService extends ChangeNotifier {
       final res = await auth.api.post(
         '/api/products/$productId/review',
         data: {
+          'v': 2,
           'rating': rating,
           'tags': tags,
           'comment': comment,
@@ -680,6 +689,21 @@ class ProductService extends ChangeNotifier {
     }
   }
 
+  /// 구매 내역 — 판매자가 나를 구매자로 지정한 거래완료 상품 (GET /api/products/my/purchases).
+  /// 각 상품의 [Product.myReviewRating] 으로 후기 보냈는지 안다. 실패하면 null.
+  Future<List<Product>?> fetchMyPurchases() async {
+    try {
+      final res = await auth.api.get('/api/products/my/purchases');
+      final list = (res.data?['products'] as List?) ?? [];
+      return list
+          .map((e) => Product.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (e) {
+      debugPrint('fetchMyPurchases error: $e');
+      return null;
+    }
+  }
+
   /// Public profile of a user (nickname, region, manner_score, stats).
   Future<Map<String, dynamic>?> fetchUserProfile(String userId) async {
     try {
@@ -691,15 +715,17 @@ class ProductService extends ChangeNotifier {
     }
   }
 
-  /// Reviews received by a user (newest first).
+  /// Reviews received by a user (newest first). 'bad' 평가는 서버가 빼고 준다.
+  /// [withComment] 면 후기 글이 있는 것만 ("받은 거래 후기").
   Future<List<Review>> fetchUserReviews(String userId,
-      {int limit = 20, DateTime? before}) async {
+      {int limit = 20, DateTime? before, bool withComment = false}) async {
     try {
       final res = await auth.api.get(
         '/api/users/$userId/reviews',
         query: {
           'limit': limit,
-          if (before != null) 'before': before.toIso8601String(),
+          if (before != null) 'before': _serverTime(before),
+          if (withComment) 'with_comment': '1',
         },
       );
       final list = (res.data?['reviews'] as List?) ?? [];
@@ -711,6 +737,13 @@ class ProductService extends ChangeNotifier {
       return [];
     }
   }
+}
+
+/// 서버 created_at 형식('YYYY-MM-DD HH:MM:SS', UTC)으로 — 페이지 커서 비교가 문자열 비교라서
+/// ISO 'T' 형식을 보내면 같은 날짜의 행이 잘못 걸러진다.
+String _serverTime(DateTime t) {
+  final s = t.toIso8601String().replaceFirst('T', ' ');
+  return s.length >= 19 ? s.substring(0, 19) : s;
 }
 
 /// DioException 에서 서버가 준 한국어 오류 문구를 꺼낸다 (없으면 null).

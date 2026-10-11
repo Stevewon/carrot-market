@@ -2841,4 +2841,172 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get regionNoResults => '該当する地域がありません';
+
+  @override
+  String reviewQuestion(String nickname) {
+    return '$nicknameさんとの取引はいかがでしたか？';
+  }
+
+  @override
+  String get reviewQuestionSub => '評価はお互いのマナー温度に反映されます';
+
+  @override
+  String get reviewRatingBad => '残念だった';
+
+  @override
+  String get reviewRatingGood => '良かった';
+
+  @override
+  String get reviewRatingBest => '最高だった';
+
+  @override
+  String get reviewRatingSoso => '普通';
+
+  @override
+  String get reviewTagsTitleGood => 'どんなところが良かったですか？';
+
+  @override
+  String get reviewTagsTitleBad => 'どんなところが残念でしたか？';
+
+  @override
+  String get reviewTagsSub => '当てはまるものをすべて選んでください';
+
+  @override
+  String get reviewBadPrivateNotice =>
+      '「残念だった」の評価と選んだ項目は相手のプロフィールには公開されず、マナー温度にのみ反映されます';
+
+  @override
+  String get reviewCommentTitle => '取引のコメントを書きましょう';
+
+  @override
+  String get reviewCommentTitleBad => '残念だった点を教えてください';
+
+  @override
+  String reviewCommentOptional(String nickname) {
+    return '任意です。コメントは$nicknameさんのプロフィールに公開されます';
+  }
+
+  @override
+  String get reviewCommentOptionalBad => '任意です。この内容は公開されません';
+
+  @override
+  String reviewCommentHint(String nickname) {
+    return '$nicknameさんに感謝の気持ちを伝えましょう';
+  }
+
+  @override
+  String get reviewCommentHintBad => 'どんな点が残念でしたか？';
+
+  @override
+  String get reviewNext => '次へ';
+
+  @override
+  String get reviewBack => '戻る';
+
+  @override
+  String get reviewSubmit => '評価を送信する';
+
+  @override
+  String get reviewSent => '取引の評価を送信しました';
+
+  @override
+  String get reviewSendButton => '取引を評価する';
+
+  @override
+  String get reviewViewMine => '送った評価を見る';
+
+  @override
+  String reviewSentTo(String nickname) {
+    return '$nicknameさんに送った評価';
+  }
+
+  @override
+  String get reviewPromptBody => '評価はお互いのマナー温度に反映されます';
+
+  @override
+  String get reviewPromptDone => '評価を送信しました。気持ちのよいお取引をありがとうございました！';
+
+  @override
+  String get reviewRoleBuyer => '購入者';
+
+  @override
+  String get reviewRoleSeller => '出品者';
+
+  @override
+  String get reviewPraiseTitle => 'もらったマナー評価';
+
+  @override
+  String get reviewPraiseMore => 'もっと見る';
+
+  @override
+  String get reviewPraiseLess => '閉じる';
+
+  @override
+  String get reviewNoPraise => 'まだマナー評価はありません';
+
+  @override
+  String get reviewReceivedTitle => 'もらった取引コメント';
+
+  @override
+  String get reviewNoComments => 'まだ取引コメントはありません';
+
+  @override
+  String get reviewPurchasesTitle => '購入した商品';
+
+  @override
+  String get reviewPurchasesEmpty => '購入した商品はありません';
+
+  @override
+  String get reviewPurchasesLoadFailed => '購入履歴を読み込めませんでした';
+
+  @override
+  String get reviewCounterpartFallback => '取引相手';
+
+  @override
+  String get reviewTagKind => '親切で丁寧な対応でした';
+
+  @override
+  String get reviewTagPunctual => '時間を守ってくれました';
+
+  @override
+  String get reviewTagFastReply => '返信が早かったです';
+
+  @override
+  String get reviewTagAsDescribed => '商品の状態が説明どおりでした';
+
+  @override
+  String get reviewTagDetailedDesc => '商品説明が詳しかったです';
+
+  @override
+  String get reviewTagGoodPrice => '良い商品をお手頃価格で出品しています';
+
+  @override
+  String get reviewTagFreeShare => '無料で譲ってくれました';
+
+  @override
+  String get reviewTagPaidOnTime => '期日どおりに支払い・受け取りをしてくれました';
+
+  @override
+  String get reviewTagNoHaggle => '無理な値下げ交渉がありませんでした';
+
+  @override
+  String get reviewTagLate => '時間を守りませんでした';
+
+  @override
+  String get reviewTagSlowReply => '返信が遅かったです';
+
+  @override
+  String get reviewTagRude => '対応が不親切でした';
+
+  @override
+  String get reviewTagNotAsDescribed => '商品の状態が説明と違いました';
+
+  @override
+  String get reviewTagPriceChange => '急に価格を変更されました';
+
+  @override
+  String get reviewTagNoShow => '待ち合わせ場所に来ませんでした';
+
+  @override
+  String get reviewTagHaggle => '無理な値下げ交渉をされました';
 }

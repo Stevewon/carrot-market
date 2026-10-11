@@ -5306,6 +5306,324 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'검색 결과가 없어요'**
   String get regionNoResults;
+
+  /// No description provided for @reviewQuestion.
+  ///
+  /// In ko, this message translates to:
+  /// **'{nickname}님과 거래가 어떠셨나요?'**
+  String reviewQuestion(String nickname);
+
+  /// No description provided for @reviewQuestionSub.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 후기는 서로의 매너온도에 반영돼요'**
+  String get reviewQuestionSub;
+
+  /// No description provided for @reviewRatingBad.
+  ///
+  /// In ko, this message translates to:
+  /// **'별로예요'**
+  String get reviewRatingBad;
+
+  /// No description provided for @reviewRatingGood.
+  ///
+  /// In ko, this message translates to:
+  /// **'좋아요'**
+  String get reviewRatingGood;
+
+  /// No description provided for @reviewRatingBest.
+  ///
+  /// In ko, this message translates to:
+  /// **'최고예요'**
+  String get reviewRatingBest;
+
+  /// No description provided for @reviewRatingSoso.
+  ///
+  /// In ko, this message translates to:
+  /// **'보통이에요'**
+  String get reviewRatingSoso;
+
+  /// No description provided for @reviewTagsTitleGood.
+  ///
+  /// In ko, this message translates to:
+  /// **'어떤 점이 좋았나요?'**
+  String get reviewTagsTitleGood;
+
+  /// No description provided for @reviewTagsTitleBad.
+  ///
+  /// In ko, this message translates to:
+  /// **'어떤 점이 별로였나요?'**
+  String get reviewTagsTitleBad;
+
+  /// No description provided for @reviewTagsSub.
+  ///
+  /// In ko, this message translates to:
+  /// **'해당하는 항목을 모두 골라주세요'**
+  String get reviewTagsSub;
+
+  /// No description provided for @reviewBadPrivateNotice.
+  ///
+  /// In ko, this message translates to:
+  /// **'별로예요 평가와 고른 항목은 상대방 프로필에 공개되지 않고 매너온도에만 반영돼요'**
+  String get reviewBadPrivateNotice;
+
+  /// No description provided for @reviewCommentTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'따뜻한 거래 후기를 남겨주세요'**
+  String get reviewCommentTitle;
+
+  /// No description provided for @reviewCommentTitleBad.
+  ///
+  /// In ko, this message translates to:
+  /// **'아쉬웠던 점을 알려주세요'**
+  String get reviewCommentTitleBad;
+
+  /// No description provided for @reviewCommentOptional.
+  ///
+  /// In ko, this message translates to:
+  /// **'선택 사항이에요. 후기 글은 {nickname}님의 프로필에 공개돼요'**
+  String reviewCommentOptional(String nickname);
+
+  /// No description provided for @reviewCommentOptionalBad.
+  ///
+  /// In ko, this message translates to:
+  /// **'선택 사항이에요. 이 내용은 공개되지 않아요'**
+  String get reviewCommentOptionalBad;
+
+  /// No description provided for @reviewCommentHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'{nickname}님에게 고마운 마음을 전해보세요'**
+  String reviewCommentHint(String nickname);
+
+  /// No description provided for @reviewCommentHintBad.
+  ///
+  /// In ko, this message translates to:
+  /// **'어떤 점이 아쉬웠나요?'**
+  String get reviewCommentHintBad;
+
+  /// No description provided for @reviewNext.
+  ///
+  /// In ko, this message translates to:
+  /// **'다음'**
+  String get reviewNext;
+
+  /// No description provided for @reviewBack.
+  ///
+  /// In ko, this message translates to:
+  /// **'이전'**
+  String get reviewBack;
+
+  /// No description provided for @reviewSubmit.
+  ///
+  /// In ko, this message translates to:
+  /// **'후기 보내기'**
+  String get reviewSubmit;
+
+  /// No description provided for @reviewSent.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 후기를 보냈어요'**
+  String get reviewSent;
+
+  /// No description provided for @reviewSendButton.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 후기 보내기'**
+  String get reviewSendButton;
+
+  /// No description provided for @reviewViewMine.
+  ///
+  /// In ko, this message translates to:
+  /// **'보낸 후기 보기'**
+  String get reviewViewMine;
+
+  /// No description provided for @reviewSentTo.
+  ///
+  /// In ko, this message translates to:
+  /// **'{nickname}님에게 보낸 후기'**
+  String reviewSentTo(String nickname);
+
+  /// No description provided for @reviewPromptBody.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 후기를 남기면 서로의 매너온도에 반영돼요'**
+  String get reviewPromptBody;
+
+  /// No description provided for @reviewPromptDone.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 후기를 보냈어요. 따뜻한 거래 감사합니다!'**
+  String get reviewPromptDone;
+
+  /// No description provided for @reviewRoleBuyer.
+  ///
+  /// In ko, this message translates to:
+  /// **'구매자'**
+  String get reviewRoleBuyer;
+
+  /// No description provided for @reviewRoleSeller.
+  ///
+  /// In ko, this message translates to:
+  /// **'판매자'**
+  String get reviewRoleSeller;
+
+  /// No description provided for @reviewPraiseTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'받은 매너 칭찬'**
+  String get reviewPraiseTitle;
+
+  /// No description provided for @reviewPraiseMore.
+  ///
+  /// In ko, this message translates to:
+  /// **'더보기'**
+  String get reviewPraiseMore;
+
+  /// No description provided for @reviewPraiseLess.
+  ///
+  /// In ko, this message translates to:
+  /// **'접기'**
+  String get reviewPraiseLess;
+
+  /// No description provided for @reviewNoPraise.
+  ///
+  /// In ko, this message translates to:
+  /// **'아직 받은 매너 칭찬이 없어요'**
+  String get reviewNoPraise;
+
+  /// No description provided for @reviewReceivedTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'받은 거래 후기'**
+  String get reviewReceivedTitle;
+
+  /// No description provided for @reviewNoComments.
+  ///
+  /// In ko, this message translates to:
+  /// **'아직 받은 거래 후기가 없어요'**
+  String get reviewNoComments;
+
+  /// No description provided for @reviewPurchasesTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'구매 내역'**
+  String get reviewPurchasesTitle;
+
+  /// No description provided for @reviewPurchasesEmpty.
+  ///
+  /// In ko, this message translates to:
+  /// **'구매한 상품이 없어요'**
+  String get reviewPurchasesEmpty;
+
+  /// No description provided for @reviewPurchasesLoadFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'구매 내역을 불러오지 못했어요'**
+  String get reviewPurchasesLoadFailed;
+
+  /// No description provided for @reviewCounterpartFallback.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 상대'**
+  String get reviewCounterpartFallback;
+
+  /// No description provided for @reviewTagKind.
+  ///
+  /// In ko, this message translates to:
+  /// **'친절하고 매너가 좋아요'**
+  String get reviewTagKind;
+
+  /// No description provided for @reviewTagPunctual.
+  ///
+  /// In ko, this message translates to:
+  /// **'시간 약속을 잘 지켜요'**
+  String get reviewTagPunctual;
+
+  /// No description provided for @reviewTagFastReply.
+  ///
+  /// In ko, this message translates to:
+  /// **'응답이 빨라요'**
+  String get reviewTagFastReply;
+
+  /// No description provided for @reviewTagAsDescribed.
+  ///
+  /// In ko, this message translates to:
+  /// **'상품 상태가 설명한 것과 같아요'**
+  String get reviewTagAsDescribed;
+
+  /// No description provided for @reviewTagDetailedDesc.
+  ///
+  /// In ko, this message translates to:
+  /// **'상품 설명이 자세해요'**
+  String get reviewTagDetailedDesc;
+
+  /// No description provided for @reviewTagGoodPrice.
+  ///
+  /// In ko, this message translates to:
+  /// **'좋은 상품을 저렴하게 판매해요'**
+  String get reviewTagGoodPrice;
+
+  /// No description provided for @reviewTagFreeShare.
+  ///
+  /// In ko, this message translates to:
+  /// **'무료로 나눠주셨어요'**
+  String get reviewTagFreeShare;
+
+  /// No description provided for @reviewTagPaidOnTime.
+  ///
+  /// In ko, this message translates to:
+  /// **'제시간에 결제·수령했어요'**
+  String get reviewTagPaidOnTime;
+
+  /// No description provided for @reviewTagNoHaggle.
+  ///
+  /// In ko, this message translates to:
+  /// **'무리하게 가격을 깎지 않아요'**
+  String get reviewTagNoHaggle;
+
+  /// No description provided for @reviewTagLate.
+  ///
+  /// In ko, this message translates to:
+  /// **'시간 약속을 안 지켜요'**
+  String get reviewTagLate;
+
+  /// No description provided for @reviewTagSlowReply.
+  ///
+  /// In ko, this message translates to:
+  /// **'응답이 느려요'**
+  String get reviewTagSlowReply;
+
+  /// No description provided for @reviewTagRude.
+  ///
+  /// In ko, this message translates to:
+  /// **'불친절해요'**
+  String get reviewTagRude;
+
+  /// No description provided for @reviewTagNotAsDescribed.
+  ///
+  /// In ko, this message translates to:
+  /// **'상품 상태가 설명과 달라요'**
+  String get reviewTagNotAsDescribed;
+
+  /// No description provided for @reviewTagPriceChange.
+  ///
+  /// In ko, this message translates to:
+  /// **'가격을 갑자기 바꿔요'**
+  String get reviewTagPriceChange;
+
+  /// No description provided for @reviewTagNoShow.
+  ///
+  /// In ko, this message translates to:
+  /// **'약속 장소에 나타나지 않았어요'**
+  String get reviewTagNoShow;
+
+  /// No description provided for @reviewTagHaggle.
+  ///
+  /// In ko, this message translates to:
+  /// **'무리하게 가격을 깎아요'**
+  String get reviewTagHaggle;
 }
 
 class _AppLocalizationsDelegate

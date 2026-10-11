@@ -468,6 +468,16 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
         }
         return;
       }
+      // 받은 거래 후기 알림 → 프로필.
+      final userId = data['user_id']?.toString() ?? '';
+      if (userId.isNotEmpty) {
+        try {
+          widget.router.push('/user/$userId');
+        } catch (e) {
+          debugPrint('[push-msg] profile route failed: $e');
+        }
+        return;
+      }
       final roomId = data['room_id']?.toString() ?? '';
       if (roomId.isEmpty) return;
       // ★ 7차 푸시 (이슈 3): 알림 탭 → 채팅방 진입 직전,

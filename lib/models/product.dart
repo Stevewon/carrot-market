@@ -71,6 +71,10 @@ class Product {
   /// 구매자가 거래를 확인한 시각 (QTA 결제 + 거래 보너스 실행). NULL = 미확인.
   /// 판매자가 거래완료로 지정해도 구매자가 확인하기 전까지는 결제되지 않는다.
   final DateTime? buyerConfirmedAt;
+  /// 구매자 닉네임 — 서버가 거래 당사자에게만 준다 (판매자가 구매자에게 후기 보낼 때 표시).
+  final String? buyerNickname;
+  /// 내가 이 상품에 보낸 후기의 평가 — 구매 내역(GET /my/purchases)에서만 온다. null = 아직 안 보냄.
+  final String? myReviewRating;
 
   Product({
     required this.id,
@@ -96,6 +100,8 @@ class Product {
     this.bumpedAt,
     this.buyerId,
     this.buyerConfirmedAt,
+    this.buyerNickname,
+    this.myReviewRating,
   });
 
   /// Display-friendly seller temperature, e.g. `36.5`.
@@ -171,6 +177,8 @@ class Product {
       buyerConfirmedAt: json['buyer_confirmed_at'] != null
           ? DateTime.tryParse(json['buyer_confirmed_at'].toString())
           : null,
+      buyerNickname: json['buyer_nickname']?.toString(),
+      myReviewRating: json['my_review_rating']?.toString(),
     );
   }
 

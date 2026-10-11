@@ -2840,4 +2840,172 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get regionNoResults => '검색 결과가 없어요';
+
+  @override
+  String reviewQuestion(String nickname) {
+    return '$nickname님과 거래가 어떠셨나요?';
+  }
+
+  @override
+  String get reviewQuestionSub => '거래 후기는 서로의 매너온도에 반영돼요';
+
+  @override
+  String get reviewRatingBad => '별로예요';
+
+  @override
+  String get reviewRatingGood => '좋아요';
+
+  @override
+  String get reviewRatingBest => '최고예요';
+
+  @override
+  String get reviewRatingSoso => '보통이에요';
+
+  @override
+  String get reviewTagsTitleGood => '어떤 점이 좋았나요?';
+
+  @override
+  String get reviewTagsTitleBad => '어떤 점이 별로였나요?';
+
+  @override
+  String get reviewTagsSub => '해당하는 항목을 모두 골라주세요';
+
+  @override
+  String get reviewBadPrivateNotice =>
+      '별로예요 평가와 고른 항목은 상대방 프로필에 공개되지 않고 매너온도에만 반영돼요';
+
+  @override
+  String get reviewCommentTitle => '따뜻한 거래 후기를 남겨주세요';
+
+  @override
+  String get reviewCommentTitleBad => '아쉬웠던 점을 알려주세요';
+
+  @override
+  String reviewCommentOptional(String nickname) {
+    return '선택 사항이에요. 후기 글은 $nickname님의 프로필에 공개돼요';
+  }
+
+  @override
+  String get reviewCommentOptionalBad => '선택 사항이에요. 이 내용은 공개되지 않아요';
+
+  @override
+  String reviewCommentHint(String nickname) {
+    return '$nickname님에게 고마운 마음을 전해보세요';
+  }
+
+  @override
+  String get reviewCommentHintBad => '어떤 점이 아쉬웠나요?';
+
+  @override
+  String get reviewNext => '다음';
+
+  @override
+  String get reviewBack => '이전';
+
+  @override
+  String get reviewSubmit => '후기 보내기';
+
+  @override
+  String get reviewSent => '거래 후기를 보냈어요';
+
+  @override
+  String get reviewSendButton => '거래 후기 보내기';
+
+  @override
+  String get reviewViewMine => '보낸 후기 보기';
+
+  @override
+  String reviewSentTo(String nickname) {
+    return '$nickname님에게 보낸 후기';
+  }
+
+  @override
+  String get reviewPromptBody => '거래 후기를 남기면 서로의 매너온도에 반영돼요';
+
+  @override
+  String get reviewPromptDone => '거래 후기를 보냈어요. 따뜻한 거래 감사합니다!';
+
+  @override
+  String get reviewRoleBuyer => '구매자';
+
+  @override
+  String get reviewRoleSeller => '판매자';
+
+  @override
+  String get reviewPraiseTitle => '받은 매너 칭찬';
+
+  @override
+  String get reviewPraiseMore => '더보기';
+
+  @override
+  String get reviewPraiseLess => '접기';
+
+  @override
+  String get reviewNoPraise => '아직 받은 매너 칭찬이 없어요';
+
+  @override
+  String get reviewReceivedTitle => '받은 거래 후기';
+
+  @override
+  String get reviewNoComments => '아직 받은 거래 후기가 없어요';
+
+  @override
+  String get reviewPurchasesTitle => '구매 내역';
+
+  @override
+  String get reviewPurchasesEmpty => '구매한 상품이 없어요';
+
+  @override
+  String get reviewPurchasesLoadFailed => '구매 내역을 불러오지 못했어요';
+
+  @override
+  String get reviewCounterpartFallback => '거래 상대';
+
+  @override
+  String get reviewTagKind => '친절하고 매너가 좋아요';
+
+  @override
+  String get reviewTagPunctual => '시간 약속을 잘 지켜요';
+
+  @override
+  String get reviewTagFastReply => '응답이 빨라요';
+
+  @override
+  String get reviewTagAsDescribed => '상품 상태가 설명한 것과 같아요';
+
+  @override
+  String get reviewTagDetailedDesc => '상품 설명이 자세해요';
+
+  @override
+  String get reviewTagGoodPrice => '좋은 상품을 저렴하게 판매해요';
+
+  @override
+  String get reviewTagFreeShare => '무료로 나눠주셨어요';
+
+  @override
+  String get reviewTagPaidOnTime => '제시간에 결제·수령했어요';
+
+  @override
+  String get reviewTagNoHaggle => '무리하게 가격을 깎지 않아요';
+
+  @override
+  String get reviewTagLate => '시간 약속을 안 지켜요';
+
+  @override
+  String get reviewTagSlowReply => '응답이 느려요';
+
+  @override
+  String get reviewTagRude => '불친절해요';
+
+  @override
+  String get reviewTagNotAsDescribed => '상품 상태가 설명과 달라요';
+
+  @override
+  String get reviewTagPriceChange => '가격을 갑자기 바꿔요';
+
+  @override
+  String get reviewTagNoShow => '약속 장소에 나타나지 않았어요';
+
+  @override
+  String get reviewTagHaggle => '무리하게 가격을 깎아요';
 }

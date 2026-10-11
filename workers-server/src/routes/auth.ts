@@ -212,8 +212,8 @@ app.post('/sso/exchange', async (c) => {
       await c.env.DB
         .prepare(
           `INSERT INTO users
-             (id, nickname, device_uuid, wallet_address, password_hash, region, token_version, market)
-           VALUES (?, ?, ?, ?, NULL, ?, 1, ?)`,
+             (id, nickname, device_uuid, wallet_address, password_hash, region, token_version, market, manner_score)
+           VALUES (?, ?, ?, ?, NULL, ?, 1, ?, 365)`,
         )
         .bind(id, finalNick, device_uuid, walletNorm, ssoRegion, ssoMarket)
         .run();
@@ -530,8 +530,8 @@ app.post('/register', async (c) => {
       .prepare(`
         INSERT INTO users
           (id, nickname, device_uuid, wallet_address, password_hash, region, token_version,
-           wallet_verified_at, market)
-        VALUES (?, ?, ?, ?, ?, ?, 1, CASE WHEN ? IS NULL THEN NULL ELSE datetime('now') END, ?)
+           wallet_verified_at, market, manner_score)
+        VALUES (?, ?, ?, ?, ?, ?, 1, CASE WHEN ? IS NULL THEN NULL ELSE datetime('now') END, ?, 365)
       `)
       .bind(id, cleanNick, device_uuid, walletNorm, hash, region || null, walletNorm, market)
       .run();

@@ -17,9 +17,9 @@ import '../services/product_service.dart';
 ///
 /// Shows:
 ///   • Nickname, region, manner_score (당근식 매너온도)
-///   • Aggregate review counts (좋아요 / 보통 / 별로)
-///   • Top tags (most common feedback)
-///   • Reviews list (paginated)
+///   • 받은 매너 칭찬 — 항목별 개수 (상위 5개 + 더보기)
+///   • 받은 거래 후기 — 후기 글이 있는 공개 후기 (paginated)
+/// '별로예요' 평가는 서버가 공개하지 않는다 (매너온도에만 반영).
 class UserProfileScreen extends StatefulWidget {
   final String userId;
   const UserProfileScreen({super.key, required this.userId});
@@ -31,6 +31,9 @@ class UserProfileScreen extends StatefulWidget {
 class _UserProfileScreenState extends State<UserProfileScreen> {
   Map<String, dynamic>? _profile;
   Map<String, dynamic>? _stats;
+  /// 받은 매너 칭찬 [(code, count)] — 서버 집계 (많은 순).
+  List<MapEntry<String, int>> _praise = [];
+  bool _praiseExpanded = false;
   List<Review> _reviews = [];
   bool _loading = true;
   bool _loadingMore = false;
@@ -52,7 +55,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final svc = context.read<ProductService>();
       final results = await Future.wait([
         svc.fetchUserProfile(widget.userId),
-        svc.fetchUserReviews(widget.userId, limit: 20),
+        svc.fetchUserReviews(widget.userId, limit: 20, withComment: true),
       ]).timeout(const Duration(seconds: 20));
       final profile = results[0] as Map<String, dynamic>?;
       final reviews = (results[1] as List).cast<Review>();
@@ -64,6 +67,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       setState(() {
         _profile = profile['profile'] as Map<String, dynamic>?;
         _stats = profile['stats'] as Map<String, dynamic>?;
+        _praise = _parsePraise(profile['praise'], reviews);
         _reviews = reviews;
         _hasMore = reviews.length >= 20;
       });
@@ -88,6 +92,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             widget.userId,
             limit: 20,
             before: _reviews.last.createdAt,
+            withComment: true,
           )
           .timeout(const Duration(seconds: 15));
       if (!mounted) return;
@@ -109,19 +114,91 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
-  /// Pull the top 3 tags out of the loaded reviews — quick client-side
-  /// aggregation since the dataset on this screen is already small.
-  List<MapEntry<String, int>> get _topTags {
+  /// 서버 praise [{code, count}] → 목록. 예전 서버라 praise 가 없으면 받은 후기에서 직접 센다.
+  static List<MapEntry<String, int>> _parsePraise(dynamic raw, List<Review> reviews) {
+    final out = <MapEntry<String, int>>[];
+    if (raw is List) {
+      for (final e in raw) {
+        if (e is! Map) continue;
+        final code = e['code']?.toString() ?? '';
+        final n = e['count'];
+        final count = n is num ? n.toInt() : int.tryParse('$n') ?? 0;
+        if (code.isNotEmpty && count > 0) out.add(MapEntry(code, count));
+      }
+      return out;
+    }
     final counts = <String, int>{};
-    for (final r in _reviews) {
+    for (final r in reviews) {
+      if (r.rating == ReviewRatings.bad) continue;
       for (final t in r.tags) {
-        if (t.isEmpty) continue;
+        if (t.isEmpty || ReviewTags.negativeCodes.contains(t)) continue;
         counts[t] = (counts[t] ?? 0) + 1;
       }
     }
-    final list = counts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return list.take(3).toList();
+    return counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+  }
+
+  Widget _buildPraise(BuildContext context) {
+    final l = context.l10n;
+    final shown = _praiseExpanded ? _praise : _praise.take(5).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l.reviewPraiseTitle,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        if (_praise.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              l.reviewNoPraise,
+              style: const TextStyle(color: EggplantColors.textSecondary, fontSize: 14),
+            ),
+          )
+        else ...[
+          for (final e in shown)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.people_outline, size: 18, color: EggplantColors.textSecondary),
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    width: 28,
+                    child: Text(
+                      '${e.value}',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: EggplantColors.background,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        reviewTagLabel(l, e.key),
+                        style: const TextStyle(fontSize: 13.5, color: EggplantColors.textPrimary),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (_praise.length > 5)
+            Center(
+              child: TextButton(
+                onPressed: () => setState(() => _praiseExpanded = !_praiseExpanded),
+                child: Text(_praiseExpanded ? l.reviewPraiseLess : l.reviewPraiseMore),
+              ),
+            ),
+        ],
+      ],
+    );
   }
 
   Future<void> _confirmBlock() async {
@@ -379,47 +456,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           children: [
                         _Header(profile: _profile!, stats: _stats!),
                         const SizedBox(height: 16),
-                        _StatsBreakdown(stats: _stats!),
-                        if (_topTags.isNotEmpty) ...[
-                          const SizedBox(height: 20),
-                          Text(
-                            context.l10n.myTopPraise,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final e in _topTags)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: EggplantColors.primaryLight
-                                        .withOpacity(0.4),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    '${e.key} · ${e.value}',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: EggplantColors.primaryDark,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
+                        const SizedBox(height: 8),
+                        _buildPraise(context),
                         const SizedBox(height: 24),
                         Row(
                           children: [
                             Text(
-                              context.l10n.myReceivedReviews,
+                              context.l10n.reviewReceivedTitle,
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -427,7 +470,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              '${_stats?['total'] ?? 0}',
+                              '${_stats?['with_comment'] ?? _reviews.length}',
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
@@ -442,7 +485,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 32),
                             child: Center(
                               child: Text(
-                                context.l10n.myNoReviews,
+                                context.l10n.reviewNoComments,
                                 style: const TextStyle(
                                   color: EggplantColors.textSecondary,
                                   fontSize: 14,
@@ -605,120 +648,6 @@ class _StatCell extends StatelessWidget {
   }
 }
 
-class _StatsBreakdown extends StatelessWidget {
-  final Map<String, dynamic> stats;
-  const _StatsBreakdown({required this.stats});
-
-  int _intOf(dynamic v) {
-    if (v is num) return v.toInt();
-    return int.tryParse('$v') ?? 0;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final good = _intOf(stats['good']);
-    final soso = _intOf(stats['soso']);
-    final bad = _intOf(stats['bad']);
-    final total = good + soso + bad;
-    if (total == 0) {
-      return const SizedBox.shrink();
-    }
-    return Row(
-      children: [
-        Expanded(
-          child: _RatingBar(
-            emoji: '😊',
-            label: context.l10n.myRatingGood,
-            count: good,
-            total: total,
-            color: EggplantColors.primary,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _RatingBar(
-            emoji: '😐',
-            label: context.l10n.myRatingSoso,
-            count: soso,
-            total: total,
-            color: const Color(0xFF9CA3AF),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _RatingBar(
-            emoji: '😣',
-            label: context.l10n.myRatingBad,
-            count: bad,
-            total: total,
-            color: const Color(0xFFE74C3C),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RatingBar extends StatelessWidget {
-  final String emoji;
-  final String label;
-  final int count;
-  final int total;
-  final Color color;
-  const _RatingBar({
-    required this.emoji,
-    required this.label,
-    required this.count,
-    required this.total,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = total == 0 ? 0.0 : count / total;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: EggplantColors.border),
-      ),
-      child: Column(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 22)),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: EggplantColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '$count',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: pct,
-              minHeight: 4,
-              backgroundColor: EggplantColors.background,
-              valueColor: AlwaysStoppedAnimation(color),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ReviewCard extends StatelessWidget {
   final Review review;
   const _ReviewCard({required this.review});
@@ -744,10 +673,25 @@ class _ReviewCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      review.reviewerNickname ?? context.l10n.myAnonNickname,
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w700),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: (review.reviewerNickname ?? '').isEmpty
+                                ? context.l10n.myAnonNickname
+                                : review.reviewerNickname!,
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                          ),
+                          if (review.roleLabel(context.l10n) != null)
+                            TextSpan(
+                              text: '  ${review.roleLabel(context.l10n)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: EggplantColors.textSecondary,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                     if (review.productTitle != null &&
                         review.productTitle!.isNotEmpty)
@@ -778,7 +722,7 @@ class _ReviewCard extends StatelessWidget {
               spacing: 6,
               runSpacing: 6,
               children: [
-                for (final t in review.tags)
+                for (final t in review.tags.where((t) => !ReviewTags.negativeCodes.contains(t)))
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 4),
@@ -787,7 +731,7 @@ class _ReviewCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      t,
+                      reviewTagLabel(context.l10n, t),
                       style: const TextStyle(
                         fontSize: 12,
                         color: EggplantColors.textPrimary,

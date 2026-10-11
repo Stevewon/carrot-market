@@ -194,6 +194,12 @@ class _MyTabState extends State<MyTab> {
                   : '$sellingCount',
               onTap: () => context.push('/my/products'),
             ),
+            // 구매 내역 — 거래완료된 상품에서 판매자에게 거래 후기 보내기.
+            _MenuTile(
+              icon: Icons.receipt_long_outlined,
+              title: context.l10n.reviewPurchasesTitle,
+              onTap: () => context.push('/my/purchases'),
+            ),
             _MenuTile(
               icon: Icons.favorite_border,
               title: context.l10n.myMenuLikes,

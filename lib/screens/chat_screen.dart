@@ -9,10 +9,13 @@ import '../app/market.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/chat_message.dart';
+import '../models/product.dart';
+import '../models/review.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
 import '../services/permission_service.dart';
 import '../services/product_service.dart';
+import '../widgets/review_sheet.dart';
 
 class ChatScreen extends StatefulWidget {
   final String roomId;
@@ -152,7 +155,12 @@ class _ChatScreenState extends State<ChatScreen> {
           constraints: const BoxConstraints(maxWidth: Responsive.maxFeedWidth),
           child: Column(
             children: [
-              if (widget.productTitle != null) _ProductBanner(title: widget.productTitle!),
+              if (widget.productTitle != null)
+                _ProductBanner(
+                  title: widget.productTitle!,
+                  productId: _productId(chat),
+                  peerUserId: _derivePeerUserId(auth.user?.id),
+                ),
               Expanded(
                 child: messages.isEmpty
                     ? _EmptyChat(peerNickname: widget.peerNickname)
@@ -377,6 +385,19 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  /// 이 채팅방의 상품 id — 라우트 인자 또는 채팅방 목록에 저장된 값.
+  String? _productId(ChatService chat) {
+    final fromRoute = widget.productId;
+    if (fromRoute != null && fromRoute.isNotEmpty) return fromRoute;
+    for (final r in chat.rooms) {
+      if (r.id == widget.roomId) {
+        final id = r.productId;
+        return (id != null && id.isNotEmpty) ? id : null;
+      }
+    }
+    return null;
+  }
+
   /// Derive the peer's userId from the deterministic room ID.
   /// roomId format: "userA_userB" or "userA_userB_productId"
   /// where userA < userB (sorted).
@@ -519,15 +540,81 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-class _ProductBanner extends StatelessWidget {
+/// 채팅방 상단 상품 배너. 거래완료된 상품이고 이 대화 상대가 거래 상대이면
+/// "거래 후기 보내기" 버튼을 보여준다 (당근처럼 채팅방에서 바로 후기).
+class _ProductBanner extends StatefulWidget {
   final String title;
-  const _ProductBanner({required this.title});
+  final String? productId;
+  final String? peerUserId;
+  const _ProductBanner({required this.title, this.productId, this.peerUserId});
+
+  @override
+  State<_ProductBanner> createState() => _ProductBannerState();
+}
+
+class _ProductBannerState extends State<_ProductBanner> {
+  Product? _product;
+  ReviewerRole? _role;
+  bool _canReview = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // ignore: discarded_futures
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProductBanner old) {
+    super.didUpdateWidget(old);
+    if (old.productId != widget.productId || old.peerUserId != widget.peerUserId) {
+      // ignore: discarded_futures
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final pid = widget.productId;
+    final peer = widget.peerUserId;
+    final me = context.read<AuthService>().user?.id;
+    if (pid == null || peer == null || me == null) return;
+    final svc = context.read<ProductService>();
+    final p = await svc.fetchById(pid, peek: true);
+    if (!mounted || p == null || p.status != 'sold' || p.buyerId == null) return;
+    ReviewerRole? role;
+    if (p.buyerId == me && p.sellerId == peer) role = ReviewerRole.buyer;
+    if (p.sellerId == me && p.buyerId == peer) role = ReviewerRole.seller;
+    if (role == null) return;
+    final mine = await svc.fetchMyReview(pid);
+    if (!mounted) return;
+    setState(() {
+      _product = p;
+      _role = role;
+      _canReview = mine == null;
+    });
+  }
+
+  Future<void> _review() async {
+    final p = _product;
+    final role = _role;
+    if (p == null || role == null) return;
+    final l = context.l10n;
+    final nick = role == ReviewerRole.buyer ? p.sellerNickname : (p.buyerNickname ?? '');
+    final sent = await showReviewSheet(
+      context,
+      productId: p.id,
+      counterpartNickname: nick.isEmpty ? l.reviewCounterpartFallback : nick,
+      role: role,
+      isFree: p.price == 0,
+    );
+    if (sent && mounted) setState(() => _canReview = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: _canReview ? 4 : 10),
       color: EggplantColors.background,
       child: Row(
         children: [
@@ -536,12 +623,22 @@ class _ProductBanner extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              title,
+              widget.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 13, color: EggplantColors.textPrimary),
             ),
           ),
+          if (_canReview)
+            TextButton.icon(
+              key: const Key('chat_review_send'),
+              onPressed: _review,
+              icon: const Icon(Icons.rate_review_outlined, size: 16),
+              label: Text(
+                context.l10n.reviewSendButton,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ),
         ],
       ),
     );

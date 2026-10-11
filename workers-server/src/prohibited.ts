@@ -1432,6 +1432,24 @@ export function checkKeyword(kw: string, lang: Lang = 'ko'): string | null {
   return lang === 'ja' ? r.messageJa : r.message;
 }
 
+/**
+ * 거래 후기 글 — 프로필에 공개되므로 욕설·혐오 표현(채팅과 같은 범위)과 외부 연락처를
+ * 거절한다 (상품글처럼 등록 거절 + 사유 안내). 문제 없으면 null.
+ */
+export function checkReviewText(text: string, lang: Lang = 'ko'): string | null {
+  if (typeof text !== 'string' || !text) return null;
+  const blocked = scan(text, 'chat', { contact: true }).find((h) => h.action === 'block');
+  if (!blocked) return null;
+  if (blocked.ruleId.startsWith('contact_')) {
+    return lang === 'ja'
+      ? '電話番号・口座番号・メールアドレスなどの連絡先は評価コメントに記載できません'
+      : '전화번호·계좌번호·이메일 같은 연락처는 후기에 적을 수 없어요';
+  }
+  return lang === 'ja'
+    ? `暴言・不適切な表現・差別的な表現は使用できません（「${blocked.term}」）`
+    : `욕설·비속어·혐오 표현은 사용할 수 없어요 ("${blocked.term}")`;
+}
+
 /** 채팅 — 욕설·혐오 표현만 *** 로 가린다 (저장하지 않음, 실시간 릴레이용). */
 export function maskChatText(text: string): string {
   if (!text) return text;

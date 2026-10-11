@@ -15,6 +15,7 @@ import '../app/market.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
 import '../models/product.dart';
+import '../models/review.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
@@ -22,6 +23,7 @@ import '../services/product_service.dart';
 import '../services/qta_service.dart';
 import '../services/moderation_service.dart';
 import '../services/hidden_products_service.dart';
+import '../widgets/review_sheet.dart';
 import 'profile_verify_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -92,6 +94,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   MarketItem? _item;
   Product? _product; // 정책 코드(_isMine, _changeStatus 등) 호환용 원본 보존.
   bool _liked = false;
+  /// 이 거래에 내가 보낸 후기 (없으면 null). [_myReviewLoaded] 전에는 후기 카드를 숨긴다.
+  Review? _myReview;
+  bool _myReviewLoaded = false;
 
   @override
   void initState() {
@@ -140,6 +145,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         _liked = p.isLiked;
         _isLoading = false;
       });
+      // ignore: discarded_futures
+      _loadMyReview();
 
       debugPrint('[GAJI_DETAIL] body widget rendered=true');
     } on TimeoutException {
@@ -334,7 +341,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     if (status == 'sold' && buyer != null) {
       await _showReviewSheet(
-          buyerNickname: buyer['nickname']?.toString() ?? context.l10n.productBuyer);
+          counterpartNickname: buyer['nickname']?.toString() ?? context.l10n.productBuyer);
     }
   }
 
@@ -376,100 +383,104 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Future<void> _showReviewSheet({required String buyerNickname}) async {
+  /// 거래완료된 상품의 거래 당사자인지 — 후기를 보낼 수 있는 사람.
+  ///   구매자: buyer_id == 나 · 판매자: 내 상품이고 구매자가 지정됨.
+  ReviewerRole? get _myReviewRole {
     final p = _product;
-    if (p == null) return;
-    int score = 5;
-    final controller = TextEditingController();
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    final u = context.read<AuthService>().user;
+    if (p == null || u == null || p.status != 'sold' || p.buyerId == null) return null;
+    if (p.buyerId == u.id && p.sellerId != u.id) return ReviewerRole.buyer;
+    if (p.sellerId == u.id && p.buyerId != u.id) return ReviewerRole.seller;
+    return null;
+  }
+
+  /// 후기 상대 닉네임 — 구매자는 판매자, 판매자는 구매자.
+  String _counterpartNickname(ReviewerRole role) {
+    final p = _product!;
+    final n = role == ReviewerRole.buyer ? p.sellerNickname : (p.buyerNickname ?? '');
+    return n.isEmpty ? context.l10n.reviewCounterpartFallback : n;
+  }
+
+  Future<void> _loadMyReview() async {
+    final p = _product;
+    if (p == null || _myReviewRole == null) {
+      if (mounted) setState(() => _myReviewLoaded = false);
+      return;
+    }
+    final r = await context.read<ProductService>().fetchMyReview(p.id);
+    if (!mounted || _product?.id != p.id) return;
+    setState(() {
+      _myReview = r;
+      _myReviewLoaded = true;
+    });
+  }
+
+  /// 거래 후기 보내기 (구매자 → 판매자, 판매자 → 구매자 공통 3단계 시트).
+  Future<void> _showReviewSheet({String? counterpartNickname}) async {
+    final p = _product;
+    final role = _myReviewRole;
+    if (p == null || role == null) return;
+    final sent = await showReviewSheet(
+      context,
+      productId: p.id,
+      counterpartNickname: counterpartNickname ?? _counterpartNickname(role),
+      role: role,
+      isFree: p.price == 0,
+    );
+    if (sent) await _loadMyReview();
+  }
+
+  /// 거래완료 후 당사자에게 보이는 후기 카드 — 아직 안 보냈으면 "거래 후기 보내기",
+  /// 보냈으면 "보낸 후기 보기".
+  Widget _buildReviewCard(ReviewerRole role) {
+    final l = context.l10n;
+    final nick = _counterpartNickname(role);
+    final mine = _myReview;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: mine == null ? EggplantColors.background : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: mine == null ? EggplantColors.primaryLight : Colors.grey.shade300,
+        ),
       ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            mine == null ? l.reviewQuestion(nick) : l.reviewSentTo(nick),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
           ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              child: StatefulBuilder(
-                // 큰 글씨 + 키보드에서 넘치지 않게 스크롤.
-                builder: (ctx, setSt) => SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.black12,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    Text(ctx.l10n.productReviewQuestion(buyerNickname),
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: List.generate(5, (i) {
-                        final filled = i < score;
-                        return IconButton(
-                          icon: Icon(
-                            filled ? Icons.star : Icons.star_border,
-                            color: Colors.amber,
-                            size: 32,
-                          ),
-                          onPressed: () => setSt(() => score = i + 1),
-                        );
-                      }),
-                    ),
-                    TextField(
-                      controller: controller,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        hintText: ctx.l10n.productReviewHint,
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          // rating: 'good' (4~5) / 'soso' (3) / 'bad' (1~2)
-                          final ratingLabel = score >= 4
-                              ? 'good'
-                              : (score == 3 ? 'soso' : 'bad');
-                          await context.read<ProductService>().postReview(
-                                p.id,
-                                rating: ratingLabel,
-                                comment: controller.text.trim(),
-                              );
-                          if (ctx.mounted) Navigator.of(ctx).pop();
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.productReviewThanks)),
-                            );
-                          }
-                        },
-                        child: Text(ctx.l10n.productReviewSubmit),
-                      ),
-                    ),
-                  ],
-                ),
-                ),
-              ),
-            ),
+          const SizedBox(height: 6),
+          Text(
+            mine == null
+                ? l.reviewPromptBody
+                : '${reviewRatingEmoji(mine.rating)} ${reviewRatingLabel(l, mine.rating)}',
+            style: const TextStyle(fontSize: 13, color: EggplantColors.textSecondary),
           ),
-        );
-      },
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: mine == null
+                ? ElevatedButton.icon(
+                    key: const Key('detail_review_send'),
+                    onPressed: () => _showReviewSheet(),
+                    icon: const Icon(Icons.rate_review_outlined, size: 18),
+                    label: Text(l.reviewSendButton),
+                  )
+                : OutlinedButton(
+                    onPressed: () => showMyReviewSheet(
+                      context,
+                      review: mine,
+                      counterpartNickname: nick,
+                    ),
+                    child: Text(l.reviewViewMine),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -725,6 +736,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ],
           if (_awaitingMyConfirmation) ...[
             _buildBuyerConfirmCard(),
+            const SizedBox(height: 20),
+          ],
+          if (_myReviewLoaded && _myReviewRole != null) ...[
+            _buildReviewCard(_myReviewRole!),
             const SizedBox(height: 20),
           ],
           _buildSellerSection(item),

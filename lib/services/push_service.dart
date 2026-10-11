@@ -513,11 +513,19 @@ class PushService extends ChangeNotifier {
         });
       }
     }
-    // 판매자가 나를 구매자로 지정함 → 상품 상세(거래 확인 카드)로 이동.
-    if (type == 'purchase_confirm') {
+    // 판매자가 나를 구매자로 지정함 → 상품 상세(거래 확인 카드 · 거래 후기 보내기)로 이동.
+    // review_request: 상대가 먼저 후기를 보냄 → 상품 상세에서 나도 후기 보내기.
+    if (type == 'purchase_confirm' || type == 'review_request') {
       final productId = data['product_id']?.toString() ?? '';
       if (productId.isNotEmpty) {
         _messageOpenedCtrl.add({'product_id': productId});
+      }
+    }
+    // 받은 거래 후기 → 내 프로필 (받은 매너 칭찬 · 거래 후기).
+    if (type == 'review_received') {
+      final userId = data['user_id']?.toString() ?? '';
+      if (userId.isNotEmpty) {
+        _messageOpenedCtrl.add({'user_id': userId});
       }
     }
   }

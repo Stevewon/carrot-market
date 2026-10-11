@@ -143,7 +143,7 @@ class User {
     }
     // Backwards-compat: if the server still serves the old 0–99 scale
     // (anything < 100), upgrade to ×10.
-    if (score > 0 && score < 100) score *= 10;
+    if (score > 0 && score < 100) score = score * 10 + 5; // 36 → 36.5°
 
     final lvRaw = json['verification_level'];
     int lvInt;

@@ -256,6 +256,8 @@ export interface ProductResponse extends Omit<ProductRow, 'images'> {
   /** SSO Universal User ID — 클라이언트가 마스킹해서 표시. */
   seller_wallet_address: string | null;
   is_liked: boolean;
+  /** 거래 당사자(판매자·구매자)에게만 — 구매자 닉네임. */
+  buyer_nickname?: string | null;
 }
 
 /**

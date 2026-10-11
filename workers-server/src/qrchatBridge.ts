@@ -150,8 +150,8 @@ export async function resolveQrchatAccount(
   try {
     await env.DB
       .prepare(
-        `INSERT INTO users (id, nickname, device_uuid, wallet_address, password_hash, token_version)
-         VALUES (?, ?, ?, ?, ?, 1)`,
+        `INSERT INTO users (id, nickname, device_uuid, wallet_address, password_hash, token_version, manner_score)
+         VALUES (?, ?, ?, ?, ?, 1, 365)`,
       )
       .bind(id, nickname, deviceUuid, wallet, pwHash)
       .run();

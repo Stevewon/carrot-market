@@ -26,6 +26,7 @@ import {
 import { verifyFirebasePhoneToken } from '../phoneVerify';
 import { linkedQrchatUid } from '../qrchatBridge';
 import { checkNickname } from '../prohibited';
+import { NEGATIVE_CODES, PUBLIC_RATINGS_SQL, splitTags } from '../reviews';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -181,8 +182,8 @@ app.put('/me', authMiddleware, async (c) => {
  *
  * Public profile of any user — used by the seller-profile screen.
  * Returns nickname, region, manner_score (×10 scale), join date, and
- * lightweight aggregates: total reviews, good/soso/bad breakdown,
- * top 3 review tags.
+ * lightweight aggregates: 공개 후기 수(best/good/soso — bad 는 비공개라 항상 0),
+ * praise = 받은 매너 칭찬 [{code, count}] (많은 순).
  */
 /**
  * GET /api/users/:id/call-info
@@ -231,17 +232,41 @@ app.get('/:id/profile', async (c) => {
     }>();
   if (!u) return c.json({ error: 'Not found' }, 404);
 
+  // 후기 집계 — 당근처럼 'bad'(별로예요) 평가는 공개하지 않는다 (매너온도에만 반영).
+  //   stats.total / good / soso / bad 는 구버전 앱이 읽는 키 — 공개 범위로 계산하고 bad 는 항상 0.
   const stats = await c.env.DB
     .prepare(
       `SELECT
-         COUNT(*) AS total,
+         SUM(CASE WHEN rating IN ${PUBLIC_RATINGS_SQL} THEN 1 ELSE 0 END) AS total,
+         SUM(CASE WHEN rating='best' THEN 1 ELSE 0 END) AS best,
          SUM(CASE WHEN rating='good' THEN 1 ELSE 0 END) AS good,
          SUM(CASE WHEN rating='soso' THEN 1 ELSE 0 END) AS soso,
-         SUM(CASE WHEN rating='bad'  THEN 1 ELSE 0 END) AS bad
+         SUM(CASE WHEN rating IN ${PUBLIC_RATINGS_SQL} AND comment <> '' THEN 1 ELSE 0 END) AS with_comment
        FROM reviews WHERE reviewee_id = ?`
     )
     .bind(id)
-    .first<{ total: number; good: number; soso: number; bad: number }>();
+    .first<{ total: number | null; best: number | null; good: number | null; soso: number | null; with_comment: number | null }>();
+
+  // 받은 매너 칭찬 — 공개 후기의 항목 코드별 개수 (예전 자유 입력 태그는 문구 그대로 집계).
+  // 비매너 코드는 공개 후기에 들어갈 수 없지만, 혹시 섞여 있어도 걸러낸다.
+  const tagRows = await c.env.DB
+    .prepare(
+      `SELECT tags FROM reviews
+        WHERE reviewee_id = ? AND rating IN ${PUBLIC_RATINGS_SQL} AND tags <> ''
+        ORDER BY created_at DESC LIMIT 2000`
+    )
+    .bind(id)
+    .all<{ tags: string }>();
+  const praiseCounts = new Map<string, number>();
+  for (const r of tagRows.results || []) {
+    for (const t of splitTags(r.tags)) {
+      if (NEGATIVE_CODES.has(t)) continue;
+      praiseCounts.set(t, (praiseCounts.get(t) ?? 0) + 1);
+    }
+  }
+  const praise = [...praiseCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([code, count]) => ({ code, count }));
 
   const sellingCount = await c.env.DB
     .prepare(
@@ -254,11 +279,14 @@ app.get('/:id/profile', async (c) => {
     profile: u,
     stats: {
       total: stats?.total ?? 0,
+      best: stats?.best ?? 0,
       good: stats?.good ?? 0,
       soso: stats?.soso ?? 0,
-      bad: stats?.bad ?? 0,
+      bad: 0,
+      with_comment: stats?.with_comment ?? 0,
       selling: sellingCount?.n ?? 0,
     },
+    praise,
   });
 });
 
@@ -266,36 +294,47 @@ app.get('/:id/profile', async (c) => {
  * GET /api/users/:id/reviews
  *
  * Paginated list of reviews received by a user, newest first.
- *   ?limit=20&before=<iso>
+ *   ?limit=20&before=<iso>&with_comment=1
+ *
+ * • 'bad' 평가는 공개하지 않는다 (당근과 같음).
+ * • with_comment=1 이면 후기 글이 있는 것만 ("받은 거래 후기" 목록).
+ * • role: 후기를 쓴 사람이 그 거래에서 'buyer'(구매자) 였는지 'seller'(판매자) 였는지.
  */
 app.get('/:id/reviews', async (c) => {
   const id = c.req.param('id');
   const limit = Math.min(parseInt(c.req.query('limit') || '20', 10) || 20, 50);
   const before = c.req.query('before');
+  const withComment = c.req.query('with_comment') === '1';
 
-  const sql = before
-    ? `SELECT r.id, r.rating, r.tags, r.comment, r.created_at,
-              r.reviewer_id, ru.nickname AS reviewer_nickname,
-              p.id AS product_id, p.title AS product_title
-         FROM reviews r
-         JOIN users    ru ON ru.id = r.reviewer_id
-         JOIN products p  ON p.id  = r.product_id
-        WHERE r.reviewee_id = ? AND r.created_at < ?
-        ORDER BY r.created_at DESC LIMIT ?`
-    : `SELECT r.id, r.rating, r.tags, r.comment, r.created_at,
-              r.reviewer_id, ru.nickname AS reviewer_nickname,
-              p.id AS product_id, p.title AS product_title
-         FROM reviews r
-         JOIN users    ru ON ru.id = r.reviewer_id
-         JOIN products p  ON p.id  = r.product_id
-        WHERE r.reviewee_id = ?
-        ORDER BY r.created_at DESC LIMIT ?`;
+  const where = [`r.reviewee_id = ?`, `r.rating IN ${PUBLIC_RATINGS_SQL}`];
+  const params: (string | number)[] = [id];
+  if (withComment) where.push(`r.comment <> ''`);
+  if (before) {
+    where.push('r.created_at < ?');
+    params.push(before);
+  }
+  params.push(limit);
 
-  const stmt = before
-    ? c.env.DB.prepare(sql).bind(id, before, limit)
-    : c.env.DB.prepare(sql).bind(id, limit);
-  const { results } = await stmt.all();
-  return c.json({ reviews: results || [] });
+  const { results } = await c.env.DB
+    .prepare(
+      `SELECT r.id, r.rating, r.tags, r.comment, r.created_at,
+              r.reviewer_id, COALESCE(ru.nickname, '') AS reviewer_nickname,
+              p.id AS product_id, p.title AS product_title,
+              CASE WHEN r.reviewer_id = p.seller_id THEN 'seller' ELSE 'buyer' END AS role
+         FROM reviews r
+         LEFT JOIN users ru ON ru.id = r.reviewer_id
+         JOIN products p  ON p.id  = r.product_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY r.created_at DESC LIMIT ?`,
+    )
+    .bind(...params)
+    .all<{ tags: string }>();
+  // 공개 목록에는 비매너 코드를 절대 내보내지 않는다.
+  const reviews = (results || []).map((r) => ({
+    ...r,
+    tags: splitTags(r.tags).filter((t) => !NEGATIVE_CODES.has(t)).join(','),
+  }));
+  return c.json({ reviews });
 });
 
 /**

@@ -14,8 +14,20 @@ import {
   adjustListingRewardOnPrice,
   deleteProductWithClawback,
 } from '../qta';
-import { checkProductText, recordContentFlags } from '../prohibited';
-import { normalizeMarket, reqLang, requestMarket, tr, type Market } from '../market';
+import { checkProductText, checkReviewText, recordContentFlags } from '../prohibited';
+import {
+  allowedTags,
+  COMMENT_MAX,
+  LEGACY_RATINGS,
+  MANNER_DELTA,
+  MANNER_MAX,
+  MANNER_MIN,
+  MAX_TAGS,
+  NEW_RATINGS,
+  type ReviewerRole,
+  type ReviewRating,
+} from '../reviews';
+import { normalizeMarket, reqLang, requestMarket, tr, trl, type Lang, type Market } from '../market';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 /** 본인인증(Lv1) 여부 — QTA 결제 거래·QTA 가격 설정의 조건. */async function isVerified(env: Env, userId: string): Promise<boolean> {  const r = await env.DB    .prepare('SELECT verification_level FROM users WHERE id = ?')    .bind(userId)    .first<{ verification_level: number | null }>();  return (r?.verification_level ?? 0) >= 1;}
@@ -89,7 +101,18 @@ async function hydrate(
     isLiked = !!like;
   }
 
+  // 거래 당사자에게만 구매자 닉네임 (판매자가 구매자에게 후기를 보낼 때 이름 표시용).
+  let buyerNickname: string | null | undefined;
+  if (row.buyer_id && currentUserId && (currentUserId === row.seller_id || currentUserId === row.buyer_id)) {
+    const b = await env.DB
+      .prepare('SELECT nickname FROM users WHERE id = ?')
+      .bind(row.buyer_id)
+      .first<{ nickname: string }>();
+    buyerNickname = b?.nickname ?? null;
+  }
+
   return {
+    ...(buyerNickname !== undefined ? { buyer_nickname: buyerNickname } : {}),
     ...row,
     images: row.images ? row.images.split(',').filter(Boolean) : [],
     video_url: row.video_url || '',
@@ -254,6 +277,30 @@ app.get('/my/selling', authMiddleware, async (c) => {
   return c.json({ products });
 });
 
+/**
+ * GET /api/products/my/purchases — 구매 내역 (판매자가 나를 구매자로 지정한 거래완료 상품).
+ * 각 상품에 my_review_rating (내가 보낸 후기 평가, 없으면 null) 을 붙인다.
+ */
+app.get('/my/purchases', authMiddleware, async (c) => {
+  const user = c.get('user')!;
+  const rs = await c.env.DB
+    .prepare(
+      `SELECT p.*, r.rating AS my_review_rating
+         FROM products p
+         LEFT JOIN reviews r ON r.product_id = p.id AND r.reviewer_id = ?
+        WHERE p.buyer_id = ? AND p.status = 'sold'
+        ORDER BY p.updated_at DESC
+        LIMIT 200`,
+    )
+    .bind(user.id, user.id)
+    .all<ProductRow & { my_review_rating: string | null }>();
+
+  const products = await Promise.all(
+    (rs.results || []).map((r) => hydrate(c.env, r, user.id))
+  );
+  return c.json({ products });
+});
+
 /** GET /api/products/:id - detail */
 app.get('/:id', optionalAuth, async (c) => {
   const id = c.req.param('id');
@@ -265,9 +312,11 @@ app.get('/:id', optionalAuth, async (c) => {
   if (!row) return c.json({ error: 'Not found' }, 404);
 
   const user = c.get('user');
+  // ?peek=1 — 화면 보조 조회(채팅방 상품 배너의 거래 후기 버튼 등). 조회수·둘러보기 채굴 없이 읽기만.
+  const peek = c.req.query('peek') === '1';
   // Increment view_count for non-owners
   let mining: Awaited<ReturnType<typeof recordBrowseAndMaybeMine>> | null = null;
-  if (!user || user.id !== row.seller_id) {
+  if (!peek && (!user || user.id !== row.seller_id)) {
     await c.env.DB
       .prepare('UPDATE products SET view_count = view_count + 1 WHERE id = ?')
       .bind(row.id)
@@ -914,16 +963,18 @@ app.put('/:id/status', authMiddleware, async (c) => {
   // 구매자에게 "거래 확인 요청" 푸시 — 안 보내면 구매자가 상품 상세에 직접
   // 들어가기 전까지 요청을 알 수 없다. 탭하면 상품 상세(거래 확인 카드)로 이동.
   if (body.status === 'sold' && buyerId) {
+    // 거래 후기 요청도 같은 알림에 담는다 (당근: "거래 후기를 남겨주세요"). 받는 사람의 시장 언어로.
     const buyerToken = await c.env.DB
-      .prepare('SELECT fcm_token FROM users WHERE id = ?')
+      .prepare('SELECT fcm_token, market FROM users WHERE id = ?')
       .bind(buyerId)
-      .first<{ fcm_token: string | null }>();
+      .first<{ fcm_token: string | null; market: string | null }>();
     if (buyerToken?.fcm_token) {
+      const pl: Lang = buyerToken.market === 'jp' ? 'ja' : 'ko';
       c.executionCtx.waitUntil(
         sendFcm(c.env, {
           fcmToken: buyerToken.fcm_token,
-          title: '거래 확인 요청',
-          body: '판매자가 거래완료로 표시했어요. 눌러서 거래를 확인해주세요',
+          title: trl(pl, '거래 확인 요청', '取引確認のお願い'),
+          body: trl(pl, '판매자가 거래완료로 표시했어요. 거래를 확인하고 거래 후기를 남겨주세요', '出品者が取引完了にしました。取引を確認して、評価をお願いします'),
           data: { type: 'purchase_confirm', product_id: id },
         }).catch((e) => console.error('[products/status] buyer push failed', e)),
       );
@@ -1050,11 +1101,15 @@ app.post('/:id/confirm-purchase', authMiddleware, async (c) => {
 /**
  * POST /api/products/:id/review
  *
- * 거래후기. Either side (seller ↔ buyer) can leave one review per product.
- *   body: { rating: 'good' | 'soso' | 'bad', tags?: string[], comment?: string }
+ * 거래 후기 (당근식). 판매자 ↔ 구매자 서로 한 번씩, 상품당 1개.
+ *   body (새 앱, v=2):
+ *     { v: 2, rating: 'best'|'good'|'bad', tags: string[], comment?: string }
+ *     • tags: 역할·평가별 허용 코드 (src/reviews.ts allowedTags), 최소 1개.
+ *   body (구버전 앱): { rating: 'good'|'soso'|'bad', tags: [], comment }
+ *     • 구버전 앱은 항목을 보내지 않으므로 항목 없이 받는다 (자유 입력 태그는 더 이상 저장 안 함).
  *
- * Auto‑updates the reviewee's manner_score in the same batch as the review
- * INSERT (good +0.5°, soso 0°, bad -0.5°; stored *10, clamped 0..990).
+ * 매너온도는 같은 batch 안에서 갱신 (MANNER_DELTA: best +0.5° / good +0.2° / soso 0 / bad −0.5°,
+ * ×10 정수, 0..990 클램프).
  *
  * NOTE: 원래는 DB 트리거(trg_reviews_update_manner)로 처리했지만 D1 의
  *       `migrations apply` 단계에서 트리거 본문 안의 세미콜론 split 이슈로
@@ -1062,28 +1117,34 @@ app.post('/:id/confirm-purchase', authMiddleware, async (c) => {
  *       만들었다. 따라서 application-level 에서 batch 두 statement 로 처리.
  *
  * Constraints:
- *   • Product status must be 'sold'.
- *   • Reviewer must be the seller or the recorded buyer.
+ *   • Product status must be 'sold' with a buyer.
+ *   • Reviewer must be the seller or the recorded buyer (본인 평가 불가).
  *   • One review per (product, reviewer).
+ *   • 탈퇴한 상대에게는 후기를 남길 수 없다 (410).
  */
 app.post('/:id/review', authMiddleware, async (c) => {
   const user = c.get('user')!;
   const id = c.req.param('id');
+  const lang = reqLang(c);
 
-  let body: { rating?: string; tags?: string[]; comment?: string } = {};
+  let body: { v?: number; rating?: string; tags?: unknown; comment?: unknown } = {};
   try {
     body = await c.req.json();
   } catch {
     return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
   }
-  if (!['good', 'soso', 'bad'].includes(body.rating || '')) {
-    return c.json({ error: tr(c, '평가를 선택해주세요', '評価を選択してください') }, 400);
+  const rating = String(body.rating || '') as ReviewRating;
+  const rawTags = Array.isArray(body.tags) ? body.tags.map((t) => String(t).trim()).filter(Boolean) : [];
+  // 새 앱은 v=2 를 보낸다. 'best' 나 항목 코드를 보내는 요청도 새 규칙으로 검사.
+  const strict = Number(body.v) >= 2 || rating === 'best' || rawTags.length > 0;
+  if (!(strict ? NEW_RATINGS : LEGACY_RATINGS).includes(rating)) {
+    return c.json({ error: tr(c, '평가를 선택해주세요', '評価を選択してください'), code: 'invalid_rating' }, 400);
   }
 
   const product = await c.env.DB
-    .prepare('SELECT seller_id, buyer_id, status FROM products WHERE id = ?')
+    .prepare('SELECT seller_id, buyer_id, status, price FROM products WHERE id = ?')
     .bind(id)
-    .first<{ seller_id: string; buyer_id: string | null; status: string }>();
+    .first<{ seller_id: string; buyer_id: string | null; status: string; price: number }>();
   if (!product) return c.json({ error: 'Not found' }, 404);
   if (product.status !== 'sold') {
     return c.json({ error: tr(c, '거래완료 후에 후기를 남길 수 있어요', '評価は取引完了後に投稿できます') }, 400);
@@ -1092,50 +1153,89 @@ app.post('/:id/review', authMiddleware, async (c) => {
     return c.json({ error: tr(c, '구매자가 지정되지 않았어요', '購入者が指定されていません') }, 400);
   }
 
-  // Determine reviewee.
+  // Determine reviewee + my role.
   let revieweeId: string | null = null;
-  if (user.id === product.seller_id) revieweeId = product.buyer_id;
-  else if (user.id === product.buyer_id) revieweeId = product.seller_id;
-  if (!revieweeId) {
+  let role: ReviewerRole | null = null;
+  if (user.id === product.seller_id) {
+    revieweeId = product.buyer_id;
+    role = 'seller';
+  } else if (user.id === product.buyer_id) {
+    revieweeId = product.seller_id;
+    role = 'buyer';
+  }
+  if (!revieweeId || !role) {
     return c.json({ error: tr(c, '거래 당사자만 후기를 남길 수 있어요', '評価は取引の当事者のみ投稿できます') }, 403);
+  }
+  if (revieweeId === user.id) {
+    return c.json({ error: tr(c, '나에게는 후기를 남길 수 없어요', 'ご自身を評価することはできません') }, 400);
+  }
+
+  // 항목 검사 — 역할·평가에 맞는 코드만, 최소 1개.
+  let tags: string[] = [];
+  if (strict) {
+    const allowed = allowedTags(role, rating, { free: (product.price ?? 0) === 0 });
+    tags = [...new Set(rawTags)];
+    if (tags.length === 0) {
+      return c.json({ error: tr(c, '매너 항목을 하나 이상 선택해주세요', '項目を1つ以上選択してください'), code: 'tags_required' }, 400);
+    }
+    if (tags.length > MAX_TAGS || tags.some((t) => !allowed.includes(t))) {
+      return c.json({ error: tr(c, '선택할 수 없는 항목이 있어요', '選択できない項目が含まれています'), code: 'invalid_tag' }, 400);
+    }
+  }
+
+  const comment = (typeof body.comment === 'string' ? body.comment : '').trim();
+  if ([...comment].length > COMMENT_MAX) {
+    return c.json({ error: tr(c, `후기는 ${COMMENT_MAX}자까지 쓸 수 있어요`, `コメントは${COMMENT_MAX}文字以内で入力してください`), code: 'comment_too_long' }, 400);
+  }
+  const commentErr = checkReviewText(comment, lang);
+  if (commentErr) return c.json({ error: commentErr, code: 'prohibited' }, 400);
+
+  const reviewee = await c.env.DB
+    .prepare('SELECT id, fcm_token, market FROM users WHERE id = ?')
+    .bind(revieweeId)
+    .first<{ id: string; fcm_token: string | null; market: string | null }>();
+  if (!reviewee) {
+    return c.json({ error: tr(c, '탈퇴한 사용자에게는 후기를 남길 수 없어요', '退会したユーザーは評価できません'), code: 'reviewee_gone' }, 410);
   }
 
   // Duplicate check — UNIQUE(product_id, reviewer_id) is the source of truth,
-  // but we want a friendly Korean error rather than a 500 from the DB.
+  // but we want a friendly error rather than a 500 from the DB.
   const dup = await c.env.DB
     .prepare('SELECT 1 FROM reviews WHERE product_id = ? AND reviewer_id = ?')
     .bind(id, user.id)
     .first();
-  if (dup) return c.json({ error: tr(c, '이미 후기를 남기셨어요', 'すでに評価を投稿済みです') }, 409);
-
-  const tags = Array.isArray(body.tags)
-    ? body.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 8).join(',')
-    : '';
-  const comment = (body.comment || '').toString().trim().slice(0, 300);
+  if (dup) return c.json({ error: tr(c, '이미 후기를 남기셨어요', 'すでに評価を投稿済みです'), code: 'duplicate' }, 409);
 
   const reviewId = crypto.randomUUID();
-
-  // good = +5 (+0.5°), bad = -5 (-0.5°), soso = 0. *10 스케일이라 정수.
-  const delta = body.rating === 'good' ? 5 : body.rating === 'bad' ? -5 : 0;
+  const delta = MANNER_DELTA[rating];
 
   // INSERT review + UPDATE manner_score 를 한 batch 로 묶어 atomic 보장.
-  // MIN/MAX 로 0..990 범위 클램프 (당근식 매너온도 0.0° ~ 99.0°).
-  await c.env.DB.batch([
-    c.env.DB
-      .prepare(
-        `INSERT INTO reviews (id, product_id, reviewer_id, reviewee_id, rating, tags, comment)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(reviewId, id, user.id, revieweeId, body.rating, tags, comment),
-    c.env.DB
-      .prepare(
-        `UPDATE users
-            SET manner_score = MIN(990, MAX(0, manner_score + ?)),
-                updated_at   = datetime('now')
-          WHERE id = ?`,
-      )
-      .bind(delta, revieweeId),
-  ]);
+  // 예전 가입 회원은 manner_score 가 36(×1 스케일, users 기본값)일 수 있어 365(36.5°)로 맞춘 뒤 더한다
+  // (앱도 100 미만이면 ×10 으로 해석 — 안 맞추면 36+5=41 → 41.0° 로 튀었다).
+  // 동시 요청이 dup 체크를 함께 통과해도 UNIQUE 위반으로 batch 전체가 롤백된다.
+  try {
+    await c.env.DB.batch([
+      c.env.DB
+        .prepare(
+          `INSERT INTO reviews (id, product_id, reviewer_id, reviewee_id, rating, tags, comment)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(reviewId, id, user.id, revieweeId, rating, tags.join(','), comment),
+      c.env.DB
+        .prepare(
+          `UPDATE users
+              SET manner_score = MIN(${MANNER_MAX}, MAX(${MANNER_MIN}, (CASE WHEN manner_score < 100 THEN manner_score * 10 + 5 ELSE manner_score END) + ?)),
+                  updated_at   = datetime('now')
+            WHERE id = ?`,
+        )
+        .bind(delta, revieweeId),
+    ]);
+  } catch (e) {
+    if (/UNIQUE/i.test(String(e))) {
+      return c.json({ error: tr(c, '이미 후기를 남기셨어요', 'すでに評価を投稿済みです'), code: 'duplicate' }, 409);
+    }
+    throw e;
+  }
 
   // 업데이트된 manner_score 를 응답에 포함 (클라이언트가 즉시 표시할 수 있도록).
   const updated = await c.env.DB
@@ -1143,10 +1243,41 @@ app.post('/:id/review', authMiddleware, async (c) => {
     .bind(revieweeId)
     .first<{ manner_score: number }>();
 
+  // 받은 사람에게 알림 — "OO님이 거래 후기를 보냈어요". 'bad' 는 공개되지 않는 평가라 알리지 않는다.
+  // 받은 사람이 아직 후기를 안 썼으면 상품 상세(후기 보내기 버튼)로, 썼으면 내 프로필(받은 후기)로.
+  // 받은 사람이 나를 차단했으면 보내지 않는다.
+  if (rating !== 'bad' && reviewee.fcm_token) {
+    c.executionCtx.waitUntil(
+      (async () => {
+        const [me, blocked, theirs] = await Promise.all([
+          c.env.DB.prepare('SELECT nickname FROM users WHERE id = ?').bind(user.id).first<{ nickname: string }>(),
+          c.env.DB.prepare('SELECT 1 FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?').bind(revieweeId, user.id).first(),
+          c.env.DB.prepare('SELECT 1 FROM reviews WHERE product_id = ? AND reviewer_id = ?').bind(id, revieweeId).first(),
+        ]);
+        if (blocked) return;
+        const pl: Lang = reviewee.market === 'jp' ? 'ja' : 'ko';
+        const nick = me?.nickname || trl(pl, '거래 상대', '取引相手');
+        await sendFcm(c.env, {
+          fcmToken: reviewee.fcm_token!,
+          title: trl(pl, `${nick}님이 거래 후기를 보냈어요`, `${nick}さんから取引の評価が届きました`),
+          body: theirs
+            ? trl(pl, '내 프로필에서 받은 후기를 확인해보세요', 'プロフィールで受け取った評価を確認しましょう')
+            : trl(pl, '나도 거래 후기를 남겨주세요', 'あなたも取引の評価をしましょう'),
+          data: theirs
+            ? { type: 'review_received', user_id: revieweeId! }
+            : { type: 'review_request', product_id: id },
+        });
+      })().catch((e) => console.error('[products/review] push failed', e)),
+    );
+  }
+
   return c.json({
     ok: true,
     review_id: reviewId,
     reviewee_id: revieweeId,
+    role,
+    rating,
+    manner_delta: delta,
     new_manner_score: updated?.manner_score ?? 365,
   });
 });

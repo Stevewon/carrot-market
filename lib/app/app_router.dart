@@ -10,6 +10,7 @@ import '../screens/auth/register_screen.dart';
 import '../screens/auth/find_account_screen.dart';
 import '../screens/home_shell.dart';
 import '../screens/my_products_screen.dart';
+import '../screens/my_purchases_screen.dart';
 import '../screens/product_edit_screen.dart';
 import '../screens/product_detail_screen.dart';
 import '../screens/product_create_screen.dart';
@@ -82,6 +83,10 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(
         path: '/my/products',
         builder: (_, __) => const MyProductsScreen(),
+      ),
+      GoRoute(
+        path: '/my/purchases',
+        builder: (_, __) => const MyPurchasesScreen(),
       ),
       GoRoute(path: '/qr', builder: (_, __) => const QrScreen()),
       GoRoute(path: '/qr/scan', builder: (_, __) => const QrScanScreen()),
