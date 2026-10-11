@@ -33,7 +33,7 @@ jobs:
       - name: 🐦 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.29.0'   # Required for AGP 8.9.1 + Kotlin 2.1.0 + compileSdk 36
+          flutter-version: '3.41.2'   # 로컬 검증 빌드와 같은 버전 (SnackBar persist, intl 0.20.2)
           channel: 'stable'
           cache: true
 
@@ -79,7 +79,8 @@ jobs:
           flutter build apk --release \
             --build-number=${{ steps.build_info.outputs.build_number }} \
             --dart-define=API_BASE=${{ vars.API_BASE || 'https://api.eggplant.life' }} \
-            --dart-define=SOCKET_URL=${{ vars.SOCKET_URL || 'wss://api.eggplant.life/socket' }}
+            --dart-define=SOCKET_URL=${{ vars.SOCKET_URL || 'wss://api.eggplant.life/socket' }} \
+            --dart-define=IDENTITY_ENABLED=${{ vars.IDENTITY_ENABLED || 'false' }}
 
       - name: 📝 Rename APK + delete any per-ABI stragglers
         run: |
