@@ -2735,6 +2735,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get productBanWasteBagsEx => '粗大ごみ処理券、ごみ処理シール';
 
   @override
+  String get productBanFireworks => '花火・爆竹';
+
+  @override
+  String get productBanFireworksEx => '花火、爆竹、手製の爆発物';
+
+  @override
   String get productBanIntro =>
       '法律で取引が禁止されている物や安全を損なうおそれのある物は、Eggplantでは出品できません。以下の品目を含む投稿は出品できず、利用規約に違反した場合はご利用が制限されることがあります。';
 

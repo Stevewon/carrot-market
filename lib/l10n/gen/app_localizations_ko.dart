@@ -2734,6 +2734,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String get productBanWasteBagsEx => '쓰레기 종량제 봉투, 폐기물 스티커';
 
   @override
+  String get productBanFireworks => '폭죽·불꽃놀이';
+
+  @override
+  String get productBanFireworksEx => '폭죽, 불꽃놀이 화약류, 사제 폭발물';
+
+  @override
   String get productBanIntro =>
       '법으로 거래가 금지되었거나 안전을 해칠 수 있는 물품은 가지에서 판매할 수 없어요. 아래 품목이 포함된 게시글은 등록되지 않으며, 운영정책 위반 시 이용이 제한될 수 있어요.';
 

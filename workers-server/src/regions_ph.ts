@@ -1,5 +1,5 @@
 // 자동 생성 — 직접 고치지 말 것. node tool/gen_ph_regions.mjs
-// 출처: PSA PSGC 2026Q2 (tool/ph_data/psgc_2026q2.csv) + Wikidata 좌표 (CC0, tool/ph_data/wikidata_coords.csv). Province 84 · City/Municipality 1642
+// 출처: PSA PSGC 2026Q2 (tool/ph_data/psgc_2026q2.csv) + Wikidata 좌표 (CC0, tool/ph_data/wikidata_coords.csv). Province 84 · City/Municipality 1655
 
 /** 필리핀 Province (Metro Manila 먼저, 나머지 알파벳 순). */
 export const PH_PROVINCES: readonly string[] = ["Metro Manila","Abra","Agusan del Norte","Agusan del Sur","Aklan","Albay","Antique","Apayao","Aurora","Basilan","Bataan","Batanes","Batangas","Benguet","Biliran","Bohol","Bukidnon","Bulacan","Cagayan","Camarines Norte","Camarines Sur","Camiguin","Capiz","Catanduanes","Cavite","Cebu","Cotabato","Davao de Oro","Davao del Norte","Davao del Sur","Davao Occidental","Davao Oriental","Dinagat Islands","Eastern Samar","Guimaras","Ifugao","Ilocos Norte","Ilocos Sur","Iloilo","Isabela","Kalinga","La Union","Laguna","Lanao del Norte","Lanao del Sur","Leyte","Maguindanao del Norte","Maguindanao del Sur","Marinduque","Masbate","Misamis Occidental","Misamis Oriental","Mountain Province","Negros Occidental","Negros Oriental","Northern Samar","Nueva Ecija","Nueva Vizcaya","Occidental Mindoro","Oriental Mindoro","Palawan","Pampanga","Pangasinan","Quezon","Quirino","Rizal","Romblon","Samar","Sarangani","Siquijor","Sorsogon","South Cotabato","Southern Leyte","Special Geographic Area","Sultan Kudarat","Sulu","Surigao del Norte","Surigao del Sur","Tarlac","Tawi-Tawi","Zambales","Zamboanga del Norte","Zamboanga del Sur","Zamboanga Sibugay"];
@@ -15,7 +15,20 @@ export const PH_REGION_CENTERS: Record<string, { lat: number; lng: number }> = {
   "Metro Manila · Makati City": { lat: 14.556667, lng: 121.021389 },
   "Metro Manila · Malabon City": { lat: 14.6625, lng: 120.956667 },
   "Metro Manila · Mandaluyong City": { lat: 14.583333, lng: 121.033333 },
-  "Metro Manila · Manila City": { lat: 14.595833, lng: 120.977222 },
+  "Metro Manila · Manila (Binondo)": { lat: 14.6004, lng: 120.9746 },
+  "Metro Manila · Manila (Ermita)": { lat: 14.582, lng: 120.983 },
+  "Metro Manila · Manila (Intramuros)": { lat: 14.5906, lng: 120.975 },
+  "Metro Manila · Manila (Malate)": { lat: 14.57, lng: 120.99 },
+  "Metro Manila · Manila (Paco)": { lat: 14.58, lng: 120.998 },
+  "Metro Manila · Manila (Pandacan)": { lat: 14.59, lng: 121.008 },
+  "Metro Manila · Manila (Port Area)": { lat: 14.586, lng: 120.968 },
+  "Metro Manila · Manila (Quiapo)": { lat: 14.5994, lng: 120.985 },
+  "Metro Manila · Manila (Sampaloc)": { lat: 14.611, lng: 120.998 },
+  "Metro Manila · Manila (San Miguel)": { lat: 14.5945, lng: 120.9925 },
+  "Metro Manila · Manila (San Nicolas)": { lat: 14.6025, lng: 120.968 },
+  "Metro Manila · Manila (Santa Ana)": { lat: 14.578, lng: 121.014 },
+  "Metro Manila · Manila (Santa Cruz)": { lat: 14.615, lng: 120.984 },
+  "Metro Manila · Manila (Tondo)": { lat: 14.619, lng: 120.968 },
   "Metro Manila · Marikina City": { lat: 14.65, lng: 121.1 },
   "Metro Manila · Muntinlupa City": { lat: 14.383333, lng: 121.05 },
   "Metro Manila · Navotas City": { lat: 14.666667, lng: 120.941667 },
@@ -1735,4 +1748,9 @@ export const PH_REGION_CENTERS: Record<string, { lat: number; lng: number }> = {
   "Zamboanga Sibugay · Talusan": { lat: 7.426311, lng: 122.808403 },
   "Zamboanga Sibugay · Titay": { lat: 7.870278, lng: 122.559444 },
   "Zamboanga Sibugay · Tungawan": { lat: 7.604722, lng: 122.422778 },
+};
+
+/** 예전 이름 → 좌표. 앱 목록에는 없지만 이미 저장된 값이 서버에서 계속 유효하도록 (구로 나누기 전의 마닐라 통째 이름). */
+export const PH_REGION_ALIASES: Record<string, { lat: number; lng: number }> = {
+  "Metro Manila · Manila City": { lat: 14.595833, lng: 120.977222 },
 };

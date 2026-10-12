@@ -1,5 +1,5 @@
 // 자동 생성 — 직접 고치지 말 것. node tool/gen_ph_regions.mjs
-// 출처: PSA PSGC 2026Q2 (tool/ph_data/psgc_2026q2.csv) + Wikidata 좌표 (CC0, tool/ph_data/wikidata_coords.csv). Province 84 · City/Municipality 1642
+// 출처: PSA PSGC 2026Q2 (tool/ph_data/psgc_2026q2.csv) + Wikidata 좌표 (CC0, tool/ph_data/wikidata_coords.csv). Province 84 · City/Municipality 1655
 
 /// 필리핀 지역 데이터. 이름은 서버 workers-server/src/regions_ph.ts 와 같아야 한다.
 /// 전체 이름은 '<Province> · <City/Municipality>' (예: 'Cebu · Cebu City').
@@ -17,7 +17,20 @@ class PhRegionData {
       'Makati City',
       'Malabon City',
       'Mandaluyong City',
-      'Manila City',
+      'Manila (Binondo)',
+      'Manila (Ermita)',
+      'Manila (Intramuros)',
+      'Manila (Malate)',
+      'Manila (Paco)',
+      'Manila (Pandacan)',
+      'Manila (Port Area)',
+      'Manila (Quiapo)',
+      'Manila (Sampaloc)',
+      'Manila (San Miguel)',
+      'Manila (San Nicolas)',
+      'Manila (Santa Ana)',
+      'Manila (Santa Cruz)',
+      'Manila (Tondo)',
       'Marikina City',
       'Muntinlupa City',
       'Navotas City',

@@ -16,7 +16,10 @@
 //   구분자 ' · ' (가운뎃점 U+00B7) 는 PSGC 이름에 나오지 않는다 — 이름에 공백이 많아 ' ' 는 못 쓴다.
 //   NCR 은 Province 가 없어 'Metro Manila' 로 묶고, HUC·ICC 는 PSGC 가 붙인 지리상 Province 아래에 둔다
 //   (Isabela City 만 PSGC 상 Province 가 없어 Basilan 에 둔다). BARMM 특별지역 8곳은 'Special Geographic Area'.
-//   마닐라의 sub-municipality(Tondo, Sampaloc …)는 시·군 단위가 아니라서 빼고 'Manila City' 하나로 둔다.
+//   마닐라(Manila City)는 PSGC sub-municipality(구) 14곳으로 나눈다 — 이름 'Metro Manila · Manila (<구>)'
+//   (예: 'Metro Manila · Manila (Tondo)', 'Metro Manila · Manila (Sampaloc)'). 괄호로 묶어 목록에서 함께 정렬된다.
+//   PSGC CSV(@aivangogh/ph-address)에는 sub-municipality 가 없어 아래 MANILA_DISTRICTS 를 손으로 둔다.
+//   예전 이름 'Metro Manila · Manila City' 는 서버 PH_REGION_ALIASES 에만 남긴다 (저장된 값 유효, 앱 목록엔 없음).
 // 좌표 찾기: ① PSGC 10자리 코드 ② 예전 9자리·예전 지역 코드(NIR←06/07, BARMM←15/12, Sulu 09↔19)
 //   ③ 이름 + 같은 Province 의 다른 시·군 평균 위치에서 가장 가까운 것(200 km 안). 그래도 없으면 실패.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -81,8 +84,28 @@ const ps = csv(readFileSync(DATA + 'psgc_2026q2.csv', 'utf8'));
 const provName = new Map(ps.filter((r) => r[0] === 'province').map((r) => [r[1], r[2]]));
 if (provName.size !== 82) fail('expected 82 provinces, got ' + provName.size);
 
-// 마닐라 sub-municipality (13806xx000, 단 1380600000 = Manila City 자신은 남김) 제외.
-const isSubMun = (code) => /^13806\d\d000$/.test(code) && code !== '1380600000';
+// 마닐라 sub-municipality (CSV 에 있으면 13806xx000) 는 아래 손으로 둔 표를 쓰므로 CSV 쪽은 제외.
+const MANILA_CITY = '1380600000';
+const isSubMun = (code) => /^13806\d\d000$/.test(code) && code !== MANILA_CITY;
+// PSA PSGC 'City of Manila' 의 sub-municipality 14곳 (코드 13806xx000). PSGC 공식 이름은 'Tondo I / II' 지만
+// 앱에는 'Tondo' 로 보인다. San Andres(Bukid) 는 PSGC sub-municipality 가 아니다 (넣지 않음).
+// 좌표: Wikidata 가 아니라 손으로 넣은 구 안쪽 대표 위치 (대략의 중심 — 수백 m 정밀도).
+const MANILA_DISTRICTS = [
+  ['1380601000', 'Tondo', 14.619, 120.968],
+  ['1380602000', 'Binondo', 14.6004, 120.9746],
+  ['1380603000', 'Quiapo', 14.5994, 120.985],
+  ['1380604000', 'San Nicolas', 14.6025, 120.968],
+  ['1380605000', 'Santa Cruz', 14.615, 120.984],
+  ['1380606000', 'Sampaloc', 14.611, 120.998],
+  ['1380607000', 'San Miguel', 14.5945, 120.9925],
+  ['1380608000', 'Ermita', 14.582, 120.983],
+  ['1380609000', 'Intramuros', 14.5906, 120.975],
+  ['1380610000', 'Malate', 14.57, 120.99],
+  ['1380611000', 'Paco', 14.58, 120.998],
+  ['1380612000', 'Pandacan', 14.59, 121.008],
+  ['1380613000', 'Port Area', 14.586, 120.968],
+  ['1380614000', 'Santa Ana', 14.578, 121.014],
+];
 const groups = new Map();
 for (const [level, code, rawName, parent] of ps) {
   if (level !== 'citymun' || isSubMun(code)) continue;
@@ -91,6 +114,12 @@ for (const [level, code, rawName, parent] of ps) {
   if (!NAME_RE.test(short) || !NAME_RE.test(group)) fail('bad name ' + group + ' / ' + short);
   if (!groups.has(group)) groups.set(group, []);
   groups.get(group).push({ code, short, group, name: group + SEP + short });
+}
+if (!groups.get(METRO_MANILA)?.some((e) => e.code === MANILA_CITY)) fail('Manila City not in PSGC');
+for (const [code, d, lat, lng] of MANILA_DISTRICTS) {
+  const short = `Manila (${d})`;
+  if (!NAME_RE.test(short)) fail('bad name ' + short);
+  groups.get(METRO_MANILA).push({ code, short, group: METRO_MANILA, name: METRO_MANILA + SEP + short, lat, lng, fixed: true });
 }
 
 // --- 좌표 ---
@@ -131,6 +160,7 @@ const all = [...groups.values()].flat();
 const how = { code: 0, name: 0 };
 const missing = [];
 for (const e of all) {
+  if (e.fixed) continue;
   const w = codeCandidates(e.code).map((c) => byCode.get(c)).find(Boolean);
   if (w) { e.lat = w.lat; e.lng = w.lng; how.code++; if (process.env.DEBUG && w.label && norm(w.label) !== norm(e.short)) console.log(`code: ${e.name} ← ${w.label} (${w.psgc})`); }
 }
@@ -165,6 +195,12 @@ for (const [group, list] of groups) {
   }
 }
 
+// Manila City 통째 이름은 좌표만 구해 두고 목록에서 뺀다 → 서버 별칭 (PH_REGION_ALIASES).
+const mmList = groups.get(METRO_MANILA);
+const legacyManila = mmList.splice(mmList.findIndex((e) => e.code === MANILA_CITY), 1)[0];
+all.splice(all.indexOf(legacyManila), 1);
+const aliases = [legacyManila];
+
 // --- 정렬·중복 ---
 const sortName = (a, b) => a.localeCompare(b, 'en');
 const order = [METRO_MANILA, ...[...groups.keys()].filter((g) => g !== METRO_MANILA).sort(sortName)];
@@ -193,6 +229,13 @@ for (const g of order) {
   ts += `  // ${g}\n`;
   for (const e of groups.get(g)) ts += `  ${JSON.stringify(e.name)}: { lat: ${e.lat}, lng: ${e.lng} },\n`;
 }
+ts += '};\n\n'
+  + '/** 예전 이름 → 좌표. 앱 목록에는 없지만 이미 저장된 값이 서버에서 계속 유효하도록 (구로 나누기 전의 마닐라 통째 이름). */\n'
+  + 'export const PH_REGION_ALIASES: Record<string, { lat: number; lng: number }> = {\n';
+for (const e of aliases) {
+  if (seen.has(e.name)) fail('alias overlaps ' + e.name);
+  ts += `  ${JSON.stringify(e.name)}: { lat: ${r6(e.lat)}, lng: ${r6(e.lng)} },\n`;
+}
 ts += '};\n';
 writeFileSync('workers-server/src/regions_ph.ts', ts);
 
@@ -211,4 +254,4 @@ for (const g of order) {
 }
 dart += '  };\n}\n';
 writeFileSync('lib/app/regions_ph.dart', dart);
-console.log(`provinces ${order.length}, cities/municipalities ${total} (coords by PSGC code ${how.code}, by name ${how.name})`);
+console.log(`provinces ${order.length}, cities/municipalities ${total} (coords by PSGC code ${how.code}, by name ${how.name}, Manila districts by hand ${MANILA_DISTRICTS.length}), aliases ${aliases.length}`);

@@ -1475,6 +1475,8 @@
   "productBanScalpingEx": "웃돈 티켓 리셀, 티켓팅 대행, 대리시험",
   "productBanWasteBags": "종량제 봉투",
   "productBanWasteBagsEx": "쓰레기 종량제 봉투, 폐기물 스티커",
+  "productBanFireworks": "폭죽·불꽃놀이",
+  "productBanFireworksEx": "폭죽, 불꽃놀이 화약류, 사제 폭발물",
   "productBanIntro": "법으로 거래가 금지되었거나 안전을 해칠 수 있는 물품은 가지에서 판매할 수 없어요. 아래 품목이 포함된 게시글은 등록되지 않으며, 운영정책 위반 시 이용이 제한될 수 있어요.",
   "productBanInfoTitle": "게시글에 적을 수 없는 정보",
   "productBanInfoBody": "• 전화번호, 계좌번호, 이메일\n• 카카오톡 ID, 오픈채팅·텔레그램 링크 등 외부 메신저\n• 욕설·비속어·혐오 표현\n\n거래 대화는 가지 채팅으로 해주세요. 외부 메신저·선입금 유도는 사기 위험이 커요.",

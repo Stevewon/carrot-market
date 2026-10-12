@@ -48,10 +48,18 @@ export const MINING_REASONS = [
 ] as const;
 
 // ── 에스크로우 정책 ──
-// 30,000원 미만 KRW 거래만 회사가 임시예치(에스크로우) 해줌.
+// 시장 화폐 기준 한도 미만 거래만 회사가 임시예치(에스크로우) 해줌.
+//   한국 30,000원 · 필리핀 ₱1,000 (일본은 안전거래 없음).
 // 그 이상은 당사자 직거래 — 회사 절대 미개입, 사고 시 자기책임.
 // QTA 거래는 즉시 자동 송금, 에스크로우 없음.
 export const ESCROW_MAX_AMOUNT_KRW = 30_000;
+export const ESCROW_MAX_AMOUNT: Partial<Record<Market, number>> = { kr: ESCROW_MAX_AMOUNT_KRW, ph: 1_000 };
+
+/** 한도 안내 문구용 — '30,000원' / '₱1,000'. */
+export function escrowLimitLabel(market: Market): string {
+  const max = (ESCROW_MAX_AMOUNT[market] ?? 0).toLocaleString('en-US');
+  return market === 'ph' ? `₱${max}` : `${max}원`;
+}
 
 /** 'YYYY-MM-DD' (UTC). */
 function ymdUtc(d = new Date()): string {
@@ -1171,9 +1179,10 @@ export type EscrowResult =
   | { ok: false; error: string; reason: 'over_limit' | 'invalid' | 'db_error' };
 
 /**
- * 30,000원 미만 KRW 거래에 대한 자동 임시예치(에스크로) 생성.
+ * 한도 미만 거래(한국 30,000원 · 필리핀 ₱1,000)에 대한 자동 임시예치(에스크로) 생성.
+ *  - amount_krw 열은 그 상품 시장의 화폐 금액 (원 또는 페소).
  *  - 같은 product_id + buyer_id 조합으로 이미 pending 인 게 있으면 그걸 그대로 반환 (멱등).
- *  - 30,000원 이상이면 거부 → 당사자 직거래로 안내.
+ *  - 한도 이상이면 거부 → 당사자 직거래로 안내.
  */
 export async function createEscrowIfEligible(
   env: Env,
@@ -1182,14 +1191,17 @@ export async function createEscrowIfEligible(
   seller_id: string,
   amount_krw: number,
   lang: Lang = 'ko',
+  market: Market = 'kr',
 ): Promise<EscrowResult> {
   if (!Number.isInteger(amount_krw) || amount_krw <= 0) {
     return { ok: false, error: trl(lang, '거래 금액이 잘못됐어요', '取引金額が正しくありません', 'Invalid transaction amount'), reason: 'invalid' };
   }
-  if (amount_krw >= ESCROW_MAX_AMOUNT_KRW) {
+  const max = ESCROW_MAX_AMOUNT[market];
+  if (max == null || amount_krw >= max) {
+    const limit = escrowLimitLabel(market);
     return {
       ok: false,
-      error: trl(lang, '30,000원 이상은 당사자 직거래에요', '一定金額以上のお取引は当事者間での直接取引となります', 'Transactions above a certain amount must be made directly between buyer and seller'),
+      error: trl(lang, `${limit} 이상은 당사자 직거래에요`, '一定金額以上のお取引は当事者間での直接取引となります', `Safe payment is only for items under ${limit}. Please trade directly with the other person`),
       reason: 'over_limit',
     };
   }

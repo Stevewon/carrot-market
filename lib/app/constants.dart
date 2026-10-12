@@ -28,10 +28,11 @@ class AppConfig {
   static const bool identityVerificationEnabled =
       bool.fromEnvironment('IDENTITY_ENABLED', defaultValue: true);
 
-  /// 가지 안전결제(에스크로) 자동 임시예치 가능한 최대 금액 (KRW).
-  /// 이 금액 이상은 회사 미개입 → 당사자 직거래.
-  /// 백엔드 [ESCROW_MAX_AMOUNT_KRW] 와 동기화돼 있어야 함.
+  /// 가지 안전결제(에스크로) 자동 임시예치 가능한 최대 금액 (시장 화폐).
+  /// 이 금액 이상은 회사 미개입 → 당사자 직거래. 일본은 안전결제 없음.
+  /// 백엔드 [ESCROW_MAX_AMOUNT] 와 동기화돼 있어야 함.
   static const int escrowMaxAmountKrw = 30000;
+  static const int escrowMaxAmountPhp = 1000;
 }
 
 class Categories {

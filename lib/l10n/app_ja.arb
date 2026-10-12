@@ -834,6 +834,8 @@
   "productBanScalpingEx": "チケットの高額転売、チケット取り代行、代理受験",
   "productBanWasteBags": "粗大ごみ処理券",
   "productBanWasteBagsEx": "粗大ごみ処理券、ごみ処理シール",
+  "productBanFireworks": "花火・爆竹",
+  "productBanFireworksEx": "花火、爆竹、手製の爆発物",
   "productBanIntro": "法律で取引が禁止されている物や安全を損なうおそれのある物は、Eggplantでは出品できません。以下の品目を含む投稿は出品できず、利用規約に違反した場合はご利用が制限されることがあります。",
   "productBanInfoTitle": "投稿に記載できない情報",
   "productBanInfoBody": "• 電話番号、口座番号、メールアドレス\n• LINE ID、オープンチャット・Telegramのリンクなどの外部メッセンジャー\n• 暴言・不適切な表現・差別的な表現\n\n取引のやり取りはEggplantのチャットをご利用ください。外部メッセンジャーへの誘導や先払いの要求は詐欺の危険が高いです。",

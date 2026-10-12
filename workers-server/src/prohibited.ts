@@ -79,10 +79,15 @@ const RAW_RULES: RawRule[] = [
       '보톡스', '보툴리눔', '필러시술', '히알루론산필러',
       'viagra', 'cialis', 'levitra', 'saxenda', 'wegovy', 'ozempic', 'mounjaro', 'phentermine',
       'finasteride', 'propecia', 'minoxidil', 'steroid', 'anavar', 'clenbuterol',
+      // 필리핀 — 흔한 약 이름 (FDA Philippines 등록 의약품은 약국에서만)
+      'biogesic', 'neozep', 'bioflu', 'decolgen', 'alaxan', 'medicol', 'solmux', 'tuseran', 'kremils', 'diatabs',
+      'paracetamol', 'ibuprofen', 'mefenamic', 'amoxicillin', 'cefalexin', 'cephalexin', 'azithromycin',
+      'antibiotic', 'sildenafil', 'tadalafil', 'semaglutide', 'tirzepatide', 'ivermectin',
+      'cytotec', 'misoprostol', 'abortionpill', 'pampalaglag', 'gamotsaregla',
     ],
     except: [
       '의약품보관', '마데카크림', '마데카소사이드', '보톡스크림', '필러크림',
-      '안약통', '진통제통', '약통', 'steroidfree',
+      '안약통', '진통제통', '약통', 'steroidfree', 'antibioticfree', 'medicolegal',
     ],
   },
   // ── 의료기기 ────────────────────────────────────────────────────
@@ -120,14 +125,19 @@ const RAW_RULES: RawRule[] = [
       'marijuana', 'cannabis', 'cocaine', 'heroin', 'ecstasy', 'ketamine', 'zolpidem',
       'propofol', 'fentanyl', 'oxycodone', 'methamphetamine', 'psilocybin', 'poppers',
       'ㅍㄹㅍ', 'ㄷㅁㅊ', 'ㅈㅍㄷ', 'ㅍㄹㅍㄹ',
+      // 필리핀 (RA 9165) — 영어·타갈로그 은어. "shabu-shabu"(샤부샤부 냄비)는 except.
+      'shabu', 'mariwana', 'marihuwana', 'marihuana', 'tsongke', 'tsongki', 'chongke', 'chongki',
+      'magicmushroom', 'nalbuphine', 'nubain', 'tramadol', 'diazepam', 'alprazolam', 'xanax',
+      'clonazepam', 'rivotril', 'partydrugs',
     ],
-    tokens: ['thc', 'lsd', 'mdma', 'ghb', 'cbd', 'meth', 'weed'],
+    tokens: ['thc', 'lsd', 'mdma', 'ghb', 'cbd', 'meth', 'weed', 'ganja', 'kush'],
     except: [
       '대마도', '대마왕', '대마불사', '대마법사', '대마녀', '대마트', '대마을', '대마루', '대마대', '대마스터',
       '대마진', '대마라톤', '대마감', '대마늘', '대마켓', '대마스크', '대마사지', '대마카롱',
       '대마이크', '대마커', '대마우스', '대마차', '대마당', '대마님', '대마다', '대마리', '대마운', '대마무',
       '대마저', '대마크', '대마네', '대마그', '대마블',
       '아편전쟁',
+      'shabushabu',
     ],
   },
   {
@@ -135,6 +145,9 @@ const RAW_RULES: RawRule[] = [
     label: '마약류 의심',
     action: 'review',
     terms: ['마약', '양귀비', '헴프씨드오일'],
+    // 필리핀 — "damo"(풀=대마 은어)·"bato"(돌=샤부 은어)는 일상어라 단어 토큰 + 검토만.
+    // ("bato" 는 돌·석재 판매글이 흔해 넣지 않는다)
+    tokens: ['damo', 'jutes'],
     except: [
       '마약베개', '마약김밥', '마약쿠션', '마약방석', '마약토스트', '마약옥수수', '마약떡볶이',
       '마약매트', '마약이불', '마약소스', '마약계란', '마약달걀', '마약빵', '마약간식', '마약츄르',
@@ -156,6 +169,10 @@ const RAW_RULES: RawRule[] = [
       '야마자키', '하쿠슈', '헤네시', '돔페리뇽', '모엣샹동', '참이슬', '처음처럼', '진로이즈백',
       'whisky', 'whiskey', 'vodka', 'tequila', 'cognac', 'brandy', 'champagne', 'soju',
       'macallan', 'glenfiddich', 'hennessy', 'johnniewalker', 'jackdaniels',
+      // 필리핀 — 국산 술 (Ginebra 는 농구팀 굿즈가 많아 술 이름 조합만)
+      'lambanog', 'tanduay', 'emperadorbrandy', 'emperadorlight', 'ginebragin',
+      'sanmiguelbeer', 'sanmiglight', 'sanmigpilsen', 'palepilsen', 'redhorsebeer', 'redhorsemucho',
+      'fundadorbrandy', 'alfonsobrandy',
     ],
     except: [
       '소주잔', '소주컵', '소주병뚜껑', '소주병따개', '맥주잔', '맥주컵', '맥주효모', '맥주거품', '맥주병따개',
@@ -175,6 +192,8 @@ const RAW_RULES: RawRule[] = [
     label: '주류 의심',
     action: 'review',
     terms: ['양주', '주류', '미개봉술', '술팝니다', '술판매', '와인셀러포함'],
+    // 필리핀 — "alak"(술)은 "malakas"(강한) 안에도 있어 단어 토큰으로만
+    tokens: ['alak', 'liquor'],
     except: ['양주시', '양주역', '양주옥정', '양주동', '양주회천', '양주덕정', '양주고읍', '주류판매금지', '양주잔'],
   },
 
@@ -188,8 +207,10 @@ const RAW_RULES: RawRule[] = [
       '입호흡', '폐호흡', '무화기', '카토마이저', '팟디바이스', '연초', '시가렛', '각련', '파이프담배',
       '전담액상', '니코틴액상', '전자담배액상', '일회용전자담배', '메비우스', '디스플러스',
       'iqos', 'juul', 'cigarette', 'cigarettes', 'nicotine', 'heets',
+      // 필리핀 (RA 11900 전자담배법) — 타갈로그·현지 브랜드
+      'sigarilyo', 'tabako', 'ecigarette', 'vapejuice', 'vapepod', 'disposablevape', 'flavabar',
     ],
-    tokens: ['vape', 'vapes'],
+    tokens: ['vape', 'vapes', 'yosi', 'ecig', 'relx', 'zyn'],
     except: [
       '담배케이스', '담배냄새', '담배빵', '담배꽁초', '담배연기', '담배찌든', '담배피지', '담배안피', '담배안핌',
       '비흡연', '금연', '담배끊', '담배를안', '담배안', '담배x', '담배노', '담배없', '연초록', '연초점', '연초부터',
@@ -224,13 +245,17 @@ const RAW_RULES: RawRule[] = [
       '모의총포', '총포사',
       'crossbow', 'stungun', 'taser', 'handgun', 'shotgun', 'firearm', 'firearms', 'pistol', 'rifle',
       'ammunition', 'dynamite', 'grenade', 'balisong', 'switchblade', 'karambit', 'brassknuckle',
+      // 필리핀 (RA 10591 총기법) — "baril"(총)은 단어 경계 + "bariles"(드럼통)·장난감총 예외.
+      // "bala"(총알)는 "balat"·"balance" 오탐이 커서 "bala ng baril" 조합만.
+      'baril', 'sumpak', 'paltik', 'caliber45', 'kalibre45',
     ],
-    tokens: ['ammo'],
+    tokens: ['ammo', 'glock'],
     except: [
       '총기획', '총기간', '총기능', '총기록', '총기준', '총기사', '진검승부', '표창장', '권총형라이터', '물총', '장난감총', '총알배송', '총알택배', '총알발송', '대검찰청',
       '대검사', '장검사', '단검사', '석궁스', '조준경칩',
       'riflepaper', 'pistolgrip', 'glugun', 'gluegun', 'heatgun', 'nailgun', 'massagegun',
       'shotgunmic', 'riflescope',
+      'bariles', 'barilbarilan', 'laruangbaril', 'barilla', 'barillo',
     ],
   },
   {
@@ -241,8 +266,29 @@ const RAW_RULES: RawRule[] = [
       '비비탄총', '에어소프트', '가스건', '전동건', '에어건', '삼단봉', '호신용스프레이', '후추스프레이',
       '페퍼스프레이', '새총', '조준경', '너클', '탄피', '탄창', '방독면', '폭죽', '화약총', '도신', '칼날길이',
       'airsoft', 'pepperspray',
+      // 필리핀 — 에어소프트·젤 블래스터도 PNP 허가 대상 (RA 10591 IRR)
+      'gelblaster',
     ],
+    tokens: ['bala'],
     except: ['너클볼', '너클헤드', '폭죽모양'],
+  },
+  // ── 폭죽 · 불꽃놀이 (필리핀 RA 7183 · EO 28) ────────────────────
+  {
+    id: 'fireworks',
+    label: '폭죽·불꽃놀이',
+    action: 'block',
+    terms: [
+      'paputok', 'firecracker', 'pyrotechnic', 'superlolo', 'goodbyephilippines', 'goodbyebinladen',
+      'judasbelt', 'whistlebomb', 'kwitis', 'atomicbig',
+    ],
+  },
+  {
+    id: 'fireworks_review',
+    label: '폭죽 의심',
+    action: 'review',
+    terms: ['fireworks', 'lusis', 'watusi', 'sparkler'],
+    tokens: ['piccolo', 'luces'],
+    except: ['fireworksdesign', 'fireworksprint', 'sparklercandle', 'cakesparkler'],
   },
 
   // ── 성인용품 · 음란물 · 성매매 ──────────────────────────────────
@@ -285,17 +331,32 @@ const RAW_RULES: RawRule[] = [
       '대포폰', '대포유심', '선불폰', '선불유심', '개통폰', '명의대여', '명의판매', '명의도용',
       '신분증판매', '신분증양도', '주민등록증', '운전면허증판매', '여권판매', '공인인증서', '공동인증서',
       '개인정보판매', 'db판매', '디비판매', '고객db', '고객디비', '전화번호판매', '폰번호판매',
+      // 필리핀 — 등록 SIM (RA 11934 SIM 등록법), 정부 신분증, 전자지갑·게임 계정
+      'registeredsim', 'preregisteredsim', 'simregistered', 'prereggedsim',
+      'philsys', 'nationalid', 'philid', 'sssid', 'umidcard', 'philhealthid', 'postalid', 'votersid',
+      'driverslicense', 'driverlicense', 'passportforsale', 'fakeid',
+      'verifiedgcash', 'gcashforsale', 'gcashaccountforsale', 'verifiedmaya', 'mayaaccountforsale',
+      'bankaccountforsale', 'accountforsale', 'gameaccount',
+      'mobilelegendsaccount', 'codmaccount',
     ],
-    except: ['미개통폰', '미개통', '주민등록증케이스', '주민등록증지갑', '공인인증서보관'],
+    except: [
+      '미개통폰', '미개통', '주민등록증케이스', '주민등록증지갑', '공인인증서보관',
+      // 신분증 케이스·목걸이줄·면허 시험 문제집은 판매 가능
+      'philsysidholder', 'philsysholder', 'philsysidcase', 'nationalidholder', 'nationalidcase', 'nationalidcover',
+      'nationalidlanyard', 'nationalidlace', 'philidholder', 'philidcase', 'sssidholder', 'umidcardholder',
+      'philhealthidholder', 'postalidholder', 'driverslicenseholder', 'driverslicensecase', 'driverslicensewallet',
+      'driverslicensereviewer', 'driverlicenseholder', 'driverlicensereviewer', 'internationalid',
+    ],
   },
   {
     id: 'account_review',
     label: '유심·계정 의심',
     action: 'review',
-    terms: ['유심', 'usim', '계정', '아이디', '프로필양도', '인증서'],
+    terms: ['유심', 'usim', '계정', '아이디', '프로필양도', '인증서', 'simcard', 'prepaidsim'],
     except: [
       '유심핀', '유심트레이', '유심칩트레이', '유심제거', '유심빼', '유심미포함', '유심없', '유심x',
       '계정없', '아이디어', '아이디얼', '계정과목', '아이디카드', '아이디밴드', '아이디팔찌', 'id카드',
+      'simcardtray', 'simcardholder', 'simcardadapter', 'simcardejector', 'simcardpin', 'nosimcard', 'simcardnotincluded',
     ],
   },
 
@@ -310,6 +371,9 @@ const RAW_RULES: RawRule[] = [
       '구글깡', '기프티콘깡', '작업대출', '내구제', '내구제대출', '급전', '일수대출', '사채', '개인돈',
       '당일대출', '무직자대출', '비대면대출', '대출가능', '대출해드', '대출문의', '대출상담', '신불자대출',
       '대납', '수수료없이현금', '카드결제현금', '상품권매입', '상품권현금',
+      // 필리핀 — 사채·불법 대출 (5-6), 전자지갑 현금화 대행
+      'cashloan', 'loanshark', 'onlinelending', 'lendingservice', 'pautangagad', 'pautangonline',
+      'gcashloan', 'gcashcashoutservice',
     ],
     except: ['급전환', '사채널', '대납부'],
   },
@@ -320,7 +384,9 @@ const RAW_RULES: RawRule[] = [
     terms: [
       '대출', '상품권', '기프티콘', '문화상품권', '컬쳐랜드', '해피머니', '구글기프트카드', '구글플레이카드',
       '앱스토어카드', '모바일쿠폰', '편의점상품권', '선입금', '페이백',
+      'pautang', 'paluwagan', 'giftcard',
     ],
+    tokens: ['loan', 'loans'],
     except: ['도서대출', '대출증', '책대출', '대출도서', '대출기간', '도서관대출'],
   },
 
@@ -356,6 +422,10 @@ const RAW_RULES: RawRule[] = [
       '책임비', '분양비', '입양비', '무료분양', '유료분양', '가정분양', '새끼분양', '분양합니다', '분양해요',
       '분양가능', '분양원해', '분양받으실', '분양보내', '교배', '종견', '모견', '부견', '생체판매', '생체분양',
       '천연기념물판매', '웅담', '상아제품', '코뿔소뿔', '천산갑', '곰쓸개', '박제판매',
+      // 필리핀 — 반려동물 판매 · 야생동물 (RA 9147 야생동물보호법)
+      'puppyforsale', 'puppiesforsale', 'kittenforsale', 'kittensforsale', 'tutaforsale', 'pusaforsale',
+      'pangolinscale', 'pawikaneggs', 'itlogngpawikan', 'turtleeggs', 'seaturtleegg', 'hornbillcasque',
+      'tarsierforsale', 'livemonkey',
     ],
     except: ['교배송', '교배달', '교배치'],
   },
@@ -363,7 +433,11 @@ const RAW_RULES: RawRule[] = [
     id: 'animal_review',
     label: '분양 의심',
     action: 'review',
-    terms: ['분양', '입양', '박제', '천연기념물', '멸종위기', '사향'],
+    terms: [
+      '분양', '입양', '박제', '천연기념물', '멸종위기', '사향',
+      'rehoming', 'foradoption', 'tarsier', 'pangolin', 'hornbill', 'pawikan', 'seaturtle',
+      'philippineeagle', 'wildlife', 'endangered', 'taxidermy',
+    ],
     except: ['아파트분양', '분양권', '분양가', '분양사무소', '분양상가', '분양오피스텔', '입양서류', '멸종위기동물도감', '사향고양이'],
   },
 
@@ -376,6 +450,9 @@ const RAW_RULES: RawRule[] = [
     terms: [
       '짝퉁', '레플리카', '레플', '미러급', '미러퀄', '정품급', '정품퀄', '정품동일', '1대1제작',
       '11제작', 'st급', '모조품', '위조품', '짭퉁', 'replica', 'counterfeit', 'superfake',
+      // 필리핀 (IP Code RA 8293) — "class A", "mirror grade", "OEM copy"
+      'classaquality', 'classacopy', 'classaitem', 'classaaa', 'mirrorgrade', 'mirrorquality', 'premiumcopy',
+      'firstcopy', 'authenticgrade', 'oemcopy',
     ],
     except: ['레플리카전시', '레플렉', '레플레', '레플리', '레플라', '레플로', '레플릭', '레플러'],
   },
@@ -384,7 +461,9 @@ const RAW_RULES: RawRule[] = [
     label: '위조품 의심',
     action: 'review',
     negatable: true,
-    terms: ['가품', '짭', '복제품', '이미테이션', 'imitation', 'fake', '오리지널아님', '정품아님', '정품아닙', '정품아니'],
+    terms: ['가품', '짭', '복제품', '이미테이션', 'imitation', 'fake', '오리지널아님', '정품아님', '정품아닙', '정품아니', 'notauthentic', 'notoriginal'],
+    // 필리핀 — "peke(ng)"(가짜), "classA"
+    tokens: ['peke', 'pekeng', 'classa'],
     except: ['짭짤', '짭조름', '짭잘', '가품판정', '가품시', '가품이면', '가품일경우', '가품걱정', 'fakefur', 'fakeleather'],
   },
 
@@ -396,6 +475,7 @@ const RAW_RULES: RawRule[] = [
     terms: [
       '도난품', '장물', '훔친', '불법개조', '불법튜닝', '불법복제', '해적판', '크랙버전', '크랙판', '정품인증크랙',
       '번호판판매', '대포차', '대포오토바이', '리미터해제', '속도제한해제', '불법구조변경', '불법복제품',
+      'piratedcopy', 'piratedgame', 'piratedmovie', 'crackedsoftware', 'crackedversion',
     ],
     except: ['장물아비'],
   },
@@ -403,7 +483,9 @@ const RAW_RULES: RawRule[] = [
     id: 'stolen_review',
     label: '출처 불분명·리콜 의심',
     action: 'review',
-    terms: ['주운', '습득', '리콜', '번호판', '토렌트', '정품인증키', '시리얼키', '라이센스키', '어둠의경로'],
+    terms: ['주운', '습득', '리콜', '번호판', '토렌트', '정품인증키', '시리얼키', '라이센스키', '어둠의경로', 'platenumber'],
+    // 필리핀 — "stolen"·"nakaw"(훔친), "napulot"(주운) — "not stolen" 같은 해명이 많아 검토만
+    tokens: ['stolen', 'nakaw', 'napulot'],
     except: ['번호판가드', '번호판볼트', '번호판브라켓', '번호판프레임', '번호판등', '번호판led', '번호판커버', '주운동', '습득력'],
   },
 
@@ -416,6 +498,8 @@ const RAW_RULES: RawRule[] = [
       '헌혈증', '헌혈증서', '처방전', '장기매매', '장기판매', '신장판매', '신장매매', '간매매', '장기기증판매',
       '난자판매', '난자매매', '정자판매', '정자매매', '대리모', '대리출산', '모유판매', '모유팝니다', '모유나눔',
       '혈액판매', '머리카락판매', '모발판매', '태반판매',
+      'kidneyforsale', 'organforsale', 'bentangkidney', 'breastmilkforsale', 'sellingbreastmilk', 'bloodforsale',
+      'spermdonor', 'eggdonor', 'surrogatemother', 'fakeprescription', 'prescriptionpad',
     ],
     except: ['헌혈증기부', '헌혈증기증'],
   },
@@ -430,14 +514,17 @@ const RAW_RULES: RawRule[] = [
       '군용', '경찰복', '경찰제복', '경찰정복', '경찰근무복', '경찰모자', '경찰배지', '경찰뱃지', '경찰계급장',
       '군계급장', '소방복', '소방관제복', '야간투시경', '군용무전기', '군용나침반', '군번줄', '수갑',
       '헌병', '군수물자', '전투식량판매', '군장',
+      // 필리핀 — AFP·PNP 제복·휘장 (형법 179조 제복 부정사용)
+      'pnpuniform', 'afpuniform', 'pnpbadge', 'pnpid', 'afpid', 'policeuniform', 'policebadge', 'bulletproofvest',
+      'kevlarvest', 'nightvisiongoggles',
     ],
-    except: ['군복무', '군용스타일', '군복스타일', '군용st', '밀리터리', '군장점', '수갑케이스'],
+    except: ['군복무', '군용스타일', '군복스타일', '군용st', '밀리터리', '군장점', '수갑케이스', 'policeuniformcostume', 'kidspoliceuniform'],
   },
   {
     id: 'military_review',
     label: '군용품 의심',
     action: 'review',
-    terms: ['전투화', '군화', '전투식량', '군용침낭', '판초우의'],
+    terms: ['전투화', '군화', '전투식량', '군용침낭', '판초우의', 'handcuffs', 'militaryuniform', 'combatboots'],
   },
 
   // ── 불법 촬영 · 도청 · 위치추적 ─────────────────────────────────
@@ -449,6 +536,8 @@ const RAW_RULES: RawRule[] = [
       '몰카', '몰래카메라', '위장카메라', '볼펜카메라', '안경카메라', '시계카메라', '단추카메라', '차키카메라',
       '라이터카메라', '넥타이카메라', '모자카메라', '액자카메라', '시계형카메라', '볼펜형카메라', '도청기',
       '도청장치', '감청장비', '감청기', '녹음기숨김', '위장형카메라', 'spycam', 'hiddencamera',
+      // 필리핀 (RA 9995 몰카법 · RA 4200 도청법)
+      'spycamera', 'wiretap', 'listeningdevice',
     ],
     except: ['몰카탐지', '몰카탐지기', '몰카탐색', '몰카방지', '몰카감지', '도청탐지', '도청방지', '도청감지'],
   },
@@ -456,7 +545,7 @@ const RAW_RULES: RawRule[] = [
     id: 'spycam_review',
     label: '촬영·추적 장비 의심',
     action: 'review',
-    terms: ['초소형카메라', '소형카메라', '위치추적기', 'gps추적기', '위치추적', '초소형녹음기', '스파이캠'],
+    terms: ['초소형카메라', '소형카메라', '위치추적기', 'gps추적기', '위치추적', '초소형녹음기', '스파이캠', 'pinholecamera', 'gpstracker'],
   },
 
   // ── 해킹 · 불법 프로그램 ────────────────────────────────────────
@@ -470,6 +559,7 @@ const RAW_RULES: RawRule[] = [
       '게임핵', '핵프로그램', '에임핵', '월핵', '스피드핵', '불법프로그램', '디도스', '랜섬웨어',
       '키로거', '피싱키트', '오토프로그램', '작업장프로그램', '불법매크로', '메크로판매', '매크로판매',
       '티켓매크로', 'ddos', 'ransomware', 'keylogger', 'aimbot', 'wallhack', 'cheatengine',
+      'phishingkit', 'hackingtool', 'hackingservice', 'hackfacebook', 'gcashhack', 'mlbbhack',
     ],
   },
   {
@@ -707,6 +797,8 @@ const JA: Record<string, { label: string; terms?: string[]; except?: string[] }>
     ],
     except: ['ガスガン用', '手裏剣型', '花火柄', '花火大会', '線香花火柄'],
   },
+  fireworks: { label: '花火・爆竹' },
+  fireworks_review: { label: '花火・爆竹の疑い' },
   adult: {
     label: 'アダルトグッズ・わいせつ物',
     terms: [
@@ -944,6 +1036,8 @@ const EN_LABEL: Record<string, string> = {
   tobacco_review: 'Tobacco accessories',
   weapon: 'Firearms, blades, explosives & weapons',
   weapon_review: 'Replica guns & self-defense items',
+  fireworks: 'Firecrackers & pyrotechnics',
+  fireworks_review: 'Possible firecrackers',
   adult: 'Adult products & obscene material',
   adult_review: 'Possible adult products',
   account: 'Accounts, personal info & identity trading',
@@ -1149,6 +1243,7 @@ const BOUNDARY_TERMS = new Set([
   '표창', '장검', '단검', '대검', '소총', '실총', '실탄', '산탄', '화약', '도검', '총포', '애자', '개독', '등신',
   '시발', '시팔', '시벌', '졸라', '주운', '플미', '야동', '사향', '헌병', '진검', '수갑', '전담', '액상', '향정',
   '모유', '입양', '분양', '박제', '습득', '리콜', '가품', '유심', '계정', '대출', '주류',
+  'baril',
 ]);
 const WORD_CHAR = /[0-9A-Za-z가-힣ㄱ-ㅎㅏ-ㅣぁ-ゖァ-ヺー一-鿿㐀-䶿々〆]/;
 
@@ -1290,6 +1385,11 @@ const MESSENGER_BLOCK = [
   'lineのid', 'ラインのid', 'カカオトーク', 'カカオid', 'テレグラム', 'ウィーチャット', 'dmください', 'dmで連絡', 'dmで取引',
   'メールで連絡', 'メールください', 'メアド', '連絡先交換', '連絡先を交換', '連絡先教', '電話番号教', '番号教えて',
   'アプリ外取引', 'アプリ外で', 'アプリの外で', '外部取引', '直接振込', '直接振り込', '直接送金', '振込先', '振り込み先', '口座番号',
+  // 필리핀 — Viber·Messenger·WhatsApp 으로 빼내기, 'PM me'
+  'viberme', 'viberko', 'vibernumber', 'viberno', 'viberid', 'addmeonviber', 'messagemeonviber',
+  'whatsappme', 'whatsappnumber', 'whatsappno', 'messageonwhatsapp',
+  'pmme', 'pmmo', 'pmlang', 'pmsent', 'dmme', 'messagemeonfb', 'messagemeonfacebook', 'fbmessenger', 'messengerme',
+  'addmeonfb', 'addmeonfacebook', 'textme', 'txtme', 'textmeat', 'gcashnumber', 'gcashno', 'mayanumber',
 ].map(foldTerm);
 const MESSENGER_REVIEW = [
   '카톡', '카카오톡', '문자주세요', '문자로연락', '전화주세요', '전화로연락', '연락처남겨', '번호남겨', '번호알려', '번호주세요',
@@ -1297,21 +1397,34 @@ const MESSENGER_REVIEW = [
   // 일본어
   '直接取引', '直接やり取り', '電話ください', '電話番号', '連絡先', '振込', '振り込み', '銀行振込', 'paypay送金', 'ペイペイ送金',
   'paypayで', '外部決済',
+  // 필리핀
+  'viber', 'whatsapp', 'facebookmessenger', 'callme', 'meetupsa', 'gcashpayment', 'sendviagcash', 'bankdeposit',
 ].map(foldTerm);
 
-function digitStream(raw: string): string {
+function digitStream(raw: string, letters = true): string {
   const s = (raw || '').normalize('NFKC').toLowerCase();
   let out = '';
   for (const ch of s) {
     if (ch >= '0' && ch <= '9') out += ch;
     else if (KOR_DIGITS[ch]) out += KOR_DIGITS[ch];
-    else if (ch === 'o') out += '0';
-    else if (ch === 'l' || ch === 'i') out += '1';
+    else if (letters && ch === 'o') out += '0';
+    else if (letters && (ch === 'l' || ch === 'i')) out += '1';
     else if (ch === '+') out += '+';
     else if (/[\s\-._/()~*·:,\u200b-\u200f\ufeff]/.test(ch) || '\u30fc\u2015\u2010\u2212\u30fb\u301c'.includes(ch)) continue;
     else out += '|';
   }
   return out;
+}
+
+function phoneIn(ds: string): boolean {
+  return (
+    /(?<![0-9])(?:0|\+?82)1[016789]\d{7,8}(?![0-9])/.test(ds) ||
+    /(?<![0-9])0(?:70|50\d)\d{7,8}(?![0-9])/.test(ds) ||
+    // 일본 휴대폰 070/080/090 + 8자리 (+81 포함)
+    /(?<![0-9])(?:0|\+?81)[789]0\d{8}(?![0-9])/.test(ds) ||
+    // 필리핀 휴대폰 09xx-xxx-xxxx (+63 9xx 포함)
+    /(?<![0-9])(?:0|\+?63)9\d{9}(?![0-9])/.test(ds)
+  );
 }
 
 function checkContact(raw: string, n: Norm): Hit[] {
@@ -1322,12 +1435,8 @@ function checkContact(raw: string, n: Norm): Hit[] {
   const lower = (raw || '').normalize('NFKC').toLowerCase();
 
   // 1) 휴대폰 / 인터넷전화 / 안심번호 (숫자 사이 공백·하이픈, 한글 숫자 "공일공" 우회 포함)
-  const ds = digitStream(raw);
-  const phone =
-    ds.match(/(?<![0-9])(?:0|\+?82)1[016789]\d{7,8}(?![0-9])/) ||
-    ds.match(/(?<![0-9])0(?:70|50\d)\d{7,8}(?![0-9])/) ||
-    // 일본 휴대폰 070/080/090 + 8자리 (+81 포함)
-    ds.match(/(?<![0-9])(?:0|\+?81)[789]0\d{8}(?![0-9])/);
+  // 영어 문장은 'call 0917…' 처럼 l·i·o 가 숫자로 바뀌어 번호 앞에 붙는다 → 글자 변환 없는 줄도 본다.
+  const phone = phoneIn(digitStream(raw)) || phoneIn(digitStream(raw, false));
   if (phone) hits.push({ ruleId: 'contact_phone', label, labelJa, labelEn, action: 'block', term: '전화번호' });
 
   // 2) 계좌번호 — 은행/계좌 표현 + 10~14자리 숫자열
@@ -1573,21 +1682,32 @@ export async function recordContentFlags(
 }
 
 /** 앱 안내 화면/어드민용 — 금지 카테고리 요약. */
-export const PROHIBITED_GUIDE: Array<{ label: string; examples: string; labelJa: string; examplesJa: string }> = [
-  { label: '의약품·의료기기', examples: '전문/일반의약품, 다이어트약, 발기부전치료제, 콘택트렌즈, 보청기, 주사기', labelJa: '医薬品・医療機器', examplesJa: '医薬品・市販薬、ダイエット薬、ED治療薬、コンタクトレンズ、補聴器、注射器' },
-  { label: '마약류·향정신성의약품', examples: '대마, 필로폰, 졸피뎀, 프로포폴, 환각버섯', labelJa: '麻薬・向精神薬', examplesJa: '大麻、覚醒剤、睡眠薬（向精神薬）、危険ドラッグ、マジックマッシュルーム' },
-  { label: '주류·담배·전자담배', examples: '소주·맥주·와인·위스키, 담배, 전자담배 기기·액상', labelJa: '酒類・たばこ・電子たばこ', examplesJa: 'ビール・日本酒・焼酎・ワイン・ウイスキー、たばこ、電子たばこ本体・リキッド' },
-  { label: '총포·도검·화약류·무기', examples: '총기, 실탄, 석궁, 전기충격기, 가스분사기, 도검', labelJa: '銃砲・刀剣・火薬類・武器', examplesJa: '実銃、実弾、クロスボウ、スタンガン、日本刀・刀剣、ダガーナイフ' },
-  { label: '성인용품·음란물', examples: '성인용품, 음란물, 착용 속옷, 조건만남', labelJa: 'アダルトグッズ・わいせつ物', examplesJa: 'アダルトグッズ、わいせつ物、使用済み下着、援助交際・パパ活' },
-  { label: '계정·개인정보·명의', examples: '게임/SNS 계정, 통장, 유심·대포폰, 신분증, 공인인증서', labelJa: 'アカウント・個人情報・名義', examplesJa: 'ゲーム/SNSアカウント、銀行口座・通帳、名義貸し、身分証' },
-  { label: '현금화·대출·가상화폐', examples: '상품권깡, 소액결제 현금화, 작업대출, 비트코인 등 코인 매매', labelJa: '現金化・貸付・暗号資産', examplesJa: 'クレジットカード現金化、個人融資・闇金、ビットコインなどの暗号資産の売買' },
-  { label: '반려동물·야생동물', examples: '반려동물 분양(무료분양·책임비 포함), 멸종위기종, 웅담', labelJa: 'ペット・野生動物', examplesJa: 'ペット・生体の譲渡や販売（里親募集を含む）、絶滅危惧種、象牙' },
-  { label: '위조품', examples: '짝퉁, 레플리카, 이미테이션, 미러급', labelJa: '偽ブランド品', examplesJa: '偽物、コピー品、スーパーコピー、N級品' },
-  { label: '도난품·불법개조·불법복제', examples: '장물, 불법 개조품, 해적판, 크랙', labelJa: '盗品・違法改造・海賊版', examplesJa: '盗品、違法改造品、海賊版、マジコン' },
-  { label: '헌혈증·처방전·인체유래물', examples: '헌혈증, 처방전, 장기·난자·모유', labelJa: '献血・処方箋・人体由来物', examplesJa: '処方箋、臓器・卵子・精子、母乳' },
-  { label: '군용품·경찰 제복', examples: '군복, 방탄복, 경찰 제복·배지, 수갑', labelJa: '軍用品・警察制服', examplesJa: '警察制服・警察手帳、自衛隊官品、防弾チョッキ、手錠' },
-  { label: '불법 촬영·도청 장비', examples: '몰래카메라, 위장형 카메라, 도청기', labelJa: '盗撮・盗聴機器', examplesJa: '隠しカメラ、偽装カメラ、盗聴器' },
-  { label: '해킹·불법 프로그램', examples: '해킹툴, 게임핵, 불법 매크로', labelJa: 'ハッキング・不正プログラム', examplesJa: 'ハッキングツール、チートツール、不正なマクロ' },
-  { label: '암표·대리 서비스', examples: '웃돈 티켓 리셀, 티켓팅 대행, 대리시험', labelJa: 'チケット転売・代行サービス', examplesJa: 'チケットの高額転売、チケット取り代行、代理受験' },
-  { label: '종량제 봉투', examples: '쓰레기 종량제 봉투, 폐기물 스티커', labelJa: '粗大ごみ処理券', examplesJa: '粗大ごみ処理券、ごみ処理シール' },
+export const PROHIBITED_GUIDE: Array<{
+  label: string;
+  examples: string;
+  labelJa: string;
+  examplesJa: string;
+  /** 영어(필리핀 시장) — 필리핀 법령·현지 표현 기준 */
+  labelEn?: string;
+  examplesEn?: string;
+  /** 이 시장에서만 보여주는 항목 (없으면 전 시장) — 종량제 봉투는 kr·jp, 폭죽은 ph */
+  markets?: Array<'kr' | 'jp' | 'ph'>;
+}> = [
+  { label: '의약품·의료기기', examples: '전문/일반의약품, 다이어트약, 발기부전치료제, 콘택트렌즈, 보청기, 주사기', labelJa: '医薬品・医療機器', examplesJa: '医薬品・市販薬、ダイエット薬、ED治療薬、コンタクトレンズ、補聴器、注射器', labelEn: 'Medicines & medical devices', examplesEn: "Prescription drugs (antibiotics, Cytotec/misoprostol, ED pills), medicines not registered with FDA Philippines, slimming pills and injectables, contact lenses, hearing aids, syringes" },
+  { label: '마약류·향정신성의약품', examples: '대마, 필로폰, 졸피뎀, 프로포폴, 환각버섯', labelJa: '麻薬・向精神薬', examplesJa: '大麻、覚醒剤、睡眠薬（向精神薬）、危険ドラッグ、マジックマッシュルーム', labelEn: 'Illegal drugs & psychotropics', examplesEn: "Shabu (meth), marijuana/damo, kush, ecstasy, cocaine, party drugs, magic mushrooms, Nubain (RA 9165)" },
+  { label: '주류·담배·전자담배', examples: '소주·맥주·와인·위스키, 담배, 전자담배 기기·액상', labelJa: '酒類・たばこ・電子たばこ', examplesJa: 'ビール・日本酒・焼酎・ワイン・ウイスキー、たばこ、電子たばこ本体・リキッド', labelEn: 'Alcohol, tobacco & vapes', examplesEn: "Beer, gin, rum, brandy, lambanog, whisky; cigarettes (yosi), vapes and pods, e-juice, heated tobacco (IQOS), nicotine pouches (RA 11900)" },
+  { label: '총포·도검·화약류·무기', examples: '총기, 실탄, 석궁, 전기충격기, 가스분사기, 도검', labelJa: '銃砲・刀剣・火薬類・武器', examplesJa: '実銃、実弾、クロスボウ、スタンガン、日本刀・刀剣、ダガーナイフ', labelEn: 'Firearms, blades, explosives & weapons', examplesEn: "Guns (baril), paltik/sumpak, ammunition (bala), gun parts, airsoft guns and gel blasters (RA 10591), stun guns, pepper spray, balisong" },
+  { label: '성인용품·음란물', examples: '성인용품, 음란물, 착용 속옷, 조건만남', labelJa: 'アダルトグッズ・わいせつ物', examplesJa: 'アダルトグッズ、わいせつ物、使用済み下着、援助交際・パパ活', labelEn: 'Adult products & obscene material', examplesEn: "Adult toys, porn and obscene material, worn underwear, paid dating/hookups" },
+  { label: '계정·개인정보·명의', examples: '게임/SNS 계정, 통장, 유심·대포폰, 신분증, 공인인증서', labelJa: 'アカウント・個人情報・名義', examplesJa: 'ゲーム/SNSアカウント、銀行口座・通帳、名義貸し、身分証', labelEn: 'Accounts, personal data & identities', examplesEn: "Registered SIM cards (RA 11934), PhilSys National ID, SSS/UMID, PhilHealth, driver's licenses, passports, GCash/Maya and bank accounts, game/social media accounts" },
+  { label: '현금화·대출·가상화폐', examples: '상품권깡, 소액결제 현금화, 작업대출, 비트코인 등 코인 매매', labelJa: '現金化・貸付・暗号資産', examplesJa: 'クレジットカード現金化、個人融資・闇金、ビットコインなどの暗号資産の売買', labelEn: 'Cash-outs, loans & crypto', examplesEn: "5-6 and online lending (pautang), GCash/Maya cash-out services, gift card cash-outs, trading Bitcoin or other crypto" },
+  { label: '반려동물·야생동물', examples: '반려동물 분양(무료분양·책임비 포함), 멸종위기종, 웅담', labelJa: 'ペット・野生動物', examplesJa: 'ペット・生体の譲渡や販売（里親募集を含む）、絶滅危惧種、象牙', labelEn: 'Pets & wildlife', examplesEn: "Selling or rehoming pets for a fee, protected wildlife (RA 9147) like tarsiers, pangolins, hornbills and sea turtles (pawikan) or their eggs and parts" },
+  { label: '위조품', examples: '짝퉁, 레플리카, 이미테이션, 미러급', labelJa: '偽ブランド品', examplesJa: '偽物、コピー品、スーパーコピー、N級品', labelEn: 'Counterfeits', examplesEn: "Fake/peke branded goods, \"Class A\", mirror-grade, premium or OEM copies (IP Code, RA 8293)" },
+  { label: '도난품·불법개조·불법복제', examples: '장물, 불법 개조품, 해적판, 크랙', labelJa: '盗品・違法改造・海賊版', examplesJa: '盗品、違法改造品、海賊版、マジコン', labelEn: 'Stolen, illegally modified & pirated goods', examplesEn: "Stolen items (nakaw), illegally modified items, pirated movies and games, cracked software" },
+  { label: '헌혈증·처방전·인체유래물', examples: '헌혈증, 처방전, 장기·난자·모유', labelJa: '献血・処方箋・人体由来物', examplesJa: '処方箋、臓器・卵子・精子、母乳', labelEn: 'Prescriptions & human-derived items', examplesEn: "Prescriptions (reseta), organs (e.g. kidney), blood, eggs/sperm, breast milk" },
+  { label: '군용품·경찰 제복', examples: '군복, 방탄복, 경찰 제복·배지, 수갑', labelJa: '軍用品・警察制服', examplesJa: '警察制服・警察手帳、自衛隊官品、防弾チョッキ、手錠', labelEn: 'Military gear & police uniforms', examplesEn: "AFP/PNP uniforms, badges and insignia, bulletproof vests, handcuffs, night-vision goggles" },
+  { label: '불법 촬영·도청 장비', examples: '몰래카메라, 위장형 카메라, 도청기', labelJa: '盗撮・盗聴機器', examplesJa: '隠しカメラ、偽装カメラ、盗聴器', labelEn: 'Hidden cameras & bugging devices', examplesEn: "Spy cameras, pinhole/disguised cameras, wiretaps (RA 9995, RA 4200)" },
+  { label: '해킹·불법 프로그램', examples: '해킹툴, 게임핵, 불법 매크로', labelJa: 'ハッキング・不正プログラム', examplesJa: 'ハッキングツール、チートツール、不正なマクロ', labelEn: 'Hacking & illegal software', examplesEn: "Hacking tools and services, phishing kits, game hacks/cheats (e.g. ML), illegal macros" },
+  { label: '암표·대리 서비스', examples: '웃돈 티켓 리셀, 티켓팅 대행, 대리시험', labelJa: 'チケット転売・代行サービス', examplesJa: 'チケットの高額転売、チケット取り代行、代理受験', labelEn: 'Scalped tickets & proxy services', examplesEn: "Marked-up concert ticket resale, ticketing proxies, proxy exam-taking" },
+  { label: '종량제 봉투', examples: '쓰레기 종량제 봉투, 폐기물 스티커', labelJa: '粗大ごみ処理券', examplesJa: '粗大ごみ処理券、ごみ処理シール', markets: ['kr', 'jp'] },
+  { label: '폭죽·불꽃놀이', examples: '폭죽, 불꽃놀이 화약류, 사제 폭발물', labelJa: '花火・爆竹', examplesJa: '花火、爆竹、手製の爆発物', labelEn: 'Firecrackers & pyrotechnics', examplesEn: "Paputok and fireworks, banned firecrackers (Piccolo, Super Lolo, Goodbye Philippines, Judas' belt), kwitis, homemade explosives (RA 7183, EO 28)", markets: ['ph'] },
 ];

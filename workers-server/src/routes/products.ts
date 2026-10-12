@@ -9,7 +9,8 @@ import {
   grantListingMiningBonus,
   getBrowseMiningStatus,
   createEscrowIfEligible,
-  ESCROW_MAX_AMOUNT_KRW,
+  ESCROW_MAX_AMOUNT,
+  escrowLimitLabel,
   grantListingReward,
   adjustListingRewardOnPrice,
   deleteProductWithClawback,
@@ -1365,10 +1366,10 @@ app.post('/:id/bump', authMiddleware, async (c) => {
 /**
  * POST /api/products/:id/escrow
  *
- * 30,000원 미만 KRW 거래에 대한 에스크로(임시예치) 생성.
+ * 한도 미만 거래(한국 30,000원 · 필리핀 ₱1,000)에 대한 에스크로(임시예치) 생성.
  *  - 호출자: 구매자 (buyer). 본인인증 Lv1 필수.
  *  - 같은 product+buyer 로 이미 pending 인 게 있으면 그 메모/금액 그대로 반환 (멱등).
- *  - 30,000원 이상은 거부 → 클라이언트가 직거래로 안내.
+ *  - 한도 이상은 거부 → 클라이언트가 직거래로 안내. 필리핀은 ESCROW_PH_* 계좌가 없으면 준비 중(503).
  *
  * Body: (없음 — product.price 를 그대로 사용)
  * 응답: { ok, escrow_id, deposit_memo, amount_krw, bank_info }
@@ -1391,9 +1392,16 @@ app.post('/:id/escrow', authMiddleware, async (c) => {
     .bind(id)
     .first<{ id: string; seller_id: string; price: number; status: string; market: string | null }>();
   if (!row) return c.json({ error: tr(c, '상품을 찾을 수 없어요', '商品が見つかりません', 'Item not found') }, 404);
-  // 안전거래는 한국 계좌 입금 방식이라 한국 상품만.
-  if ((row.market || 'kr') !== 'kr') {
+  // 안전거래는 회사 계좌 입금 방식 — 한국(원)·필리핀(페소) 상품만. 일본은 없음.
+  const market: Market = row.market === 'ph' ? 'ph' : row.market === 'jp' ? 'jp' : 'kr';
+  const maxAmount = ESCROW_MAX_AMOUNT[market];
+  if (maxAmount == null) {
     return c.json({ error: tr(c, '이 상품은 안전거래를 쓸 수 없어요', 'この商品は安全取引をご利用いただけません', `Safe payment isn't available for this item`), reason: 'market' }, 400);
+  }
+  // 필리핀 페소 수취 계좌(ESCROW_PH_* secret)가 아직 없으면 예치 기록을 만들지 않는다.
+  const env = c.env as unknown as Record<string, string | undefined>;
+  if (market === 'ph' && !env.ESCROW_PH_ACCOUNT_NUMBER) {
+    return c.json({ error: tr(c, '필리핀 안전결제는 준비 중이에요', 'フィリピンの安全取引は準備中です', 'Safe payment in the Philippines is coming soon'), reason: 'not_ready' }, 503);
   }
   if (row.seller_id === user.id) {
     return c.json({ error: tr(c, '본인 상품에는 에스크로를 만들 수 없어요', 'ご自身の商品には安全取引を利用できません', `You can't use safe payment on your own item`) }, 400);
@@ -1401,12 +1409,14 @@ app.post('/:id/escrow', authMiddleware, async (c) => {
   if (row.status === 'sold') {
     return c.json({ error: tr(c, '이미 거래 완료된 상품이에요', 'すでに取引完了した商品です', 'This item has already been sold') }, 400);
   }
-  if (row.price >= ESCROW_MAX_AMOUNT_KRW) {
+  if (row.price >= maxAmount) {
+    const limit = escrowLimitLabel(market);
     return c.json(
       {
-        error: tr(c, '30,000원 이상은 당사자 직거래에요', 'この金額の商品は安全取引の対象外です。当事者間で直接お取引ください', `Safe payment isn't available for items at this price. Please trade directly with the other person`),
+        error: tr(c, `${limit} 이상은 당사자 직거래에요`, 'この金額の商品は安全取引の対象外です。当事者間で直接お取引ください', `Safe payment is only for items under ${limit}. Please trade directly with the other person`),
         reason: 'over_limit',
-        threshold: ESCROW_MAX_AMOUNT_KRW,
+        threshold: maxAmount,
+        currency: market === 'ph' ? 'PHP' : 'KRW',
       },
       400,
     );
@@ -1419,6 +1429,7 @@ app.post('/:id/escrow', authMiddleware, async (c) => {
     row.seller_id,
     row.price,
     reqLang(c),
+    market,
   );
   if (!result.ok) {
     const code = result.reason === 'over_limit' ? 400 : 500;
@@ -1426,7 +1437,11 @@ app.post('/:id/escrow', authMiddleware, async (c) => {
   }
 
   // 회사 임시 예치 계좌 정보 — 환경변수에서 읽음 (운영 시 secret 으로 관리)
-  const bankInfo = {
+  const bankInfo = market === 'ph' ? {
+    bank_name: env.ESCROW_PH_BANK_NAME || '',
+    account_number: env.ESCROW_PH_ACCOUNT_NUMBER || '',
+    account_holder: env.ESCROW_PH_ACCOUNT_HOLDER || '',
+  } : {
     bank_name: (c.env as { ESCROW_BANK_NAME?: string }).ESCROW_BANK_NAME || '국민은행',
     account_number:
       (c.env as { ESCROW_ACCOUNT_NUMBER?: string }).ESCROW_ACCOUNT_NUMBER ||

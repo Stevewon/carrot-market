@@ -2750,112 +2750,112 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get productBanMedicineEx =>
-      'Prescription/OTC drugs, diet pills, ED pills, contact lenses, hearing aids, syringes';
+      'Prescription drugs (antibiotics, Cytotec/misoprostol, ED pills), medicines not registered with FDA Philippines, slimming pills and injectables, contact lenses, hearing aids, syringes';
 
   @override
   String get productBanDrugs => 'Illegal drugs & psychotropics';
 
   @override
   String get productBanDrugsEx =>
-      'Marijuana, meth, zolpidem, propofol, magic mushrooms, etc.';
+      'Shabu (meth), marijuana/damo, kush, ecstasy, cocaine, party drugs, magic mushrooms, Nubain (RA 9165)';
 
   @override
   String get productBanAlcohol => 'Alcohol';
 
   @override
   String get productBanAlcoholEx =>
-      'Soju, beer, wine, whisky, traditional liquor (empty bottles and glasses are OK)';
+      'Beer, gin, rum, brandy, lambanog, whisky, wine (empty bottles and glasses are OK)';
 
   @override
   String get productBanTobacco => 'Tobacco & vapes';
 
   @override
   String get productBanTobaccoEx =>
-      'Cigarettes, vape devices and e-liquids, nicotine products';
+      'Cigarettes (yosi), vapes and pods, e-juice, heated tobacco (IQOS), nicotine pouches (RA 11900)';
 
   @override
   String get productBanWeapons => 'Firearms, blades, explosives & weapons';
 
   @override
   String get productBanWeaponsEx =>
-      'Guns, ammunition, crossbows, stun guns, pepper spray, swords and knives';
+      'Guns (baril), paltik/sumpak, ammunition (bala), gun parts, airsoft guns and gel blasters (RA 10591), stun guns, pepper spray, balisong';
 
   @override
   String get productBanAdult => 'Adult products & obscene material';
 
   @override
   String get productBanAdultEx =>
-      'Adult toys, obscene material, worn underwear, paid dating/hookups';
+      'Adult toys, porn and obscene material, worn underwear, paid dating/hookups';
 
   @override
   String get productBanAccounts => 'Accounts, personal data & identities';
 
   @override
   String get productBanAccountsEx =>
-      'Game/social media accounts, bank accounts, SIM cards/burner phones, IDs, digital certificates';
+      'Registered SIM cards (RA 11934), PhilSys National ID, SSS/UMID, PhilHealth, driver\'s licenses, passports, GCash/Maya and bank accounts, game/social media accounts';
 
   @override
   String get productBanCashing => 'Cash-outs, loans & crypto';
 
   @override
   String get productBanCashingEx =>
-      'Gift card cash-outs, mobile payment cash-outs, shady loans, trading Bitcoin or other coins';
+      '5-6 and online lending (pautang), GCash/Maya cash-out services, gift card cash-outs, trading Bitcoin or other crypto';
 
   @override
-  String get productBanAnimals => 'Pets & wild animals';
+  String get productBanAnimals => 'Pets & wildlife';
 
   @override
   String get productBanAnimalsEx =>
-      'Rehoming or selling pets (including free adoption or rehoming fees), endangered species, bear bile';
+      'Selling or rehoming pets for a fee, protected wildlife (RA 9147) like tarsiers, pangolins, hornbills and sea turtles (pawikan) or their eggs and parts';
 
   @override
   String get productBanCounterfeit => 'Counterfeits';
 
   @override
   String get productBanCounterfeitEx =>
-      'Fakes, replicas, mirror-grade/class A copies';
+      'Fake/peke branded goods, \"Class A\", mirror-grade, premium or OEM copies (IP Code, RA 8293)';
 
   @override
   String get productBanStolen => 'Stolen, illegally modified & pirated goods';
 
   @override
   String get productBanStolenEx =>
-      'Stolen goods, illegally modified items, pirated copies, cracks';
+      'Stolen items (nakaw), illegally modified items, pirated movies and games, cracked software';
 
   @override
-  String get productBanBodily =>
-      'Blood donation cards, prescriptions & human-derived items';
+  String get productBanBodily => 'Prescriptions & human-derived items';
 
   @override
   String get productBanBodilyEx =>
-      'Blood donation cards, prescriptions, organs, eggs, breast milk';
+      'Prescriptions (reseta), organs (e.g. kidney), blood, eggs/sperm, breast milk';
 
   @override
   String get productBanMilitary => 'Military gear & police uniforms';
 
   @override
   String get productBanMilitaryEx =>
-      'Military uniforms, bulletproof vests, police uniforms and badges, handcuffs';
+      'AFP/PNP uniforms, badges and insignia, bulletproof vests, handcuffs, night-vision goggles';
 
   @override
   String get productBanSpycam => 'Hidden cameras & bugging devices';
 
   @override
-  String get productBanSpycamEx => 'Spy cameras, disguised cameras, wiretaps';
+  String get productBanSpycamEx =>
+      'Spy cameras, pinhole/disguised cameras, wiretaps (RA 9995, RA 4200)';
 
   @override
   String get productBanHacking => 'Hacking & illegal software';
 
   @override
   String get productBanHackingEx =>
-      'Hacking tools, game hacks/cheats, illegal macros';
+      'Hacking tools and services, phishing kits, game hacks/cheats (e.g. ML), illegal macros';
 
   @override
   String get productBanScalping => 'Scalped tickets & proxy services';
 
   @override
   String get productBanScalpingEx =>
-      'Marked-up ticket resale, ticketing proxies, proxy exam-taking';
+      'Marked-up concert ticket resale, ticketing proxies, proxy exam-taking';
 
   @override
   String get productBanWasteBags => 'Official garbage bags';
@@ -2863,6 +2863,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get productBanWasteBagsEx =>
       'Pay-as-you-throw garbage bags, bulky waste disposal stickers';
+
+  @override
+  String get productBanFireworks => 'Firecrackers & pyrotechnics';
+
+  @override
+  String get productBanFireworksEx =>
+      'Paputok and fireworks, banned firecrackers (Piccolo, Super Lolo, Goodbye Philippines, Judas\' belt), kwitis, homemade explosives (RA 7183, EO 28)';
 
   @override
   String get productBanIntro =>
@@ -2873,7 +2880,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get productBanInfoBody =>
-      '• Phone numbers, bank account numbers, emails\n• KakaoTalk IDs, open chat/Telegram links and other outside messengers\n• Profanity, slurs and hate speech\n\nPlease keep deal conversations in Eggplant chat. Moving to outside messengers or paying upfront carries a high risk of scams.';
+      '• Phone numbers, bank account numbers, emails\n• Viber, Messenger, WhatsApp or Telegram contacts and links (\"PM me on FB\")\n• Profanity, slurs and hate speech\n\nPlease keep deal conversations in Eggplant chat. Moving to outside messengers or paying upfront carries a high risk of scams.';
 
   @override
   String get productPolicyRejectedTitle => 'This post can\'t be published';

@@ -63,4 +63,14 @@ void main() {
     }
     expect(mismatches, isEmpty);
   });
+
+  test('en 금지 품목 안내는 필리핀 기준 (폭죽 항목 · 현지 예시)', () {
+    final t = lookupAppLocalizations(const Locale('en'));
+    expect(t.productBanFireworks, contains('Firecrackers'));
+    expect(t.productBanFireworksEx, contains('RA 7183'));
+    expect(t.productBanDrugsEx, contains('Shabu'));
+    expect(t.productBanAccountsEx, contains('PhilSys'));
+    // 한국어 · 일본어 안내는 그대로
+    expect(lookupAppLocalizations(const Locale('ko')).productBanWasteBags, '종량제 봉투');
+  });
 }

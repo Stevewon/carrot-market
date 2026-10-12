@@ -5105,6 +5105,18 @@ abstract class AppLocalizations {
   /// **'쓰레기 종량제 봉투, 폐기물 스티커'**
   String get productBanWasteBagsEx;
 
+  /// No description provided for @productBanFireworks.
+  ///
+  /// In ko, this message translates to:
+  /// **'폭죽·불꽃놀이'**
+  String get productBanFireworks;
+
+  /// No description provided for @productBanFireworksEx.
+  ///
+  /// In ko, this message translates to:
+  /// **'폭죽, 불꽃놀이 화약류, 사제 폭발물'**
+  String get productBanFireworksEx;
+
   /// No description provided for @productBanIntro.
   ///
   /// In ko, this message translates to:

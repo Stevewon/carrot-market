@@ -235,10 +235,10 @@
     foot_api: 'APIステータス',
     foot_mail: 'お問い合わせ',
     foot_legal: '法的情報',
-    foot_terms: '利用規約(韓国語)',
-    foot_privacy: 'プライバシーポリシー(韓国語)',
-    foot_lbs: '位置情報サービス利用規約(韓国語)',
-    foot_policy: '運営ポリシー(韓国語)',
+    foot_terms: '利用規約',
+    foot_privacy: 'プライバシーポリシー',
+    foot_lbs: '位置情報サービス利用規約',
+    foot_policy: '運営ポリシー',
     foot_biz: '事業者情報',
     foot_disclaimer: '株式会社Quantarium(주식회사 퀀타리움)が運営するEggplantは<b>通信販売の仲介者であり、通信販売の当事者ではありません。</b>ユーザー間の取引における商品・取引情報・取引に関する責任は取引の当事者にあり、当社は法令で求められる範囲を除き、直接の責任を負いません。',
     c_name: '商号',
@@ -399,10 +399,10 @@
     foot_api: `API status`,
     foot_mail: `Contact us`,
     foot_legal: `Legal`,
-    foot_terms: `Terms of Service (Korean)`,
-    foot_privacy: `Privacy Policy (Korean)`,
-    foot_lbs: `Location-Based Services Terms (Korean)`,
-    foot_policy: `Community Policy (Korean)`,
+    foot_terms: `Terms of Service`,
+    foot_privacy: `Privacy Policy`,
+    foot_lbs: `Location-Based Services Terms`,
+    foot_policy: `Community Policy`,
     foot_biz: `Business information`,
     foot_disclaimer: `Eggplant, operated by Quantarium Co., Ltd. (주식회사 퀀타리움), is <b>a mail-order sales intermediary and is not a party to mail-order sales.</b> Responsibility for the items, transaction information and transactions between users lies with the parties to the transaction, and the Company bears no direct responsibility except to the extent required by law.`,
     c_name: `Company name`,
@@ -445,6 +445,11 @@
     document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
       if (!originalAria.has(el)) originalAria.set(el, el.getAttribute('aria-label') || '');
       el.setAttribute('aria-label', pick(el.getAttribute('data-i18n-aria'), originalAria.get(el)));
+    });
+    // 하단 법적 고지 링크 — 일본어·영어면 /ja/… · /en/… 번역본으로.
+    document.querySelectorAll('a[data-legal]').forEach((a) => {
+      const page = a.getAttribute('data-legal');
+      a.setAttribute('href', lang === 'ko' ? '/' + page : '/' + lang + '/' + page);
     });
     META.forEach((m) => m.el.setAttribute('content', pick(m.key, m.ko)));
     document.title = pick('title', originalTitle);

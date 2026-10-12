@@ -6,7 +6,8 @@ import '../app/theme.dart';
 /// 거래 금지 품목 안내 (당근식 운영정책).
 ///
 /// 실제 판정은 서버(workers-server/src/prohibited.ts)가 한다 — 이 화면은 안내용.
-/// 일본어 문구는 서버 PROHIBITED_GUIDE 의 labelJa/examplesJa 를 따른다.
+/// 일본어·영어 문구는 서버 PROHIBITED_GUIDE 의 labelJa/examplesJa · labelEn/examplesEn 을 따른다
+/// (영어는 필리핀 시장 기준 — 현지 법령·표현).
 class ProhibitedItemsScreen extends StatelessWidget {
   const ProhibitedItemsScreen({super.key});
 
@@ -33,7 +34,10 @@ class ProhibitedItemsScreen extends StatelessWidget {
         ('📷', t.productBanSpycam, t.productBanSpycamEx),
         ('💻', t.productBanHacking, t.productBanHackingEx),
         ('🎫', t.productBanScalping, t.productBanScalpingEx),
-        ('🗑️', t.productBanWasteBags, t.productBanWasteBagsEx),
+        // 종량제 봉투는 한국·일본만 — 필리핀(영어)은 폭죽·불꽃놀이 (RA 7183)
+        L10n.isEnglish
+            ? ('🧨', t.productBanFireworks, t.productBanFireworksEx)
+            : ('🗑️', t.productBanWasteBags, t.productBanWasteBagsEx),
       ];
 
   @override

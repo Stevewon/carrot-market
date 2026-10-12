@@ -1,8 +1,104 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://eggplant.life/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://eggplant.life/terms.html</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://eggplant.life/terms.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://eggplant.life/en/terms.html" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://eggplant.life/ja/terms.html" />
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://eggplant.life/en/terms.html</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://eggplant.life/terms.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://eggplant.life/en/terms.html" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://eggplant.life/ja/terms.html" />
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://eggplant.life/ja/terms.html</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://eggplant.life/terms.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://eggplant.life/en/terms.html" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://eggplant.life/ja/terms.html" />
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://eggplant.life/privacy.html</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://eggplant.life/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://eggplant.life/en/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://eggplant.life/ja/privacy.html" />
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://eggplant.life/en/privacy.html</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://eggplant.life/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://eggplant.life/en/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://eggplant.life/ja/privacy.html" />
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://eggplant.life/ja/privacy.html</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://eggplant.life/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://eggplant.life/en/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://eggplant.life/ja/privacy.html" />
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://eggplant.life/lbs-terms.html</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://eggplant.life/lbs-terms.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://eggplant.life/en/lbs-terms.html" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://eggplant.life/ja/lbs-terms.html" />
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://eggplant.life/en/lbs-terms.html</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://eggplant.life/lbs-terms.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://eggplant.life/en/lbs-terms.html" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://eggplant.life/ja/lbs-terms.html" />
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://eggplant.life/ja/lbs-terms.html</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://eggplant.life/lbs-terms.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://eggplant.life/en/lbs-terms.html" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://eggplant.life/ja/lbs-terms.html" />
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://eggplant.life/community-policy.html</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://eggplant.life/community-policy.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://eggplant.life/en/community-policy.html" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://eggplant.life/ja/community-policy.html" />
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://eggplant.life/en/community-policy.html</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://eggplant.life/community-policy.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://eggplant.life/en/community-policy.html" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://eggplant.life/ja/community-policy.html" />
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://eggplant.life/ja/community-policy.html</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://eggplant.life/community-policy.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://eggplant.life/en/community-policy.html" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://eggplant.life/ja/community-policy.html" />
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>

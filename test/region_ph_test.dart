@@ -63,8 +63,21 @@ void main() {
 
     test('Metro Manila 와 대표 도시', () {
       final mm = AppRegions.phCities('Metro Manila').map((c) => c.$2).toList();
-      expect(mm, containsAll(['Manila City', 'Quezon City', 'Makati City', 'Taguig City', 'Pasig City', 'Pateros']));
-      expect(mm.length, 17);
+      expect(mm, containsAll(['Quezon City', 'Makati City', 'Taguig City', 'Pasig City', 'Pateros']));
+      expect(mm.length, 30); // 16 시·군 + 마닐라 구 14
+      // 마닐라는 PSGC sub-municipality 14곳으로 나뉜다. 예전 통째 이름은 앱 목록에 없다 (서버 별칭만).
+      const districts = [
+        'Binondo', 'Ermita', 'Intramuros', 'Malate', 'Paco', 'Pandacan', 'Port Area',
+        'Quiapo', 'Sampaloc', 'San Miguel', 'San Nicolas', 'Santa Ana', 'Santa Cruz', 'Tondo',
+      ];
+      expect(mm.where((c) => c.startsWith('Manila (')).toList(),
+          [for (final d in districts) 'Manila ($d)']);
+      expect(mm, isNot(contains('Manila City')));
+      expect(AppRegions.ph, isNot(contains('Metro Manila · Manila City')));
+      expect(AppRegions.ph, contains('Metro Manila · Manila (Tondo)'));
+      expect(AppRegions.phProvinceOf('Metro Manila · Manila (Sampaloc)'), 'Metro Manila');
+      // 예전에 저장된 이름도 Province 는 알아본다.
+      expect(AppRegions.phProvinceOf('Metro Manila · Manila City'), 'Metro Manila');
       for (final r in [
         'Metro Manila · Makati City',
         'Cebu · Cebu City',

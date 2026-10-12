@@ -4,6 +4,7 @@
 // 일본: lib/app/regions_jp.dart (都道府県 + 市区町村) ↔ workers-server/src/regions_jp.ts JP_REGION_CENTERS
 //       예전 이름(JP_REGION_ALIASES)은 서버에만 있고 새 목록과 겹치면 안 된다.
 // 필리핀: lib/app/regions_ph.dart (Province + City/Municipality) ↔ workers-server/src/regions_ph.ts PH_REGION_CENTERS
+//       예전 이름(PH_REGION_ALIASES, 'Metro Manila · Manila City')은 서버에만 있고 새 목록과 겹치면 안 된다.
 // 세 시장의 이름이 서로 겹치면 안 된다 (regionMarket 이 이름으로 시장을 정한다).
 import { readFileSync } from 'node:fs';
 
@@ -109,12 +110,23 @@ for (const e of phTs) {
   if (parts.length !== 2) errors.push(`PH 이름에 구분자가 하나가 아님 '${e.name}'`);
   else if (!provTs.includes(parts[0])) errors.push(`PH 알 수 없는 Province '${e.name}'`);
 }
+// 예전 이름(PH_REGION_ALIASES)은 서버에만 있고 새 목록과 겹치면 안 된다.
+const phAliasEntries = tsKeys(block(phTsSrc, /export const PH_REGION_ALIASES\b/));
+const phAliases = phAliasEntries.map((e) => e.name);
+for (const e of phAliasEntries) {
+  if (phDart.includes(e.name)) errors.push(`PH 별칭 '${e.name}' 가 새 목록과 겹침`);
+  if (!(e.lat >= 4 && e.lat <= 22 && e.lng >= 114 && e.lng <= 127.5)) errors.push(`PH 별칭 좌표가 필리핀 밖 '${e.name}'`);
+}
+for (const n of ['Metro Manila · Manila City']) if (!phAliases.includes(n)) errors.push(`PH 예전 이름 '${n}' 이 더 이상 유효하지 않음`);
+const manilaDistricts = phDart.filter((n) => n.startsWith('Metro Manila' + sepDart + 'Manila ('));
+if (manilaDistricts.length !== 14) errors.push(`PH: 마닐라 구가 14곳이 아님 (${manilaDistricts.length})`);
+console.log(`PH 별칭 ${phAliases.length} · 마닐라 구 ${manilaDistricts.length}`);
 
 // 시장끼리 이름이 겹치면 regionMarket 이 틀린다.
 const markets = [
   ['KR', krTs.map((e) => e.name)],
   ['JP', [...jpTs.map((e) => e.name), ...aliases]],
-  ['PH', phTs.map((e) => e.name)],
+  ['PH', [...phTs.map((e) => e.name), ...phAliases]],
 ];
 for (let i = 0; i < markets.length; i++) {
   for (let j = i + 1; j < markets.length; j++) {
