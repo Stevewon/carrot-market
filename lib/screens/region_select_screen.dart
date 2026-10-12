@@ -200,56 +200,99 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
     );
   }
 
-  /// 동네 고르기 — 내 동네 목록에 추가하고 그 동네로 바꾼다 (최대 10곳).
+  static const int _maxRegions = 10;
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+  }
+
+  /// 동네 누르기 — 내 동네 목록에 있으면 빼고, 없으면 추가하고 그 동네로 바꾼다 (최대 10곳).
+  /// 화면은 닫지 않는다 — 여러 곳을 연달아 고를 수 있게.
   Future<void> _pick(AuthService auth, String r) async {
-    final err = await auth.updateRegion(r);
-    if (!mounted) return;
-    if (err != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(err)));
+    final user = auth.user;
+    final mine = user?.regions ?? const <String>[];
+    if (mine.contains(r)) {
+      if (mine.length <= 1) {
+        _toast(context.l10n.regionKeepOne);
+        return;
+      }
+      final next = [...mine]..remove(r);
+      final err = await auth.setRegions(next, active: r == user?.region ? next.first : user?.region);
+      if (!mounted) return;
+      _toast(err ?? context.l10n.regionRemoved(r, next.length, _maxRegions));
       return;
     }
-    // 변경한 동네에서 바로 GPS 인증을 권유.
-    final verifyNow = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(ctx.l10n.homeRegionVerifyDialogTitle),
-        content: Text(ctx.l10n.homeRegionVerifyDialogBody(r)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(ctx.l10n.commonLater),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(ctx.l10n.homeVerifyNow,
-                style: const TextStyle(fontWeight: FontWeight.w700)),
+    if (mine.length >= _maxRegions) {
+      _toast(context.l10n.homeMaxRegions(_maxRegions));
+      return;
+    }
+    final err = await auth.updateRegion(r);
+    if (!mounted) return;
+    _toast(err ?? context.l10n.regionAdded(r, (auth.user?.regions.length ?? mine.length + 1), _maxRegions));
+  }
+
+  /// 위쪽 "내 동네 n/10" — 누르면 그 동네로 바꾸고, ✕ 로 뺀다.
+  Widget _myRegions(AuthService auth) {
+    final user = auth.user;
+    final mine = user?.regions ?? const <String>[];
+    if (mine.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(context.l10n.homeMyRegionsTitle(mine.length, _maxRegions),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text(context.l10n.regionMultiHint(_maxRegions),
+              style: const TextStyle(fontSize: 12, color: EggplantColors.textSecondary)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final r in mine)
+                InputChip(
+                  label: Text(r),
+                  selected: r == user?.region,
+                  showCheckmark: false,
+                  selectedColor: EggplantColors.primary.withValues(alpha: 0.15),
+                  labelStyle: TextStyle(
+                    fontWeight: r == user?.region ? FontWeight.w800 : FontWeight.w500,
+                    color: r == user?.region ? EggplantColors.primary : EggplantColors.textPrimary,
+                  ),
+                  onPressed: r == user?.region
+                      ? null
+                      : () async {
+                          final err = await auth.updateRegion(r);
+                          if (mounted) _toast(err ?? context.l10n.homeRegionSet(r));
+                        },
+                  onDeleted: mine.length > 1 ? () => _pick(auth, r) : null,
+                  deleteButtonTooltipMessage: context.l10n.homeRemoveRegion,
+                ),
+            ],
           ),
         ],
       ),
     );
-    if (verifyNow == true) {
-      await _verifyWithGps(region: r);
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.homeRegionSet(r))),
-      );
-      if (Navigator.canPop(context)) context.pop();
-    }
   }
 
   /// 동네 한 줄. [region] 은 서버에 보내는 전체 이름, [label] 은 화면에 보이는 이름.
   Widget _regionTile(AuthService auth, String region, String label) {
     final isCurrent = region == auth.user?.region;
+    final isMine = auth.user?.regions.contains(region) ?? false;
     return ListTile(
       title: Text(label,
           style: TextStyle(
-            fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: isMine ? FontWeight.w700 : FontWeight.w500,
             color: isCurrent ? EggplantColors.primary : EggplantColors.textPrimary,
           )),
-      trailing: isCurrent
-          ? const Icon(Icons.check, color: EggplantColors.primary)
-          : null,
+      trailing: Icon(
+        isMine ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+        color: isMine ? EggplantColors.primary : EggplantColors.textTertiary,
+      ),
       onTap: () => _pick(auth, region),
     );
   }
@@ -404,6 +447,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
               child: Column(
                 children: [
                   _buildVerifiedBanner(auth),
+                  _myRegions(auth),
                   if (!isJp) ..._krList(auth),
                   if (isJp && _pref == null) ..._jpPrefectureStep(auth),
                   if (isJp && _pref != null) ..._jpCityStep(auth, _pref!),

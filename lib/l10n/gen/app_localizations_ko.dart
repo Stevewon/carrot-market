@@ -2856,6 +2856,24 @@ class AppLocalizationsKo extends AppLocalizations {
   String get regionNoResults => '검색 결과가 없어요';
 
   @override
+  String regionAdded(String region, int count, int max) {
+    return '$region 추가 ($count/$max)';
+  }
+
+  @override
+  String regionRemoved(String region, int count, int max) {
+    return '$region 뺐어요 ($count/$max)';
+  }
+
+  @override
+  String regionMultiHint(int max) {
+    return '아래 목록에서 눌러 최대 $max곳까지 추가 · 다시 누르면 빠져요. 위 동네를 누르면 그 동네로 바뀌어요.';
+  }
+
+  @override
+  String get regionKeepOne => '동네는 한 곳 이상 있어야 해요';
+
+  @override
   String reviewQuestion(String nickname) {
     return '$nickname님과 거래가 어떠셨나요?';
   }

@@ -2857,6 +2857,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get regionNoResults => '該当する地域がありません';
 
   @override
+  String regionAdded(String region, int count, int max) {
+    return '$region を追加 ($count/$max)';
+  }
+
+  @override
+  String regionRemoved(String region, int count, int max) {
+    return '$region を外しました ($count/$max)';
+  }
+
+  @override
+  String regionMultiHint(int max) {
+    return '下のリストをタップして最大$maxか所まで追加・もう一度タップで外れます。上の地域をタップするとその地域に切り替わります。';
+  }
+
+  @override
+  String get regionKeepOne => '地域は1か所以上必要です';
+
+  @override
   String reviewQuestion(String nickname) {
     return '$nicknameさんとの取引はいかがでしたか？';
   }

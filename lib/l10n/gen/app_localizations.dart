@@ -5331,6 +5331,30 @@ abstract class AppLocalizations {
   /// **'검색 결과가 없어요'**
   String get regionNoResults;
 
+  /// No description provided for @regionAdded.
+  ///
+  /// In ko, this message translates to:
+  /// **'{region} 추가 ({count}/{max})'**
+  String regionAdded(String region, int count, int max);
+
+  /// No description provided for @regionRemoved.
+  ///
+  /// In ko, this message translates to:
+  /// **'{region} 뺐어요 ({count}/{max})'**
+  String regionRemoved(String region, int count, int max);
+
+  /// No description provided for @regionMultiHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'아래 목록에서 눌러 최대 {max}곳까지 추가 · 다시 누르면 빠져요. 위 동네를 누르면 그 동네로 바뀌어요.'**
+  String regionMultiHint(int max);
+
+  /// No description provided for @regionKeepOne.
+  ///
+  /// In ko, this message translates to:
+  /// **'동네는 한 곳 이상 있어야 해요'**
+  String get regionKeepOne;
+
   /// No description provided for @reviewQuestion.
   ///
   /// In ko, this message translates to:

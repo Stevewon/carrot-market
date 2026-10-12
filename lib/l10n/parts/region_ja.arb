@@ -3,5 +3,9 @@
   "regionCitySearchHint": "{prefecture}の市区町村を検索",
   "regionCityCount": "{count}市区町村",
   "regionChangePrefecture": "都道府県を選び直す",
-  "regionNoResults": "該当する地域がありません"
+  "regionNoResults": "該当する地域がありません",
+  "regionAdded": "{region} を追加 ({count}/{max})",
+  "regionRemoved": "{region} を外しました ({count}/{max})",
+  "regionMultiHint": "下のリストをタップして最大{max}か所まで追加・もう一度タップで外れます。上の地域をタップするとその地域に切り替わります。",
+  "regionKeepOne": "地域は1か所以上必要です"
 }
