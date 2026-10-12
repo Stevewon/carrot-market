@@ -5,6 +5,7 @@
  *   POST /api/admin/login            { username, password }  -> { token, must_change_pw }
  *   POST /api/admin/logout                                    -> { ok }
  *   POST /api/admin/change-password  { old, new }            -> { ok }
+ *   POST /api/admin/change-username  { password, new_username } -> { ok, username }
  *   GET  /api/admin/me                                        -> 어드민 본인 정보
  *
  * 대시보드:
@@ -282,7 +283,7 @@ app.post('/change-password', async (c) => {
     .bind(me.id)
     .first<{ password_hash: string }>();
   if (!row || !(await verifyPassword(oldPw, row.password_hash))) {
-    return c.json({ error: '기존 비밀번호가 일치하지 않아요' }, 401);
+    return c.json({ error: '기존 비밀번호가 일치하지 않아요' }, 400); // 401 이면 화면이 로그아웃된다
   }
 
   const newHash = await hashPassword(newPw);
@@ -295,6 +296,37 @@ app.post('/change-password', async (c) => {
 
   await audit(c, 'change_password', 'admin', me.id, null);
   return c.json({ ok: true });
+});
+
+/** POST /api/admin/change-username  { password, new_username } — 관리자 화면 "내 계정"에서 아이디 변경 */
+app.post('/change-username', async (c) => {
+  const me = c.get('admin')!;
+  let body: { password?: string; new_username?: string } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: '잘못된 요청' }, 400);
+  }
+  const newName = (body.new_username || '').trim();
+  if (!/^[A-Za-z0-9_.-]{4,32}$/.test(newName)) {
+    return c.json({ error: '아이디는 영문·숫자·_ . - 로 4~32자' }, 400);
+  }
+  const row = await c.env.DB
+    .prepare(`SELECT username, password_hash FROM admins WHERE id = ?`)
+    .bind(me.id)
+    .first<{ username: string; password_hash: string }>();
+  if (!row || !(await verifyPassword(body.password || '', row.password_hash))) {
+    return c.json({ error: '현재 비밀번호가 일치하지 않아요' }, 400);
+  }
+  if (row.username === newName) return c.json({ error: '지금 아이디와 같아요' }, 400);
+  const taken = await c.env.DB
+    .prepare(`SELECT 1 FROM admins WHERE username = ? COLLATE NOCASE AND id != ?`)
+    .bind(newName, me.id)
+    .first();
+  if (taken) return c.json({ error: '이미 쓰는 아이디예요' }, 409);
+  await c.env.DB.prepare(`UPDATE admins SET username = ? WHERE id = ?`).bind(newName, me.id).run();
+  await audit(c, 'change_username', 'admin', me.id, null);
+  return c.json({ ok: true, username: newName });
 });
 
 // ────────────────────────────────────────────────────────────────────

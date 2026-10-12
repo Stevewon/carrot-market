@@ -75,6 +75,7 @@
       { href: 'users.html',       slug: 'users',       label: '사용자',     icon: '👥' },
       { href: 'products.html',    slug: 'products',    label: '상품',       icon: '🛍️' },
       { href: 'stats.html',       slug: 'stats',       label: '감사 로그',  icon: '📜' },
+      { href: 'account.html',     slug: 'account',     label: '내 계정',    icon: '🔑' },
     ];
     const me = getAdminInfo();
     const meHtml = me ?

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>내 계정 · Eggplant Admin</title>
+  <link rel="stylesheet" href="admin.css?v=v3" />
+  <style>
+    .msg { display: none; margin-bottom: 12px; font-size: 13px; }
+    .msg.show { display: block; }
+    .msg.err { color: var(--danger); }
+    .msg.ok { color: #059669; }
+    .card { max-width: 480px; }
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar" id="sidebar"></aside>
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1>🔑 내 계정</h1>
+        <div id="header-me"></div>
+      </div>
+
+      <div class="card">
+        <h2>아이디 변경</h2>
+        <div class="msg" id="un-msg"></div>
+        <form id="un-form">
+          <div class="form-row">
+            <label for="un-new">새 아이디 (영문·숫자·_ . - 4~32자)</label>
+            <input id="un-new" autocomplete="username" required minlength="4" maxlength="32" />
+          </div>
+          <div class="form-row">
+            <label for="un-pw">현재 비밀번호</label>
+            <input id="un-pw" type="password" autocomplete="current-password" required />
+          </div>
+          <button type="submit">아이디 바꾸기</button>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <h2>비밀번호 변경</h2>
+        <div class="msg" id="pw-msg"></div>
+        <form id="pw-form">
+          <div class="form-row">
+            <label for="pw-old">현재 비밀번호</label>
+            <input id="pw-old" type="password" autocomplete="current-password" required />
+          </div>
+          <div class="form-row">
+            <label for="pw-new">새 비밀번호 (8~64자)</label>
+            <input id="pw-new" type="password" autocomplete="new-password" required minlength="8" maxlength="64" />
+          </div>
+          <div class="form-row">
+            <label for="pw-new2">새 비밀번호 확인</label>
+            <input id="pw-new2" type="password" autocomplete="new-password" required minlength="8" maxlength="64" />
+          </div>
+          <button type="submit">비밀번호 바꾸기</button>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script src="admin.js?v=v3"></script>
+  <script>
+    (function () {
+      if (!AdminApp.requireAuth()) return;
+      AdminApp.renderSidebar(document.getElementById('sidebar'));
+      AdminApp.renderHeaderMe(document.getElementById('header-me'));
+
+      function say(id, text, ok) {
+        const el = document.getElementById(id);
+        el.textContent = text;
+        el.className = 'msg show ' + (ok ? 'ok' : 'err');
+      }
+
+      document.getElementById('un-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector('button');
+        btn.disabled = true;
+        try {
+          const res = await AdminApp.api('/api/admin/change-username', {
+            method: 'POST',
+            body: {
+              new_username: document.getElementById('un-new').value.trim(),
+              password: document.getElementById('un-pw').value,
+            },
+          });
+          const me = AdminApp.getAdminInfo() || {};
+          me.username = res.username;
+          AdminApp.setAdminInfo(me);
+          AdminApp.renderSidebar(document.getElementById('sidebar'));
+          AdminApp.renderHeaderMe(document.getElementById('header-me'));
+          e.target.reset();
+          say('un-msg', '아이디를 "' + res.username + '" 로 바꿨어요. 다음 로그인부터 새 아이디를 쓰세요.', true);
+        } catch (err) {
+          say('un-msg', err.message || '변경 실패', false);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      document.getElementById('pw-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const oldPw = document.getElementById('pw-old').value;
+        const newPw = document.getElementById('pw-new').value;
+        if (newPw !== document.getElementById('pw-new2').value) {
+          say('pw-msg', '새 비밀번호 두 개가 서로 달라요', false);
+          return;
+        }
+        const btn = e.target.querySelector('button');
+        btn.disabled = true;
+        try {
+          await AdminApp.api('/api/admin/change-password', {
+            method: 'POST',
+            body: { old: oldPw, new: newPw },
+          });
+          e.target.reset();
+          say('pw-msg', '비밀번호를 바꿨어요. 다음 로그인부터 새 비밀번호를 쓰세요.', true);
+        } catch (err) {
+          say('pw-msg', err.message || '변경 실패', false);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
