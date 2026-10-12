@@ -444,6 +444,7 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
           senderId: data['sender_id']?.toString(),
           senderNickname: data['sender_nickname']?.toString(),
           text: data['text']?.toString(),
+          sentAt: ChatService.parsePushSentAt(data['sent_at']),
         );
       } catch (e) {
         debugPrint('[push-msg-recv] applyIncomingPushMessage failed: $e');
@@ -491,6 +492,7 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
           senderId: data['sender_id']?.toString(),
           senderNickname: data['sender_nickname']?.toString(),
           text: data['text']?.toString(),
+          sentAt: ChatService.parsePushSentAt(data['sent_at']),
         );
       } catch (e) {
         debugPrint('[push-msg] applyIncomingPushMessage failed: $e');

@@ -502,6 +502,13 @@ class ChatService extends ChangeNotifier {
     _syncLauncherBadge();
   }
 
+  /// 푸시 data 의 sent_at(서버 UTC ISO8601) → 로컬 시각. 없거나 깨졌으면 null.
+  static DateTime? parsePushSentAt(Object? raw) {
+    final s = raw?.toString() ?? '';
+    if (s.isEmpty) return null;
+    return DateTime.tryParse(s)?.toLocal();
+  }
+
   /// ★ v1.0.107: SharedPreferences pending push 큐를 일괄 복원.
   ///   firebaseBackgroundHandler 가 background isolate 에서 채워둔 푸시들을
   ///   앱 부팅/재개 시 main isolate 에서 읽어 _rooms 에 합성 방으로 추가.
@@ -516,6 +523,8 @@ class ChatService extends ChangeNotifier {
     if (me == null) return;
     try {
       final sp = await SharedPreferences.getInstance();
+      // 큐는 백그라운드 isolate 가 쓴다 — 이 isolate 의 캐시엔 안 보이므로 다시 읽는다.
+      await sp.reload();
       final raw = sp.getString(kPendingPushQueueKey);
       if (raw == null || raw.isEmpty || raw == '[]') return;
 
@@ -540,6 +549,7 @@ class ChatService extends ChangeNotifier {
           senderId: e['sender_id']?.toString(),
           senderNickname: e['sender_nickname']?.toString(),
           text: e['text']?.toString(),
+          sentAt: parsePushSentAt(e['sent_at']),
         );
       }
 

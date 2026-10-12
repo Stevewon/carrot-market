@@ -405,6 +405,9 @@ export class ChatHub {
         // peer 가 방 화면에 없을 수도 있으니 chat-list 뱃지/미리보기용 푸시도 발송.
         const peerId = tokens.find((t) => t.length >= 30 && t !== meta.userId);
         if (peerId) {
+          // 처음 말을 건 경우 상대는 아직 이 방에 join 하지 않았다 → 위 broadcast 를 못 받는다.
+          // 서버엔 기록이 없으므로 본문을 직접 보내야 상대 앱이 방을 만들고 메시지를 담는다.
+          this.sendToUserOutsideRoom(peerId, room_id, payload);
           const delivered = this.sendToUser(peerId, {
             type: 'room_updated',
             room_id,
@@ -785,6 +788,17 @@ export class ChatHub {
   }
 
   /** Broadcast to every socket whose attachment includes the room_id (except optionally excluded). */
+  /** user_id 의 소켓 중 room_id 에 join 하지 않은 소켓에만 보낸다 (join 한 소켓은 broadcast 로 받음). */
+  private sendToUserOutsideRoom(user_id: string, room_id: string, payload: unknown): void {
+    const data = JSON.stringify(payload);
+    for (const ws of this.state.getWebSockets()) {
+      const meta = ws.deserializeAttachment() as AttachedMeta | null;
+      if (meta && meta.userId === user_id && !meta.rooms.includes(room_id)) {
+        try { ws.send(data); } catch { /* ignore */ }
+      }
+    }
+  }
+
   private broadcastToRoom(room_id: string, except: WebSocket | null, payload: unknown): void {
     const data = JSON.stringify(payload);
     for (const ws of this.state.getWebSockets()) {

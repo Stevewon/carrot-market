@@ -139,6 +139,8 @@ Future<void> _enqueuePendingPush(Map<String, dynamic> data) async {
       'sender_id': data['sender_id']?.toString() ?? '',
       'sender_nickname': data['sender_nickname']?.toString() ?? '',
       'text': data['text']?.toString() ?? '',
+      // 서버가 보낸 시각 — 알림 탭 경로와 같은 메시지인지 가려내는 데 쓴다.
+      'sent_at': data['sent_at']?.toString() ?? '',
       'received_at': DateTime.now().toUtc().toIso8601String(),
     };
 
@@ -470,6 +472,7 @@ class PushService extends ChangeNotifier {
           'sender_id': data['sender_id']?.toString() ?? '',
           'sender_nickname': data['sender_nickname']?.toString() ?? '',
           'text': data['text']?.toString() ?? '',
+          'sent_at': data['sent_at']?.toString() ?? '',
         });
       }
     }
@@ -510,6 +513,10 @@ class PushService extends ChangeNotifier {
           'room_id': roomId,
           'sender_id': data['sender_id']?.toString() ?? '',
           'sender_nickname': data['sender_nickname']?.toString() ?? L10n.current.chatAnonymous,
+          // 서버에는 대화 기록이 없다 — 알림에 실려 온 본문이 유일한 사본.
+          // 빠뜨리면 알림을 눌러 들어간 채팅방에 상대 메시지가 없다.
+          'text': data['text']?.toString() ?? '',
+          'sent_at': data['sent_at']?.toString() ?? '',
         });
       }
     }
