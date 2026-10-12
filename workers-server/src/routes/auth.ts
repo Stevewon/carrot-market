@@ -428,6 +428,8 @@ app.post('/wallet-challenge/:id/check', async (c) => {
 //   2차: 지갑에 들어온 수량이 맞으면 verified → /reset-password 에 wallet_challenge_id 로 쓴다.
 // ================================================================
 app.post('/reset-wallet-receive', async (c) => {
+  // 보안: 본사가 보낸 수량은 scan 에 공개돼 지갑 주인이 아니어도 알 수 있다 → 재설정 증명으로 못 쓴다.
+  return c.json({ error: tr(c, '보안 점검 중이에요. 잠시 후 다시 시도해주세요', 'セキュリティ点検中です。しばらくしてから再度お試しください'), code: 'disabled' }, 503);
   let body: { wallet_address?: string; device_uuid?: string } = {};
   try {
     body = await c.req.json();

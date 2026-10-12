@@ -308,7 +308,8 @@ export async function checkChallenge(
  * VERIFIED_USE_WINDOW_MIN 이내여야 한다. 원자적 UPDATE 라 같은 챌린지로
  * 두 번 가입/재설정할 수 없다.
  */
-// from_user(회원이 송금 — 예전 앱)와 to_user(본사가 송금, 회원이 받은 수량 입력) 모두 쓴다.
+// from_user(회원이 자기 지갑에서 송금)만 소유 증명이 된다. to_user(본사가 송금)는 수량이
+// scan 에 공개돼 남도 볼 수 있으므로 비밀번호 재설정에 쓰지 않는다.
 export async function consumeChallenge(
   env: Env,
   challengeId: string,
@@ -321,7 +322,7 @@ export async function consumeChallenge(
       `UPDATE wallet_challenges
           SET status = 'used', used_at = datetime('now')
         WHERE id = ? AND wallet_address = ? AND purpose = ? AND device_uuid = ?
-          AND status = 'verified'
+          AND direction = 'from_user' AND status = 'verified'
           AND verified_at >= datetime('now', ?)`,
     )
     .bind(challengeId, walletLower, purpose, deviceUuid, `-${VERIFIED_USE_WINDOW_MIN} minutes`)
