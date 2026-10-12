@@ -166,10 +166,10 @@ export async function createReceiveChallenge(
   purpose: ReceivePurpose = 'verify',
 ): Promise<CreateReceiveResult> {
   if (!receiveEnabled(env)) {
-    return { ok: false, status: 503, error: trl(lang, '지갑 인증 송금을 준비 중이에요. 잠시 후 다시 시도해주세요', 'ウォレット認証の送金を準備中です。しばらくしてから再度お試しください'), code: 'sender_not_ready' };
+    return { ok: false, status: 503, error: trl(lang, '지갑 인증 송금을 준비 중이에요. 잠시 후 다시 시도해주세요', 'ウォレット認証の送金を準備中です。しばらくしてから再度お試しください', 'Wallet verification transfers are being prepared. Please try again in a moment'), code: 'sender_not_ready' };
   }
   if (walletLower === hqAddress(env)) {
-    return { ok: false, status: 409, error: trl(lang, '이 주소는 등록할 수 없어요', 'このアドレスは登録できません'), code: 'wallet_reserved' };
+    return { ok: false, status: 409, error: trl(lang, '이 주소는 등록할 수 없어요', 'このアドレスは登録できません', "This address can't be registered"), code: 'wallet_reserved' };
   }
 
   // 같은 회원·지갑·기기·용도로 아직 살아 있는 요청이 있으면 그대로 (다시 보내지 않음).
@@ -208,7 +208,7 @@ export async function createReceiveChallenge(
     return {
       ok: false,
       status: 429,
-      error: trl(lang, '오늘 지갑 인증 요청이 많아 잠시 멈췄어요. 내일 다시 시도해주세요', '本日のウォレット認証リクエストが多いため一時停止しています。明日再度お試しください'),
+      error: trl(lang, '오늘 지갑 인증 요청이 많아 잠시 멈췄어요. 내일 다시 시도해주세요', '本日のウォレット認証リクエストが多いため一時停止しています。明日再度お試しください', "There are too many wallet verification requests today, so we've paused them. Please try again tomorrow"),
       code: 'daily_cap',
     };
   }
@@ -218,7 +218,7 @@ export async function createReceiveChallenge(
     return {
       ok: false,
       status: 429,
-      error: trl(lang, '오늘 지갑 인증 요청을 너무 많이 했어요. 내일 다시 시도해주세요', '本日のウォレット認証リクエストの上限に達しました。明日再度お試しください'),
+      error: trl(lang, '오늘 지갑 인증 요청을 너무 많이 했어요. 내일 다시 시도해주세요', '本日のウォレット認証リクエストの上限に達しました。明日再度お試しください', "You've reached today's limit for wallet verification requests. Please try again tomorrow"),
       code: 'too_many_requests',
     };
   }
@@ -427,25 +427,25 @@ export async function confirmReceive(
   purpose: ReceivePurpose = 'verify',
 ): Promise<ConfirmResult> {
   const row = await getReceiveChallenge(env, userId, id, purpose);
-  if (!row) return { ok: false, status: 404, error: trl(lang, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません'), code: 'not_found' };
+  if (!row) return { ok: false, status: 404, error: trl(lang, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません', "We couldn't find this verification request"), code: 'not_found' };
   if (row.status !== 'pending') {
-    return { ok: false, status: 409, error: trl(lang, '이미 끝난 인증이에요. 처음부터 다시 진행해주세요', 'この認証はすでに終了しています。最初からやり直してください'), code: 'used' };
+    return { ok: false, status: 409, error: trl(lang, '이미 끝난 인증이에요. 처음부터 다시 진행해주세요', 'この認証はすでに終了しています。最初からやり直してください', 'This verification has already ended. Please start over'), code: 'used' };
   }
   if (sqliteUtcMs(row.expires_at) < Date.now() || !row.return_amount_wei) {
-    return { ok: false, status: 410, error: trl(lang, '인증 시간이 지났어요. 다시 요청해주세요', '認証の有効期限が切れました。再度リクエストしてください'), code: 'expired' };
+    return { ok: false, status: 410, error: trl(lang, '인증 시간이 지났어요. 다시 요청해주세요', '認証の有効期限が切れました。再度リクエストしてください', 'Verification has expired. Please request again'), code: 'expired' };
   }
   if (row.send_status !== 'sent') {
     return {
       ok: false,
       status: 409,
       error: row.send_status === 'failed'
-        ? trl(lang, '본사 지갑 송금에 실패했어요. 다시 요청해주세요', '運営ウォレットからの送金に失敗しました。再度リクエストしてください')
-        : trl(lang, '아직 본사 지갑에서 보내는 중이에요. 잠시 후 다시 확인해주세요', '運営ウォレットから送金中です。しばらくしてから再度ご確認ください'),
+        ? trl(lang, '본사 지갑 송금에 실패했어요. 다시 요청해주세요', '運営ウォレットからの送金に失敗しました。再度リクエストしてください', 'The transfer from the Eggplant wallet failed. Please request again')
+        : trl(lang, '아직 본사 지갑에서 보내는 중이에요. 잠시 후 다시 확인해주세요', '運営ウォレットから送金中です。しばらくしてから再度ご確認ください', 'The Eggplant wallet is still sending. Please check again in a moment'),
       code: row.send_status === 'failed' ? 'send_failed' : 'not_sent_yet',
     };
   }
   if (row.last_checked_at && Date.now() - sqliteUtcMs(row.last_checked_at) < CHECK_COOLDOWN_SEC * 1000) {
-    return { ok: false, status: 429, error: trl(lang, '잠시 후 다시 확인해주세요', 'しばらくしてから再度ご確認ください'), code: 'cooldown' };
+    return { ok: false, status: 429, error: trl(lang, '잠시 후 다시 확인해주세요', 'しばらくしてから再度ご確認ください', 'Please check again in a moment'), code: 'cooldown' };
   }
   await env.DB.prepare(`UPDATE wallet_challenges SET last_checked_at = datetime('now') WHERE id = ?`).bind(row.id).run();
 
@@ -454,7 +454,7 @@ export async function confirmReceive(
     txs = await listOutgoingTxs(env, row.wallet_address);
   } catch (e) {
     console.error('[wallet-receive] explorer failed', String((e as Error)?.message || e));
-    return { ok: false, status: 502, error: trl(lang, '블록 탐색기에 연결하지 못했어요. 잠시 후 다시 시도해주세요', 'ブロックエクスプローラーに接続できませんでした。しばらくしてから再度お試しください'), code: 'explorer_error' };
+    return { ok: false, status: 502, error: trl(lang, '블록 탐색기에 연결하지 못했어요. 잠시 후 다시 시도해주세요', 'ブロックエクスプローラーに接続できませんでした。しばらくしてから再度お試しください', "We couldn't connect to the block explorer. Please try again in a moment"), code: 'explorer_error' };
   }
   const hq = hqAddress(env);
   // 요청 "전에" 체인에 오른 거래는 인정하지 않는다 (시계 오차 5초).
@@ -477,6 +477,7 @@ export async function confirmReceive(
         lang,
         `아직 돌려보낸 송금이 확인되지 않았어요. 내 지갑에서 ${row.return_amount_display} QTA 를 가지 본사 지갑(${hq})으로 보낸 뒤, 블록에 담길 때까지 잠시 기다려주세요`,
         `まだ返送を確認できていません。ご自身のウォレットから ${row.return_amount_display} QTA を Eggplant 本社ウォレット(${hq})へ送金し、ブロックに取り込まれるまでしばらくお待ちください`,
+        `We haven't found your return transfer yet. Send ${row.return_amount_display} QTA from your wallet to the Eggplant HQ wallet (${hq}), then wait a moment until it's included in a block`,
       ),
       code: 'not_found_yet',
     };
@@ -496,10 +497,10 @@ export async function confirmReceive(
       .first<ReceiveRow>();
   } catch (e) {
     if (/UNIQUE/i.test(String((e as Error)?.message || e))) {
-      return { ok: false, status: 409, error: trl(lang, '이미 다른 인증에 쓰인 거래예요. 다시 요청해서 새 수량으로 보내주세요', 'この取引はすでに別の認証に使用されています。再度リクエストして新しい数量で送金してください'), code: 'tx_reused' };
+      return { ok: false, status: 409, error: trl(lang, '이미 다른 인증에 쓰인 거래예요. 다시 요청해서 새 수량으로 보내주세요', 'この取引はすでに別の認証に使用されています。再度リクエストして新しい数量で送金してください', 'This transaction was already used for another verification. Please request again and send the new amount'), code: 'tx_reused' };
     }
     throw e;
   }
-  if (!done) return { ok: false, status: 409, error: trl(lang, '이미 끝난 인증이에요', 'この認証はすでに終了しています'), code: 'used' };
+  if (!done) return { ok: false, status: 409, error: trl(lang, '이미 끝난 인증이에요', 'この認証はすでに終了しています', 'This verification has already ended'), code: 'used' };
   return { ok: true, row: done };
 }

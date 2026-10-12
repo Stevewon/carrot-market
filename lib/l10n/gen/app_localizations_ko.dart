@@ -1119,6 +1119,9 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String get chatCurrencyUnitPhp => '페소';
+
+  @override
   String get commonCancel => '취소';
 
   @override
@@ -1156,6 +1159,11 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String priceJpy(String amount) {
     return '¥$amount';
+  }
+
+  @override
+  String pricePhp(String amount) {
+    return '₱$amount';
   }
 
   @override
@@ -2860,6 +2868,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get productReportFailed => '신고 접수 실패';
+
+  @override
+  String get productFieldPriceHintPhp => '0 (나눔하려면 0페소)';
 
   @override
   String get regionPrefectureSearchHint => '도도부현·시구정촌 이름으로 검색 (예: 渋谷)';

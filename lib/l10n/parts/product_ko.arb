@@ -389,5 +389,6 @@
   "productNetworkUnreachable": "서버에 연결할 수 없어요. 네트워크를 확인해주세요",
   "productBlockFailed": "차단 실패",
   "productUnblockFailed": "차단 해제 실패",
-  "productReportFailed": "신고 접수 실패"
+  "productReportFailed": "신고 접수 실패",
+  "productFieldPriceHintPhp": "0 (나눔하려면 0페소)"
 }

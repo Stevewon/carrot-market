@@ -1,0 +1,15 @@
+{
+  "commonCancel": "Cancel",
+  "commonConfirm": "OK",
+  "commonDelete": "Delete",
+  "commonSave": "Save",
+  "commonClose": "Close",
+  "commonRetry": "Try again",
+  "commonLater": "Later",
+  "commonFree": "Free",
+  "commonLoginRequired": "Please log in first",
+  "commonNetworkError": "Network error. Please try again in a moment.",
+  "priceKrw": "₩{amount}",
+  "priceJpy": "¥{amount}",
+  "pricePhp": "₱{amount}"
+}

@@ -27,7 +27,7 @@ import {
   type ReviewerRole,
   type ReviewRating,
 } from '../reviews';
-import { normalizeMarket, reqLang, requestMarket, tr, trl, type Lang, type Market } from '../market';
+import { marketLang, normalizeMarket, reqLang, requestMarket, tr, trl, type Lang, type Market } from '../market';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 /** 본인인증(Lv1) 여부 — QTA 결제 거래·QTA 가격 설정의 조건. */async function isVerified(env: Env, userId: string): Promise<boolean> {  const r = await env.DB    .prepare('SELECT verification_level FROM users WHERE id = ?')    .bind(userId)    .first<{ verification_level: number | null }>();  return (r?.verification_level ?? 0) >= 1;}
@@ -394,7 +394,7 @@ app.post('/', authMiddleware, async (c) => {
     const early = checkProductText({ title, description, category });
     if (early.action === 'block') {
       c.executionCtx.waitUntil(recordContentFlags(c.env.DB, { userId: user.id, targetType: 'product', targetId: null, result: early }));
-      return c.json({ error: tr(c, early.message ?? '', early.messageJa ?? early.message ?? ''), code: 'prohibited', category: early.blocked ? tr(c, early.blocked.label, early.blocked.labelJa) : undefined }, 400);
+      return c.json({ error: tr(c, early.message ?? '', early.messageJa ?? early.message ?? '', early.messageEn ?? early.message ?? ''), code: 'prohibited', category: early.blocked ? tr(c, early.blocked.label, early.blocked.labelJa, early.blocked.labelEn) : undefined }, 400);
     }
 
     // Collect all "images" files (multer array-style).
@@ -406,11 +406,11 @@ app.post('/', authMiddleware, async (c) => {
       isUploadedFile,
     );
     if (files.length > MAX_IMAGES) {
-      return c.json({ error: tr(c, `이미지는 최대 ${MAX_IMAGES}장까지에요`, `画像は最大${MAX_IMAGES}枚までです`) }, 400);
+      return c.json({ error: tr(c, `이미지는 최대 ${MAX_IMAGES}장까지에요`, `画像は最大${MAX_IMAGES}枚までです`, `You can add up to ${MAX_IMAGES} photos`) }, 400);
     }
     for (const f of files) {
       if (f.size > MAX_IMAGE_SIZE) {
-        return c.json({ error: tr(c, `파일 크기는 8MB 이하여야 해요`, `ファイルサイズは8MB以下にしてください`) }, 400);
+        return c.json({ error: tr(c, `파일 크기는 8MB 이하여야 해요`, `ファイルサイズは8MB以下にしてください`, 'Files must be 8MB or smaller') }, 400);
       }
       const ext = f.name.split('.').pop()?.toLowerCase() || 'jpg';
       const safeExt = /^(jpg|jpeg|png|gif|webp)$/.test(ext) ? ext : 'jpg';
@@ -427,7 +427,7 @@ app.post('/', authMiddleware, async (c) => {
     if (ytRaw) {
       const normalized = normalizeYouTubeUrl(ytRaw);
       if (!normalized) {
-        return c.json({ error: tr(c, '유튜브 링크 형식이 올바르지 않아요', 'YouTubeリンクの形式が正しくありません') }, 400);
+        return c.json({ error: tr(c, '유튜브 링크 형식이 올바르지 않아요', 'YouTubeリンクの形式が正しくありません', `That YouTube link doesn't look right`) }, 400);
       }
       videoUrl = normalized;
     }
@@ -438,7 +438,7 @@ app.post('/', authMiddleware, async (c) => {
       const vFile = isUploadedFile(raw) ? raw : null;
       if (vFile && vFile.size > 0) {
         if (vFile.size > MAX_VIDEO_SIZE) {
-          return c.json({ error: tr(c, '영상 크기는 50MB 이하여야 해요', '動画のサイズは50MB以下にしてください') }, 400);
+          return c.json({ error: tr(c, '영상 크기는 50MB 이하여야 해요', '動画のサイズは50MB以下にしてください', 'Videos must be 50MB or smaller') }, 400);
         }
         const ext = vFile.name.split('.').pop()?.toLowerCase() || 'mp4';
         const safeExt = ALLOWED_VIDEO_EXT.test(ext) ? ext : 'mp4';
@@ -464,24 +464,24 @@ app.post('/', authMiddleware, async (c) => {
       if (ytRaw) {
         const normalized = normalizeYouTubeUrl(ytRaw);
         if (!normalized) {
-          return c.json({ error: tr(c, '유튜브 링크 형식이 올바르지 않아요', 'YouTubeリンクの形式が正しくありません') }, 400);
+          return c.json({ error: tr(c, '유튜브 링크 형식이 올바르지 않아요', 'YouTubeリンクの形式が正しくありません', `That YouTube link doesn't look right`) }, 400);
         }
         videoUrl = normalized;
       }
     } catch {
-      return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+      return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', 'Invalid request') }, 400);
     }
   }
 
   if (!title || !description || !category || !region) {
-    return c.json({ error: tr(c, '필수 정보가 부족해요', '必須項目が入力されていません') }, 400);
+    return c.json({ error: tr(c, '필수 정보가 부족해요', '必須項目が入力されていません', 'Some required info is missing') }, 400);
   }
 
   // 거래 금지 품목 · 금지어 · 외부 연락처 (서버가 최종 판단). REVIEW 는 등록 후 검토 큐 적재.
   const moderation = checkProductText({ title, description, category });
   if (moderation.action === 'block') {
     c.executionCtx.waitUntil(recordContentFlags(c.env.DB, { userId: user.id, targetType: 'product', targetId: null, result: moderation }));
-    return c.json({ error: tr(c, moderation.message ?? '', moderation.messageJa ?? moderation.message ?? ''), code: 'prohibited', category: moderation.blocked ? tr(c, moderation.blocked.label, moderation.blocked.labelJa) : undefined }, 400);
+    return c.json({ error: tr(c, moderation.message ?? '', moderation.messageJa ?? moderation.message ?? '', moderation.messageEn ?? moderation.message ?? ''), code: 'prohibited', category: moderation.blocked ? tr(c, moderation.blocked.label, moderation.blocked.labelJa, moderation.blocked.labelEn) : undefined }, 400);
   }
 
   const id = crypto.randomUUID();
@@ -490,7 +490,7 @@ app.post('/', authMiddleware, async (c) => {
   const qtaPriceInt = Math.max(0, parseInt(qtaPriceRaw, 10) || 0);
   // QTA 가격 상품은 본인인증한 판매자만 — 인증 없이는 거래완료를 할 수 없어 팔 수 없는 상품이 된다.
   if (qtaPriceInt > 0 && !(await isVerified(c.env, user.id))) {
-    return c.json({ error: tr(c, 'QTA 가격은 본인 인증 후에 설정할 수 있어요', 'QTA価格は本人確認後に設定できます') }, 403);
+    return c.json({ error: tr(c, 'QTA 가격은 본인 인증 후에 설정할 수 있어요', 'QTA価格は本人確認後に設定できます', 'You can set a QTA price after verifying your identity') }, 403);
   }
 
   // ── 핵심 INSERT 블록을 try/catch 로 감싸 사장님께 정확한 한국어 에러 노출 ──
@@ -539,13 +539,13 @@ app.post('/', authMiddleware, async (c) => {
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[products.create] INSERT 실패:', msg);
     return c.json({
-      error: tr(c, '상품 저장 중 서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.', '商品の保存中にサーバーエラーが発生しました。しばらくしてから再度お試しください。'),
+      error: tr(c, '상품 저장 중 서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.', '商品の保存中にサーバーエラーが発生しました。しばらくしてから再度お試しください。', 'A server error occurred while saving your item. Please try again in a moment.'),
       detail: msg, // 운영 진단용 — 클라이언트는 표시만 안 하면 됨
     }, 500);
   }
 
   if (!row) {
-    return c.json({ error: tr(c, '상품 저장 직후 조회 실패 — 잠시 후 다시 시도해주세요.', '商品を保存しましたが、読み込みに失敗しました。しばらくしてから再度お試しください。') }, 500);
+    return c.json({ error: tr(c, '상품 저장 직후 조회 실패 — 잠시 후 다시 시도해주세요.', '商品を保存しましたが、読み込みに失敗しました。しばらくしてから再度お試しください。', `Your item was saved but couldn't be loaded. Please try again in a moment.`) }, 500);
   }
 
   // 상품 등록 채굴 — 가격의 10% 를 QTA 로 (1 QTA = 10원, 건당·하루 상한).
@@ -734,7 +734,7 @@ app.patch('/:id', authMiddleware, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', 'Invalid request') }, 400);
   }
 
   const row = await c.env.DB
@@ -749,21 +749,21 @@ app.patch('/:id', authMiddleware, async (c) => {
 
   if (typeof body.title === 'string') {
     const t = (body.title as string).trim();
-    if (!t) return c.json({ error: tr(c, '제목을 입력해주세요', '商品名を入力してください') }, 400);
-    if (t.length > 80) return c.json({ error: tr(c, '제목이 너무 길어요', '商品名が長すぎます') }, 400);
+    if (!t) return c.json({ error: tr(c, '제목을 입력해주세요', '商品名を入力してください', 'Please enter a title') }, 400);
+    if (t.length > 80) return c.json({ error: tr(c, '제목이 너무 길어요', '商品名が長すぎます', 'The title is too long') }, 400);
     updates.push('title = ?');
     params.push(t);
   }
   if (typeof body.description === 'string') {
     const d = (body.description as string).trim();
-    if (d.length < 10) return c.json({ error: tr(c, '설명은 10자 이상 입력해주세요', '商品説明は10文字以上で入力してください') }, 400);
+    if (d.length < 10) return c.json({ error: tr(c, '설명은 10자 이상 입력해주세요', '商品説明は10文字以上で入力してください', 'Please write a description of at least 10 characters') }, 400);
     updates.push('description = ?');
     params.push(d);
   }
   if (body.price !== undefined) {
     const p = parseInt(String(body.price), 10);
     if (!Number.isFinite(p) || p < 0) {
-      return c.json({ error: tr(c, '가격이 올바르지 않아요', '価格が正しくありません') }, 400);
+      return c.json({ error: tr(c, '가격이 올바르지 않아요', '価格が正しくありません', 'Invalid price') }, 400);
     }
     updates.push('price = ?');
     params.push(p);
@@ -771,14 +771,14 @@ app.patch('/:id', authMiddleware, async (c) => {
   if (body.qta_price !== undefined) {
     const q = parseInt(String(body.qta_price), 10);
     if (!Number.isFinite(q) || q < 0) {
-      return c.json({ error: tr(c, 'QTA 가격이 올바르지 않아요', 'QTA価格が正しくありません') }, 400);
+      return c.json({ error: tr(c, 'QTA 가격이 올바르지 않아요', 'QTA価格が正しくありません', 'Invalid QTA price') }, 400);
     }
     // 거래완료 후에는 결제가 끝났으므로 변경 금지.
     if (row.status === 'sold') {
-      return c.json({ error: tr(c, '거래완료된 상품은 가격 변경 불가', '取引完了した商品は価格を変更できません') }, 400);
+      return c.json({ error: tr(c, '거래완료된 상품은 가격 변경 불가', '取引完了した商品は価格を変更できません', `You can't change the price of a sold item`) }, 400);
     }
     if (q > 0 && !(await isVerified(c.env, user.id))) {
-      return c.json({ error: tr(c, 'QTA 가격은 본인 인증 후에 설정할 수 있어요', 'QTA価格は本人確認後に設定できます') }, 403);
+      return c.json({ error: tr(c, 'QTA 가격은 본인 인증 후에 설정할 수 있어요', 'QTA価格は本人確認後に設定できます', 'You can set a QTA price after verifying your identity') }, 403);
     }
     updates.push('qta_price = ?');
     params.push(q);
@@ -816,14 +816,14 @@ app.patch('/:id', authMiddleware, async (c) => {
       }
     } else {
       const normalized = normalizeYouTubeUrl(raw);
-      if (!normalized) return c.json({ error: tr(c, '유튜브 링크 형식이 올바르지 않아요', 'YouTubeリンクの形式が正しくありません') }, 400);
+      if (!normalized) return c.json({ error: tr(c, '유튜브 링크 형식이 올바르지 않아요', 'YouTubeリンクの形式が正しくありません', `That YouTube link doesn't look right`) }, 400);
       updates.push('video_url = ?');
       params.push(normalized);
     }
   }
 
   if (updates.length === 0) {
-    return c.json({ error: tr(c, '수정할 내용이 없어요', '変更する内容がありません') }, 400);
+    return c.json({ error: tr(c, '수정할 내용이 없어요', '変更する内容がありません', 'Nothing to update') }, 400);
   }
 
   // 거래 금지 품목 · 금지어 · 외부 연락처 — 수정 후 최종 상태(바뀐 필드 + 기존 값)로 검사.
@@ -837,7 +837,7 @@ app.patch('/:id', authMiddleware, async (c) => {
     const moderation = checkProductText({ title: nextTitle, description: nextDesc, category: nextCategory });
     if (moderation.action === 'block') {
       c.executionCtx.waitUntil(recordContentFlags(c.env.DB, { userId: user.id, targetType: 'product', targetId: id, result: moderation }));
-      return c.json({ error: tr(c, moderation.message ?? '', moderation.messageJa ?? moderation.message ?? ''), code: 'prohibited', category: moderation.blocked ? tr(c, moderation.blocked.label, moderation.blocked.labelJa) : undefined }, 400);
+      return c.json({ error: tr(c, moderation.message ?? '', moderation.messageJa ?? moderation.message ?? '', moderation.messageEn ?? moderation.message ?? ''), code: 'prohibited', category: moderation.blocked ? tr(c, moderation.blocked.label, moderation.blocked.labelJa, moderation.blocked.labelEn) : undefined }, 400);
     }
     if (moderation.action === 'review') {
       c.executionCtx.waitUntil(recordContentFlags(c.env.DB, { userId: user.id, targetType: 'product', targetId: id, result: moderation }));
@@ -897,10 +897,10 @@ app.put('/:id/status', authMiddleware, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', 'Invalid request') }, 400);
   }
   if (!['sale', 'reserved', 'sold'].includes(body.status || '')) {
-    return c.json({ error: tr(c, '잘못된 상태', '不正なステータスです') }, 400);
+    return c.json({ error: tr(c, '잘못된 상태', '不正なステータスです', 'Invalid status') }, 400);
   }
 
   const row = await c.env.DB
@@ -911,14 +911,14 @@ app.put('/:id/status', authMiddleware, async (c) => {
   if (!row) return c.json({ error: 'Not found' }, 404);
   if (row.seller_id !== user.id) return c.json({ error: 'Forbidden' }, 403);
   if (row.buyer_confirmed_at) {
-    return c.json({ error: tr(c, '구매자가 거래를 확인한 상품은 상태를 바꿀 수 없어요', '購入者が取引を確認した商品はステータスを変更できません') }, 409);
+    return c.json({ error: tr(c, '구매자가 거래를 확인한 상품은 상태를 바꿀 수 없어요', '購入者が取引を確認した商品はステータスを変更できません', `You can't change the status after the buyer has confirmed the deal`) }, 409);
   }
 
   // Validate buyer_id if provided (must be a real user, not the seller).
   let buyerId: string | null = null;
   if (body.status === 'sold' && body.buyer_id) {
     if (body.buyer_id === user.id) {
-      return c.json({ error: tr(c, '본인을 구매자로 지정할 수 없어요', 'ご自身を購入者に指定することはできません') }, 400);
+      return c.json({ error: tr(c, '본인을 구매자로 지정할 수 없어요', 'ご自身を購入者に指定することはできません', `You can't set yourself as the buyer`) }, 400);
     }
     // QTA 결제 거래만 본인인증(Lv1) 판매자로 제한 — 돈(QTA)이 오가는 거래.
     // 원화 거래는 인증 없이 거래완료·후기 가능 (거래 보너스는 양쪽 인증 시에만 지급).
@@ -928,19 +928,19 @@ app.put('/:id/status', authMiddleware, async (c) => {
         .bind(user.id)
         .first<{ verification_level: number | null }>();
       if ((seller?.verification_level ?? 0) < 1) {
-        return c.json({ error: tr(c, 'QTA 결제 거래는 본인 인증 후에 완료할 수 있어요', 'QTA決済の取引は本人確認後に完了できます') }, 403);
+        return c.json({ error: tr(c, 'QTA 결제 거래는 본인 인증 후에 완료할 수 있어요', 'QTA決済の取引は本人確認後に完了できます', 'You can complete QTA deals after verifying your identity') }, 403);
       }
     }
     const buyer = await c.env.DB
       .prepare('SELECT id FROM users WHERE id = ?')
       .bind(body.buyer_id)
       .first<{ id: string }>();
-    if (!buyer) return c.json({ error: tr(c, '구매자를 찾을 수 없어요', '購入者が見つかりません') }, 400);
+    if (!buyer) return c.json({ error: tr(c, '구매자를 찾을 수 없어요', '購入者が見つかりません', 'Buyer not found') }, 400);
     // QTA 결제 거래는 구매자도 본인인증이 있어야 확인(결제)할 수 있다. 미인증 구매자를
     // 지정하면 구매자가 영영 확인할 수 없는 거래가 되므로 여기서 미리 막는다.
     if ((row.qta_price ?? 0) > 0 && !(await isVerified(c.env, body.buyer_id))) {
       return c.json(
-        { error: tr(c, '구매자가 본인 인증을 해야 QTA 결제 거래를 완료할 수 있어요', 'QTA決済の取引を完了するには、購入者の本人確認が必要です'), code: 'buyer_not_verified' },
+        { error: tr(c, '구매자가 본인 인증을 해야 QTA 결제 거래를 완료할 수 있어요', 'QTA決済の取引を完了するには、購入者の本人確認が必要です', 'The buyer needs to verify their identity to complete a QTA deal'), code: 'buyer_not_verified' },
         403,
       );
     }
@@ -957,7 +957,7 @@ app.put('/:id/status', authMiddleware, async (c) => {
     .bind(body.status, body.status === 'sold' ? buyerId : null, id)
     .run();
   if ((res.meta?.changes ?? 0) !== 1) {
-    return c.json({ error: tr(c, '구매자가 거래를 확인한 상품은 상태를 바꿀 수 없어요', '購入者が取引を確認した商品はステータスを変更できません') }, 409);
+    return c.json({ error: tr(c, '구매자가 거래를 확인한 상품은 상태를 바꿀 수 없어요', '購入者が取引を確認した商品はステータスを変更できません', `You can't change the status after the buyer has confirmed the deal`) }, 409);
   }
 
   // 구매자에게 "거래 확인 요청" 푸시 — 안 보내면 구매자가 상품 상세에 직접
@@ -969,12 +969,12 @@ app.put('/:id/status', authMiddleware, async (c) => {
       .bind(buyerId)
       .first<{ fcm_token: string | null; market: string | null }>();
     if (buyerToken?.fcm_token) {
-      const pl: Lang = buyerToken.market === 'jp' ? 'ja' : 'ko';
+      const pl: Lang = marketLang(normalizeMarket(buyerToken.market));
       c.executionCtx.waitUntil(
         sendFcm(c.env, {
           fcmToken: buyerToken.fcm_token,
-          title: trl(pl, '거래 확인 요청', '取引確認のお願い'),
-          body: trl(pl, '판매자가 거래완료로 표시했어요. 거래를 확인하고 거래 후기를 남겨주세요', '出品者が取引完了にしました。取引を確認して、評価をお願いします'),
+          title: trl(pl, '거래 확인 요청', '取引確認のお願い', 'Please confirm your deal'),
+          body: trl(pl, '판매자가 거래완료로 표시했어요. 거래를 확인하고 거래 후기를 남겨주세요', '出品者が取引完了にしました。取引を確認して、評価をお願いします', 'The seller marked the deal as complete. Please confirm it and leave a review'),
           data: { type: 'purchase_confirm', product_id: id },
         }).catch((e) => console.error('[products/status] buyer push failed', e)),
       );
@@ -1010,7 +1010,7 @@ app.post('/:id/confirm-purchase', authMiddleware, async (c) => {
     .first<ProductRow>();
   if (!row) return c.json({ error: 'Not found' }, 404);
   if (row.status !== 'sold' || row.buyer_id !== user.id) {
-    return c.json({ error: tr(c, '이 상품의 구매자로 지정되지 않았어요', 'この商品の購入者に指定されていません') }, 403);
+    return c.json({ error: tr(c, '이 상품의 구매자로 지정되지 않았어요', 'この商品の購入者に指定されていません', `You're not set as the buyer of this item`) }, 403);
   }
   if (row.buyer_confirmed_at) {
     return c.json({ ok: true, already_confirmed: true, qta_payment: null, qta_bonus: null });
@@ -1026,7 +1026,7 @@ app.post('/:id/confirm-purchase', authMiddleware, async (c) => {
     .first<{ buyer_lv: number | null; seller_lv: number | null }>();
   const bothVerified = (levels?.buyer_lv ?? 0) >= 1 && (levels?.seller_lv ?? 0) >= 1;
   if ((row.qta_price ?? 0) > 0 && (levels?.buyer_lv ?? 0) < 1) {
-    return c.json({ error: tr(c, '거래 확인에는 본인 인증이 필요해요', '取引の確認には本人確認が必要です'), code: 'verification_required' }, 403);
+    return c.json({ error: tr(c, '거래 확인에는 본인 인증이 필요해요', '取引の確認には本人確認が必要です', 'Identity verification is required to confirm a deal'), code: 'verification_required' }, 403);
   }
 
   // 구매자가 화면에서 본 QTA 가격 (앱이 보냄). 다르면 판매자가 그사이 가격을 바꾼 것 →
@@ -1037,7 +1037,7 @@ app.post('/:id/confirm-purchase', authMiddleware, async (c) => {
     if (typeof b.expected_qta_price === 'number') expectedQta = b.expected_qta_price;
   } catch { /* body 없음 */ }
   if (expectedQta !== null && expectedQta !== (row.qta_price ?? 0)) {
-    return c.json({ error: tr(c, '판매자가 가격을 바꿨어요. 상품을 다시 확인해주세요', '出品者が価格を変更しました。商品をもう一度ご確認ください'), code: 'price_changed' }, 409);
+    return c.json({ error: tr(c, '판매자가 가격을 바꿨어요. 상품을 다시 확인해주세요', '出品者が価格を変更しました。商品をもう一度ご確認ください', 'The seller changed the price. Please check the item again'), code: 'price_changed' }, 409);
   }
 
   const lock = await c.env.DB
@@ -1050,7 +1050,7 @@ app.post('/:id/confirm-purchase', authMiddleware, async (c) => {
     .run();
   if ((lock.meta?.changes ?? 0) !== 1) {
     // 동시에 판매자가 상태·가격을 바꿨거나, 다른 요청이 먼저 확인함.
-    return c.json({ error: tr(c, '거래 상태가 바뀌었어요. 다시 확인해주세요', '取引のステータスが変わりました。もう一度ご確認ください') }, 409);
+    return c.json({ error: tr(c, '거래 상태가 바뀌었어요. 다시 확인해주세요', '取引のステータスが変わりました。もう一度ご確認ください', 'The deal status has changed. Please check again') }, 409);
   }
   const unlock = () =>
     c.env.DB
@@ -1068,7 +1068,7 @@ app.post('/:id/confirm-purchase', authMiddleware, async (c) => {
     } catch (e) {
       console.error('[products/confirm-purchase] payTrade threw', e);
       await unlock().catch(() => {});
-      return c.json({ error: tr(c, '결제 처리 중 문제가 생겼어요. 잠시 후 다시 시도해주세요', '決済処理中に問題が発生しました。しばらくしてから再度お試しください') }, 500);
+      return c.json({ error: tr(c, '결제 처리 중 문제가 생겼어요. 잠시 후 다시 시도해주세요', '決済処理中に問題が発生しました。しばらくしてから再度お試しください', 'Something went wrong with the payment. Please try again in a moment') }, 500);
     }
     if (!pay.ok) {
       await unlock();
@@ -1131,14 +1131,14 @@ app.post('/:id/review', authMiddleware, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', 'Invalid request') }, 400);
   }
   const rating = String(body.rating || '') as ReviewRating;
   const rawTags = Array.isArray(body.tags) ? body.tags.map((t) => String(t).trim()).filter(Boolean) : [];
   // 새 앱은 v=2 를 보낸다. 'best' 나 항목 코드를 보내는 요청도 새 규칙으로 검사.
   const strict = Number(body.v) >= 2 || rating === 'best' || rawTags.length > 0;
   if (!(strict ? NEW_RATINGS : LEGACY_RATINGS).includes(rating)) {
-    return c.json({ error: tr(c, '평가를 선택해주세요', '評価を選択してください'), code: 'invalid_rating' }, 400);
+    return c.json({ error: tr(c, '평가를 선택해주세요', '評価を選択してください', 'Please choose a rating'), code: 'invalid_rating' }, 400);
   }
 
   const product = await c.env.DB
@@ -1147,10 +1147,10 @@ app.post('/:id/review', authMiddleware, async (c) => {
     .first<{ seller_id: string; buyer_id: string | null; status: string; price: number }>();
   if (!product) return c.json({ error: 'Not found' }, 404);
   if (product.status !== 'sold') {
-    return c.json({ error: tr(c, '거래완료 후에 후기를 남길 수 있어요', '評価は取引完了後に投稿できます') }, 400);
+    return c.json({ error: tr(c, '거래완료 후에 후기를 남길 수 있어요', '評価は取引完了後に投稿できます', 'You can leave a review after the deal is complete') }, 400);
   }
   if (!product.buyer_id) {
-    return c.json({ error: tr(c, '구매자가 지정되지 않았어요', '購入者が指定されていません') }, 400);
+    return c.json({ error: tr(c, '구매자가 지정되지 않았어요', '購入者が指定されていません', 'No buyer has been set') }, 400);
   }
 
   // Determine reviewee + my role.
@@ -1164,10 +1164,10 @@ app.post('/:id/review', authMiddleware, async (c) => {
     role = 'buyer';
   }
   if (!revieweeId || !role) {
-    return c.json({ error: tr(c, '거래 당사자만 후기를 남길 수 있어요', '評価は取引の当事者のみ投稿できます') }, 403);
+    return c.json({ error: tr(c, '거래 당사자만 후기를 남길 수 있어요', '評価は取引の当事者のみ投稿できます', 'Only the people in the deal can leave a review') }, 403);
   }
   if (revieweeId === user.id) {
-    return c.json({ error: tr(c, '나에게는 후기를 남길 수 없어요', 'ご自身を評価することはできません') }, 400);
+    return c.json({ error: tr(c, '나에게는 후기를 남길 수 없어요', 'ご自身を評価することはできません', `You can't review yourself`) }, 400);
   }
 
   // 항목 검사 — 역할·평가에 맞는 코드만, 최소 1개.
@@ -1176,16 +1176,16 @@ app.post('/:id/review', authMiddleware, async (c) => {
     const allowed = allowedTags(role, rating, { free: (product.price ?? 0) === 0 });
     tags = [...new Set(rawTags)];
     if (tags.length === 0) {
-      return c.json({ error: tr(c, '매너 항목을 하나 이상 선택해주세요', '項目を1つ以上選択してください'), code: 'tags_required' }, 400);
+      return c.json({ error: tr(c, '매너 항목을 하나 이상 선택해주세요', '項目を1つ以上選択してください', 'Please select at least one item'), code: 'tags_required' }, 400);
     }
     if (tags.length > MAX_TAGS || tags.some((t) => !allowed.includes(t))) {
-      return c.json({ error: tr(c, '선택할 수 없는 항목이 있어요', '選択できない項目が含まれています'), code: 'invalid_tag' }, 400);
+      return c.json({ error: tr(c, '선택할 수 없는 항목이 있어요', '選択できない項目が含まれています', `Some selected items aren't allowed`), code: 'invalid_tag' }, 400);
     }
   }
 
   const comment = (typeof body.comment === 'string' ? body.comment : '').trim();
   if ([...comment].length > COMMENT_MAX) {
-    return c.json({ error: tr(c, `후기는 ${COMMENT_MAX}자까지 쓸 수 있어요`, `コメントは${COMMENT_MAX}文字以内で入力してください`), code: 'comment_too_long' }, 400);
+    return c.json({ error: tr(c, `후기는 ${COMMENT_MAX}자까지 쓸 수 있어요`, `コメントは${COMMENT_MAX}文字以内で入力してください`, `Reviews can be up to ${COMMENT_MAX} characters`), code: 'comment_too_long' }, 400);
   }
   const commentErr = checkReviewText(comment, lang);
   if (commentErr) return c.json({ error: commentErr, code: 'prohibited' }, 400);
@@ -1195,7 +1195,7 @@ app.post('/:id/review', authMiddleware, async (c) => {
     .bind(revieweeId)
     .first<{ id: string; fcm_token: string | null; market: string | null }>();
   if (!reviewee) {
-    return c.json({ error: tr(c, '탈퇴한 사용자에게는 후기를 남길 수 없어요', '退会したユーザーは評価できません'), code: 'reviewee_gone' }, 410);
+    return c.json({ error: tr(c, '탈퇴한 사용자에게는 후기를 남길 수 없어요', '退会したユーザーは評価できません', `You can't review a user who has left`), code: 'reviewee_gone' }, 410);
   }
 
   // Duplicate check — UNIQUE(product_id, reviewer_id) is the source of truth,
@@ -1204,7 +1204,7 @@ app.post('/:id/review', authMiddleware, async (c) => {
     .prepare('SELECT 1 FROM reviews WHERE product_id = ? AND reviewer_id = ?')
     .bind(id, user.id)
     .first();
-  if (dup) return c.json({ error: tr(c, '이미 후기를 남기셨어요', 'すでに評価を投稿済みです'), code: 'duplicate' }, 409);
+  if (dup) return c.json({ error: tr(c, '이미 후기를 남기셨어요', 'すでに評価を投稿済みです', `You've already left a review`), code: 'duplicate' }, 409);
 
   const reviewId = crypto.randomUUID();
   const delta = MANNER_DELTA[rating];
@@ -1232,7 +1232,7 @@ app.post('/:id/review', authMiddleware, async (c) => {
     ]);
   } catch (e) {
     if (/UNIQUE/i.test(String(e))) {
-      return c.json({ error: tr(c, '이미 후기를 남기셨어요', 'すでに評価を投稿済みです'), code: 'duplicate' }, 409);
+      return c.json({ error: tr(c, '이미 후기를 남기셨어요', 'すでに評価を投稿済みです', `You've already left a review`), code: 'duplicate' }, 409);
     }
     throw e;
   }
@@ -1255,14 +1255,14 @@ app.post('/:id/review', authMiddleware, async (c) => {
           c.env.DB.prepare('SELECT 1 FROM reviews WHERE product_id = ? AND reviewer_id = ?').bind(id, revieweeId).first(),
         ]);
         if (blocked) return;
-        const pl: Lang = reviewee.market === 'jp' ? 'ja' : 'ko';
-        const nick = me?.nickname || trl(pl, '거래 상대', '取引相手');
+        const pl: Lang = marketLang(normalizeMarket(reviewee.market));
+        const nick = me?.nickname || trl(pl, '거래 상대', '取引相手', 'Your trade partner');
         await sendFcm(c.env, {
           fcmToken: reviewee.fcm_token!,
-          title: trl(pl, `${nick}님이 거래 후기를 보냈어요`, `${nick}さんから取引の評価が届きました`),
+          title: trl(pl, `${nick}님이 거래 후기를 보냈어요`, `${nick}さんから取引の評価が届きました`, `${nick} sent you a review`),
           body: theirs
-            ? trl(pl, '내 프로필에서 받은 후기를 확인해보세요', 'プロフィールで受け取った評価を確認しましょう')
-            : trl(pl, '나도 거래 후기를 남겨주세요', 'あなたも取引の評価をしましょう'),
+            ? trl(pl, '내 프로필에서 받은 후기를 확인해보세요', 'プロフィールで受け取った評価を確認しましょう', 'Check the review on your profile')
+            : trl(pl, '나도 거래 후기를 남겨주세요', 'あなたも取引の評価をしましょう', 'Leave a review for them too'),
           data: theirs
             ? { type: 'review_received', user_id: revieweeId! }
             : { type: 'review_request', product_id: id },
@@ -1318,7 +1318,7 @@ app.post('/:id/bump', authMiddleware, async (c) => {
   if (!row) return c.json({ error: 'Not found' }, 404);
   if (row.seller_id !== user.id) return c.json({ error: 'Forbidden' }, 403);
   if (row.status !== 'sale') {
-    return c.json({ error: tr(c, '판매중인 상품만 끌어올릴 수 있어요', '上位表示できるのは販売中の商品のみです') }, 400);
+    return c.json({ error: tr(c, '판매중인 상품만 끌어올릴 수 있어요', '上位表示できるのは販売中の商品のみです', 'Only items on sale can be bumped') }, 400);
   }
 
   // 24h cooldown — we read bumped_at via a typed cast since ProductRow
@@ -1335,9 +1335,10 @@ app.post('/:id/bump', authMiddleware, async (c) => {
         const mins = Math.ceil((remainingSec % 3600) / 60);
         const wait = hours > 0 ? `${hours}시간 ${mins}분` : `${mins}분`;
         const waitJa = hours > 0 ? `${hours}時間${mins}分` : `${mins}分`;
+        const waitEn = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
         return c.json(
           {
-            error: tr(c, `${wait} 후에 다시 끌어올릴 수 있어요`, `${waitJa}後に再度上位表示できます`),
+            error: tr(c, `${wait} 후에 다시 끌어올릴 수 있어요`, `${waitJa}後に再度上位表示できます`, `You can bump again in ${waitEn}`),
             next_allowed_at: new Date(last + COOLDOWN_MS).toISOString(),
             remaining_seconds: remainingSec,
           },
@@ -1382,28 +1383,28 @@ app.post('/:id/escrow', authMiddleware, async (c) => {
     .bind(user.id)
     .first<{ verification_level: number }>();
   if (!meRow || (meRow.verification_level ?? 0) < 1) {
-    return c.json({ error: tr(c, '본인인증(Lv1) 후 거래할 수 있어요', '本人確認（Lv1）後に取引できます'), need_verify: 1 }, 403);
+    return c.json({ error: tr(c, '본인인증(Lv1) 후 거래할 수 있어요', '本人確認（Lv1）後に取引できます', 'You can trade after identity verification (Lv1)'), need_verify: 1 }, 403);
   }
 
   const row = await c.env.DB
     .prepare('SELECT id, seller_id, price, status, market FROM products WHERE id = ?')
     .bind(id)
     .first<{ id: string; seller_id: string; price: number; status: string; market: string | null }>();
-  if (!row) return c.json({ error: tr(c, '상품을 찾을 수 없어요', '商品が見つかりません') }, 404);
+  if (!row) return c.json({ error: tr(c, '상품을 찾을 수 없어요', '商品が見つかりません', 'Item not found') }, 404);
   // 안전거래는 한국 계좌 입금 방식이라 한국 상품만.
   if ((row.market || 'kr') !== 'kr') {
-    return c.json({ error: tr(c, '이 상품은 안전거래를 쓸 수 없어요', 'この商品は安全取引をご利用いただけません'), reason: 'market' }, 400);
+    return c.json({ error: tr(c, '이 상품은 안전거래를 쓸 수 없어요', 'この商品は安全取引をご利用いただけません', `Safe payment isn't available for this item`), reason: 'market' }, 400);
   }
   if (row.seller_id === user.id) {
-    return c.json({ error: tr(c, '본인 상품에는 에스크로를 만들 수 없어요', 'ご自身の商品には安全取引を利用できません') }, 400);
+    return c.json({ error: tr(c, '본인 상품에는 에스크로를 만들 수 없어요', 'ご自身の商品には安全取引を利用できません', `You can't use safe payment on your own item`) }, 400);
   }
   if (row.status === 'sold') {
-    return c.json({ error: tr(c, '이미 거래 완료된 상품이에요', 'すでに取引完了した商品です') }, 400);
+    return c.json({ error: tr(c, '이미 거래 완료된 상품이에요', 'すでに取引完了した商品です', 'This item has already been sold') }, 400);
   }
   if (row.price >= ESCROW_MAX_AMOUNT_KRW) {
     return c.json(
       {
-        error: tr(c, '30,000원 이상은 당사자 직거래에요', 'この金額の商品は安全取引の対象外です。当事者間で直接お取引ください'),
+        error: tr(c, '30,000원 이상은 당사자 직거래에요', 'この金額の商品は安全取引の対象外です。当事者間で直接お取引ください', `Safe payment isn't available for items at this price. Please trade directly with the other person`),
         reason: 'over_limit',
         threshold: ESCROW_MAX_AMOUNT_KRW,
       },

@@ -43,15 +43,27 @@ class _PhoneVerifyCardState extends State<PhoneVerifyCard> {
   /// 형식이 아니면 null.
   String? _e164(String input) {
     final d = input.replaceAll(RegExp(r'[^0-9+]'), '');
+    // 필리핀 0905~0909 는 일본 090 과 앞자리가 겹친다 → 영어(필리핀) 사용자는 필리핀 번호로 먼저 본다.
+    if (L10n.isEnglish) {
+      if (RegExp(r'^\+639\d{9}$').hasMatch(d)) return d;
+      if (RegExp(r'^09\d{9}$').hasMatch(d)) return '+63${d.substring(1)}';
+    }
     if (RegExp(r'^\+8210\d{7,8}$').hasMatch(d)) return d;
     if (RegExp(r'^01[016789]\d{7,8}$').hasMatch(d)) return '+82${d.substring(1)}';
     if (RegExp(r'^\+81[789]0\d{8}$').hasMatch(d)) return d;
     if (RegExp(r'^\+810[789]0\d{8}$').hasMatch(d)) return '+81${d.substring(4)}';
     if (RegExp(r'^0[789]0\d{8}$').hasMatch(d)) return '+81${d.substring(1)}';
+    // 필리핀 휴대폰: 09xx-xxx-xxxx / +639xx… (일본 형식이 아닐 때)
+    if (RegExp(r'^\+639\d{9}$').hasMatch(d)) return d;
+    if (RegExp(r'^09\d{9}$').hasMatch(d)) return '+63${d.substring(1)}';
     return null;
   }
 
-  String get _phoneExample => L10n.isJapanese ? '090-1234-5678' : '010-1234-5678';
+  String get _phoneExample => L10n.isJapanese
+      ? '090-1234-5678'
+      : L10n.isEnglish
+          ? '0917-123-4567'
+          : '010-1234-5678';
 
   Future<fb.FirebaseAuth> _auth() async {
     if (Firebase.apps.isEmpty) await Firebase.initializeApp();
@@ -70,7 +82,7 @@ class _PhoneVerifyCardState extends State<PhoneVerifyCard> {
     });
     try {
       final auth = await _auth();
-      await auth.setLanguageCode(L10n.isJapanese ? 'ja' : 'ko');
+      await auth.setLanguageCode(L10n.lang);
       await auth.verifyPhoneNumber(
         phoneNumber: phone,
         forceResendingToken: _resendToken,

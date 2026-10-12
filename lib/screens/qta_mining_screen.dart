@@ -251,8 +251,6 @@ class _QtaMiningScreenState extends State<QtaMiningScreen> {
 
   /// 10,000원 / ¥10,000 — 0 도 금액으로 표시 (formatPrice 는 0 을 '나눔' 으로 바꿈).
   String _money(int n) {
-    final t = L10n.current;
-    final s = AppMarket.thousands(n);
-    return AppMarket.isJp(_market) ? t.priceJpy(s) : t.priceKrw(s);
+    return AppMarket.money(n, _market);
   }
 }

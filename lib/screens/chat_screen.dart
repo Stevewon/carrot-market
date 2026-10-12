@@ -222,7 +222,11 @@ class _ChatScreenState extends State<ChatScreen> {
     final priceCtl = TextEditingController();
     final l10n = context.l10n;
     final market = AppMarket.of(context.read<AuthService>().user);
-    final unit = AppMarket.isJp(market) ? l10n.chatCurrencyUnitJpy : l10n.chatCurrencyUnitKrw;
+    final unit = AppMarket.isJp(market)
+        ? l10n.chatCurrencyUnitJpy
+        : AppMarket.isPh(market)
+            ? l10n.chatCurrencyUnitPhp
+            : l10n.chatCurrencyUnitKrw;
     final result = await showModalBottomSheet<int>(
       context: context,
       isScrollControlled: true,

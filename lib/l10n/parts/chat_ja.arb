@@ -118,5 +118,6 @@
   "chatTimeDaysAgo": "{n}日前",
   "chatTimeWeeksAgo": "{n}週間前",
   "chatTimeMonthsAgo": "{n}か月前",
-  "chatTimeYearsAgo": "{n}年前"
+  "chatTimeYearsAgo": "{n}年前",
+  "chatCurrencyUnitPhp": "ペソ"
 }

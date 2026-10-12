@@ -1121,6 +1121,9 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get chatCurrencyUnitPhp => 'ペソ';
+
+  @override
   String get commonCancel => 'キャンセル';
 
   @override
@@ -1158,6 +1161,11 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String priceJpy(String amount) {
     return '¥$amount';
+  }
+
+  @override
+  String pricePhp(String amount) {
+    return '₱$amount';
   }
 
   @override
@@ -2861,6 +2869,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get productReportFailed => '通報の送信に失敗しました';
+
+  @override
+  String get productFieldPriceHintPhp => '0(無料で譲る場合は0ペソ)';
 
   @override
   String get regionPrefectureSearchHint => '都道府県・市区町村名で検索(例:渋谷)';

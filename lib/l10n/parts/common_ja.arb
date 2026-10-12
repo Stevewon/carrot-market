@@ -10,5 +10,6 @@
   "commonLoginRequired": "ログインが必要です",
   "commonNetworkError": "通信エラーが発生しました。しばらくしてから再度お試しください",
   "priceKrw": "{amount}ウォン",
-  "priceJpy": "¥{amount}"
+  "priceJpy": "¥{amount}",
+  "pricePhp": "₱{amount}"
 }

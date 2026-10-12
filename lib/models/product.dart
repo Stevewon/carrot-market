@@ -147,7 +147,7 @@ class Product {
           : int.tryParse(json['qta_price']?.toString() ?? '0') ?? 0,
       category: json['category'] ?? 'etc',
       region: json['region'] ?? '',
-      market: json['market']?.toString() == 'jp' ? 'jp' : 'kr',
+      market: const ['jp', 'ph'].contains(json['market']?.toString()) ? json['market'].toString() : 'kr',
       images: parsedImages,
       videoUrl: (json['video_url'] ?? '').toString(),
       sellerId: json['seller_id']?.toString() ?? '',

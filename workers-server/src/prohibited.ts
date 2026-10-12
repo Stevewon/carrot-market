@@ -21,7 +21,7 @@
  *   - 짧은 영문 약어(thc, lsd, btc…)는 단어 경계 토큰 일치만
  */
 
-import type { Lang } from './market';
+import { trl, type Lang } from './market';
 
 export type ModerationAction = 'allow' | 'review' | 'block';
 export type Scope = 'product' | 'nickname' | 'chat' | 'keyword';
@@ -32,6 +32,8 @@ interface Rule {
   label: string;
   /** 일본어 카테고리 이름 */
   labelJa: string;
+  /** 영어 카테고리 이름 (필리핀) */
+  labelEn: string;
   action: 'block' | 'review';
   /** 정규화(compact) 문자열 부분일치 용어. 한글·영문(4자 이상) */
   terms?: string[];
@@ -53,7 +55,7 @@ const ALL: Scope[] = ['product', 'keyword', 'nickname', 'chat'];
 // 규칙 정의
 // ────────────────────────────────────────────────────────────────────
 
-type RawRule = Omit<Rule, 'labelJa'>;
+type RawRule = Omit<Rule, 'labelJa' | 'labelEn'>;
 
 const RAW_RULES: RawRule[] = [
   // ── 의약품 ──────────────────────────────────────────────────────
@@ -929,11 +931,56 @@ function foldTerm(t: string): string {
   return o;
 }
 
+/** 영어 카테고리 이름 (필리핀 시장) — 규칙 id 기준. */
+const EN_LABEL: Record<string, string> = {
+  medicine: 'Medicines',
+  medical_device: 'Medical devices',
+  medical_device_review: 'Medical devices',
+  narcotics: 'Drugs & controlled substances',
+  narcotics_review: 'Possible drugs',
+  alcohol: 'Alcohol',
+  alcohol_review: 'Possible alcohol',
+  tobacco: 'Tobacco & vapes',
+  tobacco_review: 'Tobacco accessories',
+  weapon: 'Firearms, blades, explosives & weapons',
+  weapon_review: 'Replica guns & self-defense items',
+  adult: 'Adult products & obscene material',
+  adult_review: 'Possible adult products',
+  account: 'Accounts, personal info & identity trading',
+  account_review: 'Possible SIM/account trading',
+  cash: 'Cash loans & illegal finance',
+  cash_review: 'Possible gift card/loan trading',
+  crypto: 'Cryptocurrency trading',
+  crypto_review: 'Possible cryptocurrency trading',
+  animal: 'Pet & live animal sales',
+  animal_review: 'Possible animal sale',
+  counterfeit: 'Counterfeits & replicas',
+  counterfeit_review: 'Possible counterfeit',
+  stolen_illegal: 'Stolen, illegally modified or pirated goods',
+  stolen_review: 'Unknown origin or possible recall',
+  body: 'Prescriptions, blood donation cards & human-derived items',
+  military: 'Military & police uniforms/gear',
+  military_review: 'Possible military gear',
+  spycam: 'Hidden cameras & eavesdropping devices',
+  spycam_review: 'Possible spy/tracking devices',
+  hacking: 'Hacking & illegal software',
+  hacking_review: 'Possible macros/cheats',
+  ticket_scalping: 'Ticket scalping',
+  proxy_service: 'Proxy & cheating services',
+  misc: 'Prohibited items',
+  misc_review: 'Items needing review',
+  profanity: 'Profanity',
+  hate: 'Hate & discriminatory speech',
+  nick_sexual: 'Inappropriate expressions',
+  impersonation: 'Impersonating staff or the service',
+  profanity_mild: 'Profanity',
+};
+
 const RULES: Rule[] = RAW_RULES.map((r) => {
   const ja = JA[r.id];
   const terms = [...(r.terms ?? []), ...(ja?.terms ?? [])].map(foldTerm);
   const except = [...(r.except ?? []), ...(ja?.except ?? [])].map(foldTerm);
-  return { ...r, labelJa: ja?.label ?? r.label, terms, except };
+  return { ...r, labelJa: ja?.label ?? r.label, labelEn: EN_LABEL[r.id] ?? ja?.label ?? r.label, terms, except };
 });
 
 // ────────────────────────────────────────────────────────────────────
@@ -1124,6 +1171,8 @@ export interface Hit {
   label: string;
   /** 일본어 카테고리 이름 */
   labelJa: string;
+  /** 영어 카테고리 이름 */
+  labelEn: string;
   action: 'block' | 'review';
   /** 원문에서 매치된 표현 */
   term: string;
@@ -1156,7 +1205,7 @@ function matchRule(rule: Rule, plain: Norm, leet: Norm, tokens: Set<string>, lee
       }
       const span: [number, number] = [n.start[p], n.end[q - 1]];
       if (BOUNDARY_TERMS.has(term) && !atBoundary(n.src, span[0], span[1])) continue;
-      hits.push({ ruleId: rule.id, label: rule.label, labelJa: rule.labelJa, action: rule.action, term: n.src.slice(span[0], span[1]), span });
+      hits.push({ ruleId: rule.id, label: rule.label, labelJa: rule.labelJa, labelEn: rule.labelEn, action: rule.action, term: n.src.slice(span[0], span[1]), span });
       return true;
     }
     return false;
@@ -1173,13 +1222,14 @@ function matchRule(rule: Rule, plain: Norm, leet: Norm, tokens: Set<string>, lee
   }
   for (const tok of rule.tokens ?? []) {
     if (tokens.has(tok) || leetTokens.has(tok)) {
-      hits.push({ ruleId: rule.id, label: rule.label, labelJa: rule.labelJa, action: rule.action, term: tok });
+      hits.push({ ruleId: rule.id, label: rule.label, labelJa: rule.labelJa, labelEn: rule.labelEn, action: rule.action, term: tok });
     }
   }
   return hits;
 }
 
 const ANIMAL_LABEL_JA = 'ペット・生体の譲渡/販売';
+const ANIMAL_LABEL_EN = 'Pet & live animal sales';
 const ALL_ANIMALS = [...ANIMALS, ...ANIMALS_JA];
 
 function checkAnimalSale(n: Norm, category?: string): Hit[] {
@@ -1202,12 +1252,12 @@ function checkAnimalSale(n: Norm, category?: string): Hit[] {
       if (adj) {
         const end = q + window.indexOf(adj) + adj.length;
         const span: [number, number] = [n.start[p], n.end[end - 1]];
-        return [{ ruleId: 'animal_sale', label: '반려동물·생체 분양/판매', labelJa: ANIMAL_LABEL_JA, action: 'block', term: n.src.slice(span[0], span[1]), span }];
+        return [{ ruleId: 'animal_sale', label: '반려동물·생체 분양/판매', labelJa: ANIMAL_LABEL_JA, labelEn: ANIMAL_LABEL_EN, action: 'block', term: n.src.slice(span[0], span[1]), span }];
       }
     }
   }
   if (category === 'pet' && /분양|입양|생체|譲リ|譲渡|里親|生体/.test(s)) {
-    return [{ ruleId: 'animal_sale', label: '반려동물·생체 분양/판매', labelJa: ANIMAL_LABEL_JA, action: 'block', term: '분양' }];
+    return [{ ruleId: 'animal_sale', label: '반려동물·생체 분양/판매', labelJa: ANIMAL_LABEL_JA, labelEn: ANIMAL_LABEL_EN, action: 'block', term: '분양' }];
   }
   return [];
 }
@@ -1268,6 +1318,7 @@ function checkContact(raw: string, n: Norm): Hit[] {
   const hits: Hit[] = [];
   const label = '외부 연락처·외부 거래 유도';
   const labelJa = '外部連絡先・外部取引への誘導';
+  const labelEn = 'Outside contact info / off-app deals';
   const lower = (raw || '').normalize('NFKC').toLowerCase();
 
   // 1) 휴대폰 / 인터넷전화 / 안심번호 (숫자 사이 공백·하이픈, 한글 숫자 "공일공" 우회 포함)
@@ -1277,49 +1328,49 @@ function checkContact(raw: string, n: Norm): Hit[] {
     ds.match(/(?<![0-9])0(?:70|50\d)\d{7,8}(?![0-9])/) ||
     // 일본 휴대폰 070/080/090 + 8자리 (+81 포함)
     ds.match(/(?<![0-9])(?:0|\+?81)[789]0\d{8}(?![0-9])/);
-  if (phone) hits.push({ ruleId: 'contact_phone', label, labelJa, action: 'block', term: '전화번호' });
+  if (phone) hits.push({ ruleId: 'contact_phone', label, labelJa, labelEn, action: 'block', term: '전화번호' });
 
   // 2) 계좌번호 — 은행/계좌 표현 + 10~14자리 숫자열
   if (!phone && BANKS.some((b) => n.s.includes(b))) {
     const plainDigits = lower.replace(/[\s\-]/g, '');
     if (/(?<![0-9])\d{10,14}(?![0-9])/.test(plainDigits)) {
-      hits.push({ ruleId: 'contact_account', label, labelJa, action: 'block', term: '계좌번호' });
+      hits.push({ ruleId: 'contact_account', label, labelJa, labelEn, action: 'block', term: '계좌번호' });
     }
   }
   // 일본 계좌 — 은행/口座 표현 + 7~14자리 숫자열
   if (!phone && !hits.length && BANKS_JA.some((b) => n.s.includes(b))) {
     const plainDigits = lower.replace(/[\s\-]/g, '');
     if (/(?<![0-9])\d{7,14}(?![0-9])/.test(plainDigits)) {
-      hits.push({ ruleId: 'contact_account', label, labelJa, action: 'block', term: '계좌번호' });
+      hits.push({ ruleId: 'contact_account', label, labelJa, labelEn, action: 'block', term: '계좌번호' });
     }
   }
 
   // 3) 이메일
   if (/[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}/.test(lower)) {
-    hits.push({ ruleId: 'contact_email', label, labelJa, action: 'block', term: '이메일 주소' });
+    hits.push({ ruleId: 'contact_email', label, labelJa, labelEn, action: 'block', term: '이메일 주소' });
   }
 
   // 4) 오픈채팅·텔레그램 링크
   if (/open\.kakao\.com|qr\.kakao\.com|pf\.kakao\.com|t\.me\/|telegram\.me|line\.me\/|wa\.me\//.test(lower)) {
-    hits.push({ ruleId: 'contact_link', label, labelJa, action: 'block', term: '외부 메신저 링크' });
+    hits.push({ ruleId: 'contact_link', label, labelJa, labelEn, action: 'block', term: '외부 메신저 링크' });
   } else if (/https?:\/\/|www\.|[a-z0-9-]+\.(com|net|kr|co\.kr|jp|co\.jp|io|me|ly|gg)(\/|\b)/.test(lower)) {
     const onlyYoutube = (lower.match(/(https?:\/\/)?(www\.)?[a-z0-9.-]+\.[a-z]{2,}/g) || [])
       .every((u) => /youtube\.com|youtu\.be/.test(u));
-    if (!onlyYoutube) hits.push({ ruleId: 'contact_url', label: '외부 링크', labelJa: '外部リンク', action: 'review', term: '외부 링크' });
+    if (!onlyYoutube) hits.push({ ruleId: 'contact_url', label: '외부 링크', labelJa: '外部リンク', labelEn: 'External link', action: 'review', term: '외부 링크' });
   }
 
   // 5) 메신저 아이디 · 연락 유도 표현
   for (const m of MESSENGER_BLOCK) {
     const p = n.s.indexOf(m);
     if (p >= 0) {
-      hits.push({ ruleId: 'contact_messenger', label, labelJa, action: 'block', term: n.src.slice(n.start[p], n.end[p + m.length - 1]) });
+      hits.push({ ruleId: 'contact_messenger', label, labelJa, labelEn, action: 'block', term: n.src.slice(n.start[p], n.end[p + m.length - 1]) });
       break;
     }
   }
   if (!hits.some((h) => h.action === 'block')) {
     for (const m of MESSENGER_REVIEW) {
       if (n.s.includes(m)) {
-        hits.push({ ruleId: 'contact_messenger_review', label: '외부 거래 유도 의심', labelJa: '外部取引への誘導の疑い', action: 'review', term: m });
+        hits.push({ ruleId: 'contact_messenger_review', label: '외부 거래 유도 의심', labelJa: '外部取引への誘導の疑い', labelEn: 'Possible off-app deal', action: 'review', term: m });
         break;
       }
     }
@@ -1338,6 +1389,8 @@ export interface ModerationResult {
   message: string | null;
   /** BLOCK 일 때 사용자에게 보여줄 일본어 메시지 (message 와 같이 null) */
   messageJa: string | null;
+  /** BLOCK 일 때 사용자에게 보여줄 영어 메시지 (message 와 같이 null) */
+  messageEn: string | null;
   /** 첫 BLOCK hit */
   blocked?: Hit;
 }
@@ -1393,13 +1446,31 @@ function blockMessageJa(h: Hit, scope: Scope): string {
   return `出品禁止物（${h.labelJa}）と判断されたため出品できません。検出された表現：「${h.term}」\n利用規約により、出品禁止物は販売できません。`;
 }
 
+function blockMessageEn(h: Hit, scope: Scope): string {
+  if (h.ruleId.startsWith('contact_')) {
+    return "Phone numbers, bank account numbers, emails, messenger IDs and other outside contact details can't be included in posts. Please talk through Eggplant chat.";
+  }
+  if (h.ruleId.startsWith('profanity') || h.ruleId === 'hate' || h.ruleId === 'nick_sexual') {
+    return scope === 'nickname'
+      ? `Your nickname contains an expression that isn't allowed ("${h.term}")`
+      : `Profanity, slurs and hateful expressions aren't allowed ("${h.term}")`;
+  }
+  if (h.ruleId === 'impersonation') {
+    return `Nicknames that could impersonate staff or the service aren't allowed ("${h.term}")`;
+  }
+  if (scope === 'nickname') return `Your nickname contains an expression that isn't allowed ("${h.term}")`;
+  if (scope === 'keyword') return `Prohibited items (${h.labelEn}) can't be added as keyword alerts`;
+  return `This looks like a prohibited item (${h.labelEn}), so it can't be posted. Detected expression: "${h.term}"
+Under Eggplant's policy, prohibited items can't be sold.`;
+}
+
 function summarize(hits: Hit[], scope: Scope): ModerationResult {
   const blocked = hits.find((h) => h.action === 'block');
   if (blocked) {
-    return { action: 'block', hits, message: blockMessage(blocked, scope), messageJa: blockMessageJa(blocked, scope), blocked };
+    return { action: 'block', hits, message: blockMessage(blocked, scope), messageJa: blockMessageJa(blocked, scope), messageEn: blockMessageEn(blocked, scope), blocked };
   }
-  if (hits.length) return { action: 'review', hits, message: null, messageJa: null };
-  return { action: 'allow', hits, message: null, messageJa: null };
+  if (hits.length) return { action: 'review', hits, message: null, messageJa: null, messageEn: null };
+  return { action: 'allow', hits, message: null, messageJa: null, messageEn: null };
 }
 
 /** 상품 등록/수정 — 제목·설명·카테고리 검사. 미전달 필드는 건너뜀. */
@@ -1418,18 +1489,18 @@ export function checkProductText(input: { title?: string | null; description?: s
 export function checkNickname(nick: string, lang: Lang = 'ko'): string | null {
   if (typeof nick !== 'string') return null;
   if (/[\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff\u3164\u115f\u1160]/.test(nick)) {
-    return lang === 'ja' ? 'ニックネームに見えない特殊文字は使用できません' : '닉네임에 보이지 않는 특수문자는 사용할 수 없어요';
+    return trl(lang, '닉네임에 보이지 않는 특수문자는 사용할 수 없어요', 'ニックネームに見えない特殊文字は使用できません', "Invisible special characters can't be used in nicknames");
   }
   const r = summarize(scan(nick, 'nickname', { contact: true }), 'nickname');
   if (r.action !== 'block') return null;
-  return lang === 'ja' ? r.messageJa : r.message;
+  return lang === 'ja' ? r.messageJa : lang === 'en' ? r.messageEn : r.message;
 }
 
 /** 키워드 알림 등록 검사. 문제 없으면 null (lang 'ja' 면 일본어 메시지). */
 export function checkKeyword(kw: string, lang: Lang = 'ko'): string | null {
   const r = summarize(scan(kw, 'keyword'), 'keyword');
   if (r.action !== 'block') return null;
-  return lang === 'ja' ? r.messageJa : r.message;
+  return lang === 'ja' ? r.messageJa : lang === 'en' ? r.messageEn : r.message;
 }
 
 /**
@@ -1441,13 +1512,19 @@ export function checkReviewText(text: string, lang: Lang = 'ko'): string | null 
   const blocked = scan(text, 'chat', { contact: true }).find((h) => h.action === 'block');
   if (!blocked) return null;
   if (blocked.ruleId.startsWith('contact_')) {
-    return lang === 'ja'
-      ? '電話番号・口座番号・メールアドレスなどの連絡先は評価コメントに記載できません'
-      : '전화번호·계좌번호·이메일 같은 연락처는 후기에 적을 수 없어요';
+    return trl(
+      lang,
+      '전화번호·계좌번호·이메일 같은 연락처는 후기에 적을 수 없어요',
+      '電話番号・口座番号・メールアドレスなどの連絡先は評価コメントに記載できません',
+      "Contact details like phone numbers, bank accounts or emails can't be included in reviews",
+    );
   }
-  return lang === 'ja'
-    ? `暴言・不適切な表現・差別的な表現は使用できません（「${blocked.term}」）`
-    : `욕설·비속어·혐오 표현은 사용할 수 없어요 ("${blocked.term}")`;
+  return trl(
+    lang,
+    `욕설·비속어·혐오 표현은 사용할 수 없어요 ("${blocked.term}")`,
+    `暴言・不適切な表現・差別的な表現は使用できません（「${blocked.term}」）`,
+    `Profanity, slurs and hateful expressions aren't allowed ("${blocked.term}")`,
+  );
 }
 
 /** 채팅 — 욕설·혐오 표현만 *** 로 가린다 (저장하지 않음, 실시간 릴레이용). */

@@ -34,9 +34,7 @@ class PriceOfferInfo {
 
   /// 시장(kr/jp)에 맞는 통화 표기. 0원도 '나눔' 이 아니라 금액으로 표시.
   String priceLabelFor(String market) {
-    final t = L10n.current;
-    final n = AppMarket.thousands(price);
-    return AppMarket.isJp(market) ? t.priceJpy(n) : t.priceKrw(n);
+    return AppMarket.money(price, market);
   }
 
   String get statusLabel {

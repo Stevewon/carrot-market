@@ -37,6 +37,7 @@ app.get('/policy', (c) => {
       `최소 ${QTA_WITHDRAWAL_MIN.toLocaleString('ko-KR')} QTA 부터 ` +
         `${QTA_WITHDRAWAL_UNIT.toLocaleString('ko-KR')} QTA 단위로만 신청할 수 있어요`,
       `${QTA_WITHDRAWAL_MIN.toLocaleString('ja-JP')} QTAから${QTA_WITHDRAWAL_UNIT.toLocaleString('ja-JP')} QTA単位でのみ申請できます`,
+      `You can request from ${QTA_WITHDRAWAL_MIN.toLocaleString('en-US')} QTA, in units of ${QTA_WITHDRAWAL_UNIT.toLocaleString('en-US')} QTA only`,
     ),
   });
 });
@@ -70,14 +71,14 @@ app.post('/', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', 'Invalid request') }, 400);
   }
 
   const raw = body.amount;
   const amount =
     typeof raw === 'number' ? raw : typeof raw === 'string' ? parseInt(raw, 10) : NaN;
   if (!Number.isFinite(amount)) {
-    return c.json({ error: tr(c, '출금 금액을 입력해주세요', '出金額を入力してください') }, 400);
+    return c.json({ error: tr(c, '출금 금액을 입력해주세요', '出金額を入力してください', 'Please enter a withdrawal amount') }, 400);
   }
 
   const result = await requestWithdrawal(c.env, me.id, amount, reqLang(c));
@@ -117,11 +118,11 @@ app.post('/:id/cancel', async (c) => {
     .prepare('SELECT user_id, status FROM qta_withdrawals WHERE id = ?')
     .bind(wid)
     .first<{ user_id: string; status: string }>();
-  if (!w) return c.json({ error: tr(c, '신청을 찾을 수 없어요', '申請が見つかりません') }, 404);
-  if (w.user_id !== me.id) return c.json({ error: tr(c, '권한이 없어요', '権限がありません') }, 403);
+  if (!w) return c.json({ error: tr(c, '신청을 찾을 수 없어요', '申請が見つかりません', "We couldn't find this request") }, 404);
+  if (w.user_id !== me.id) return c.json({ error: tr(c, '권한이 없어요', '権限がありません', "You don't have permission") }, 403);
   if (w.status !== 'requested') {
     return c.json(
-      { error: tr(c, `이미 처리되고 있어 취소할 수 없어요 (${w.status})`, `すでに処理中のため取り消しできません (${w.status})`) },
+      { error: tr(c, `이미 처리되고 있어 취소할 수 없어요 (${w.status})`, `すでに処理中のため取り消しできません (${w.status})`, `It's already being processed and can't be canceled (${w.status})`) },
       409,
     );
   }
@@ -130,8 +131,8 @@ app.post('/:id/cancel', async (c) => {
   // 경쟁으로 이미 처리된 경우(운영자가 먼저 처리 시작 등)는 409, 그 외만 500.
   if (!r.ok) {
     return c.json(
-      { error: r.error || tr(c, '취소 실패', '取り消しに失敗しました') },
-      /^(이미 처리된|すでに処理)/.test(r.error ?? '') ? 409 : 500,
+      { error: r.error || tr(c, '취소 실패', '取り消しに失敗しました', 'Cancellation failed') },
+      /^(이미 처리된|すでに処理|This request has already been processed)/.test(r.error ?? '') ? 409 : 500,
     );
   }
 

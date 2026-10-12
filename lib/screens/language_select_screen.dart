@@ -7,7 +7,8 @@ import '../app/theme.dart';
 /// 언어 선택 — 큐알챗처럼 첫 실행 때 한 번 고르고, 마이페이지 "언어"에서 바꾼다.
 ///   한국어 → 새로 가입하면 한국 동네 · 원화
 ///   日本語 → 새로 가입하면 일본 지역 · 엔화
-/// 문구는 두 언어를 함께 적는다 (아직 언어를 모르는 상태라서).
+///   English → 새로 가입하면 필리핀 지역 · 페소
+/// 문구는 세 언어를 함께 적는다 (아직 언어를 모르는 상태라서).
 /// [onDone] 이 없으면(첫 실행) 고른 뒤 그대로 앱이 다시 그려져 다음 화면으로 넘어간다.
 class LanguageSelectScreen extends StatefulWidget {
   final VoidCallback? onDone;
@@ -24,7 +25,11 @@ class _LanguageSelectScreenState extends State<LanguageSelectScreen> {
   static const _labels = {
     'ko': ['한국어', 'Korean · 韓国語', '한국 동네 · 원화'],
     'ja': ['日本語', 'Japanese · 일본어', '日本の地域 · 円'],
+    'en': ['English', '영어 · 英語', 'Philippines · Peso (₱)'],
   };
+
+  /// 고른 언어로 쓴 문구 [ko, ja, en].
+  String _t(List<String> v) => v[_sel == 'ja' ? 1 : _sel == 'en' ? 2 : 0];
 
   Future<void> _confirm() async {
     setState(() => _saving = true);
@@ -36,12 +41,11 @@ class _LanguageSelectScreenState extends State<LanguageSelectScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final ja = _sel == 'ja';
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: widget.onDone == null
           ? null
-          : AppBar(title: Text(ja ? '言語' : '언어')),
+          : AppBar(title: Text(_t(const ['언어', '言語', 'Language']))),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
@@ -52,7 +56,7 @@ class _LanguageSelectScreenState extends State<LanguageSelectScreen> {
                 const Text('🍆', style: TextStyle(fontSize: 48), textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 const Text(
-                  '언어를 선택하세요\n言語を選択してください',
+                  '언어를 선택하세요\n言語を選択してください\nChoose your language',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       fontSize: 20,
@@ -62,7 +66,7 @@ class _LanguageSelectScreenState extends State<LanguageSelectScreen> {
                 ),
                 const SizedBox(height: 32),
               ],
-              for (final code in const ['ko', 'ja'])
+              for (final code in const ['ko', 'ja', 'en'])
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: InkWell(
@@ -110,15 +114,19 @@ class _LanguageSelectScreenState extends State<LanguageSelectScreen> {
                 ),
               if (widget.onDone != null)
                 Text(
-                  ja ? '登録済みアカウントの地域・通貨はそのままです。' : '이미 가입한 계정의 동네·화폐는 그대로예요.',
+                  _t(const [
+                    '이미 가입한 계정의 동네·화폐는 그대로예요.',
+                    '登録済みアカウントの地域・通貨はそのままです。',
+                    'Your existing account keeps its region and currency.',
+                  ]),
                   style: const TextStyle(fontSize: 12, color: EggplantColors.textTertiary),
                 ),
               const Spacer(),
               ElevatedButton(
                 onPressed: _saving ? null : _confirm,
                 child: Text(widget.onDone == null
-                    ? (ja ? 'はじめる' : '시작하기')
-                    : (ja ? '保存' : '저장')),
+                    ? _t(const ['시작하기', 'はじめる', 'Get started'])
+                    : _t(const ['저장', '保存', 'Save'])),
               ),
             ],
           ),

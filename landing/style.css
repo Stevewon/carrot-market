@@ -262,6 +262,11 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   color: var(--primary);
   letter-spacing: -0.5px;
 }
+.hero-stats b.stat-markets {
+  white-space: nowrap;
+  font-size: clamp(15px, 4vw, 21px);
+  line-height: calc(clamp(20px, 5vw, 26px) * 1.55);
+}
 .hero-stats span {
   display: block;
   margin-top: 4px;
@@ -871,7 +876,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   .foot-company-grid .foot-addr { grid-column: 1 / -1; }
 }
 
-/* ===================== 언어 전환 (한국어 / 日本語) ===================== */
+/* ===================== 언어 전환 (한국어 / 日本語 / English) ===================== */
 /* 언어 선택 — qrchat.io 와 같은 드롭다운 (🌐 한국어 ▾) */
 .lang-select { position: relative; margin-left: auto; }
 .lang-btn {
@@ -931,6 +936,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   line-height: 1.6;
 }
 html[lang="ja"] body { word-break: normal; line-break: strict; }
+html[lang="en"] body { word-break: normal; overflow-wrap: break-word; }
 @media (max-width: 400px) {
   .nav-inner { gap: 8px; padding: 0 14px; }
   .lang-btn { padding: 6px 8px; font-size: 13px; }
@@ -966,6 +972,7 @@ html[lang="ja"] body { word-break: normal; line-break: strict; }
   .phone { width: 320px; }
 
   .features { grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .features.cols-2 { grid-template-columns: repeat(2, 1fr); max-width: 920px; margin-left: auto; margin-right: auto; }
   .feature { padding: 28px 24px; }
   .feature h3 { font-size: 18px; }
   .feature p { font-size: 14.5px; }

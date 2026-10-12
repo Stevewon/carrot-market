@@ -225,5 +225,6 @@
   "productNetworkUnreachable": "サーバーに接続できません。ネットワークを確認してください",
   "productBlockFailed": "ブロックに失敗しました",
   "productUnblockFailed": "ブロック解除に失敗しました",
-  "productReportFailed": "通報の送信に失敗しました"
+  "productReportFailed": "通報の送信に失敗しました",
+  "productFieldPriceHintPhp": "0(無料で譲る場合は0ペソ)"
 }

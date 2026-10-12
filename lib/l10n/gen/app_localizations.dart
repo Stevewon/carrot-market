@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
+import 'app_localizations_en.dart';
 import 'app_localizations_ja.dart';
 import 'app_localizations_ko.dart';
 
@@ -94,6 +95,7 @@ abstract class AppLocalizations {
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
+    Locale('en'),
     Locale('ja'),
     Locale('ko')
   ];
@@ -2150,6 +2152,12 @@ abstract class AppLocalizations {
   /// **'{n}년 전'**
   String chatTimeYearsAgo(int n);
 
+  /// No description provided for @chatCurrencyUnitPhp.
+  ///
+  /// In ko, this message translates to:
+  /// **'페소'**
+  String get chatCurrencyUnitPhp;
+
   /// No description provided for @commonCancel.
   ///
   /// In ko, this message translates to:
@@ -2221,6 +2229,12 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'¥{amount}'**
   String priceJpy(String amount);
+
+  /// No description provided for @pricePhp.
+  ///
+  /// In ko, this message translates to:
+  /// **'₱{amount}'**
+  String pricePhp(String amount);
 
   /// No description provided for @homeSearchHint.
   ///
@@ -5343,6 +5357,12 @@ abstract class AppLocalizations {
   /// **'신고 접수 실패'**
   String get productReportFailed;
 
+  /// No description provided for @productFieldPriceHintPhp.
+  ///
+  /// In ko, this message translates to:
+  /// **'0 (나눔하려면 0페소)'**
+  String get productFieldPriceHintPhp;
+
   /// No description provided for @regionPrefectureSearchHint.
   ///
   /// In ko, this message translates to:
@@ -5727,7 +5747,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['ja', 'ko'].contains(locale.languageCode);
+      <String>['en', 'ja', 'ko'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -5736,6 +5756,8 @@ class _AppLocalizationsDelegate
 AppLocalizations lookupAppLocalizations(Locale locale) {
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
+    case 'en':
+      return AppLocalizationsEn();
     case 'ja':
       return AppLocalizationsJa();
     case 'ko':

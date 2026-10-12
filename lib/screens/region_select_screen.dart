@@ -23,7 +23,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
   String _query = '';
   bool _verifying = false;
 
-  /// 일본 2단계 선택에서 고른 都道府県. null 이면 都道府県 목록 단계.
+  /// 2단계 선택(일본 都道府県 / 필리핀 Province)에서 고른 상위 지역. null 이면 상위 지역 목록 단계.
   String? _pref;
 
   @override
@@ -32,12 +32,27 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
     super.dispose();
   }
 
-  bool get _isJp =>
-      AppMarket.isJp(AppMarket.of(context.read<AuthService>().user));
+  String get _market => AppMarket.of(context.read<AuthService>().user);
 
-  /// 내 시장(한국/일본) 동네만 — 일본어 사용자에게는 일본 지역만 보인다.
-  List<String> get _regions =>
-      AppRegions.forMarket(AppMarket.of(context.read<AuthService>().user));
+  bool get _isPh => AppMarket.isPh(_market);
+
+  /// 일본·필리핀은 2단계 (상위 지역 → 시·군), 한국은 한 목록.
+  bool get _isTwoStep => AppMarket.isJp(_market) || _isPh;
+
+  /// 2단계 상위 지역 — 일본 都道府県 / 필리핀 Province.
+  List<String> get _groups =>
+      _isPh ? AppRegions.phProvinces : AppRegions.jpPrefectures;
+
+  /// 상위 지역의 시·군 — (전체 이름, 짧은 이름, 읽기 가타카나; 필리핀은 '').
+  List<(String, String, String)> _cities(String group) => _isPh
+      ? [for (final c in AppRegions.phCities(group)) (c.$1, c.$2, '')]
+      : AppRegions.jpCities(group);
+
+  String? _groupOf(String region) =>
+      _isPh ? AppRegions.phProvinceOf(region) : AppRegions.jpPrefectureOf(region);
+
+  /// 내 시장(한국/일본/필리핀) 동네만 — 일본어 사용자에게는 일본 지역만 보인다.
+  List<String> get _regions => AppRegions.forMarket(_market);
 
   List<String> get _filtered {
     if (_query.isEmpty) return _regions;
@@ -46,18 +61,23 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
         .toList();
   }
 
-  /// 검색어 정규화 — 소문자, 공백 제거, ひらがな → カタカナ (읽기 가나로도 찾게).
+  /// 검색어 정규화 — 소문자, 공백·'.'·'-'·''' 제거, ñ → n ('paranaque' 로 Parañaque),
+  /// ひらがな → カタカナ (읽기 가나로도 찾게).
   static String _norm(String s) {
     final b = StringBuffer();
     for (final r in s.toLowerCase().runes) {
-      if (r == 0x20 || r == 0x3000) continue;
-      b.writeCharCode(r >= 0x3041 && r <= 0x3096 ? r + 0x60 : r);
+      if (r == 0x20 || r == 0x3000 || r == 0x2E || r == 0x2D || r == 0x27) continue;
+      b.writeCharCode(r >= 0x3041 && r <= 0x3096
+          ? r + 0x60
+          : r == 0xF1
+              ? 0x6E
+              : r);
     }
     return b.toString();
   }
 
   static bool _hit(String q, String name, String kana) =>
-      _norm(name).contains(q) || kana.contains(q);
+      _norm(name).contains(q) || (kana.isNotEmpty && kana.contains(q));
 
   void _setPref(String? pref) {
     _searchCtl.clear();
@@ -331,19 +351,20 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
     ];
   }
 
-  /// 일본 1단계 — 都道府県 목록. 검색어가 있으면 전국 市区町村도 바로 보여준다.
-  List<Widget> _jpPrefectureStep(AuthService auth) {
+  /// 2단계의 1단계 — 都道府県 / Province 목록. 검색어가 있으면 전국 시·군도 바로 보여준다.
+  List<Widget> _groupStep(AuthService auth) {
     final l10n = context.l10n;
     final q = _norm(_query.trim());
-    final currentPref = AppRegions.jpPrefectureOf(auth.user?.region ?? '');
-    final prefs = AppRegions.jpPrefectures
+    final currentPref = _groupOf(auth.user?.region ?? '');
+    final groups = _groups;
+    final prefs = groups
         .where((p) => q.isEmpty || _norm(p).contains(q))
         .toList();
     final cities = q.isEmpty
         ? const <(String, String, String)>[]
         : [
-            for (final p in AppRegions.jpPrefectures)
-              ...AppRegions.jpCities(p).where((c) => _hit(q, c.$2, c.$3)),
+            for (final p in groups)
+              ..._cities(p).where((c) => _hit(q, c.$2, c.$3)),
           ];
     return [
       _searchField(l10n.regionPrefectureSearchHint),
@@ -351,6 +372,8 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
         child: prefs.isEmpty && cities.isEmpty
             ? _empty()
             : ListView(
+                // 단계마다 key 가 달라야 시·군 단계가 Province 목록의 스크롤 위치를 물려받지 않는다.
+                key: const ValueKey('region-groups'),
                 children: [
                   for (final p in prefs) ...[
                     ListTile(
@@ -364,7 +387,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
                                 : EggplantColors.textPrimary,
                           )),
                       subtitle: Text(
-                          l10n.regionCityCount(AppRegions.jpCities(p).length),
+                          l10n.regionCityCount(_cities(p).length),
                           style: const TextStyle(
                               fontSize: 12,
                               color: EggplantColors.textSecondary)),
@@ -383,11 +406,11 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
     ];
   }
 
-  /// 일본 2단계 — 고른 都道府県의 市区町村.
-  List<Widget> _jpCityStep(AuthService auth, String pref) {
+  /// 2단계의 2단계 — 고른 都道府県 / Province 의 시·군.
+  List<Widget> _cityStep(AuthService auth, String pref) {
     final l10n = context.l10n;
     final q = _norm(_query.trim());
-    final cities = AppRegions.jpCities(pref)
+    final cities = _cities(pref)
         .where((c) => q.isEmpty || _hit(q, c.$2, c.$3))
         .toList();
     return [
@@ -417,6 +440,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
         child: cities.isEmpty
             ? _empty()
             : ListView.separated(
+                key: ValueKey('region-cities-$pref'),
                 itemCount: cities.length,
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (_, i) =>
@@ -429,9 +453,9 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
-    final isJp = _isJp;
+    final twoStep = _isTwoStep;
 
-    // 일본 2단계(市区町村)에서 뒤로가기는 都道府県 목록으로.
+    // 2단계(시·군)에서 뒤로가기는 상위 지역(都道府県 / Province) 목록으로.
     return PopScope(
       canPop: _pref == null,
       onPopInvokedWithResult: (didPop, _) {
@@ -448,9 +472,9 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
                 children: [
                   _buildVerifiedBanner(auth),
                   _myRegions(auth),
-                  if (!isJp) ..._krList(auth),
-                  if (isJp && _pref == null) ..._jpPrefectureStep(auth),
-                  if (isJp && _pref != null) ..._jpCityStep(auth, _pref!),
+                  if (!twoStep) ..._krList(auth),
+                  if (twoStep && _pref == null) ..._groupStep(auth),
+                  if (twoStep && _pref != null) ..._cityStep(auth, _pref!),
                 ],
               ),
             ),

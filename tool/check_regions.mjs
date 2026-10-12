@@ -3,6 +3,8 @@
 // 한국: lib/app/regions.dart AppRegions.kr  ↔  workers-server/src/regions.ts REGION_CENTERS
 // 일본: lib/app/regions_jp.dart (都道府県 + 市区町村) ↔ workers-server/src/regions_jp.ts JP_REGION_CENTERS
 //       예전 이름(JP_REGION_ALIASES)은 서버에만 있고 새 목록과 겹치면 안 된다.
+// 필리핀: lib/app/regions_ph.dart (Province + City/Municipality) ↔ workers-server/src/regions_ph.ts PH_REGION_CENTERS
+// 세 시장의 이름이 서로 겹치면 안 된다 (regionMarket 이 이름으로 시장을 정한다).
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
@@ -15,8 +17,8 @@ function block(src, startRe) {
   const end = src.indexOf('\n};', m.index);
   return src.slice(m.index, end);
 }
-const tsKeys = (b) => [...b.matchAll(/^\s*['"]([^'"]+)['"]\s*:\s*\{\s*lat:\s*(-?[\d.]+),\s*lng:\s*(-?[\d.]+)/gm)]
-  .map((m) => ({ name: m[1], lat: +m[2], lng: +m[3] }));
+const tsKeys = (b) => [...b.matchAll(/^\s*(?:'([^']+)'|"([^"\\]+)")\s*:\s*\{\s*lat:\s*(-?[\d.]+),\s*lng:\s*(-?[\d.]+)/gm)]
+  .map((m) => ({ name: m[1] ?? m[2], lat: +m[3], lng: +m[4] }));
 
 function compare(label, app, server) {
   const a = new Set(app), s = new Set(server);
@@ -77,6 +79,49 @@ const legacy = [
 const valid = new Set([...jpTs.map((e) => e.name), ...aliases]);
 for (const n of legacy) if (!valid.has(n)) errors.push(`예전 이름 '${n}' 이 더 이상 유효하지 않음`);
 console.log(`JP 별칭 ${aliases.length} · 예전 이름 ${legacy.length}개 모두 확인`);
+
+// --- 필리핀 ---
+const phTsSrc = read('workers-server/src/regions_ph.ts');
+const phTs = tsKeys(block(phTsSrc, /export const PH_REGION_CENTERS\b/));
+const provTs = JSON.parse(/export const PH_PROVINCES[^=]*=\s*(\[[^\]]*\])/.exec(phTsSrc)[1]);
+const sepTs = JSON.parse(/export const PH_SEP = ("[^"]*");/.exec(phTsSrc)[1]);
+const phDartSrc = read('lib/app/regions_ph.dart');
+const sepDart = /static const String sep = '([^']*)';/.exec(phDartSrc)[1];
+if (sepTs !== sepDart) errors.push(`PH 구분자가 다름 (서버 '${sepTs}' · 앱 '${sepDart}')`);
+const dartStr = (s) => s.replace(/\\(.)/g, '$1'); // \' → '
+const phDart = [];
+const provDart = [];
+cur = null;
+for (const line of phDartSrc.split('\n')) {
+  let m;
+  if ((m = /^    '((?:[^'\\]|\\.)+)': \[$/.exec(line))) { cur = dartStr(m[1]); provDart.push(cur); continue; }
+  if ((m = /^      '((?:[^'\\]|\\.)+)',$/.exec(line))) {
+    if (!cur) errors.push('dart: Province 밖의 항목 ' + m[1]);
+    phDart.push(cur + sepDart + dartStr(m[1]));
+  }
+}
+compare('PH Province', provDart, provTs);
+compare('PH City/Municipality', phDart, phTs.map((e) => e.name));
+if (!provDart.includes('Metro Manila')) errors.push('PH: Metro Manila 없음');
+for (const e of phTs) {
+  if (!(e.lat >= 4 && e.lat <= 22 && e.lng >= 114 && e.lng <= 127.5)) errors.push(`PH 좌표가 필리핀 밖 '${e.name}'`);
+  const parts = e.name.split(sepTs);
+  if (parts.length !== 2) errors.push(`PH 이름에 구분자가 하나가 아님 '${e.name}'`);
+  else if (!provTs.includes(parts[0])) errors.push(`PH 알 수 없는 Province '${e.name}'`);
+}
+
+// 시장끼리 이름이 겹치면 regionMarket 이 틀린다.
+const markets = [
+  ['KR', krTs.map((e) => e.name)],
+  ['JP', [...jpTs.map((e) => e.name), ...aliases]],
+  ['PH', phTs.map((e) => e.name)],
+];
+for (let i = 0; i < markets.length; i++) {
+  for (let j = i + 1; j < markets.length; j++) {
+    const other = new Set(markets[j][1]);
+    for (const n of markets[i][1]) if (other.has(n)) errors.push(`${markets[i][0]}·${markets[j][0]} 이름 겹침 '${n}'`);
+  }
+}
 
 if (errors.length) {
   console.error('FAIL\n' + errors.join('\n'));

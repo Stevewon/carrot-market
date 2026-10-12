@@ -36,7 +36,7 @@ import { sendFcm } from './utils/fcm';
 import { callIdentity, walletToAgoraUid } from './utils/agoraToken';
 import { checkSession } from './jwt';
 import { maskChatText } from './prohibited';
-import { normalizeMarket, type Lang } from './market';
+import { marketLang, normalizeMarket, trl, type Lang } from './market';
 
 interface AttachedMeta {
   userId: string;
@@ -226,13 +226,15 @@ export class ChatHub {
     let lang: Lang = 'ko';
     const hinted = normalizeMarket((url.searchParams.get('market') || request.headers.get('x-market') || '').trim().toLowerCase());
     if (hinted) {
-      lang = hinted === 'jp' ? 'ja' : 'ko';
+      lang = marketLang(hinted);
     } else if ((request.headers.get('accept-language') || '').trim().toLowerCase().startsWith('ja')) {
       lang = 'ja';
+    } else if ((request.headers.get('accept-language') || '').trim().toLowerCase().startsWith('en')) {
+      lang = 'en';
     } else {
       try {
         const row = await this.env.DB.prepare('SELECT market FROM users WHERE id = ?').bind(payload.id).first<{ market: string | null }>();
-        if (row?.market === 'jp') lang = 'ja';
+        lang = marketLang(normalizeMarket(row?.market ?? '') ?? 'kr');
       } catch { /* market 컬럼 미적용 — 한국어 */ }
     }
 
@@ -335,7 +337,7 @@ export class ChatHub {
         // 방 참여자(roomId 앞 두 토큰)만 입장 가능. 예전엔 검사가 없어
         // 아무 roomId 로 join 해서 남의 대화를 broadcast 로 받을 수 있었다.
         if (!isRoomMember(room_id, meta.userId)) {
-          this.sendSafe(ws, { type: 'error', message: meta.lang === 'ja' ? 'このチャットルームには参加できません' : '이 채팅방에 참여할 수 없어요' });
+          this.sendSafe(ws, { type: 'error', message: trl(meta.lang ?? 'ko', '이 채팅방에 참여할 수 없어요', 'このチャットルームには参加できません', "You can't join this chat room") });
           return;
         }
 
@@ -376,7 +378,7 @@ export class ChatHub {
         // roomId 토큰 안에 있어야 한다. 이게 spoof 방지의 1차 게이트.
         const tokens = room_id.split('_');
         if (!isRoomMember(room_id, meta.userId)) {
-          this.sendSafe(ws, { type: 'error', message: meta.lang === 'ja' ? 'このチャットルームには参加できません' : '이 채팅방에 참여할 수 없어요' });
+          this.sendSafe(ws, { type: 'error', message: trl(meta.lang ?? 'ko', '이 채팅방에 참여할 수 없어요', 'このチャットルームには参加できません', "You can't join this chat room") });
           return;
         }
         // 자동으로 join 처리 (peer 가 먼저 메시지를 보낸 경우에도 broadcast 받도록)
@@ -429,8 +431,8 @@ export class ChatHub {
             //  사용자가 채팅방 진입 시 첫 메시지 정상 표시.
             //  (title/body 는 그대로 generic 유지 — 익명성 보존)
             this.sendOfflinePush(peerId, {
-              title: '새 메시지',
-              body: '새 메시지가 도착했어요',
+              title: (l) => trl(l, '새 메시지', '新着メッセージ', 'New message'),
+              body: (l) => trl(l, '새 메시지가 도착했어요', '新しいメッセージが届きました', 'You have a new message'),
               data: {
                 type: 'message',
                 room_id,
@@ -457,7 +459,7 @@ export class ChatHub {
         if (!room_id || !Number.isFinite(price) || price < 0 || price > 1_000_000_000) return;
         const tokens = room_id.split('_');
         if (!isRoomMember(room_id, meta.userId)) {
-          this.sendSafe(ws, { type: 'error', message: meta.lang === 'ja' ? 'このチャットルームには参加できません' : '이 채팅방에 참여할 수 없어요' });
+          this.sendSafe(ws, { type: 'error', message: trl(meta.lang ?? 'ko', '이 채팅방에 참여할 수 없어요', 'このチャットルームには参加できません', "You can't join this chat room") });
           return;
         }
         if (!meta.rooms.includes(room_id)) {
@@ -472,7 +474,13 @@ export class ChatHub {
           room_id,
           sender_id: meta.userId,
           sender_nickname: meta.nickname || '익명',
-          text: `${price.toLocaleString('ko-KR')}원에 어떠세요?`,
+          // 가격 제안 문구 — 보낸 사람 시장 기준 (같은 시장끼리만 거래)
+          text: trl(
+            meta.lang ?? 'ko',
+            `${price.toLocaleString('ko-KR')}원에 어떠세요?`,
+            `${price.toLocaleString('ja-JP')}円でいかがですか？`,
+            `How about ₱${price.toLocaleString('en-US')}?`,
+          ),
           msg_type: 'price_offer',
           sent_at: sentAt,
           offer: {
@@ -569,7 +577,7 @@ export class ChatHub {
               type: 'call_failed',
               call_id,
               reason: 'blocked',
-              message: meta.lang === 'ja' ? 'この相手とは通話できません' : '연결할 수 없는 상대에요',
+              message: trl(meta.lang ?? 'ko', '연결할 수 없는 상대에요', 'この相手とは通話できません', "You can't call this user"),
             });
             return;
           }
@@ -661,7 +669,7 @@ export class ChatHub {
             //   native FCM 서비스가 data-only 로 받지만 generic 푸시 fallback
             //   시 표시되도록.
             title: caller_nickname,
-            body: '전화가 와요',
+            body: (l: Lang) => trl(l, '전화가 와요', '着信があります', 'Incoming call'),
             data: {
               // ★ v1.0.142 (Eggplant native call port — QRChat v4.0.270 형식):
               //   EggplantFirebaseMessagingService.onMessageReceived 가 읽는 키 셋.
@@ -722,7 +730,7 @@ export class ChatHub {
             type: 'call_failed',
             call_id,
             reason: 'offline',
-            message: meta.lang === 'ja' ? '接続できませんでした。しばらくしてからもう一度おかけください。' : '연결할 수 없어요. 잠시 후 다시 걸어주세요.',
+            message: trl(meta.lang ?? 'ko', '연결할 수 없어요. 잠시 후 다시 걸어주세요.', '接続できませんでした。しばらくしてからもう一度おかけください。', "Couldn't connect. Please try calling again in a moment."),
           });
         }
         // ★ v1.0.162: !delivered && needPush 분기는 call_failed 발사 금지!!
@@ -966,8 +974,9 @@ export class ChatHub {
   private sendOfflinePush(
     peerUserId: string,
     opts: {
-      title: string;
-      body: string;
+      /** 수신자 언어(users.market)별 문구를 고르려면 함수로 넘긴다. */
+      title: string | ((lang: Lang) => string);
+      body: string | ((lang: Lang) => string);
       data: Record<string, string>;
       isCall: boolean;
     },
@@ -975,18 +984,29 @@ export class ChatHub {
     // ignore: discarded_futures - 의도적 fire-and-forget.
     void (async () => {
       try {
-        const row = await this.env.DB.prepare(
-          'SELECT fcm_token FROM users WHERE id = ?',
-        )
-          .bind(peerUserId)
-          .first<{ fcm_token: string | null }>();
+        let row: { fcm_token: string | null; market?: string | null } | null;
+        try {
+          row = await this.env.DB.prepare(
+            'SELECT fcm_token, market FROM users WHERE id = ?',
+          )
+            .bind(peerUserId)
+            .first<{ fcm_token: string | null; market: string | null }>();
+        } catch {
+          // market 컬럼 미적용 — 한국어
+          row = await this.env.DB.prepare(
+            'SELECT fcm_token FROM users WHERE id = ?',
+          )
+            .bind(peerUserId)
+            .first<{ fcm_token: string | null }>();
+        }
         const token = row?.fcm_token;
         if (!token) return; // 미등록 디바이스 — skip.
+        const lang = marketLang(normalizeMarket(row?.market ?? '') ?? 'kr');
 
         const ok = await sendFcm(this.env, {
           fcmToken: token,
-          title: opts.title,
-          body: opts.body,
+          title: typeof opts.title === 'function' ? opts.title(lang) : opts.title,
+          body: typeof opts.body === 'function' ? opts.body(lang) : opts.body,
           data: opts.data,
           isCall: opts.isCall,
         });

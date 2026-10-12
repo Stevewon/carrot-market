@@ -330,8 +330,10 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                 labelText: context.l10n.productFieldPrice,
                 hintText: AppMarket.isJp(_original!.market)
                     ? context.l10n.productFieldPriceHintJpy
-                    : context.l10n.productFieldPriceHintKrw,
-                prefixText: AppMarket.isJp(_original!.market) ? '¥ ' : '₩ ',
+                    : AppMarket.isPh(_original!.market)
+                        ? context.l10n.productFieldPriceHintPhp
+                        : context.l10n.productFieldPriceHintKrw,
+                prefixText: AppMarket.currencyPrefix(_original!.market),
               ),
               validator: (v) {
                 if (v == null || v.isEmpty) return context.l10n.productFieldPriceRequired;

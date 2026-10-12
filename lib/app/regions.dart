@@ -1,4 +1,5 @@
 import 'regions_jp.dart';
+import 'regions_ph.dart';
 
 /// 동네(지역) 목록. 이름은 서버 workers-server/src/regions.ts 와 같아야 한다
 /// (동네 인증 좌표·시장 구분을 이 이름으로 찾는다).
@@ -50,5 +51,34 @@ class AppRegions {
     return JpRegionData.byPrefecture.containsKey(p) ? p : null;
   }
 
-  static List<String> forMarket(String market) => market == 'jp' ? jp : kr;
+  /// 필리핀: 모든 Province 의 City/Municipality ('<Province> · <City/Municipality>').
+  /// NCR 은 'Metro Manila'. 데이터는 regions_ph.dart (tool/gen_ph_regions.mjs 로 생성).
+  static final List<String> ph = [
+    for (final e in PhRegionData.byProvince.entries)
+      for (final c in e.value) '${e.key}${PhRegionData.sep}$c',
+  ];
+
+  /// 필리핀 Province (Metro Manila 먼저, 나머지 알파벳 순).
+  static List<String> get phProvinces =>
+      PhRegionData.byProvince.keys.toList(growable: false);
+
+  /// 그 Province 의 City/Municipality — (전체 이름, 짧은 이름).
+  static List<(String, String)> phCities(String province) => [
+        for (final c in PhRegionData.byProvince[province] ?? const <String>[])
+          ('$province${PhRegionData.sep}$c', c),
+      ];
+
+  /// 필리핀 지역 이름에서 Province ('Cebu · Cebu City' → 'Cebu'). 필리핀 지역이 아니면 null.
+  static String? phProvinceOf(String region) {
+    final i = region.indexOf(PhRegionData.sep);
+    if (i <= 0) return null;
+    final p = region.substring(0, i);
+    return PhRegionData.byProvince.containsKey(p) ? p : null;
+  }
+
+  static List<String> forMarket(String market) => switch (market) {
+        'jp' => jp,
+        'ph' => ph,
+        _ => kr,
+      };
 }

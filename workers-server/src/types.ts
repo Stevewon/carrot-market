@@ -163,7 +163,7 @@ export interface UserRow {
   bank_registered_at: string | null;
   /** 지갑 소유 증명 완료 시각 (migration 0027). 이전 가입자는 NULL. */
   wallet_verified_at?: string | null;
-  /** 'kr' | 'jp' (migration 0033). 언어·화폐·지역 목록을 정한다. */
+  /** 'kr' | 'jp' | 'ph' (migration 0033). 언어·화폐·지역 목록을 정한다. */
   market?: string;
   /** 내 동네 목록 JSON (최대 10곳, migration 0034). region 은 그중 지금 보는 동네. */
   regions?: string | null;
@@ -190,7 +190,7 @@ export interface UserPublic {
   bank_registered_at?: string | null;
   /** 지갑 소유 증명(소액 송금) 완료 시각 — 출금 조건. migration 0027. */
   wallet_verified_at?: string | null;
-  /** 'kr' | 'jp' */
+  /** 'kr' | 'jp' | 'ph' */
   market?: string;
   /** 내 동네 목록 (본인 응답에만). */
   regions?: string[];

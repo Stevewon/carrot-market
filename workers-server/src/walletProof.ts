@@ -121,7 +121,7 @@ export async function createChallenge(
     return {
       ok: false,
       status: 429,
-      error: trl(lang, '진행 중인 지갑 인증이 너무 많아요. 30분 뒤에 다시 시도해주세요', '処理中のウォレット認証が多すぎます。30分後に再度お試しください'),
+      error: trl(lang, '진행 중인 지갑 인증이 너무 많아요. 30분 뒤에 다시 시도해주세요', '処理中のウォレット認証が多すぎます。30分後に再度お試しください', 'Too many wallet verifications in progress. Please try again in 30 minutes'),
       code: 'too_many_challenges',
     };
   }
@@ -144,7 +144,7 @@ export async function createChallenge(
     if (!clash) { units = candidate; break; }
   }
   if (!units) {
-    return { ok: false, status: 429, error: trl(lang, '잠시 후 다시 시도해주세요', 'しばらくしてから再度お試しください'), code: 'amount_busy' };
+    return { ok: false, status: 429, error: trl(lang, '잠시 후 다시 시도해주세요', 'しばらくしてから再度お試しください', 'Please try again in a moment'), code: 'amount_busy' };
   }
   const amountWei = (BigInt(units) * WEI_PER_UNIT).toString();
   const amountDisplay = `0.${String(units).padStart(8, '0')}`;
@@ -221,19 +221,19 @@ export async function checkChallenge(
     .prepare('SELECT * FROM wallet_challenges WHERE id = ?')
     .bind(challengeId)
     .first<WalletChallengeRow>();
-  if (!row || row.direction === 'to_user') return { ok: false, status: 404, error: trl(lang, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません'), code: 'not_found' };
+  if (!row || row.direction === 'to_user') return { ok: false, status: 404, error: trl(lang, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません', "We couldn't find this verification request"), code: 'not_found' };
   if (row.device_uuid !== deviceUuid) {
-    return { ok: false, status: 403, error: trl(lang, '이 기기에서 만든 인증 요청이 아니에요', 'この端末で作成された認証リクエストではありません'), code: 'device_mismatch' };
+    return { ok: false, status: 403, error: trl(lang, '이 기기에서 만든 인증 요청이 아니에요', 'この端末で作成された認証リクエストではありません', 'This verification request was not created on this device'), code: 'device_mismatch' };
   }
   if (row.status === 'verified') return { ok: true, row };
   if (row.status === 'used') {
-    return { ok: false, status: 409, error: trl(lang, '이미 사용된 인증이에요. 처음부터 다시 진행해주세요', 'この認証はすでに使用されています。最初からやり直してください'), code: 'used' };
+    return { ok: false, status: 409, error: trl(lang, '이미 사용된 인증이에요. 처음부터 다시 진행해주세요', 'この認証はすでに使用されています。最初からやり直してください', 'This verification has already been used. Please start over'), code: 'used' };
   }
   if (sqliteUtcMs(row.expires_at) < Date.now()) {
-    return { ok: false, status: 410, error: trl(lang, '인증 시간이 지났어요. 새 금액을 받아 다시 진행해주세요', '認証の有効期限が切れました。新しい金額を受け取って再度お手続きください'), code: 'expired' };
+    return { ok: false, status: 410, error: trl(lang, '인증 시간이 지났어요. 새 금액을 받아 다시 진행해주세요', '認証の有効期限が切れました。新しい金額を受け取って再度お手続きください', 'Verification has expired. Please get a new amount and try again'), code: 'expired' };
   }
   if (row.last_checked_at && Date.now() - sqliteUtcMs(row.last_checked_at) < CHECK_COOLDOWN_SEC * 1000) {
-    return { ok: false, status: 429, error: trl(lang, '잠시 후 다시 확인해주세요', 'しばらくしてから再度ご確認ください'), code: 'cooldown' };
+    return { ok: false, status: 429, error: trl(lang, '잠시 후 다시 확인해주세요', 'しばらくしてから再度ご確認ください', 'Please check again in a moment'), code: 'cooldown' };
   }
   await env.DB
     .prepare(`UPDATE wallet_challenges SET last_checked_at = datetime('now') WHERE id = ?`)
@@ -245,7 +245,7 @@ export async function checkChallenge(
     txs = await listOutgoingTxs(env, row.wallet_address);
   } catch (e) {
     console.error('[walletProof] explorer failed', String((e as Error)?.message || e));
-    return { ok: false, status: 502, error: trl(lang, '블록 탐색기에 연결하지 못했어요. 잠시 후 다시 시도해주세요', 'ブロックエクスプローラーに接続できませんでした。しばらくしてから再度お試しください'), code: 'explorer_error' };
+    return { ok: false, status: 502, error: trl(lang, '블록 탐색기에 연결하지 못했어요. 잠시 후 다시 시도해주세요', 'ブロックエクスプローラーに接続できませんでした。しばらくしてから再度お試しください', "We couldn't connect to the block explorer. Please try again in a moment"), code: 'explorer_error' };
   }
 
   const verifyAddr = (env.WALLET_VERIFY_ADDRESS || '').trim().toLowerCase();
@@ -272,7 +272,7 @@ export async function checkChallenge(
     return {
       ok: false,
       status: 404,
-      error: trl(lang, `아직 송금이 확인되지 않았어요. ${row.amount_display} QTA 를 보낸 뒤 블록에 담길 때까지 잠시 기다려주세요`, `まだ送金を確認できていません。${row.amount_display} QTA を送金後、ブロックに取り込まれるまでしばらくお待ちください`),
+      error: trl(lang, `아직 송금이 확인되지 않았어요. ${row.amount_display} QTA 를 보낸 뒤 블록에 담길 때까지 잠시 기다려주세요`, `まだ送金を確認できていません。${row.amount_display} QTA を送金後、ブロックに取り込まれるまでしばらくお待ちください`, `We haven't found your transfer yet. After sending ${row.amount_display} QTA, please wait a moment until it's included in a block`),
       code: 'not_found_yet',
     };
   }
@@ -288,7 +288,7 @@ export async function checkChallenge(
       .run();
   } catch (e) {
     if (/UNIQUE/i.test(String((e as Error)?.message || e))) {
-      return { ok: false, status: 409, error: trl(lang, '이미 다른 인증에 쓰인 거래예요. 새 금액으로 다시 송금해주세요', 'この取引はすでに別の認証に使用されています。新しい金額で再度送金してください'), code: 'tx_reused' };
+      return { ok: false, status: 409, error: trl(lang, '이미 다른 인증에 쓰인 거래예요. 새 금액으로 다시 송금해주세요', 'この取引はすでに別の認証に使用されています。新しい金額で再度送金してください', 'This transaction was already used for another verification. Please send again with the new amount'), code: 'tx_reused' };
     }
     throw e;
   }
@@ -298,7 +298,7 @@ export async function checkChallenge(
     .bind(row.id)
     .first<WalletChallengeRow>();
   if (!updated || updated.status === 'pending') {
-    return { ok: false, status: 409, error: trl(lang, '인증 상태가 바뀌었어요. 다시 시도해주세요', '認証の状態が変更されました。再度お試しください'), code: 'conflict' };
+    return { ok: false, status: 409, error: trl(lang, '인증 상태가 바뀌었어요. 다시 시도해주세요', '認証の状態が変更されました。再度お試しください', 'The verification status has changed. Please try again'), code: 'conflict' };
   }
   return { ok: true, row: updated };
 }

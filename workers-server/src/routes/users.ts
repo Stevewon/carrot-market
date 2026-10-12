@@ -87,7 +87,7 @@ app.put('/me', authMiddleware, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', 'Invalid request') }, 400);
   }
 
   const updates: string[] = [];
@@ -110,7 +110,7 @@ app.put('/me', authMiddleware, async (c) => {
     let list = parseRegions(cur?.regions, cur?.region);
     if (body.regions !== undefined) {
       if (!Array.isArray(body.regions)) {
-        return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+        return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', 'Invalid request') }, 400);
       }
       list = [];
       for (const v of body.regions) {
@@ -122,16 +122,16 @@ app.put('/me', authMiddleware, async (c) => {
     if (active && !list.includes(active)) list.push(active);
     if (list.length > MAX_REGIONS) {
       return c.json({
-        error: tr(c, `내 동네는 최대 ${MAX_REGIONS}곳까지 설정할 수 있어요`, `地域は最大${MAX_REGIONS}か所まで設定できます`),
+        error: tr(c, `내 동네는 최대 ${MAX_REGIONS}곳까지 설정할 수 있어요`, `地域は最大${MAX_REGIONS}か所まで設定できます`, `You can set up to ${MAX_REGIONS} neighborhoods`),
         code: 'region_limit',
       }, 400);
     }
     if (list.some(badRegion)) {
-      return c.json({ error: tr(c, '선택할 수 없는 지역이에요', '選択できない地域です'), code: 'region_market' }, 400);
+      return c.json({ error: tr(c, '선택할 수 없는 지역이에요', '選択できない地域です', "This area can't be selected"), code: 'region_market' }, 400);
     }
     if (!active || !list.includes(active)) active = list[0] || '';
     if (!active) {
-      return c.json({ error: tr(c, '동네를 한 곳 이상 남겨주세요', '地域を1か所以上設定してください'), code: 'region_empty' }, 400);
+      return c.json({ error: tr(c, '동네를 한 곳 이상 남겨주세요', '地域を1か所以上設定してください', 'Please keep at least one neighborhood'), code: 'region_empty' }, 400);
     }
     updates.push('region = ?');
     values.push(active);
@@ -142,7 +142,7 @@ app.put('/me', authMiddleware, async (c) => {
   if (body.nickname !== undefined) {
     const nick = body.nickname.trim();
     if (nick.length < 2 || nick.length > 12) {
-      return c.json({ error: tr(c, '닉네임은 2~12자여야 해요', 'ニックネームは2〜12文字で入力してください') }, 400);
+      return c.json({ error: tr(c, '닉네임은 2~12자여야 해요', 'ニックネームは2〜12文字で入力してください', 'Nickname must be 2–12 characters') }, 400);
     }
     const nickPolicyErr = checkNickname(nick, reqLang(c));
     if (nickPolicyErr) return c.json({ error: nickPolicyErr, code: 'nickname_policy' }, 400);
@@ -152,7 +152,7 @@ app.put('/me', authMiddleware, async (c) => {
       .bind(nick, authUser.id)
       .first<{ id: string }>();
     if (collision) {
-      return c.json({ error: tr(c, '이미 사용 중인 닉네임이에요', 'このニックネームはすでに使われています') }, 409);
+      return c.json({ error: tr(c, '이미 사용 중인 닉네임이에요', 'このニックネームはすでに使われています', 'This nickname is already taken') }, 409);
     }
     updates.push('nickname = ?');
     values.push(nick);
@@ -358,14 +358,14 @@ app.post('/me/region/verify', authMiddleware, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', 'Invalid request') }, 400);
   }
 
   const lat = Number(body.lat);
   const lng = Number(body.lng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)
       || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    return c.json({ error: tr(c, 'GPS 좌표가 유효하지 않아요', '位置情報（GPS）が正しくありません') }, 400);
+    return c.json({ error: tr(c, 'GPS 좌표가 유효하지 않아요', '位置情報（GPS）が正しくありません', 'Invalid GPS location') }, 400);
   }
 
   // 현재 또는 새 region 결정.
@@ -378,12 +378,12 @@ app.post('/me/region/verify', authMiddleware, async (c) => {
     region = cur?.region || '';
   }
   if (!region) {
-    return c.json({ error: tr(c, '먼저 동네를 선택해주세요', '先に地域を選択してください') }, 400);
+    return c.json({ error: tr(c, '먼저 동네를 선택해주세요', '先に地域を選択してください', 'Please choose your neighborhood first') }, 400);
   }
 
   const center = regionCenter(region);
   if (!center) {
-    return c.json({ error: tr(c, '지원하지 않는 지역이에요', '対応していない地域です') }, 400);
+    return c.json({ error: tr(c, '지원하지 않는 지역이에요', '対応していない地域です', "This area isn't supported") }, 400);
   }
   {
     const mine = await c.env.DB
@@ -391,14 +391,14 @@ app.post('/me/region/verify', authMiddleware, async (c) => {
       .bind(me.id)
       .first<{ market: string | null }>();
     if (regionMarket(region) !== (mine?.market || 'kr')) {
-      return c.json({ error: tr(c, '선택할 수 없는 지역이에요', '選択できない地域です'), code: 'region_market' }, 400);
+      return c.json({ error: tr(c, '선택할 수 없는 지역이에요', '選択できない地域です', "This area can't be selected"), code: 'region_market' }, 400);
     }
   }
 
   const dist = haversineKm({ lat, lng }, center);
   if (dist > REGION_VERIFY_RADIUS_KM) {
     return c.json({
-      error: tr(c, '내 동네에서 너무 멀어요', '設定した地域から離れすぎています'),
+      error: tr(c, '내 동네에서 너무 멀어요', '設定した地域から離れすぎています', "You're too far from your neighborhood"),
       distance_km: Math.round(dist * 10) / 10,
       radius_km: REGION_VERIFY_RADIUS_KM,
     }, 403);
@@ -456,7 +456,7 @@ app.post('/me/verify/identity', authMiddleware, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', 'Invalid request') }, 400);
   }
 
   const provider = (body.provider || 'dummy').trim().toLowerCase();
@@ -466,7 +466,7 @@ app.post('/me/verify/identity', authMiddleware, async (c) => {
   const phoneHash = (body.phone_hash || '').trim();
 
   if (!ci || ci.length < 8) {
-    return c.json({ error: tr(c, '인증 토큰이 유효하지 않아요', '認証トークンが無効です') }, 400);
+    return c.json({ error: tr(c, '인증 토큰이 유효하지 않아요', '認証トークンが無効です', 'Invalid verification token') }, 400);
   }
 
   // ── provider 별 검증 ─────────────────────────────────────────────
@@ -480,19 +480,19 @@ app.post('/me/verify/identity', authMiddleware, async (c) => {
     case 'kisa': {
       // TODO(pass-sdk): 사업자 서버에 (ci_token, nonce, tx_id) 검증 요청 후 통과 시 break.
       return c.json(
-        { error: tr(c, '본인인증 서비스를 준비 중이에요. 잠시 후 다시 시도해주세요', '本人確認サービスを準備中です。しばらくしてから再度お試しください'), code: 'provider_not_ready' },
+        { error: tr(c, '본인인증 서비스를 준비 중이에요. 잠시 후 다시 시도해주세요', '本人確認サービスを準備中です。しばらくしてから再度お試しください', "Identity verification isn't available yet. Please try again in a moment"), code: 'provider_not_ready' },
         503,
       );
     }
     case 'dummy': {
       // 개발/시연 모드. 운영 배포에서는 ALLOW_DUMMY_VERIFY 를 비워 차단.
       if (c.env.ALLOW_DUMMY_VERIFY !== '1') {
-        return c.json({ error: tr(c, '운영 환경에서는 dummy provider 가 허용되지 않아요', '本番環境では dummy provider は使用できません') }, 403);
+        return c.json({ error: tr(c, '운영 환경에서는 dummy provider 가 허용되지 않아요', '本番環境では dummy provider は使用できません', "The dummy provider isn't allowed in production") }, 403);
       }
       break;
     }
     default:
-      return c.json({ error: tr(c, '지원하지 않는 인증 사업자에요', '対応していない認証事業者です') }, 400);
+      return c.json({ error: tr(c, '지원하지 않는 인증 사업자에요', '対応していない認証事業者です', 'Unsupported verification provider') }, 400);
   }
 
   // SHA-256(ci) — 식별자 해시
@@ -506,7 +506,7 @@ app.post('/me/verify/identity', authMiddleware, async (c) => {
     .bind(ciHash, me.id)
     .first<{ id: string }>();
   if (dup) {
-    return c.json({ error: tr(c, '이미 다른 계정에 등록된 본인인증이에요', 'この本人確認はすでに別のアカウントで登録されています') }, 409);
+    return c.json({ error: tr(c, '이미 다른 계정에 등록된 본인인증이에요', 'この本人確認はすでに別のアカウントで登録されています', 'This identity is already verified on another account') }, 409);
   }
 
   const nowIso = new Date().toISOString();
@@ -571,20 +571,20 @@ app.post('/me/verify/bank', authMiddleware, async (c) => {
     .bind(me.id)
     .first<{ verification_level: number }>();
   if (!cur || (cur.verification_level ?? 0) < 1) {
-    return c.json({ error: tr(c, '먼저 본인인증을 완료해주세요', '先に本人確認を完了してください') }, 403);
+    return c.json({ error: tr(c, '먼저 본인인증을 완료해주세요', '先に本人確認を完了してください', 'Please complete identity verification first') }, 403);
   }
 
   let body: { bank_code?: string; account_number?: string } = {};
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', 'Invalid request') }, 400);
   }
 
   const bankCode = (body.bank_code || '').trim();
   const acctNum = (body.account_number || '').trim().replace(/[-\s]/g, '');
   if (!bankCode || !acctNum || acctNum.length < 6) {
-    return c.json({ error: tr(c, '은행 정보가 유효하지 않아요', '銀行情報が正しくありません') }, 400);
+    return c.json({ error: tr(c, '은행 정보가 유효하지 않아요', '銀行情報が正しくありません', 'Invalid bank information') }, 400);
   }
 
   const bankHash = await sha256Hex(`${bankCode}:${acctNum}`);
@@ -630,16 +630,16 @@ app.post('/me/wallet-proof', authMiddleware, async (c) => {
     .first<{ wallet_address: string | null; wallet_verified_at: string | null }>();
   if (!u) return c.json({ error: 'User not found' }, 404);
   if (u.wallet_address && u.wallet_verified_at) {
-    return c.json({ error: tr(c, '이미 지갑 인증을 마쳤어요', 'ウォレット認証はすでに完了しています'), code: 'already_verified' }, 409);
+    return c.json({ error: tr(c, '이미 지갑 인증을 마쳤어요', 'ウォレット認証はすでに完了しています', 'Your wallet is already verified'), code: 'already_verified' }, 409);
   }
   // 지갑 없이 가입한 회원은 여기서 지갑을 등록한다 (인증이 끝나야 저장됨).
   // 인증 전 지갑(예전 가입자)도 주소를 바꿔 입력할 수 있다.
   const input = (body.wallet_address || '').trim();
   if (input && !isValidWallet(input)) {
-    return c.json({ error: tr(c, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）') }, 400);
+    return c.json({ error: tr(c, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）', 'Please check your Quantarium wallet address (0x + 40 characters)') }, 400);
   }
   const target = (input ? normalizeWallet(input) : u.wallet_address || '').toLowerCase();
-  if (!target) return c.json({ error: tr(c, '지갑주소를 입력해주세요', 'ウォレットアドレスを入力してください'), code: 'wallet_required' }, 400);
+  if (!target) return c.json({ error: tr(c, '지갑주소를 입력해주세요', 'ウォレットアドレスを入力してください', 'Please enter your wallet address'), code: 'wallet_required' }, 400);
   const holder = await c.env.DB
     .prepare('SELECT id FROM users WHERE wallet_address = ? COLLATE NOCASE AND id != ?')
     .bind(target, me.id)
@@ -648,7 +648,7 @@ app.post('/me/wallet-proof', authMiddleware, async (c) => {
     return c.json(
       {
         error: tr(c, '이미 다른 가지 계정에 등록된 지갑이에요. 본인 지갑이라면 '
-          + "'계정 찾기 → 비밀번호 재설정' 에서 지갑 인증으로 그 계정을 되찾을 수 있어요", 'このウォレットはすでに別のEggplantアカウントに登録されています。ご自身のウォレットであれば、「アカウントを探す → パスワード再設定」からウォレット認証でそのアカウントを取り戻せます'),
+          + "'계정 찾기 → 비밀번호 재설정' 에서 지갑 인증으로 그 계정을 되찾을 수 있어요", 'このウォレットはすでに別のEggplantアカウントに登録されています。ご自身のウォレットであれば、「アカウントを探す → パスワード再設定」からウォレット認証でそのアカウントを取り戻せます', "This wallet is already registered to another Eggplant account. If it's your wallet, you can recover that account with wallet verification under 'Find account → Reset password'"),
         code: 'wallet_taken',
       },
       409,
@@ -669,7 +669,7 @@ app.post('/me/wallet-proof/:id/check', authMiddleware, async (c) => {
   if (!r.ok) return c.json({ verified: false, error: r.error, code: r.code }, r.status);
 
   const consumed = await consumeChallenge(c.env, id, r.row.wallet_address, 'verify', me.device_uuid);
-  if (!consumed) return c.json({ verified: false, error: tr(c, '인증이 만료됐어요. 다시 진행해주세요', '認証の有効期限が切れました。もう一度お試しください'), code: 'expired' }, 410);
+  if (!consumed) return c.json({ verified: false, error: tr(c, '인증이 만료됐어요. 다시 진행해주세요', '認証の有効期限が切れました。もう一度お試しください', 'Verification expired. Please try again'), code: 'expired' }, 410);
   // 인증된 지갑을 이 계정에 저장 (지갑 없던 회원은 여기서 처음 등록).
   // 이미 인증된 지갑이 있으면 바꾸지 않는다.
   try {
@@ -681,11 +681,11 @@ app.post('/me/wallet-proof/:id/check', authMiddleware, async (c) => {
       .bind(r.row.wallet_address, me.id)
       .run();
     if ((res.meta?.changes ?? 0) !== 1) {
-      return c.json({ verified: false, error: tr(c, '이미 지갑 인증을 마쳤어요', 'ウォレット認証はすでに完了しています'), code: 'already_verified' }, 409);
+      return c.json({ verified: false, error: tr(c, '이미 지갑 인증을 마쳤어요', 'ウォレット認証はすでに完了しています', 'Your wallet is already verified'), code: 'already_verified' }, 409);
     }
   } catch (e) {
     if (/UNIQUE/i.test(String((e as Error)?.message || e))) {
-      return c.json({ verified: false, error: tr(c, '이미 다른 가지 계정에 등록된 지갑이에요', 'このウォレットはすでに別のEggplantアカウントに登録されています'), code: 'wallet_taken' }, 409);
+      return c.json({ verified: false, error: tr(c, '이미 다른 가지 계정에 등록된 지갑이에요', 'このウォレットはすでに別のEggplantアカウントに登録されています', 'This wallet is already registered to another Eggplant account'), code: 'wallet_taken' }, 409);
     }
     throw e;
   }
@@ -735,14 +735,14 @@ async function walletTargetFor(
     .first<{ wallet_address: string | null; wallet_verified_at: string | null }>();
   if (!u) return { ok: false, status: 404, error: 'User not found' };
   if (u.wallet_address && u.wallet_verified_at) {
-    return { ok: false, status: 409, error: trl(lang, '이미 지갑 인증을 마쳤어요', 'ウォレット認証はすでに完了しています'), code: 'already_verified' };
+    return { ok: false, status: 409, error: trl(lang, '이미 지갑 인증을 마쳤어요', 'ウォレット認証はすでに完了しています', 'Your wallet is already verified'), code: 'already_verified' };
   }
   const raw = (input || '').trim();
   if (raw && !isValidWallet(raw)) {
-    return { ok: false, status: 400, error: trl(lang, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）'), code: 'bad_wallet' };
+    return { ok: false, status: 400, error: trl(lang, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）', 'Please check your Quantarium wallet address (0x + 40 characters)'), code: 'bad_wallet' };
   }
   const target = (raw ? normalizeWallet(raw) : u.wallet_address || '').toLowerCase();
-  if (!target) return { ok: false, status: 400, error: trl(lang, '지갑주소를 입력해주세요', 'ウォレットアドレスを入力してください'), code: 'wallet_required' };
+  if (!target) return { ok: false, status: 400, error: trl(lang, '지갑주소를 입력해주세요', 'ウォレットアドレスを入力してください', 'Please enter your wallet address'), code: 'wallet_required' };
   const holder = await env.DB
     .prepare('SELECT id FROM users WHERE wallet_address = ? COLLATE NOCASE AND id != ?')
     .bind(target, userId)
@@ -752,7 +752,7 @@ async function walletTargetFor(
       ok: false,
       status: 409,
       error: trl(lang, '이미 다른 가지 계정에 등록된 지갑이에요. 본인 지갑이라면 '
-        + "'계정 찾기 → 비밀번호 재설정' 에서 지갑 인증으로 그 계정을 되찾을 수 있어요", 'このウォレットはすでに別のEggplantアカウントに登録されています。ご自身のウォレットであれば、「アカウントを探す → パスワード再設定」からウォレット認証でそのアカウントを取り戻せます'),
+        + "'계정 찾기 → 비밀번호 재설정' 에서 지갑 인증으로 그 계정을 되찾을 수 있어요", 'このウォレットはすでに別のEggplantアカウントに登録されています。ご自身のウォレットであれば、「アカウントを探す → パスワード再設定」からウォレット認証でそのアカウントを取り戻せます', "This wallet is already registered to another Eggplant account. If it's your wallet, you can recover that account with wallet verification under 'Find account → Reset password'"),
       code: 'wallet_taken',
     };
   }
@@ -786,7 +786,7 @@ app.post('/me/wallet-receive', authMiddleware, async (c) => {
 app.get('/me/wallet-receive/:id', authMiddleware, async (c) => {
   const me = c.get('user')!;
   const row = await getReceiveChallenge(c.env, me.id, c.req.param('id'));
-  if (!row) return c.json({ error: tr(c, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません'), code: 'not_found' }, 404);
+  if (!row) return c.json({ error: tr(c, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません', 'Verification request not found'), code: 'not_found' }, 404);
   return c.json(receiveView(row, c.env));
 });
 
@@ -807,11 +807,11 @@ app.post('/me/wallet-receive/:id/confirm', authMiddleware, async (c) => {
       .bind(r.row.wallet_address, me.id)
       .run();
     if ((res.meta?.changes ?? 0) !== 1) {
-      return c.json({ verified: false, error: tr(c, '이미 지갑 인증을 마쳤어요', 'ウォレット認証はすでに完了しています'), code: 'already_verified' }, 409);
+      return c.json({ verified: false, error: tr(c, '이미 지갑 인증을 마쳤어요', 'ウォレット認証はすでに完了しています', 'Your wallet is already verified'), code: 'already_verified' }, 409);
     }
   } catch (e) {
     if (/UNIQUE/i.test(String((e as Error)?.message || e))) {
-      return c.json({ verified: false, error: tr(c, '이미 다른 가지 계정에 등록된 지갑이에요', 'このウォレットはすでに別のEggplantアカウントに登録されています'), code: 'wallet_taken' }, 409);
+      return c.json({ verified: false, error: tr(c, '이미 다른 가지 계정에 등록된 지갑이에요', 'このウォレットはすでに別のEggplantアカウントに登録されています', 'This wallet is already registered to another Eggplant account'), code: 'wallet_taken' }, 409);
     }
     throw e;
   }
@@ -836,12 +836,12 @@ app.post('/me/verify/phone', authMiddleware, async (c) => {
     .first<{ wallet_address: string | null; wallet_verified_at: string | null; verified_at: string | null }>();
   if (!cur) return c.json({ error: 'User not found' }, 404);
   if (!cur.wallet_address || !cur.wallet_verified_at) {
-    return c.json({ error: tr(c, '1단계 지갑 인증을 먼저 마쳐주세요', '先にステップ1のウォレット認証を完了してください'), code: 'wallet_first' }, 403);
+    return c.json({ error: tr(c, '1단계 지갑 인증을 먼저 마쳐주세요', '先にステップ1のウォレット認証を完了してください', 'Please complete step 1 wallet verification first'), code: 'wallet_first' }, 403);
   }
-  if (cur.verified_at) return c.json({ error: tr(c, '이미 휴대폰 인증을 마쳤어요', '電話番号認証はすでに完了しています'), code: 'already_verified' }, 409);
+  if (cur.verified_at) return c.json({ error: tr(c, '이미 휴대폰 인증을 마쳤어요', '電話番号認証はすでに完了しています', 'Your phone number is already verified'), code: 'already_verified' }, 409);
   // 번호를 암호화해 보관할 키가 없으면 인증하지 않는다 (평문 저장·추적 불가 상태로 진행 X).
   if (!(await phoneVaultReady(c.env))) {
-    return c.json({ error: tr(c, '휴대폰 인증을 잠시 쓸 수 없어요. 잠시 후 다시 시도해주세요', '電話番号認証は現在ご利用いただけません。しばらくしてから再度お試しください'), code: 'verify_unavailable' }, 503);
+    return c.json({ error: tr(c, '휴대폰 인증을 잠시 쓸 수 없어요. 잠시 후 다시 시도해주세요', '電話番号認証は現在ご利用いただけません。しばらくしてから再度お試しください', 'Phone verification is unavailable right now. Please try again in a moment'), code: 'verify_unavailable' }, 503);
   }
 
   let v;
@@ -849,15 +849,15 @@ app.post('/me/verify/phone', authMiddleware, async (c) => {
     v = await verifyFirebasePhoneToken(c.env, body.id_token || '');
   } catch (e) {
     console.error('[verify/phone] token check failed', e);
-    return c.json({ error: tr(c, '인증 서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요', '認証サーバーに接続できませんでした。しばらくしてから再度お試しください'), code: 'verify_unavailable' }, 502);
+    return c.json({ error: tr(c, '인증 서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요', '認証サーバーに接続できませんでした。しばらくしてから再度お試しください', "Couldn't connect to the verification server. Please try again in a moment"), code: 'verify_unavailable' }, 502);
   }
   if (!v.ok) {
-    return c.json({ error: tr(c, '휴대폰 인증이 확인되지 않았어요. 다시 시도해주세요', '電話番号認証を確認できませんでした。もう一度お試しください'), code: 'invalid_token', reason: v.reason }, 400);
+    return c.json({ error: tr(c, '휴대폰 인증이 확인되지 않았어요. 다시 시도해주세요', '電話番号認証を確認できませんでした。もう一度お試しください', "Phone verification couldn't be confirmed. Please try again"), code: 'invalid_token', reason: v.reason }, 400);
   }
 
   if (!isAllowedMobile(v.phone)) {
     return c.json({
-      error: tr(c, '한국(010)·일본(070/080/090) 휴대폰 번호로만 인증할 수 있어요', '日本(070/080/090)・韓国(010)の携帯電話番号のみ認証できます'),
+      error: tr(c, '한국(010)·일본(070/080/090)·필리핀(09) 휴대폰 번호로만 인증할 수 있어요', '日本(070/080/090)・韓国(010)・フィリピン(09)の携帯電話番号のみ認証できます', 'Only Philippine (09), Korean (010) or Japanese (070/080/090) mobile numbers can be verified'),
       code: 'mobile_only',
     }, 400);
   }
@@ -870,7 +870,7 @@ app.post('/me/verify/phone', authMiddleware, async (c) => {
     .prepare('SELECT id FROM users WHERE verified_ci_hash = ? AND id != ?')
     .bind(ciHash, me.id)
     .first<{ id: string }>();
-  if (dup) return c.json({ error: tr(c, '이 번호는 이미 다른 가지 계정에서 인증했어요', 'この電話番号はすでに別のEggplantアカウントで認証されています'), code: 'phone_taken' }, 409);
+  if (dup) return c.json({ error: tr(c, '이 번호는 이미 다른 가지 계정에서 인증했어요', 'この電話番号はすでに別のEggplantアカウントで認証されています', 'This number is already verified on another Eggplant account'), code: 'phone_taken' }, 409);
 
   const nowIso = new Date().toISOString();
   try {
@@ -893,7 +893,7 @@ app.post('/me/verify/phone', authMiddleware, async (c) => {
     ]);
   } catch (e) {
     if (/UNIQUE/i.test(String((e as Error)?.message || e))) {
-      return c.json({ error: tr(c, '이 번호는 이미 다른 가지 계정에서 인증했어요', 'この電話番号はすでに別のEggplantアカウントで認証されています'), code: 'phone_taken' }, 409);
+      return c.json({ error: tr(c, '이 번호는 이미 다른 가지 계정에서 인증했어요', 'この電話番号はすでに別のEggplantアカウントで認証されています', 'This number is already verified on another Eggplant account'), code: 'phone_taken' }, 409);
     }
     throw e;
   }
@@ -1081,7 +1081,7 @@ app.get('/search', authMiddleware, async (c) => {
   if (!rl.ok) {
     c.header('Retry-After', String(rl.retryAfterSec));
     return c.json(
-      { error: tr(c, '요청이 너무 많아요. 잠시 후 다시 시도해주세요', 'リクエストが多すぎます。しばらくしてから再度お試しください'), retry_after: rl.retryAfterSec },
+      { error: tr(c, '요청이 너무 많아요. 잠시 후 다시 시도해주세요', 'リクエストが多すぎます。しばらくしてから再度お試しください', 'Too many requests. Please try again in a moment'), retry_after: rl.retryAfterSec },
       429,
     );
   }

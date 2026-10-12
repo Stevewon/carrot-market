@@ -421,8 +421,10 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
                 labelText: context.l10n.productFieldPrice,
                 hintText: AppMarket.isJp(_market)
                     ? context.l10n.productFieldPriceHintJpy
-                    : context.l10n.productFieldPriceHintKrw,
-                prefixText: AppMarket.isJp(_market) ? '¥ ' : '₩ ',
+                    : AppMarket.isPh(_market)
+                        ? context.l10n.productFieldPriceHintPhp
+                        : context.l10n.productFieldPriceHintKrw,
+                prefixText: AppMarket.currencyPrefix(_market),
               ),
               validator: (v) {
                 if (v == null || v.isEmpty) return context.l10n.productFieldPriceRequired;

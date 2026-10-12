@@ -315,10 +315,10 @@ export async function payTrade(
     return { ok: true, charged: 0 };
   }
   if (!Number.isFinite(amount) || !Number.isInteger(amount)) {
-    return { ok: false, error: trl(lang, '잘못된 결제 금액', '決済金額が正しくありません'), reason: 'invalid' };
+    return { ok: false, error: trl(lang, '잘못된 결제 금액', '決済金額が正しくありません', 'Invalid payment amount'), reason: 'invalid' };
   }
   if (seller_id === buyer_id) {
-    return { ok: false, error: trl(lang, '본인에게 결제할 수 없어요', 'ご自身への決済はできません'), reason: 'invalid' };
+    return { ok: false, error: trl(lang, '본인에게 결제할 수 없어요', 'ご自身への決済はできません', "You can't pay yourself"), reason: 'invalid' };
   }
 
   // 1) 멱등 — 이미 결제됐는지 ledger 의 buyer 차감 행으로 확인.
@@ -329,7 +329,7 @@ export async function payTrade(
     .first<{ user_id: string }>();
   if (existed) {
     if (existed.user_id !== buyer_id) {
-      return { ok: false, error: trl(lang, '이미 다른 구매자와 결제가 끝난 상품이에요', 'この商品はすでに他の購入者との決済が完了しています'), reason: 'invalid' };
+      return { ok: false, error: trl(lang, '이미 다른 구매자와 결제가 끝난 상품이에요', 'この商品はすでに他の購入者との決済が完了しています', 'This item has already been paid for by another buyer'), reason: 'invalid' };
     }
     return { ok: true, charged: amount, already_paid: true };
   }
@@ -340,12 +340,12 @@ export async function payTrade(
     .bind(buyer_id)
     .first<{ qta_balance: number }>();
   if (!buyerRow) {
-    return { ok: false, error: trl(lang, '구매자 정보를 찾을 수 없어요', '購入者情報が見つかりません'), reason: 'invalid' };
+    return { ok: false, error: trl(lang, '구매자 정보를 찾을 수 없어요', '購入者情報が見つかりません', 'Buyer info not found'), reason: 'invalid' };
   }
   if ((buyerRow.qta_balance ?? 0) < amount) {
     return {
       ok: false,
-      error: trl(lang, `구매자의 QTA 잔액이 부족해요 (${buyerRow.qta_balance} < ${amount})`, `購入者のQTA残高が不足しています (${buyerRow.qta_balance} < ${amount})`),
+      error: trl(lang, `구매자의 QTA 잔액이 부족해요 (${buyerRow.qta_balance} < ${amount})`, `購入者のQTA残高が不足しています (${buyerRow.qta_balance} < ${amount})`, `Not enough QTA balance (${buyerRow.qta_balance} < ${amount})`),
       reason: 'insufficient',
     };
   }
@@ -408,7 +408,7 @@ export async function payTrade(
     if (debitInserted !== 1) {
       return {
         ok: false,
-        error: trl(lang, '결제 처리 중 잔액이 부족해졌어요. 잠시 후 다시 시도해주세요', '決済処理中に残高が不足しました。しばらくしてから再度お試しください'),
+        error: trl(lang, '결제 처리 중 잔액이 부족해졌어요. 잠시 후 다시 시도해주세요', '決済処理中に残高が不足しました。しばらくしてから再度お試しください', 'Your balance ran short during payment. Please try again in a moment'),
         reason: 'insufficient',
       };
     }
@@ -427,10 +427,10 @@ export async function payTrade(
         return { ok: true, charged: amount, already_paid: true };
       }
       console.error('[qta] payTrade UNIQUE without own debit', { product_id, msg });
-      return { ok: false, error: trl(lang, '이 상품은 결제를 진행할 수 없어요. 고객센터로 문의해주세요', 'この商品は決済を進められません。お問い合わせ窓口までご連絡ください'), reason: 'invalid' };
+      return { ok: false, error: trl(lang, '이 상품은 결제를 진행할 수 없어요. 고객센터로 문의해주세요', 'この商品は決済を進められません。お問い合わせ窓口までご連絡ください', "Payment can't be made for this item. Please contact support"), reason: 'invalid' };
     }
     console.error('[qta] payTrade failed', { product_id, msg });
-    return { ok: false, error: trl(lang, '결제 실패 (서버 오류)', '決済に失敗しました (サーバーエラー)'), reason: 'failed' };
+    return { ok: false, error: trl(lang, '결제 실패 (서버 오류)', '決済に失敗しました (サーバーエラー)', 'Payment failed (server error)'), reason: 'failed' };
   }
 }
 
@@ -658,19 +658,19 @@ export async function requestWithdrawal(
   lang: Lang = 'ko',
 ): Promise<{ ok: true; withdrawal: WithdrawalRow } | { ok: false; error: string; status?: number }> {
   if (!Number.isInteger(amount) || amount <= 0) {
-    return { ok: false, error: trl(lang, '출금 금액이 올바르지 않아요', '出金金額が正しくありません'), status: 400 };
+    return { ok: false, error: trl(lang, '출금 금액이 올바르지 않아요', '出金金額が正しくありません', 'Invalid withdrawal amount'), status: 400 };
   }
   if (amount < QTA_WITHDRAWAL_MIN) {
     return {
       ok: false,
-      error: trl(lang, `최소 출금 금액은 ${QTA_WITHDRAWAL_MIN.toLocaleString('ko-KR')} QTA 예요`, `出金の最低金額は ${QTA_WITHDRAWAL_MIN.toLocaleString('ja-JP')} QTA です`),
+      error: trl(lang, `최소 출금 금액은 ${QTA_WITHDRAWAL_MIN.toLocaleString('ko-KR')} QTA 예요`, `出金の最低金額は ${QTA_WITHDRAWAL_MIN.toLocaleString('ja-JP')} QTA です`, `The minimum withdrawal is ${QTA_WITHDRAWAL_MIN.toLocaleString('en-US')} QTA`),
       status: 400,
     };
   }
   if (amount % QTA_WITHDRAWAL_UNIT !== 0) {
     return {
       ok: false,
-      error: trl(lang, `${QTA_WITHDRAWAL_UNIT.toLocaleString('ko-KR')} QTA 단위로만 신청할 수 있어요`, `${QTA_WITHDRAWAL_UNIT.toLocaleString('ja-JP')} QTA 単位でのみ申請できます`),
+      error: trl(lang, `${QTA_WITHDRAWAL_UNIT.toLocaleString('ko-KR')} QTA 단위로만 신청할 수 있어요`, `${QTA_WITHDRAWAL_UNIT.toLocaleString('ja-JP')} QTA 単位でのみ申請できます`, `Withdrawals must be in units of ${QTA_WITHDRAWAL_UNIT.toLocaleString('en-US')} QTA`),
       status: 400,
     };
   }
@@ -685,20 +685,20 @@ export async function requestWithdrawal(
       verification_level: number | null;
       wallet_verified_at: string | null;
     }>();
-  if (!u) return { ok: false, error: trl(lang, '사용자를 찾을 수 없어요', 'ユーザーが見つかりません'), status: 404 };
+  if (!u) return { ok: false, error: trl(lang, '사용자를 찾을 수 없어요', 'ユーザーが見つかりません', 'User not found'), status: 404 };
   // 출금 조건: 본인인증(Lv1, 1인 1계정) + 지갑 소유 증명(돈이 가는 지갑의 주인).
   //   출금은 이 지갑으로 송금되므로 계좌 등록(Lv2)보다 지갑 주인 확인이 맞는 조건이다.
   if ((u.verification_level ?? 0) < 1) {
-    return { ok: false, error: trl(lang, '출금하려면 본인인증이 필요해요', '出金するには本人確認が必要です'), status: 403 };
+    return { ok: false, error: trl(lang, '출금하려면 본인인증이 필요해요', '出金するには本人確認が必要です', 'Identity verification is required to withdraw'), status: 403 };
   }
   if (!u.wallet_verified_at) {
-    return { ok: false, error: trl(lang, '출금하려면 지갑 인증(소액 송금)이 필요해요', '出金するにはウォレット認証(少額送金)が必要です'), status: 403 };
+    return { ok: false, error: trl(lang, '출금하려면 지갑 인증(소액 송금)이 필요해요', '出金するにはウォレット認証(少額送金)が必要です', 'Wallet verification (small transfer) is required to withdraw'), status: 403 };
   }
   if (!u.wallet_address) {
-    return { ok: false, error: trl(lang, '지갑 주소가 등록되지 않았어요', 'ウォレットアドレスが登録されていません'), status: 400 };
+    return { ok: false, error: trl(lang, '지갑 주소가 등록되지 않았어요', 'ウォレットアドレスが登録されていません', 'No wallet address registered'), status: 400 };
   }
   if ((u.qta_balance ?? 0) < amount) {
-    return { ok: false, error: trl(lang, 'QTA 잔액이 부족해요', 'QTA残高が不足しています'), status: 400 };
+    return { ok: false, error: trl(lang, 'QTA 잔액이 부족해요', 'QTA残高が不足しています', 'Not enough QTA balance'), status: 400 };
   }
 
   // 진행중 신청 존재 여부.
@@ -713,7 +713,7 @@ export async function requestWithdrawal(
   if (pending) {
     return {
       ok: false,
-      error: trl(lang, '진행 중인 출금 신청이 이미 있어요. 처리된 후 다시 신청해주세요.', '処理中の出金申請がすでにあります。処理完了後に再度お申し込みください。'),
+      error: trl(lang, '진행 중인 출금 신청이 이미 있어요. 처리된 후 다시 신청해주세요.', '処理中の出金申請がすでにあります。処理完了後に再度お申し込みください。', "You already have a withdrawal request in progress. Please try again after it's processed."),
       status: 409,
     };
   }
@@ -766,18 +766,18 @@ export async function requestWithdrawal(
     if (/UNIQUE/i.test(msg) && /qta_withdrawals|one_pending_per_user/i.test(msg)) {
       return {
         ok: false,
-        error: trl(lang, '진행 중인 출금 신청이 이미 있어요', '処理中の出金申請がすでにあります'),
+        error: trl(lang, '진행 중인 출금 신청이 이미 있어요', '処理中の出金申請がすでにあります', 'You already have a withdrawal request in progress'),
         status: 409,
       };
     }
     console.error('[qta] withdrawal request failed', msg);
-    return { ok: false, error: trl(lang, '출금 신청 처리 중 오류가 발생했어요', '出金申請の処理中にエラーが発生しました'), status: 500 };
+    return { ok: false, error: trl(lang, '출금 신청 처리 중 오류가 발생했어요', '出金申請の処理中にエラーが発生しました', 'Something went wrong while processing your withdrawal request'), status: 500 };
   }
 
   // ledger 0행 = 사전 체크 후 race 로 잔액이 부족해짐. 아무것도 안 바뀜.
   const ledgerInserted = (out[0]?.meta as { changes?: number } | undefined)?.changes ?? 0;
   if (ledgerInserted !== 1) {
-    return { ok: false, error: trl(lang, 'QTA 잔액이 부족해요', 'QTA残高が不足しています'), status: 400 };
+    return { ok: false, error: trl(lang, 'QTA 잔액이 부족해요', 'QTA残高が不足しています', 'Not enough QTA balance'), status: 400 };
   }
 
   const row = await env.DB
@@ -809,7 +809,7 @@ export async function refundWithdrawal(
     .first<WithdrawalRow>();
   if (!w) return { ok: false, error: 'not found' };
   if (!(allowedFrom as string[]).includes(w.status)) {
-    return { ok: false, error: trl(lang, `이미 처리된 신청이에요 (${w.status})`, `すでに処理済みの申請です (${w.status})`) };
+    return { ok: false, error: trl(lang, `이미 처리된 신청이에요 (${w.status})`, `すでに処理済みの申請です (${w.status})`, `This request has already been processed (${w.status})`) };
   }
 
   const refundLedgerId = crypto.randomUUID();
@@ -854,7 +854,7 @@ export async function refundWithdrawal(
     ]);
     const transitioned = (out[0]?.meta as { changes?: number } | undefined)?.changes ?? 0;
     if (transitioned !== 1) {
-      return { ok: false, error: trl(lang, '이미 처리된 신청이에요', 'すでに処理済みの申請です') };
+      return { ok: false, error: trl(lang, '이미 처리된 신청이에요', 'すでに処理済みの申請です', 'This request has already been processed') };
     }
     return { ok: true };
   } catch (e) {
@@ -1184,12 +1184,12 @@ export async function createEscrowIfEligible(
   lang: Lang = 'ko',
 ): Promise<EscrowResult> {
   if (!Number.isInteger(amount_krw) || amount_krw <= 0) {
-    return { ok: false, error: trl(lang, '거래 금액이 잘못됐어요', '取引金額が正しくありません'), reason: 'invalid' };
+    return { ok: false, error: trl(lang, '거래 금액이 잘못됐어요', '取引金額が正しくありません', 'Invalid transaction amount'), reason: 'invalid' };
   }
   if (amount_krw >= ESCROW_MAX_AMOUNT_KRW) {
     return {
       ok: false,
-      error: trl(lang, '30,000원 이상은 당사자 직거래에요', '一定金額以上のお取引は当事者間での直接取引となります'),
+      error: trl(lang, '30,000원 이상은 당사자 직거래에요', '一定金額以上のお取引は当事者間での直接取引となります', 'Transactions above a certain amount must be made directly between buyer and seller'),
       reason: 'over_limit',
     };
   }
@@ -1238,7 +1238,7 @@ export async function createEscrowIfEligible(
     return { ok: true, escrow_id: id, deposit_memo: memo, amount_krw };
   } catch (e) {
     console.log('[escrow] create failed:', e);
-    return { ok: false, error: trl(lang, '에스크로 생성 실패', '安全取引の作成に失敗しました'), reason: 'db_error' };
+    return { ok: false, error: trl(lang, '에스크로 생성 실패', '安全取引の作成に失敗しました', 'Failed to create safe payment'), reason: 'db_error' };
   }
 }
 

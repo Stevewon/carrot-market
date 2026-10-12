@@ -23,12 +23,12 @@ app.post('/signal', authMiddleware, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', 'Invalid request') }, 400);
   }
   const type = body.type === 'response' || body.type === 'end' ? body.type : null;
   const callId = String(body.call_id || '').slice(0, 64);
   const to = String(body.to_user_id || '').slice(0, 64);
-  if (!type || !callId || !to || to === me.id) return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+  if (!type || !callId || !to || to === me.id) return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', 'Invalid request') }, 400);
 
   const stub = c.env.CHAT_HUB.get(c.env.CHAT_HUB.idFromName('global'));
   await stub.fetch('https://do/internal/call-signal', {

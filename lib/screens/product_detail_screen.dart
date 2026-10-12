@@ -935,9 +935,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    AppMarket.isJp(_product?.market ?? 'kr')
-                        ? context.l10n.priceJpy(_formatPrice(item.priceKrw))
-                        : context.l10n.priceKrw(_formatPrice(item.priceKrw)),
+                    AppMarket.money(item.priceKrw, _product?.market ?? 'kr'),
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,

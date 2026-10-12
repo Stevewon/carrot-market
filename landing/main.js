@@ -78,10 +78,12 @@
 })();
 
 /* ====================================================================
-   한국어 / 日本語 전환
-   - 한국어가 원문(HTML). 일본어는 아래 I18N_JA 사전을 data-i18n 키로 적용.
-   - 결정 순서: ?lang= → 직접 고른 언어(localStorage) → 브라우저 언어(ja*)
-                → api.eggplant.life/api/geo 의 market==='jp' (실패해도 무시)
+   한국어 / 日本語 / English 전환
+   - 한국어가 원문(HTML). 일본어·영어는 아래 I18N_JA / I18N_EN 사전을 data-i18n 키로 적용.
+   - 결정 순서: ?lang=(ko|ja|en) → 직접 고른 언어(localStorage 'eg_lang')
+                → 브라우저 첫 언어(ja* → 日本語, en*·fil*·tl* → English)
+                → api.eggplant.life/api/geo 의 market ('jp' → 日本語, 'ph' → English, 실패해도 무시)
+                → 한국어
    - 정책 숫자는 서버 코드(workers-server/src/qta.ts 등)와 같아야 한다.
    ==================================================================== */
 (() => {
@@ -92,15 +94,20 @@
     aria_home: 'Eggplant ホーム',
     aria_menu: 'メニューを開く',
     aria_stats: '主な数字',
+    aria_nav: 'メインメニュー',
+    aria_mascot: 'Eggplant マスコット',
+    meta_desc: 'Eggplant 🍆 — 本名・電話番号なしでニックネームから始める地域のフリマ。出品すると価格の10%をQTAでマイニング。日本・韓国・フィリピンでサービス。',
+    og_title: 'Eggplant 🍆 — QRでつながる地域のフリマ',
+    og_desc: 'ニックネームで登録し、出品すると価格の10%をQTAでマイニング。消えるチャット+地域の取引+耐量子ウォレット認証。',
 
     nav_features: '機能',
     nav_qta: 'QTAマイニング',
     nav_verify: '認証',
-    nav_japan: '日本・韓国',
+    nav_japan: '日本・韓国・フィリピン',
     nav_faq: 'よくある質問',
     nav_cta: 'アプリを入手',
 
-    hero_badge: '🇯🇵 日本 · 🇰🇷 韓国の地域フリマ',
+    hero_badge: '🇯🇵 日本 · 🇰🇷 韓国 · 🇵🇭 フィリピンの地域フリマ',
     hero_h1: '本名も電話番号もなしで<br/><span class="grad">QRひとつで取引</span>',
     hero_sub: 'Eggplantは<b>ニックネーム</b>で登録して、<b>QRコードを読み取るだけ</b>でチャットが始まる地域密着のフリマアプリです。チャットは<b>サーバーに保存されず</b>、出品すると<b>価格の10%がQTA</b>として貯まります。',
     hero_cta_apk: 'Android版APKをダウンロード',
@@ -108,7 +115,7 @@
     stat_listing: '出品マイニング',
     stat_chat_num: '0件',
     stat_chat: 'チャットのサーバー保存',
-    stat_market: '日本・韓国でサービス',
+    stat_market: '3か国でサービス',
     mock_title: '🍆 Eggplant',
     mock_item: '東京 渋谷区 · 新品の本',
     mock_price: '1,500円',
@@ -155,21 +162,23 @@
     v_h2: '<span class="grad">2段階認証</span>で1人1アカウント',
     v_sub: '出金と取引完了ボーナスは、認証を終えた方だけが受け取れます。',
     v1_h: 'ステップ1 · ウォレット認証 <span class="tag">利用できます</span>',
-    v1_p: '運営のウォレットから<b>耐量子SPHINCS+署名</b>(Quantarium type 0x7f)で、あなたのウォレットに少額(1 QTA未満)を送ります。<b>scan.quantarium.io</b> で受け取った数量(小数点以下6桁)を確認して入力すれば完了です。',
+    v1_p: '運営のウォレットから<b>耐量子SPHINCS+署名</b>(Quantarium type 0x7f)で、あなたのウォレットに<b>5.xxxxxx QTA</b>を送ります。次に、アプリに表示された<b>1.xxxxxx QTA</b>をあなたのウォレットから運営のウォレットへ送り返せば完了です。送金できるのはウォレットの持ち主だけなので、あなたのウォレットであることが証明されます。数量は1回限りで、再利用はできません。',
     v2_h: 'ステップ2 · 電話番号認証 <span class="tag soon">まもなく開始</span>',
-    v2_p: '日本(+81、070/080/090)・韓国(+82、010など)の<b>携帯電話番号のみ</b>認証できます。1つの番号で認証できるのは1アカウントだけです。先にステップ1を終えてください。',
+    v2_p: '日本(+81、070/080/090)・韓国(+82、010など)・フィリピン(+63、09xx)の<b>携帯電話番号のみ</b>認証できます。1つの番号で認証できるのは1アカウントだけです。先にステップ1を終えてください。',
     v3_h: '電話番号は暗号化して別に保管',
     v3_p: '認証した番号は<b>AES-256で暗号化</b>して別に保管し、画面やほかのユーザーには<b>一切公開しません</b>。不正利用者の追跡や、捜査機関からの適法な要請に対応するときにだけ使います。退会すると番号はすぐに削除します。',
-    v_note: '運営から送るQTA(ウォレット認証の少額送金・出金)は、すべて耐量子署名トランザクションだけで処理します。scan.quantarium.io で取引を開くと<b>SPHINCS+</b>と表示されます。',
+    v_note: '運営から送るQTA(ウォレット認証の5.xxxxxx送金・出金)は、すべて耐量子署名トランザクションだけで処理します。scan.quantarium.io で取引を開くと<b>SPHINCS+</b>と表示されます。',
 
-    j_h2: '<span class="grad">日本・韓国</span>どちらでも',
-    j_sub: 'アクセスした国に合わせて、言語・地域・通貨が決まります。',
+    j_h2: '<span class="grad">日本・韓国・フィリピン</span>どこでも',
+    j_sub: 'アプリで言語(한국어 / 日本語 / English)を選ぶと、登録時にそれに合った地域・通貨が決まります。',
     j1_h: '韓国',
     j1_p: '韓国語 · ウォン(₩) · 韓国の地域。<b>1 QTA = 10ウォン</b>固定なので、10,000ウォンの商品を出品すると100 QTAが貯まります。',
     j2_h: '日本',
-    j2_p: '日本のIPからアクセスすると、日本語 · 円(¥) · 日本の地域(<b>47都道府県 · 1,892市区町村</b>)で使えます。<b>1 QTA = 1円</b>なので、1,000円の商品なら100 QTAです。',
+    j2_p: '日本語を選んで登録すると、日本語 · 円(¥) · 日本の地域(<b>47都道府県 · 1,892市区町村</b>)で使えます。<b>1 QTA = 1円</b>なので、1,000円の商品なら100 QTAです。',
+    j4_h: 'フィリピン',
+    j4_p: 'Englishを選んで登録すると、英語 · ペソ(₱) · フィリピンの地域。<b>1 QTA = 1ペソ</b>なので、₱1,000の商品なら100 QTAです。',
     j3_h: '商品は国ごとに別々',
-    j3_p: '日本の商品と韓国の商品が混ざることはありません。登録時に決まった国の商品だけが表示され、その国の地域で取引します。',
+    j3_p: '日本・韓国・フィリピンの商品が混ざることはありません。登録時に決まった国の商品だけが表示され、その国の地域で取引します。',
 
     how_h2: '3ステップで<span class="grad">取引スタート</span>',
     how_sub: '登録から最初のチャットまで、1分あれば十分です。',
@@ -201,17 +210,17 @@
     fq1: '本当に電話番号なしで登録できますか?',
     fa1: 'はい。ニックネームとパスワードだけで登録できます。本名・メールアドレス・電話番号を入力する画面はありません。電話番号認証(ステップ2)はまもなく始まりますが、出金・取引完了ボーナス・QTA決済の取引・認証ボーナスを利用したい方だけが行えば大丈夫です。',
     fq2: '電話番号は何に使われますか?',
-    fa2: '電話番号認証が始まると、認証した番号はAES-256で暗号化して別に保管します。画面やほかのユーザーには公開せず、1つの番号で複数のアカウントを作ることを防ぎ、不正利用者の追跡や捜査機関からの適法な要請に対応するときにだけ使います。退会すると番号はすぐに削除します。認証できるのは日本(070/080/090)・韓国(010など)の携帯電話番号だけです。',
+    fa2: '電話番号認証が始まると、認証した番号はAES-256で暗号化して別に保管します。画面やほかのユーザーには公開せず、1つの番号で複数のアカウントを作ることを防ぎ、不正利用者の追跡や捜査機関からの適法な要請に対応するときにだけ使います。退会すると番号はすぐに削除します。認証できるのは日本(070/080/090)・韓国(010など)・フィリピン(09xx)の携帯電話番号だけです。',
     fq3: '出品マイニングはどう計算されますか?',
-    fa3: '出品価格の10%をQTAとして付与します。日本は1 QTA = 1円なので1,000円の商品なら100 QTA、韓国は1 QTA = 10ウォン固定なので10,000ウォンの商品なら100 QTAです。1商品あたり最大1,000 QTA、1人1日最大3,000 QTAまでです。商品を削除した場合(本人・運営)や運営が非表示にした場合は受け取った分が、値下げした場合は差額分が差し引かれます。マイページ → マイニング履歴からいつでも確認できます。',
+    fa3: '出品価格の10%をQTAとして付与します。日本は1 QTA = 1円なので1,000円の商品なら100 QTA、韓国は1 QTA = 10ウォン固定なので10,000ウォンの商品なら100 QTA、フィリピンは1 QTA = 1ペソなので₱1,000の商品なら100 QTAです。1商品あたり最大1,000 QTA、1人1日最大3,000 QTAまでです。商品を削除した場合(本人・運営)や運営が非表示にした場合は受け取った分が、値下げした場合は差額分が差し引かれます。マイページ → マイニング履歴からいつでも確認できます。',
     fq4: '新規登録ボーナスの500 QTAはなくなったのですか?',
     fa4: 'はい。現在は登録だけではQTAを付与していません。そのかわり、出品マイニング(価格の10%)、ログイン・閲覧ボーナス、友だち招待(+200 QTA)、ウォレット・電話番号認証の完了ボーナス(+1,000 QTA、電話番号認証の開始後)でQTAを貯められます。',
     fq5: 'チャットのメッセージはどこに保存されますか?',
     fa5: 'サーバーには保存しません。メッセージはWebSocketで相手にリアルタイムで届けるだけで、サーバーのデータベースに会話の内容は残りません。',
     fq6: 'QTAはどうやって出金しますか?',
     fa6: '出金は現在準備中です。電話番号認証が始まったら、ウォレット認証(ステップ1)と電話番号認証(ステップ2)を終えたうえで、残高5,000 QTA以上から5,000単位で、認証したQuantariumウォレットへの出金を申請できます。送金は耐量子(SPHINCS+)署名トランザクションだけで行います。それまでに貯まったQTAはそのまま保管されます。',
-    fq7: '日本で使えますか?',
-    fa7: 'はい。日本のIPからアクセスすると、日本語・円・日本の地域(47都道府県、1,892市区町村)で開きます。日本の商品と韓国の商品は別々に表示されます。',
+    fq7: '日本やフィリピンで使えますか?',
+    fa7: 'はい。アプリで日本語を選んで登録すると日本語・円・日本の地域(47都道府県、1,892市区町村)、Englishを選んで登録すると英語・ペソ(₱)・フィリピンの地域で使えます。最初は接続した国に合った言語があらかじめ選ばれています。商品は国ごとに別々に表示されます。',
     fq8: 'APKのインストール時に「提供元不明のアプリ」の警告が出ます。',
     fa8: 'Androidの仕様で、Google Play以外からAPKをインストールするときは一度だけ許可が必要です。設定 → アプリ → ブラウザ(Chromeなど)→「不明なアプリのインストール」を許可してからインストールしてください。',
     fq9: '取引でトラブルや詐欺にあったら?',
@@ -243,38 +252,218 @@
     c_addr: '所在地',
   };
 
+  // English — 필리핀 출시용. 화폐 예시는 페소(₱), 1 QTA = 1페소 (workers-server/src/market.ts).
+  const I18N_EN = {
+    title: `Eggplant 🍆 — Buy & sell in your neighborhood with one QR`,
+    meta_desc: `Eggplant 🍆 — a neighborhood buy-and-sell app you join with just a nickname. No real name, no phone number. List an item and mine 10% of its price in QTA. Available in the Philippines, Korea and Japan.`,
+    og_title: `Eggplant 🍆 — Buy & sell in your neighborhood with one QR`,
+    og_desc: `Sign up with a nickname, list items and mine 10% of the price in QTA. Disappearing chat + local trading + quantum-resistant wallet verification.`,
+    aria_home: `Eggplant home`,
+    aria_menu: `Open menu`,
+    aria_stats: `Key numbers`,
+    aria_nav: `Main menu`,
+    aria_mascot: `Eggplant mascot`,
+
+    nav_features: `Features`,
+    nav_qta: `QTA Mining`,
+    nav_verify: `Verification`,
+    nav_japan: `Philippines · Korea · Japan`,
+    nav_faq: `FAQ`,
+    nav_cta: `Get the app`,
+
+    hero_badge: `🇵🇭 Philippines · 🇰🇷 Korea · 🇯🇵 Japan`,
+    hero_h1: `No real name. No phone number.<br/><span class="grad">Just one QR code to deal.</span>`,
+    hero_sub: `Eggplant is a neighborhood marketplace where you sign up with a <b>nickname</b> and start chatting with <b>a single QR scan</b>. Chats are <b>never stored on our servers</b>, and every item you list earns you <b>10% of its price in QTA</b>.`,
+    hero_cta_apk: `Download the Android APK`,
+    hero_cta_more: `See features`,
+    stat_listing: `Listing mining`,
+    stat_chat_num: `0`,
+    stat_chat: `Chats stored on servers`,
+    stat_market: `Available in 3 countries`,
+    mock_title: `🍆 Eggplant`,
+    mock_item: `Quezon City · Brand-new book`,
+    mock_price: `₱1,500`,
+    mock_mined: `Listing mined`,
+    mock_mined_meta: `⛏️ 10% of price`,
+
+    feat_h2: `Why <span class="grad">Eggplant 🍆</span>?`,
+    feat_sub: `6 things that set us apart from other marketplaces`,
+    f1_h: `Sign up with a nickname`,
+    f1_p: `All you need is a nickname and a password. We never ask for your real name, email or phone number, and <b>other members only see your nickname</b>.`,
+    f2_h: `Connect with one QR scan`,
+    f2_p: `Scan the other person's QR code and <b>a chat room opens instantly</b>. No friend requests, no swapping contact details.`,
+    f3_h: `Disappearing chat`,
+    f3_p: `Messages are only delivered in real time and are <b>never saved in our server database</b>. Profanity and hate speech are masked with *** before they're delivered.`,
+    f4_h: `List items, mine QTA`,
+    f4_p: `You instantly earn <b>10% of the listing price in QTA</b>. Check-ins, browsing and inviting friends earn you QTA too.`,
+    f5_h: `Up to 10 neighborhoods`,
+    f5_p: `Set <b>up to 10</b> neighborhoods you visit often. GPS neighborhood verification, 2/4/6/10 km distance filters and a manner temperature (36.5℃) help you trade with confidence.`,
+    f6_h: `Quantum-resistant wallet verification`,
+    f6_p: `Every QTA transfer we send is a <b>SPHINCS+ quantum-resistant signed</b> transaction. Anyone can check it on scan.quantarium.io.`,
+
+    qta_h2: `List items and watch your <span class="grad">QTA</span> grow`,
+    qta_p: `The more active you are, the more QTA you collect. Check your mining history anytime under <b>My Page → Mining history</b>.`,
+    q_listing_b: `Listing mining`,
+    q_listing_i: `10% of the price · 1 QTA = ₱1 (₱1,000 → 100 QTA) · up to 1,000 per item · up to 3,000 QTA a day`,
+    q_login_b: `Check-in bonus`,
+    q_login_i: `+10 QTA when you log in · up to 3 times a day`,
+    q_browse_b: `Browsing mining`,
+    q_browse_i: `View 10 other people's items in a day for +10 QTA (once a day)`,
+    q_hold_b: `Listed for 7 days`,
+    q_hold_i: `+10 QTA when an item on sale stays listed past 7 days (once per item)`,
+    q_ref_b: `Invite friends`,
+    q_ref_i: `+200 QTA per friend you invite · no limit (taken back if the friend deletes their account)`,
+    q_verify_b: `Verification bonus`,
+    q_verify_i: `+1,000 QTA when you finish both wallet and phone verification (once per person) · phone verification opens soon`,
+    q_trade_b: `Trade completion reward`,
+    q_trade_i: `+10 QTA each for seller and buyer when both have verified their phones · coming soon`,
+    q_wd_b: `Withdraw to your wallet`,
+    q_wd_i: `From 5,000 QTA, in units of 5,000 · after wallet + phone verification · in preparation`,
+    qta_note: `※ If an item is deleted (by you or an admin) or hidden by an admin, the QTA earned from it is deducted. Lowering the price deducts the difference; raising it doesn't add more. The old sign-up bonus (+500 QTA) is no longer given.`,
+    qta_bar: `Browsed today 7 / 10`,
+    qta_balance: `Current balance`,
+
+    v_h2: `<span class="grad">Two-step verification</span> — one person, one account`,
+    v_sub: `Only verified members can withdraw and receive trade rewards.`,
+    v1_h: `Step 1 · Wallet verification <span class="tag">Available now</span>`,
+    v1_p: `The Eggplant HQ wallet sends <b>5.xxxxxx QTA</b> to your wallet with a <b>quantum-resistant SPHINCS+ signature</b> (Quantarium type 0x7f). Then send the <b>1.xxxxxx QTA</b> amount shown in the app from your wallet back to the HQ wallet — that's it. Only the wallet's owner can send from it, so this proves the wallet is yours. Each amount can be used only once.`,
+    v2_h: `Step 2 · Phone verification <span class="tag soon">Coming soon</span>`,
+    v2_p: `Only <b>mobile numbers</b> from the Philippines (+63, 09xx), Korea (+82, 010 etc.) and Japan (+81, 070/080/090) can be verified. One number can verify only one account. You need to finish step 1 first.`,
+    v3_h: `Your number is encrypted and stored separately`,
+    v3_p: `Verified numbers are stored separately with <b>AES-256 encryption</b> and are <b>never shown</b> on screen or to other members. We use them only to track illegal or fraudulent users and to respond to lawful requests from law enforcement. When you delete your account, your number is deleted immediately.`,
+    v_note: `Every QTA transfer we send (the 5.xxxxxx wallet verification transfer and withdrawals) is made only as a quantum-resistant signed transaction. Open it on scan.quantarium.io and it shows <b>SPHINCS+</b>.`,
+
+    j_h2: `<span class="grad">Philippines, Korea or Japan</span> — wherever you are`,
+    j_sub: `Pick your language in the app — 한국어 / 日本語 / English — and the matching region and currency are set when you sign up.`,
+    j1_h: `Korea`,
+    j1_p: `Korean · won (₩) · Korean neighborhoods. <b>1 QTA = ₩10</b> fixed, so listing a ₩10,000 item earns 100 QTA.`,
+    j2_h: `Japan`,
+    j2_p: `Sign up in 日本語 for Japanese · yen (¥) · Japanese regions (<b>47 prefectures · 1,892 municipalities</b>). <b>1 QTA = ¥1</b>, so a ¥1,000 item earns 100 QTA.`,
+    j4_h: `Philippines`,
+    j4_p: `Sign up in English for English · peso (₱) · Philippine neighborhoods. <b>1 QTA = ₱1</b>, so a ₱1,000 item earns 100 QTA.`,
+    j3_h: `Separate listings for each country`,
+    j3_p: `Listings from the Philippines, Korea and Japan never mix. You only see items from the country set when you signed up, and you trade in that country's neighborhoods.`,
+
+    how_h2: `Start trading in <span class="grad">3 easy steps</span>`,
+    how_sub: `From sign-up to your first chat in about a minute.`,
+    s1_h: `Sign up with a nickname & password`,
+    s1_p: `No real name, email or phone number. Just pick a nickname, a password and your neighborhood.`,
+    s2_h: `List an item or scan a QR`,
+    s2_p: `Post photos to list an item and earn 10% of its price in QTA. Scan someone's QR code and a chat opens right away.`,
+    s3_h: `Disappearing chat → deal → review`,
+    s3_p: `Conversations don't stay on the server. After a deal, you leave each other a review and build up your manner temperature.`,
+
+    t_h2: `Built on <span class="grad">trusted infrastructure</span>`,
+    t_sub: `Fast and secure, running on a global edge network.`,
+    t1_p: `A full-stack edge setup with Workers + D1 + R2 responds quickly from a location near you.`,
+    t2_h: `Security`,
+    t2_p: `HTTPS · WebSocket TLS · JWT authentication. Phone numbers are stored with AES-256-GCM encryption.`,
+    t3_h: `Real-time chat & calls`,
+    t3_p: `Real-time chat on Durable Objects and voice calls powered by Agora.`,
+    t4_h: `Quantum-resistant transfers`,
+    t4_p: `QTA is sent only as SPHINCS+ signed transactions (type 0x7f) on the Quantarium chain.`,
+
+    dl_h2: `Start using <span class="grad">Eggplant</span> today`,
+    dl_p: `Install the Android APK and list your first item to earn <b>10% of its price in QTA</b>.`,
+    dl_cta: `📥 Download the Android APK`,
+    dl_help: `Installation help`,
+    dl_note: `iOS version coming soon. 🍎`,
+
+    faq_h2: `Frequently asked questions`,
+    faq_sub: `Our most common questions about installing, using the app and QTA`,
+    fq1: `Can I really sign up without a phone number?`,
+    fa1: `Yes. You sign up with just a nickname and a password — there's no screen asking for your real name, email or phone number. Phone verification (step 2) opens soon, and you only need it if you want to withdraw, get trade rewards, trade with QTA payments or receive the verification bonus.`,
+    fq2: `What is my phone number used for?`,
+    fa2: `Once phone verification opens, verified numbers are stored separately with AES-256 encryption. They're never shown on screen or to other members, and are used only to stop one number from creating multiple accounts, to track illegal or fraudulent users, and to respond to lawful requests from law enforcement. When you delete your account, your number is deleted immediately. Only mobile numbers from the Philippines (09xx), Korea (010 etc.) and Japan (070/080/090) can be verified.`,
+    fq3: `How is listing mining calculated?`,
+    fa3: `You get 10% of the listing price in QTA. In the Philippines 1 QTA = ₱1, so a ₱1,000 item earns 100 QTA. In Japan 1 QTA = ¥1 (¥1,000 → 100 QTA), and in Korea 1 QTA = ₩10 fixed (₩10,000 → 100 QTA). The limit is 1,000 QTA per item and 3,000 QTA per person per day. If an item is deleted (by you or an admin) or hidden by an admin, the QTA you received for it is deducted; if you lower the price, the difference is deducted. You can check anytime under My Page → Mining history.`,
+    fq4: `Is the 500 QTA sign-up bonus gone?`,
+    fa4: `Yes — signing up alone no longer earns QTA. Instead, you can collect QTA through listing mining (10% of the price), check-in and browsing bonuses, inviting friends (+200 QTA), and the wallet + phone verification bonus (+1,000 QTA, once phone verification opens).`,
+    fq5: `Where are chat messages stored?`,
+    fa5: `They aren't stored on our servers. Messages are only delivered to the other person in real time over WebSocket, and no conversation content is left in our server database.`,
+    fq6: `How do I withdraw QTA?`,
+    fa6: `Withdrawals are being prepared. Once phone verification opens, after completing wallet verification (step 1) and phone verification (step 2), you can request a withdrawal to your verified Quantarium wallet in units of 5,000 QTA once your balance reaches 5,000 QTA. Transfers go out only as quantum-resistant (SPHINCS+) signed transactions. Any QTA you collect in the meantime is kept as is.`,
+    fq7: `Can I use it in the Philippines?`,
+    fa7: `Yes. Choose English in the app and sign up to use it in English with pesos (₱) and Philippine neighborhoods. On first launch, the language for the country you're connecting from is pre-selected. Listings are shown separately for each country.`,
+    fq8: `I get an "unknown sources" warning when installing the APK.`,
+    fa8: `Android requires a one-time permission to install APKs from outside Google Play. Go to Settings → Apps → your browser (e.g. Chrome) → turn on "Install unknown apps", then install.`,
+    fq9: `What happens if someone scams me?`,
+    fa9: `You can report and block the other person in the app. Our team reviews reports, hides or deletes listings and suspends accounts. Once phone verification opens, we use the encrypted stored numbers to track illegal users and cooperate with law enforcement requests.`,
+    fq10: `When is the iOS version coming?`,
+    fa10: `We're preparing to launch on the App Store. We'll announce it here first as soon as it's out.`,
+
+    foot_tag: `The neighborhood marketplace that connects you with one QR`,
+    foot_product: `Product`,
+    foot_download: `Download the app`,
+    foot_support: `Support`,
+    foot_api: `API status`,
+    foot_mail: `Contact us`,
+    foot_legal: `Legal`,
+    foot_terms: `Terms of Service (Korean)`,
+    foot_privacy: `Privacy Policy (Korean)`,
+    foot_lbs: `Location-Based Services Terms (Korean)`,
+    foot_policy: `Community Policy (Korean)`,
+    foot_biz: `Business information`,
+    foot_disclaimer: `Eggplant, operated by Quantarium Co., Ltd. (주식회사 퀀타리움), is <b>a mail-order sales intermediary and is not a party to mail-order sales.</b> Responsibility for the items, transaction information and transactions between users lies with the parties to the transaction, and the Company bears no direct responsibility except to the extent required by law.`,
+    c_name: `Company name`,
+    c_ceo: `CEO`,
+    c_brn: `Business registration no. (Korea)`,
+    c_crn: `Corporate registration no. (Korea)`,
+    c_mail_order: `Mail-order business registration (Korea)`,
+    c_cs: `Customer center (Korea)`,
+    c_email: `Email`,
+    c_youth: `Youth protection officer`,
+    c_addr: `Address`,
+  };
+
+  const I18N = { ja: I18N_JA, en: I18N_EN };
+  const LABEL = { ko: '한국어', ja: '日本語', en: 'English' };
+
   const KEY = 'eg_lang';
   const original = new Map();     // element → 원문 innerHTML
   const originalAria = new Map(); // element → 원문 aria-label
   const originalTitle = document.title;
+  // 언어별 meta (description / og:title / og:description) — 한국어 원문은 HTML 에서.
+  const META = [
+    ['meta[name="description"]', 'meta_desc'],
+    ['meta[property="og:title"]', 'og_title'],
+    ['meta[property="og:description"]', 'og_desc'],
+  ].map(([sel, key]) => {
+    const el = document.querySelector(sel);
+    return el ? { el, key, ko: el.getAttribute('content') || '' } : null;
+  }).filter(Boolean);
   let current = 'ko';
 
   function apply(lang) {
-    if (lang !== 'ja') lang = 'ko';
+    if (!I18N[lang]) lang = 'ko';
+    const dict = lang === 'ko' ? null : I18N[lang];
+    const pick = (key, fallback) => (dict && dict[key] != null ? dict[key] : fallback);
     document.querySelectorAll('[data-i18n]').forEach((el) => {
       if (!original.has(el)) original.set(el, el.innerHTML);
-      const ja = I18N_JA[el.getAttribute('data-i18n')];
-      el.innerHTML = lang === 'ja' && ja != null ? ja : original.get(el);
+      el.innerHTML = pick(el.getAttribute('data-i18n'), original.get(el));
     });
     document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
       if (!originalAria.has(el)) originalAria.set(el, el.getAttribute('aria-label') || '');
-      const ja = I18N_JA[el.getAttribute('data-i18n-aria')];
-      el.setAttribute('aria-label', lang === 'ja' && ja != null ? ja : originalAria.get(el));
+      el.setAttribute('aria-label', pick(el.getAttribute('data-i18n-aria'), originalAria.get(el)));
     });
-    document.title = lang === 'ja' ? I18N_JA.title : originalTitle;
+    META.forEach((m) => m.el.setAttribute('content', pick(m.key, m.ko)));
+    document.title = pick('title', originalTitle);
     document.documentElement.lang = lang;
     document.querySelectorAll('.lang-menu [data-lang]').forEach((b) => {
       b.setAttribute('aria-pressed', String(b.getAttribute('data-lang') === lang));
     });
     const lbl = document.getElementById('langLabel');
-    if (lbl) lbl.textContent = lang === 'ja' ? '日本語' : '한국어';
+    if (lbl) lbl.textContent = LABEL[lang];
     current = lang;
   }
 
+  // 'ja-JP' → ja, 'en-PH' / 'fil' / 'tl' → en, 'ko-KR' → ko
   function norm(v) {
     v = String(v || '').toLowerCase();
-    if (v === 'ja' || v === 'jp') return 'ja';
-    if (v === 'ko' || v === 'kr') return 'ko';
+    if (v === 'ja' || v === 'jp' || v.startsWith('ja-')) return 'ja';
+    if (v === 'ko' || v === 'kr' || v.startsWith('ko-')) return 'ko';
+    if (v === 'en' || v === 'ph' || v === 'fil' || v === 'tl' ||
+        v.startsWith('en-') || v.startsWith('fil-') || v.startsWith('tl-')) return 'en';
     return null;
   }
 
@@ -309,7 +498,7 @@
       closeMenu();
       try {
         const u = new URL(location.href);
-        if (l === 'ja') u.searchParams.set('lang', 'ja'); else u.searchParams.delete('lang');
+        if (l === 'ko') u.searchParams.delete('lang'); else u.searchParams.set('lang', l);
         history.replaceState(null, '', u.pathname + u.search + u.hash);
       } catch (e) { /* 무시 */ }
     });
@@ -320,10 +509,12 @@
   const chosen = fromQuery || saved();
   if (chosen) { apply(chosen); return; }
 
+  // 브라우저 첫 번째 언어: ja* → 日本語, en* / fil* / tl* → English, 그 외(ko 등)는 아래 IP 판별.
   const navLangs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ''];
-  if (String(navLangs[0] || '').toLowerCase().startsWith('ja')) { apply('ja'); return; }
+  const fromBrowser = norm(navLangs[0]);
+  if (fromBrowser === 'ja' || fromBrowser === 'en') { apply(fromBrowser); return; }
 
-  // 일본 IP 면 일본어 — 서버에 /api/geo 가 없거나 느려도 한국어로 그대로 둔다.
+  // 일본 IP 면 일본어, 필리핀 IP 면 영어 — 서버에 /api/geo 가 없거나 느려도 한국어로 그대로 둔다.
   if (!window.fetch) return;
   const ctrl = ('AbortController' in window) ? new AbortController() : null;
   const timer = setTimeout(() => { if (ctrl) ctrl.abort(); }, 3000);
@@ -331,7 +522,9 @@
     .then((r) => (r.ok ? r.json() : null))
     .then((j) => {
       // 그사이 사용자가 직접 골랐으면 건드리지 않는다.
-      if (j && j.market === 'jp' && !saved() && current === 'ko') apply('ja');
+      if (!j || saved() || current !== 'ko') return;
+      if (j.market === 'jp') apply('ja');
+      else if (j.market === 'ph') apply('en');
     })
     .catch(() => { /* 무시 — 한국어 유지 */ })
     .finally(() => clearTimeout(timer));

@@ -11,6 +11,7 @@
  */
 
 import { JP_PREFECTURES, JP_REGION_CENTERS, JP_REGION_ALIASES } from './regions_jp';
+import { PH_PROVINCES, PH_REGION_CENTERS, PH_SEP } from './regions_ph';
 
 export interface RegionCenter {
   lat: number;
@@ -135,18 +136,27 @@ export const REGION_CENTERS: Record<string, RegionCenter> = {
  */
 export { JP_PREFECTURES, JP_REGION_CENTERS, JP_REGION_ALIASES };
 
-/** 이 지역 이름이 어느 시장(한국/일본) 소속인가. 모르는 이름이면 null. */
-export function regionMarket(region: string | null | undefined): 'kr' | 'jp' | null {
+/**
+ * 필리핀 지역 (market='ph') — 모든 Province 의 City/Municipality (PSGC 2026Q2).
+ * 이름 '<Province> · <City/Municipality>' (예: 'Cebu · Cebu City', 'Metro Manila · Makati City').
+ * NCR 은 Province 가 없어 'Metro Manila' 로 묶는다.
+ * 데이터는 regions_ph.ts (tool/gen_ph_regions.mjs 로 생성), 앱 lib/app/regions_ph.dart 와 같아야 한다.
+ */
+export { PH_PROVINCES, PH_REGION_CENTERS, PH_SEP };
+
+/** 이 지역 이름이 어느 시장(한국/일본/필리핀) 소속인가. 모르는 이름이면 null. */
+export function regionMarket(region: string | null | undefined): 'kr' | 'jp' | 'ph' | null {
   if (!region) return null;
   if (Object.hasOwn(REGION_CENTERS, region)) return 'kr';
   if (Object.hasOwn(JP_REGION_CENTERS, region) || Object.hasOwn(JP_REGION_ALIASES, region)) return 'jp';
+  if (Object.hasOwn(PH_REGION_CENTERS, region)) return 'ph';
   return null;
 }
 
 /** region 문자열로 중심 좌표를 얻는다. 매핑 없으면 null. */
 export function regionCenter(region: string | null | undefined): RegionCenter | null {
   if (!region) return null;
-  for (const t of [REGION_CENTERS, JP_REGION_CENTERS, JP_REGION_ALIASES]) {
+  for (const t of [REGION_CENTERS, JP_REGION_CENTERS, JP_REGION_ALIASES, PH_REGION_CENTERS]) {
     if (Object.hasOwn(t, region)) return t[region];
   }
   return null;

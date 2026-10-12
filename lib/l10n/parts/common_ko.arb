@@ -12,5 +12,7 @@
   "priceKrw": "{amount}원",
   "@priceKrw": { "placeholders": { "amount": { "type": "String" } } },
   "priceJpy": "¥{amount}",
-  "@priceJpy": { "placeholders": { "amount": { "type": "String" } } }
+  "@priceJpy": { "placeholders": { "amount": { "type": "String" } } },
+  "pricePhp": "₱{amount}",
+  "@pricePhp": {"placeholders":{"amount":{"type":"String"}}}
 }

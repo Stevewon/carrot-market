@@ -265,7 +265,7 @@ class _MyTabState extends State<MyTab> {
             _MenuTile(
               icon: Icons.language_rounded,
               title: context.l10n.myMenuLanguage,
-              trailing: L10n.isJapanese ? '日本語' : '한국어',
+              trailing: L10n.names[L10n.lang] ?? '한국어',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (ctx) => LanguageSelectScreen(onDone: () => Navigator.of(ctx).pop()),
               )),

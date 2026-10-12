@@ -140,6 +140,8 @@ export async function resolveQrchatAccount(
           + "기억나지 않으면 '계정 찾기' 에서 지갑 인증으로 되찾을 수 있어요",
         'このQRChatアカウントのウォレットアドレスで登録済みのアカウントがすでにあります。登録済みのニックネームとパスワードでログインしてください。'
           + 'お忘れの場合は「アカウントを探す」からウォレット認証で復元できます',
+        'An Eggplant account already exists with this QRChat wallet address. Please log in with your Eggplant nickname and password. '
+          + "If you forgot them, you can recover your account with wallet verification under 'Find account'",
       ),
       code: 'qrchat_wallet_conflict',
     };
@@ -165,9 +167,9 @@ export async function resolveQrchatAccount(
         await new Promise((r) => setTimeout(r, 400));
         return resolveQrchatAccount(env, q, password, deviceUuid, true, lang);
       }
-      return { ok: false, status: 409, error: trl(lang, '이 지갑주소로 이미 가지 계정이 있어요', 'このウォレットアドレスで登録済みのアカウントがすでにあります'), code: 'qrchat_wallet_conflict' };
+      return { ok: false, status: 409, error: trl(lang, '이 지갑주소로 이미 가지 계정이 있어요', 'このウォレットアドレスで登録済みのアカウントがすでにあります', 'An Eggplant account already exists with this wallet address'), code: 'qrchat_wallet_conflict' };
     }
-    return { ok: false, status: 500, error: trl(lang, '계정 연결 중 오류가 발생했어요', 'アカウント連携中にエラーが発生しました'), code: 'qrchat_link_failed' };
+    return { ok: false, status: 500, error: trl(lang, '계정 연결 중 오류가 발생했어요', 'アカウント連携中にエラーが発生しました', 'Something went wrong while linking your account'), code: 'qrchat_link_failed' };
   }
 
   try {
@@ -184,13 +186,13 @@ export async function resolveQrchatAccount(
     if (/UNIQUE/i.test(String((e as Error)?.message || e))) {
       return resolveQrchatAccount(env, q, password, deviceUuid, true, lang);
     }
-    return { ok: false, status: 500, error: trl(lang, '계정 연결 중 오류가 발생했어요', 'アカウント連携中にエラーが発生しました'), code: 'qrchat_link_failed' };
+    return { ok: false, status: 500, error: trl(lang, '계정 연결 중 오류가 발생했어요', 'アカウント連携中にエラーが発生しました', 'Something went wrong while linking your account'), code: 'qrchat_link_failed' };
   }
 
   // 가입 보너스는 없다 — 1·2단계 인증을 마치면 +1,000 QTA (users.ts /me/verify/phone).
   const bonusGranted = false;
   const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first<UserRow>();
-  if (!user) return { ok: false, status: 500, error: trl(lang, '계정 연결 중 오류가 발생했어요', 'アカウント連携中にエラーが発生しました'), code: 'qrchat_link_failed' };
+  if (!user) return { ok: false, status: 500, error: trl(lang, '계정 연결 중 오류가 발생했어요', 'アカウント連携中にエラーが発生しました', 'Something went wrong while linking your account'), code: 'qrchat_link_failed' };
   return { ok: true, user, created: true, bonusGranted };
 }
 

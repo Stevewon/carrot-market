@@ -32,7 +32,7 @@ app.post('/:productId', async (c) => {
     .bind(productId)
     .first();
   if (!exists) {
-    return c.json({ error: tr(c, '존재하지 않는 게시물이에요', 'この投稿は存在しません') }, 404);
+    return c.json({ error: tr(c, '존재하지 않는 게시물이에요', 'この投稿は存在しません', 'This post does not exist') }, 404);
   }
 
   await c.env.DB

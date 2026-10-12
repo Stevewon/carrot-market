@@ -168,7 +168,7 @@ class User {
         if (cur != null && cur.isNotEmpty && !list.contains(cur)) list.insert(0, cur);
         return list;
       }(),
-      market: json['market']?.toString() == 'jp' ? 'jp' : 'kr',
+      market: const ['jp', 'ph'].contains(json['market']?.toString()) ? json['market'].toString() : 'kr',
       regionVerifiedAt: json['region_verified_at'] is String
           ? DateTime.tryParse(json['region_verified_at'] as String)
           : null,

@@ -49,17 +49,17 @@ const PW_MIN = 8;
 const PW_MAX = 64;
 
 function validatePassword(pw: unknown, lang: Lang = 'ko'): string | null {
-  if (typeof pw !== 'string') return trl(lang, '비밀번호를 입력해주세요', 'パスワードを入力してください');
-  if (pw.length < PW_MIN) return trl(lang, `비밀번호는 ${PW_MIN}자 이상이어야 해요`, `パスワードは${PW_MIN}文字以上で入力してください`);
-  if (pw.length > PW_MAX) return trl(lang, `비밀번호는 ${PW_MAX}자 이하여야 해요`, `パスワードは${PW_MAX}文字以内で入力してください`);
+  if (typeof pw !== 'string') return trl(lang, '비밀번호를 입력해주세요', 'パスワードを入力してください', "Please enter your password");
+  if (pw.length < PW_MIN) return trl(lang, `비밀번호는 ${PW_MIN}자 이상이어야 해요`, `パスワードは${PW_MIN}文字以上で入力してください`, "`Password must be at least ${PW_MIN} characters`");
+  if (pw.length > PW_MAX) return trl(lang, `비밀번호는 ${PW_MAX}자 이하여야 해요`, `パスワードは${PW_MAX}文字以内で入力してください`, "`Password must be ${PW_MAX} characters or fewer`");
   return null;
 }
 
 function validateNickname(n: unknown, lang: Lang = 'ko'): string | null {
-  if (typeof n !== 'string') return trl(lang, '닉네임을 입력해주세요', 'ニックネームを入力してください');
+  if (typeof n !== 'string') return trl(lang, '닉네임을 입력해주세요', 'ニックネームを入力してください', "Please enter a nickname");
   const trimmed = n.trim();
-  if (trimmed.length < NICK_MIN) return trl(lang, `닉네임은 ${NICK_MIN}자 이상이어야 해요`, `ニックネームは${NICK_MIN}文字以上で入力してください`);
-  if (trimmed.length > NICK_MAX) return trl(lang, `닉네임은 ${NICK_MAX}자 이하여야 해요`, `ニックネームは${NICK_MAX}文字以内で入力してください`);
+  if (trimmed.length < NICK_MIN) return trl(lang, `닉네임은 ${NICK_MIN}자 이상이어야 해요`, `ニックネームは${NICK_MIN}文字以上で入力してください`, "`Nickname must be at least ${NICK_MIN} characters`");
+  if (trimmed.length > NICK_MAX) return trl(lang, `닉네임은 ${NICK_MAX}자 이하여야 해요`, `ニックネームは${NICK_MAX}文字以内で入力してください`, "`Nickname must be ${NICK_MAX} characters or fewer`");
   return checkNickname(trimmed, lang); // 욕설·사칭·금지어·연락처 (src/prohibited.ts)
 }
 
@@ -114,7 +114,7 @@ app.post('/sso/exchange', async (c) => {
   // 남의 계정 JWT 를 발급받을 수 있다. 검증 구현 전까지 기본 차단.
   // (앱은 현재 이 엔드포인트를 호출하지 않는다.)
   if (c.env.ALLOW_UNVERIFIED_SSO !== '1') {
-    return c.json({ error: tr(c, 'SSO 로그인은 아직 준비 중이에요', 'SSOログインは現在準備中です'), code: 'sso_disabled' }, 503);
+    return c.json({ error: tr(c, 'SSO 로그인은 아직 준비 중이에요', 'SSOログインは現在準備中です', "SSO login is not available yet"), code: 'sso_disabled' }, 503);
   }
 
   let body: {
@@ -130,7 +130,7 @@ app.post('/sso/exchange', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', "Invalid request") }, 400);
   }
 
   const { wallet_address, provider, external_token, external_id, device_uuid } =
@@ -138,16 +138,16 @@ app.post('/sso/exchange', async (c) => {
 
   if (!wallet_address || !isValidWallet(wallet_address)) {
     return c.json(
-      { error: tr(c, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）') },
+      { error: tr(c, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）', "Please check your Quantarium wallet address format (0x + 40 characters)") },
       400,
     );
   }
   if (!device_uuid || typeof device_uuid !== 'string' || device_uuid.length < 8) {
-    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません') }, 400);
+    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません', "Invalid device information") }, 400);
   }
   const prov = (provider ?? 'qrchat').trim().toLowerCase();
   if (!/^[a-z0-9_]{2,32}$/.test(prov)) {
-    return c.json({ error: tr(c, '잘못된 provider', 'providerが正しくありません') }, 400);
+    return c.json({ error: tr(c, '잘못된 provider', 'providerが正しくありません', "Invalid provider") }, 400);
   }
 
   // QRChat 토큰 검증 자리. 현재는 형식만 확인(64~2048 글자).
@@ -156,7 +156,7 @@ app.post('/sso/exchange', async (c) => {
     if (typeof external_token !== 'string' ||
         external_token.length < 8 ||
         external_token.length > 4096) {
-      return c.json({ error: tr(c, '외부 토큰 형식이 올바르지 않아요', '外部トークンの形式が正しくありません') }, 400);
+      return c.json({ error: tr(c, '외부 토큰 형식이 올바르지 않아요', '外部トークンの形式が正しくありません', "Invalid external token format") }, 400);
     }
   }
 
@@ -234,10 +234,10 @@ app.post('/sso/exchange', async (c) => {
           .prepare('SELECT * FROM users WHERE wallet_address = ? COLLATE NOCASE')
           .bind(walletNorm)
           .first<UserRow>();
-        if (!fetched) return c.json({ error: tr(c, 'SSO 처리 중 오류', 'SSO処理中にエラーが発生しました') }, 500);
+        if (!fetched) return c.json({ error: tr(c, 'SSO 처리 중 오류', 'SSO処理中にエラーが発生しました', "An error occurred during SSO") }, 500);
         user = fetched;
       } else {
-        return c.json({ error: tr(c, 'SSO 가입 중 오류가 발생했어요', 'SSOでの会員登録中にエラーが発生しました') }, 500);
+        return c.json({ error: tr(c, 'SSO 가입 중 오류가 발생했어요', 'SSOでの会員登録中にエラーが発生しました', "An error occurred while signing up with SSO") }, 500);
       }
     }
 
@@ -247,7 +247,7 @@ app.post('/sso/exchange', async (c) => {
         .prepare('SELECT * FROM users WHERE id = ?')
         .bind(id)
         .first<UserRow>();
-      if (!fetched) return c.json({ error: tr(c, '사용자 생성 실패', 'ユーザーの作成に失敗しました') }, 500);
+      if (!fetched) return c.json({ error: tr(c, '사용자 생성 실패', 'ユーザーの作成に失敗しました', "Failed to create user") }, 500);
       user = fetched;
       createdNew = true;
     }
@@ -281,7 +281,7 @@ app.post('/sso/exchange', async (c) => {
           .prepare('SELECT * FROM users WHERE id = ?')
           .bind(existingId)
           .first<UserRow>();
-        if (!fetched) return c.json({ error: tr(c, 'SSO 갱신 실패', 'SSOの更新に失敗しました') }, 500);
+        if (!fetched) return c.json({ error: tr(c, 'SSO 갱신 실패', 'SSOの更新に失敗しました', "Failed to update SSO") }, 500);
         user = fetched;
       } catch (e) {
         console.error('[auth/sso] device update failed', e);
@@ -291,7 +291,7 @@ app.post('/sso/exchange', async (c) => {
 
   // 여기까지 오면 user 는 반드시 채워져 있어야 한다 (모든 분기에서 보장).
   // TS narrowing 보강용 명시적 가드.
-  if (!user) return c.json({ error: tr(c, 'SSO 처리 실패', 'SSO処理に失敗しました') }, 500);
+  if (!user) return c.json({ error: tr(c, 'SSO 처리 실패', 'SSO処理に失敗しました', "SSO failed") }, 500);
   const finalUser: UserRow = user;
 
   // 4) sso_links 기록/갱신 (멱등 upsert by provider+user).
@@ -360,16 +360,16 @@ app.post('/wallet-challenge', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', "Invalid request") }, 400);
   }
   const { wallet_address, device_uuid } = body;
   const purpose = body.purpose === 'reset' ? 'reset' : body.purpose === 'register' ? 'register' : null;
-  if (!purpose) return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+  if (!purpose) return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', "Invalid request") }, 400);
   if (!wallet_address || !isValidWallet(wallet_address)) {
-    return c.json({ error: tr(c, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）') }, 400);
+    return c.json({ error: tr(c, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）', "Please check your Quantarium wallet address format (0x + 40 characters)") }, 400);
   }
   if (!device_uuid || typeof device_uuid !== 'string' || device_uuid.length < 8) {
-    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません') }, 400);
+    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません', "Invalid device information") }, 400);
   }
 
   const walletNorm = normalizeWallet(wallet_address);
@@ -386,6 +386,8 @@ app.post('/wallet-challenge', async (c) => {
             + "'계정 찾기 → 비밀번호 재설정' 에서 지갑 인증으로 계정을 되찾을 수 있어요",
           'このウォレットアドレスはすでに登録されています。ご自身のウォレットで登録した覚えがない場合は、'
             + '「アカウントを探す → パスワード再設定」からウォレット認証でアカウントを取り戻せます',
+          'This wallet address is already registered. If it is your wallet and you never signed up, '
+            + "you can recover the account with wallet verification under 'Find account → Reset password'",
         ),
         code: 'wallet_taken',
       },
@@ -393,7 +395,7 @@ app.post('/wallet-challenge', async (c) => {
     );
   }
   if (purpose === 'reset' && !taken) {
-    return c.json({ error: tr(c, '가입되지 않은 지갑주소예요', '登録されていないウォレットアドレスです') }, 404);
+    return c.json({ error: tr(c, '가입되지 않은 지갑주소예요', '登録されていないウォレットアドレスです', "This wallet address is not registered") }, 404);
   }
 
   const ip = c.req.header('cf-connecting-ip') || '';
@@ -408,9 +410,9 @@ app.post('/wallet-challenge/:id/check', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', "Invalid request") }, 400);
   }
-  if (!body.device_uuid) return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません') }, 400);
+  if (!body.device_uuid) return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません', "Invalid device information") }, 400);
 
   const r = await checkChallenge(c.env, c.req.param('id'), body.device_uuid, reqLang(c));
   if (!r.ok) return c.json({ verified: false, error: r.error, code: r.code }, r.status);
@@ -432,14 +434,14 @@ app.post('/reset-wallet-receive', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', "Invalid request") }, 400);
   }
   const { wallet_address, device_uuid } = body;
   if (!wallet_address || !isValidWallet(wallet_address)) {
-    return c.json({ error: tr(c, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）') }, 400);
+    return c.json({ error: tr(c, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）', "Please check your Quantarium wallet address format (0x + 40 characters)") }, 400);
   }
   if (!device_uuid || typeof device_uuid !== 'string' || device_uuid.length < 8) {
-    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません') }, 400);
+    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません', "Invalid device information") }, 400);
   }
   const walletNorm = normalizeWallet(wallet_address);
   const user = await c.env.DB
@@ -448,12 +450,12 @@ app.post('/reset-wallet-receive', async (c) => {
     .first<{ id: string }>();
   if (!user) {
     return c.json(
-      { error: tr(c, '가입할 때 등록한 지갑주소와 일치하지 않아요', '登録時のウォレットアドレスと一致しません'), code: 'wallet_mismatch' },
+      { error: tr(c, '가입할 때 등록한 지갑주소와 일치하지 않아요', '登録時のウォレットアドレスと一致しません', "\"This doesn't match the wallet address you signed up with\""), code: 'wallet_mismatch' },
       404,
     );
   }
   if (await isUserBanned(c.env.DB, user.id)) {
-    return c.json({ error: tr(c, '이용이 정지된 계정이에요. 고객센터로 문의해주세요', 'このアカウントは利用停止中です。お問い合わせ窓口までご連絡ください'), code: 'banned' }, 403);
+    return c.json({ error: tr(c, '이용이 정지된 계정이에요. 고객센터로 문의해주세요', 'このアカウントは利用停止中です。お問い合わせ窓口までご連絡ください', "This account has been suspended. Please contact customer support"), code: 'banned' }, 403);
   }
   const r = await createReceiveChallenge(
     c.env, user.id, device_uuid, walletNorm.toLowerCase(), c.req.header('cf-connecting-ip') || '', reqLang(c), 'reset',
@@ -479,7 +481,7 @@ async function resetReceiveRow(c: { env: Env }, id: string, deviceUuid: string) 
 
 app.get('/reset-wallet-receive/:id', async (c) => {
   const row = await resetReceiveRow(c, c.req.param('id'), c.req.query('device_uuid') || '');
-  if (!row) return c.json({ error: tr(c, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません'), code: 'not_found' }, 404);
+  if (!row) return c.json({ error: tr(c, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません', "Verification request not found"), code: 'not_found' }, 404);
   return c.json(receiveView(row, c.env));
 });
 
@@ -488,10 +490,10 @@ app.post('/reset-wallet-receive/:id/confirm', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', "Invalid request") }, 400);
   }
   const row = await resetReceiveRow(c, c.req.param('id'), String(body.device_uuid || ''));
-  if (!row) return c.json({ verified: false, error: tr(c, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません'), code: 'not_found' }, 404);
+  if (!row) return c.json({ verified: false, error: tr(c, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません', "Verification request not found"), code: 'not_found' }, 404);
   const r = await confirmReceive(c.env, row.user_id, row.id, String(body.amount ?? ''), reqLang(c), 'reset');
   if (!r.ok) {
     return c.json({ verified: false, error: r.error, code: r.code, attempts_left: r.attempts_left }, r.status);
@@ -522,7 +524,7 @@ app.post('/register', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', "Invalid request") }, 400);
   }
 
   const { wallet_address, nickname, password, password_confirm, device_uuid, region, referrer_nickname, wallet_challenge_id } = body;
@@ -531,15 +533,15 @@ app.post('/register', async (c) => {
   // 지갑은 인증(wallet_challenge_id)과 함께 왔을 때만 쓴다.
   const withWallet = !!wallet_challenge_id && typeof wallet_challenge_id === 'string';
   if (withWallet && (!wallet_address || !isValidWallet(wallet_address))) {
-    return c.json({ error: tr(c, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）') }, 400);
+    return c.json({ error: tr(c, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）', "Please check your Quantarium wallet address format (0x + 40 characters)") }, 400);
   }
   // 한국/일본 시장 — 앱이 기기 언어로 보낸다. 지역은 같은 시장 것만.
   const market: Market = normalizeMarket(body.market) ?? requestMarket(c);
   if (region && !regionMarket(region)) {
-    return c.json({ error: tr(c, '없는 지역이에요', '存在しない地域です'), code: 'region_unknown' }, 400);
+    return c.json({ error: tr(c, '없는 지역이에요', '存在しない地域です', "\"This area doesn't exist\""), code: 'region_unknown' }, 400);
   }
   if (region && regionMarket(region) !== market) {
-    return c.json({ error: tr(c, '선택할 수 없는 지역이에요', '選択できない地域です'), code: 'region_market' }, 400);
+    return c.json({ error: tr(c, '선택할 수 없는 지역이에요', '選択できない地域です', "This area cannot be selected"), code: 'region_market' }, 400);
   }
 
   const nickErr = validateNickname(nickname, reqLang(c));
@@ -548,11 +550,11 @@ app.post('/register', async (c) => {
   const pwErr = validatePassword(password, reqLang(c));
   if (pwErr) return c.json({ error: pwErr }, 400);
   if (password !== password_confirm) {
-    return c.json({ error: tr(c, '비밀번호가 일치하지 않아요', 'パスワードが一致しません') }, 400);
+    return c.json({ error: tr(c, '비밀번호가 일치하지 않아요', 'パスワードが一致しません', "\"Passwords don't match\"") }, 400);
   }
 
   if (!device_uuid || typeof device_uuid !== 'string' || device_uuid.length < 8) {
-    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません') }, 400);
+    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません', "Invalid device information") }, 400);
   }
 
   const walletNorm = withWallet ? normalizeWallet(wallet_address!) : null;
@@ -565,7 +567,7 @@ app.post('/register', async (c) => {
       .bind(walletNorm)
       .first<{ id: string }>();
     if (walletTaken) {
-      return c.json({ error: tr(c, '이미 가입된 지갑주소예요', 'このウォレットアドレスはすでに登録されています') }, 409);
+      return c.json({ error: tr(c, '이미 가입된 지갑주소예요', 'このウォレットアドレスはすでに登録されています', "This wallet address is already registered") }, 409);
     }
   }
 
@@ -574,7 +576,7 @@ app.post('/register', async (c) => {
     .bind(cleanNick)
     .first<{ id: string }>();
   if (nickTaken) {
-    return c.json({ error: tr(c, '이미 사용 중인 닉네임이에요', 'このニックネームはすでに使われています') }, 409);
+    return c.json({ error: tr(c, '이미 사용 중인 닉네임이에요', 'このニックネームはすでに使われています', "This nickname is already taken") }, 409);
   }
 
   // --- 지갑 소유 증명 (남의 지갑 선점 방지) ---
@@ -585,7 +587,7 @@ app.post('/register', async (c) => {
   );
   if (!consumed) {
     return c.json(
-      { error: tr(c, '지갑 인증이 확인되지 않았거나 만료됐어요. 지갑 인증을 다시 진행해주세요', 'ウォレット認証が確認できないか、有効期限が切れています。もう一度ウォレット認証を行ってください'), code: 'wallet_proof_invalid' },
+      { error: tr(c, '지갑 인증이 확인되지 않았거나 만료됐어요. 지갑 인증을 다시 진행해주세요', 'ウォレット認証が確認できないか、有効期限が切れています。もう一度ウォレット認証を行ってください', "Wallet verification could not be confirmed or has expired. Please verify your wallet again"), code: 'wallet_proof_invalid' },
       400,
     );
   }
@@ -630,18 +632,18 @@ app.post('/register', async (c) => {
     if (walletNorm) await releaseChallenge(c.env, wallet_challenge_id!).catch(() => {});
     // Surface the common schema-level failures with friendly Korean messages.
     if (/UNIQUE constraint failed: users\.wallet_address/i.test(msg)) {
-      return c.json({ error: tr(c, '이미 가입된 지갑주소예요', 'このウォレットアドレスはすでに登録されています') }, 409);
+      return c.json({ error: tr(c, '이미 가입된 지갑주소예요', 'このウォレットアドレスはすでに登録されています', "This wallet address is already registered") }, 409);
     }
     if (/UNIQUE constraint failed: users\.nickname/i.test(msg)) {
-      return c.json({ error: tr(c, '이미 사용 중인 닉네임이에요', 'このニックネームはすでに使われています') }, 409);
+      return c.json({ error: tr(c, '이미 사용 중인 닉네임이에요', 'このニックネームはすでに使われています', "This nickname is already taken") }, 409);
     }
     if (/UNIQUE constraint failed: users\.device_uuid/i.test(msg)) {
       return c.json(
-        { error: tr(c, '이 기기에 다른 계정이 남아있어요. 앱을 재설치하거나 관리자에게 문의해주세요.', 'この端末には別のアカウントが残っています。アプリを再インストールするか、運営までお問い合わせください。') },
+        { error: tr(c, '이 기기에 다른 계정이 남아있어요. 앱을 재설치하거나 관리자에게 문의해주세요.', 'この端末には別のアカウントが残っています。アプリを再インストールするか、運営までお問い合わせください。', "Another account is still on this device. Please reinstall the app or contact support.") },
         409,
       );
     }
-    return c.json({ error: tr(c, '가입 중 오류가 발생했어요', '会員登録中にエラーが発生しました') }, 500);
+    return c.json({ error: tr(c, '가입 중 오류가 발생했어요', '会員登録中にエラーが発生しました', "An error occurred while signing up") }, 500);
   }
 
   // 가입 보너스는 없다 — 1단계 지갑 + 2단계 휴대폰 인증을 마치면 +1,000 QTA (users.ts).
@@ -676,7 +678,7 @@ app.post('/register', async (c) => {
     .prepare('SELECT * FROM users WHERE id = ?')
     .bind(id)
     .first<UserRow>();
-  if (!user) return c.json({ error: tr(c, '사용자 생성 실패', 'ユーザーの作成に失敗しました') }, 500);
+  if (!user) return c.json({ error: tr(c, '사용자 생성 실패', 'ユーザーの作成に失敗しました', "Failed to create user") }, 500);
 
   const token = await signToken(user, c.env.JWT_SECRET);
   return c.json({
@@ -711,18 +713,18 @@ app.post('/login', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', "Invalid request") }, 400);
   }
 
   const { nickname, password, device_uuid } = body;
   if (!nickname || typeof nickname !== 'string' || !nickname.trim()) {
-    return c.json({ error: tr(c, '닉네임을 입력해주세요', 'ニックネームを入力してください') }, 400);
+    return c.json({ error: tr(c, '닉네임을 입력해주세요', 'ニックネームを入力してください', "Please enter a nickname") }, 400);
   }
   if (!password || typeof password !== 'string') {
-    return c.json({ error: tr(c, '비밀번호를 입력해주세요', 'パスワードを入力してください') }, 400);
+    return c.json({ error: tr(c, '비밀번호를 입력해주세요', 'パスワードを入力してください', "Please enter your password") }, 400);
   }
   if (!device_uuid || typeof device_uuid !== 'string' || device_uuid.length < 8) {
-    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません') }, 400);
+    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません', "Invalid device information") }, 400);
   }
 
   const nickTrim = nickname.trim();
@@ -756,14 +758,14 @@ app.post('/login', async (c) => {
       qrchatLogin = { created: false, bonusGranted: false };
     } else if (q.reason === 'locked') {
       return c.json(
-        { error: tr(c, '비밀번호를 여러 번 틀려 잠시 잠겼어요. 10분 후 다시 시도해주세요', 'パスワードを複数回間違えたため、一時的にロックされました。10分後に再度お試しください'), code: 'locked' },
+        { error: tr(c, '비밀번호를 여러 번 틀려 잠시 잠겼어요. 10분 후 다시 시도해주세요', 'パスワードを複数回間違えたため、一時的にロックされました。10分後に再度お試しください', "Too many wrong password attempts. Please try again in 10 minutes"), code: 'locked' },
         401,
       );
     } else if (q.reason === 'banned') {
-      return c.json({ error: tr(c, '큐알쳇에서 이용이 정지된 계정이에요', 'QRChatで利用停止となっているアカウントです'), code: 'banned' }, 403);
+      return c.json({ error: tr(c, '큐알쳇에서 이용이 정지된 계정이에요', 'QRChatで利用停止となっているアカウントです', "This account has been suspended on QRChat"), code: 'banned' }, 403);
     } else if (q.reason === 'invalid') {
       // 큐알쳇이 아니라고 하면 가지 해시가 맞아도 거부 (옛 비밀번호).
-      return c.json({ error: tr(c, '닉네임 또는 비밀번호가 올바르지 않아요', 'ニックネームまたはパスワードが正しくありません') }, 401);
+      return c.json({ error: tr(c, '닉네임 또는 비밀번호가 올바르지 않아요', 'ニックネームまたはパスワードが正しくありません', "Incorrect nickname or password") }, 401);
     }
     // unavailable/disabled: 큐알쳇 확인 불가 → 위에서 계산한 가지 해시 결과(user) 그대로.
   }
@@ -777,18 +779,18 @@ app.post('/login', async (c) => {
       qrchatLogin = { created: r.created, bonusGranted: r.bonusGranted };
     } else if (q.reason === 'locked') {
       return c.json(
-        { error: tr(c, '비밀번호를 여러 번 틀려 잠시 잠겼어요. 10분 후 다시 시도해주세요', 'パスワードを複数回間違えたため、一時的にロックされました。10分後に再度お試しください'), code: 'locked' },
+        { error: tr(c, '비밀번호를 여러 번 틀려 잠시 잠겼어요. 10분 후 다시 시도해주세요', 'パスワードを複数回間違えたため、一時的にロックされました。10分後に再度お試しください', "Too many wrong password attempts. Please try again in 10 minutes"), code: 'locked' },
         401,
       );
     } else if (q.reason === 'banned') {
-      return c.json({ error: tr(c, '큐알쳇에서 이용이 정지된 계정이에요', 'QRChatで利用停止となっているアカウントです'), code: 'banned' }, 403);
+      return c.json({ error: tr(c, '큐알쳇에서 이용이 정지된 계정이에요', 'QRChatで利用停止となっているアカウントです', "This account has been suspended on QRChat"), code: 'banned' }, 403);
     }
   }
   if (!user) {
-    return c.json({ error: tr(c, '닉네임 또는 비밀번호가 올바르지 않아요', 'ニックネームまたはパスワードが正しくありません') }, 401);
+    return c.json({ error: tr(c, '닉네임 또는 비밀번호가 올바르지 않아요', 'ニックネームまたはパスワードが正しくありません', "Incorrect nickname or password") }, 401);
   }
   if (await isUserBanned(c.env.DB, user.id)) {
-    return c.json({ error: tr(c, '이용이 정지된 계정이에요. 고객센터로 문의해주세요', 'このアカウントは利用停止中です。お問い合わせ窓口までご連絡ください'), code: 'banned' }, 403);
+    return c.json({ error: tr(c, '이용이 정지된 계정이에요. 고객센터로 문의해주세요', 'このアカウントは利用停止中です。お問い合わせ窓口までご連絡ください', "This account has been suspended. Please contact customer support"), code: 'banned' }, 403);
   }
 
   // If logging in from a new device, kick the old device out.
@@ -851,10 +853,10 @@ app.post('/recover/nickname', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', "Invalid request") }, 400);
   }
   if (!body.wallet_address || !isValidWallet(body.wallet_address)) {
-    return c.json({ error: tr(c, '지갑주소 형식을 확인해주세요 (0x + 40자리)', 'ウォレットアドレスの形式をご確認ください（0x + 40桁）') }, 400);
+    return c.json({ error: tr(c, '지갑주소 형식을 확인해주세요 (0x + 40자리)', 'ウォレットアドレスの形式をご確認ください（0x + 40桁）', "Please check the wallet address format (0x + 40 characters)") }, 400);
   }
 
   const walletNorm = normalizeWallet(body.wallet_address);
@@ -863,7 +865,7 @@ app.post('/recover/nickname', async (c) => {
     .bind(walletNorm)
     .first<{ nickname: string }>();
 
-  if (!row) return c.json({ error: tr(c, '가입되지 않은 지갑주소예요', '登録されていないウォレットアドレスです') }, 404);
+  if (!row) return c.json({ error: tr(c, '가입되지 않은 지갑주소예요', '登録されていないウォレットアドレスです', "This wallet address is not registered") }, 404);
   return c.json({ nickname: row.nickname });
 });
 
@@ -888,20 +890,20 @@ app.post('/reset-password', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです', "Invalid request") }, 400);
   }
 
   const { wallet_address, new_password, new_password_confirm, device_uuid, wallet_challenge_id } = body;
   if (!wallet_address || !isValidWallet(wallet_address)) {
-    return c.json({ error: tr(c, '지갑주소 형식을 확인해주세요 (0x + 40자리)', 'ウォレットアドレスの形式をご確認ください（0x + 40桁）') }, 400);
+    return c.json({ error: tr(c, '지갑주소 형식을 확인해주세요 (0x + 40자리)', 'ウォレットアドレスの形式をご確認ください（0x + 40桁）', "Please check the wallet address format (0x + 40 characters)") }, 400);
   }
   const pwErr = validatePassword(new_password, reqLang(c));
   if (pwErr) return c.json({ error: pwErr }, 400);
   if (new_password !== new_password_confirm) {
-    return c.json({ error: tr(c, '비밀번호가 일치하지 않아요', 'パスワードが一致しません') }, 400);
+    return c.json({ error: tr(c, '비밀번호가 일치하지 않아요', 'パスワードが一致しません', "\"Passwords don't match\"") }, 400);
   }
   if (!device_uuid || typeof device_uuid !== 'string' || device_uuid.length < 8) {
-    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません') }, 400);
+    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません', "Invalid device information") }, 400);
   }
 
   const walletNorm = normalizeWallet(wallet_address);
@@ -909,9 +911,9 @@ app.post('/reset-password', async (c) => {
     .prepare('SELECT * FROM users WHERE wallet_address = ? COLLATE NOCASE')
     .bind(walletNorm)
     .first<UserRow>();
-  if (!user) return c.json({ error: tr(c, '가입되지 않은 지갑주소예요', '登録されていないウォレットアドレスです') }, 404);
+  if (!user) return c.json({ error: tr(c, '가입되지 않은 지갑주소예요', '登録されていないウォレットアドレスです', "This wallet address is not registered") }, 404);
   if (await isUserBanned(c.env.DB, user.id)) {
-    return c.json({ error: tr(c, '이용이 정지된 계정이에요. 고객센터로 문의해주세요', 'このアカウントは利用停止中です。お問い合わせ窓口までご連絡ください'), code: 'banned' }, 403);
+    return c.json({ error: tr(c, '이용이 정지된 계정이에요. 고객센터로 문의해주세요', 'このアカウントは利用停止中です。お問い合わせ窓口までご連絡ください', "This account has been suspended. Please contact customer support"), code: 'banned' }, 403);
   }
 
   // 재설정 허용 조건 (둘 중 하나):
@@ -929,7 +931,7 @@ app.post('/reset-password', async (c) => {
     if (!walletProven) {
       return c.json(
         {
-          error: tr(c, '다른 기기에서는 지갑 인증(소액 송금) 후에 비밀번호를 재설정할 수 있어요.', '別の端末からは、ウォレット認証（少額送金）後にパスワードを再設定できます。'),
+          error: tr(c, '다른 기기에서는 지갑 인증(소액 송금) 후에 비밀번호를 재설정할 수 있어요.', '別の端末からは、ウォレット認証（少額送金）後にパスワードを再設定できます。', "On a different device, you can reset your password after wallet verification (a small transfer)."),
           code: 'wallet_proof_required',
         },
         403,
@@ -1028,25 +1030,25 @@ app.delete('/me', authMiddleware, async (c) => {
     body = await c.req.json();
   } catch {
     // 비밀번호 없이도 시도 가능하지만 권장 X — 기본 차단.
-    return c.json({ error: tr(c, '비밀번호를 입력해주세요', 'パスワードを入力してください') }, 400);
+    return c.json({ error: tr(c, '비밀번호를 입력해주세요', 'パスワードを入力してください', "Please enter your password") }, 400);
   }
 
   const { password } = body;
   if (!password || typeof password !== 'string') {
-    return c.json({ error: tr(c, '비밀번호를 입력해주세요', 'パスワードを入力してください') }, 400);
+    return c.json({ error: tr(c, '비밀번호를 입력해주세요', 'パスワードを入力してください', "Please enter your password") }, 400);
   }
 
   const user = await c.env.DB
     .prepare('SELECT * FROM users WHERE id = ?')
     .bind(authUser.id)
     .first<UserRow>();
-  if (!user) return c.json({ error: tr(c, '계정을 찾을 수 없어요', 'アカウントが見つかりません') }, 404);
+  if (!user) return c.json({ error: tr(c, '계정을 찾을 수 없어요', 'アカウントが見つかりません', "Account not found") }, 404);
 
   const ok = user.password_hash
     ? await verifyPassword(password, user.password_hash)
     : false;
   if (!ok) {
-    return c.json({ error: tr(c, '비밀번호가 올바르지 않아요', 'パスワードが正しくありません') }, 401);
+    return c.json({ error: tr(c, '비밀번호가 올바르지 않아요', 'パスワードが正しくありません', "Incorrect password") }, 401);
   }
 
   // 0) 진행 중인 출금이 있으면 탈퇴 보류 — 운영자가 송금하는 중에 계정·출금 기록이
@@ -1057,7 +1059,7 @@ app.delete('/me', authMiddleware, async (c) => {
     .first<{ id: string }>();
   if (pendingWithdrawal) {
     return c.json(
-      { error: tr(c, '진행 중인 출금 신청이 있어 지금은 탈퇴할 수 없어요. 출금이 끝나거나 취소한 뒤 다시 시도해주세요', '処理中の出金申請があるため、現在は退会できません。出金の完了またはキャンセル後に再度お試しください'), code: 'withdrawal_pending' },
+      { error: tr(c, '진행 중인 출금 신청이 있어 지금은 탈퇴할 수 없어요. 출금이 끝나거나 취소한 뒤 다시 시도해주세요', '処理中の出金申請があるため、現在は退会できません。出金の完了またはキャンセル後に再度お試しください', "You have a withdrawal in progress, so you cannot delete your account right now. Please try again after it completes or is cancelled"), code: 'withdrawal_pending' },
       409,
     );
   }
@@ -1106,12 +1108,12 @@ app.delete('/me', authMiddleware, async (c) => {
     ]);
   } catch (e) {
     console.error('[auth/delete] DELETE users failed', e);
-    return c.json({ error: tr(c, '탈퇴 처리 중 오류가 발생했어요', '退会処理中にエラーが発生しました') }, 500);
+    return c.json({ error: tr(c, '탈퇴 처리 중 오류가 발생했어요', '退会処理中にエラーが発生しました', "An error occurred while deleting your account") }, 500);
   }
 
   return c.json({
     ok: true,
-    message: tr(c, '계정이 영구 삭제되었어요. 모든 흔적이 즉시 사라졌습니다.', 'アカウントを完全に削除しました。すべてのデータは直ちに消去されました。'),
+    message: tr(c, '계정이 영구 삭제되었어요. 모든 흔적이 즉시 사라졌습니다.', 'アカウントを完全に削除しました。すべてのデータは直ちに消去されました。', "Your account has been permanently deleted. All your data was erased immediately."),
     referral_clawback: clawback,
   });
 });

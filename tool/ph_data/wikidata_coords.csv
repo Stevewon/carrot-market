@@ -1,0 +1,1763 @@
+item,psgc,coord,label,parentLabel
+http://www.wikidata.org/entity/Q178330,0701233000,Point(123.745 9.579),,Bohol
+http://www.wikidata.org/entity/Q13884,086400000,Point(125.083333333 10.333333333),Southern Leyte,Eastern Visayas
+http://www.wikidata.org/entity/Q13902,098300000,Point(122.666666666 7.8),,Zamboanga Peninsula
+http://www.wikidata.org/entity/Q13887,0906600000,Point(121.0 6.0),,Zamboanga Peninsula
+http://www.wikidata.org/entity/Q13899,097200000,Point(123.0 8.133333333),,Zamboanga Peninsula
+http://www.wikidata.org/entity/Q13900,097300000,Point(123.25 7.833333333),,Zamboanga Peninsula
+http://www.wikidata.org/entity/Q145673,1804625000,Point(123.199 9.1),Zamboanguita,Negros Oriental
+http://www.wikidata.org/entity/Q155502,1004201000,Point(123.822780555 8.414622222),Aloran,Misamis Occidental
+http://www.wikidata.org/entity/Q17182,1381000000,Point(120.9915 14.5008),,Metro Manila
+http://www.wikidata.org/entity/Q173608,0806401000,Point(125.258358333 10.274177777),Anahawan,Southern Leyte
+http://www.wikidata.org/entity/Q17179,137503000,Point(120.941666666 14.666666666),Navotas,Metro Manila
+http://www.wikidata.org/entity/Q144779,060608000,Point(121.983333333 10.7),Hamtic,Antique
+http://www.wikidata.org/entity/Q192646,0502007000,Point(124.3 13.9),Panganiban,Catanduanes
+http://www.wikidata.org/entity/Q192085,0502003000,Point(124.3 13.6),Bato,Catanduanes
+http://www.wikidata.org/entity/Q192670,0502010000,Point(124.3 13.866666666),Viga,Catanduanes
+http://www.wikidata.org/entity/Q17176,1380800000,Point(121.05 14.383333333),Muntinlupa,Metro Manila
+http://www.wikidata.org/entity/Q192072,0502002000,Point(124.366666666 13.666666666),Baras,Catanduanes
+http://www.wikidata.org/entity/Q17175,1380700000,Point(121.1 14.65),Marikina,Metro Manila
+http://www.wikidata.org/entity/Q192681,0502011000,Point(124.233333333 13.583333333),Virac,Catanduanes
+http://www.wikidata.org/entity/Q192665,0502009000,Point(124.300833 13.641111),San Miguel,Catanduanes
+http://www.wikidata.org/entity/Q17189,137605000,Point(120.995 14.543888888),Pasay,Metro Manila
+http://www.wikidata.org/entity/Q192091,0502004000,Point(124.133333333 13.983333333),Caramoran,Catanduanes
+http://www.wikidata.org/entity/Q107488,1705106000,Point(120.596 13.2233),Mamburao,Occidental Mindoro
+http://www.wikidata.org/entity/Q192067,0502001000,Point(124.288763888 13.940752777),Bagamanoc,Catanduanes
+http://www.wikidata.org/entity/Q192629,0502005000,Point(124.383333333 13.783333333),Gigmoto,Catanduanes
+http://www.wikidata.org/entity/Q177004,1903619000,Point(124.362036111 7.917511111),Mulondo,Lanao del Sur
+http://www.wikidata.org/entity/Q13895,0307100000,Point(120.166666666 15.333333333),,Central Luzon
+http://www.wikidata.org/entity/Q174689,1705914000,Point(121.933333333 12.066666666),San Jose,Romblon
+http://www.wikidata.org/entity/Q174676,1705913000,Point(122.6 12.316666666),San Fernando,Romblon
+http://www.wikidata.org/entity/Q174649,1705910000,Point(122.274655555 12.578869444),Romblon,Romblon
+http://www.wikidata.org/entity/Q174497,1705901000,Point(122.054272222 12.258397222),Alcantara,Romblon
+http://www.wikidata.org/entity/Q174717,1705917000,Point(122.104167 12.441667),Santa Maria,Romblon
+http://www.wikidata.org/entity/Q174667,1705912000,Point(122.010833333 12.518333333),San Andres,Romblon
+http://www.wikidata.org/entity/Q174620,1705908000,Point(122.516666666 12.483333333),Magdiwang,Romblon
+http://www.wikidata.org/entity/Q174702,1705915000,Point(122.0 12.15),Santa Fe,Romblon
+http://www.wikidata.org/entity/Q174591,1705916000,Point(121.938611 12.338333),Ferrol,Romblon
+http://www.wikidata.org/entity/Q13892,0306900000,Point(120.5 15.5),,Central Luzon
+http://www.wikidata.org/entity/Q174562,1705905000,Point(121.708333333 12.925),Concepcion,Romblon
+http://www.wikidata.org/entity/Q174544,1705904000,Point(122.070833 12.616667),Calatrava,Romblon
+http://www.wikidata.org/entity/Q174659,1705911000,Point(122.13139 12.56889),San Agustin,Romblon
+http://www.wikidata.org/entity/Q174607,1705907000,Point(121.9926 12.2605),Looc,Romblon
+http://www.wikidata.org/entity/Q174525,1705903000,Point(122.683333333 12.366666666),Cajidiocan,Romblon
+http://www.wikidata.org/entity/Q174575,1705906000,Point(122.05 12.8),Corcuera,Romblon
+http://www.wikidata.org/entity/Q174632,1705909000,Point(122.0 12.4),Odiongan,Romblon
+http://www.wikidata.org/entity/Q174511,1705902000,Point(122.096 12.946),Banton,Romblon
+http://www.wikidata.org/entity/Q173428,1206504000,Point(124.6 6.633333333),Isulan,Sultan Kudarat
+http://www.wikidata.org/entity/Q173468,1206507000,Point(124.858852777 6.559886111),Lutayan,Sultan Kudarat
+http://www.wikidata.org/entity/Q137813,1206510000,Point(124.733333333 6.7),President Quirino,Sultan Kudarat
+http://www.wikidata.org/entity/Q173404,1206502000,Point(124.960975 6.685911111),Columbio,Sultan Kudarat
+http://www.wikidata.org/entity/Q173393,1206501000,Point(124.563263888 6.533877777),Bagumbayan,Sultan Kudarat
+http://www.wikidata.org/entity/Q173449,1206508000,Point(124.633333333 6.8),Lambayong,Sultan Kudarat
+http://www.wikidata.org/entity/Q173556,1206512000,Point(124.321788888 6.464138888),Senator Ninoy Aquino,Sultan Kudarat
+http://www.wikidata.org/entity/Q173479,1206509000,Point(124.2 6.216666666),Palimbang,Sultan Kudarat
+http://www.wikidata.org/entity/Q173460,1206506000,Point(124.066666666 6.633333333),Lebak,Sultan Kudarat
+http://www.wikidata.org/entity/Q173438,1206505000,Point(124.05065 6.555733333),Kalamansig,Sultan Kudarat
+http://www.wikidata.org/entity/Q173414,1206503000,Point(124.520113888 6.722175),Esperanza,Sultan Kudarat
+http://www.wikidata.org/entity/Q173575,126511000,Point(124.678688888 6.688436111),Tacurong,Sultan Kudarat
+http://www.wikidata.org/entity/Q28096,1400107000,Point(120.7103 17.649),Dolores,Abra
+http://www.wikidata.org/entity/Q29029,1400111000,Point(120.7058 17.7207),Lagayan,Abra
+http://www.wikidata.org/entity/Q29123,1400122000,Point(120.732 17.6834),San Juan,Abra
+http://www.wikidata.org/entity/Q13882,126300000,Point(125.0 6.166666666),South Cotabato,Soccsksargen
+http://www.wikidata.org/entity/Q13889,166700000,Point(125.633333333 9.666666666),,Caraga
+http://www.wikidata.org/entity/Q29048,1400114000,Point(120.6952 17.3181),Luba,Abra
+http://www.wikidata.org/entity/Q29069,1400115000,Point(120.9899 17.5636),Malibcong,Abra
+http://www.wikidata.org/entity/Q107476,1705104000,Point(120.122777777 13.858611111),Lubang,Occidental Mindoro
+http://www.wikidata.org/entity/Q29102,1400118000,Point(120.5893 17.5703),Pidigan,Abra
+http://www.wikidata.org/entity/Q29020,1400110000,Point(120.7344 17.6103),Lagangilang,Abra
+http://www.wikidata.org/entity/Q28068,1400106000,Point(120.665277777 17.693055555),Danglas,Abra
+http://www.wikidata.org/entity/Q29153,1400126000,Point(120.7256 17.2567),Tubo,Abra
+http://www.wikidata.org/entity/Q13877,128000000,Point(125.283333333 5.866666666),Sarangani,Soccsksargen
+http://www.wikidata.org/entity/Q28014,1400103000,Point(120.7167 17.5388),Bucay,Abra
+http://www.wikidata.org/entity/Q29146,1400125000,Point(120.9439 17.7828),Tineg,Abra
+http://www.wikidata.org/entity/Q29139,1400124000,Point(120.6553 17.6165),Tayum,Abra
+http://www.wikidata.org/entity/Q28124,1400108000,Point(120.684722222 17.673888888),La Paz,Abra
+http://www.wikidata.org/entity/Q107460,1705102000,Point(120.942777777 12.575555555),Calintaan,Occidental Mindoro
+http://www.wikidata.org/entity/Q13891,166800000,Point(126.0 8.666666666),,Caraga
+http://www.wikidata.org/entity/Q29007,1400109000,Point(120.9474 17.6634),Lacub,Abra
+http://www.wikidata.org/entity/Q29038,1400112000,Point(120.5638 17.5769),Langiden,Abra
+http://www.wikidata.org/entity/Q28002,1400102000,Point(120.8198 17.379),Boliney,Abra
+http://www.wikidata.org/entity/Q29045,1400113000,Point(120.905277777 17.609166666),Licuan-Baay,Abra
+http://www.wikidata.org/entity/Q29191,1400127000,Point(120.6253 17.4379),Villaviciosa,Abra
+http://www.wikidata.org/entity/Q107465,1705103000,Point(120.25 13.72),Looc,Occidental Mindoro
+http://www.wikidata.org/entity/Q29133,1400123000,Point(120.5203 17.5427),San Quintin,Abra
+http://www.wikidata.org/entity/Q107454,1705101000,Point(120.726033333 13.444766666),,Occidental Mindoro
+http://www.wikidata.org/entity/Q29082,1400116000,Point(120.7048 17.4331),Manabo,Abra
+http://www.wikidata.org/entity/Q27995,1400101000,Point(120.6179 17.5965),Bangued,Abra
+http://www.wikidata.org/entity/Q28030,1400104000,Point(120.8572 17.4409),Bucloc,Abra
+http://www.wikidata.org/entity/Q107482,1705105000,Point(121.147222222 12.311666666),Magsaysay,Occidental Mindoro
+http://www.wikidata.org/entity/Q13885,126500000,Point(124.283333333 6.55),Sultan Kudarat,Soccsksargen
+http://www.wikidata.org/entity/Q29109,1400119000,Point(120.5954 17.4168),Pilar,Abra
+http://www.wikidata.org/entity/Q29094,1400117000,Point(120.6522 17.5642),Peñarrubia,Abra
+http://www.wikidata.org/entity/Q13881,056200000,Point(123.916666666 12.833333333),Sorsogon,Bicol Region
+http://www.wikidata.org/entity/Q28044,1400105000,Point(120.9254 17.4584),Daguioman,Abra
+http://www.wikidata.org/entity/Q29116,1400120000,Point(120.7599 17.4551),Sallapadan,Abra
+http://www.wikidata.org/entity/Q174201,0506208000,Point(124.123055555 12.918888888),Gubat,Sorsogon
+http://www.wikidata.org/entity/Q174226,0506210000,Point(123.989444444 12.847777777),Juban,Sorsogon
+http://www.wikidata.org/entity/Q174096,056216000,Point(124.005833333 12.974166666),Sorsogon City,Sorsogon
+http://www.wikidata.org/entity/Q174162,0506205000,Point(124.008055555 12.873055555),Casiguran,Sorsogon
+http://www.wikidata.org/entity/Q174269,0506214000,Point(124.193055555 13.040833333),Prieto Diaz,Sorsogon
+http://www.wikidata.org/entity/Q174255,0506213000,Point(123.675555555 12.924444444),Pilar,Sorsogon
+http://www.wikidata.org/entity/Q174215,0506209000,Point(124.031944444 12.705),Irosin,Sorsogon
+http://www.wikidata.org/entity/Q174177,0506206000,Point(123.876388888 12.955277777),Castilla,Sorsogon
+http://www.wikidata.org/entity/Q174114,0506202000,Point(124.141944444 12.869444444),Barcelona,Sorsogon
+http://www.wikidata.org/entity/Q174236,0506211000,Point(123.834444444 12.828333333),Magallanes,Sorsogon
+http://www.wikidata.org/entity/Q174246,0506212000,Point(124.085555555 12.585555555),Matnog,Sorsogon
+http://www.wikidata.org/entity/Q174192,0506207000,Point(123.598055555 12.908333333),Donsol,Sorsogon
+http://www.wikidata.org/entity/Q174149,0506204000,Point(124.135555555 12.752222222),Bulusan,Sorsogon
+http://www.wikidata.org/entity/Q174281,0506215000,Point(124.108333333 12.648888888),Santa Magdalena,Sorsogon
+http://www.wikidata.org/entity/Q174132,0506203000,Point(123.875833333 12.669722222),Bulan,Sorsogon
+http://www.wikidata.org/entity/Q175230,0804820000,Point(124.867 12.533),San Roque,Northern Samar
+http://www.wikidata.org/entity/Q191621,0504119000,Point(123.733611111 12.568333333),San Jacinto,Masbate
+http://www.wikidata.org/entity/Q175082,0804813000,Point(124.75 12.516666666),Mondragon,Northern Samar
+http://www.wikidata.org/entity/Q191590,0504117000,Point(123.916666666 11.868888888),Placer,Masbate
+http://www.wikidata.org/entity/Q175008,0804811000,Point(124.333333333 12.533333333),Lavezares,Northern Samar
+http://www.wikidata.org/entity/Q175283,0804823000,Point(124.316666666 12.45),Victoria,Northern Samar
+http://www.wikidata.org/entity/Q191490,0504107000,Point(123.2457 12.9035),Claveria,Masbate
+http://www.wikidata.org/entity/Q191496,0504108000,Point(123.858333333 12.193333333),Dimasalang,Masbate
+http://www.wikidata.org/entity/Q191512,0504110000,Point(123.28421 12.22594),Mandaon,Masbate
+http://www.wikidata.org/entity/Q174784,0804801000,Point(124.28205 12.50125),Allen,Northern Samar
+http://www.wikidata.org/entity/Q174906,0804806000,Point(125.054 12.408),Catubig,Northern Samar
+http://www.wikidata.org/entity/Q191630,0504120000,Point(122.9775 13.128611111),San Pascual,Masbate
+http://www.wikidata.org/entity/Q174940,0804808000,Point(125.016666666 12.566666666),Laoang,Northern Samar
+http://www.wikidata.org/entity/Q175115,0804815000,Point(124.933333333 12.566666666),Pambujan,Northern Samar
+http://www.wikidata.org/entity/Q174962,0804809000,Point(125.302 12.315),Lapinig,Northern Samar
+http://www.wikidata.org/entity/Q191453,0504103000,Point(123.19351 12.03686),Balud,Masbate
+http://www.wikidata.org/entity/Q174801,0804802000,Point(124.383333333 12.666666666),Biri,Northern Samar
+http://www.wikidata.org/entity/Q175054,0804812000,Point(125.254 12.475),Mapanas,Northern Samar
+http://www.wikidata.org/entity/Q175267,0804822000,Point(124.846388888 12.328055555),Silvino Lobos,Northern Samar
+http://www.wikidata.org/entity/Q175247,0804821000,Point(124.05 12.35),San Vicente,Northern Samar
+http://www.wikidata.org/entity/Q191438,0504102000,Point(123.4982 12.4739),Baleno,Masbate
+http://www.wikidata.org/entity/Q175183,0804818000,Point(124.331 12.388),San Isidro,Northern Samar
+http://www.wikidata.org/entity/Q191482,0504106000,Point(123.768888888 11.930277777),Cawayan,Masbate
+http://www.wikidata.org/entity/Q174919,0804807000,Point(125.3 12.383333333),Gamay,Northern Samar
+http://www.wikidata.org/entity/Q175031,0804824000,Point(124.6238 12.2983),Lope de Vega,Northern Samar
+http://www.wikidata.org/entity/Q191651,054111000,Point(123.624722222 12.373888888),Masbate City,Masbate
+http://www.wikidata.org/entity/Q191606,0504118000,Point(123.762777777 12.485833333),San Fernando,Masbate
+http://www.wikidata.org/entity/Q175203,0804819000,Point(124.487 12.531),San Jose,Northern Samar
+http://www.wikidata.org/entity/Q175100,0804814000,Point(125.116 12.547),Palapag,Northern Samar
+http://www.wikidata.org/entity/Q191533,0504113000,Point(123.658055555 12.337222222),Mobo,Masbate
+http://www.wikidata.org/entity/Q191558,0504115000,Point(123.921944444 12.146388888),Palanas,Masbate
+http://www.wikidata.org/entity/Q191636,0504121000,Point(123.7834 12.2253),Uson,Masbate
+http://www.wikidata.org/entity/Q174822,0804803000,Point(124.566666666 12.516666666),Bobon,Northern Samar
+http://www.wikidata.org/entity/Q191416,0504101000,Point(123.398933333 12.512483333),Aroroy,Masbate
+http://www.wikidata.org/entity/Q174871,0804804000,Point(124.182 12.423),Capul,Northern Samar
+http://www.wikidata.org/entity/Q191581,0504116000,Point(124.049722222 11.883611111),Pio V. Corpus,Masbate
+http://www.wikidata.org/entity/Q174987,0804810000,Point(125.032 12.34),Las Navas,Northern Samar
+http://www.wikidata.org/entity/Q191522,0504112000,Point(123.508888888 12.219166666),Milagros,Masbate
+http://www.wikidata.org/entity/Q191544,0504114000,Point(123.6648 12.644),Monreal,Masbate
+http://www.wikidata.org/entity/Q191478,0504105000,Point(123.994444444 12.002777777),Cataingan,Masbate
+http://www.wikidata.org/entity/Q175136,0804816000,Point(124.416666666 12.516666666),Rosario,Northern Samar
+http://www.wikidata.org/entity/Q175163,0804817000,Point(124.279 12.414),San Antonio,Northern Samar
+http://www.wikidata.org/entity/Q174886,0804805000,Point(124.632777777 12.499444444),Catarman,Northern Samar
+http://www.wikidata.org/entity/Q191501,0504109000,Point(124.041666666 11.736944444),Esperanza,Masbate
+http://www.wikidata.org/entity/Q191463,0504104000,Point(123.781666666 12.422222222),Batuan,Masbate
+http://www.wikidata.org/entity/Q30033,1408102000,Point(121.288888888 17.808611111),Conner,Apayao
+http://www.wikidata.org/entity/Q30042,1408103000,Point(121.418611111 18.214722222),Flora,Apayao
+http://www.wikidata.org/entity/Q29018,1408101000,Point(121.043611111 18.255),Calanasan,Apayao
+http://www.wikidata.org/entity/Q30053,1408104000,Point(121.183333333 18.023888888),Kabugao,Apayao
+http://www.wikidata.org/entity/Q30062,1408106000,Point(121.373333333 18.235555555),Pudtol,Apayao
+http://www.wikidata.org/entity/Q30073,1408107000,Point(121.4375 18.287222222),Santa Marcela,Apayao
+http://www.wikidata.org/entity/Q30361,1401113000,Point(120.560277777 16.392777777),Tuba,Benguet
+http://www.wikidata.org/entity/Q30328,1401104000,Point(120.83 16.491388888),Bokod,Benguet
+http://www.wikidata.org/entity/Q30104,1401101000,Point(120.767222222 16.627222222),Atok,Benguet
+http://www.wikidata.org/entity/Q30338,1401107000,Point(120.838055555 16.623333333),Kabayan,Benguet
+http://www.wikidata.org/entity/Q30363,1401114000,Point(120.633333333 16.476388888),Tublay,Benguet
+http://www.wikidata.org/entity/Q30345,1401108000,Point(120.605277777 16.576388888),Kapangan,Benguet
+http://www.wikidata.org/entity/Q30351,1401110000,Point(120.5877 16.4621),La Trinidad,Benguet
+http://www.wikidata.org/entity/Q30356,1401111000,Point(120.793333333 16.856666666),Mankayan,Benguet
+http://www.wikidata.org/entity/Q30325,1401103000,Point(120.661388888 16.7925),Bakun,Benguet
+http://www.wikidata.org/entity/Q30349,1401109000,Point(120.653888888 16.693888888),Kibungan,Benguet
+http://www.wikidata.org/entity/Q30358,1401112000,Point(120.4875 16.496666666),Sablan,Benguet
+http://www.wikidata.org/entity/Q30332,1401105000,Point(120.821111111 16.803333333),Buguias,Benguet
+http://www.wikidata.org/entity/Q30335,1401106000,Point(120.666666666 16.366666666),Itogon,Benguet
+http://www.wikidata.org/entity/Q174457,1208006000,Point(125.288466666 5.970505555),Malapatan,Sarangani
+http://www.wikidata.org/entity/Q174403,1208002000,Point(125.204166666 5.823055555),Glan,Sarangani
+http://www.wikidata.org/entity/Q174429,1208004000,Point(124.996888888 5.862838888),Maasim,Sarangani
+http://www.wikidata.org/entity/Q174393,1208001000,Point(125.286819444 6.102308333),Alabel,Sarangani
+http://www.wikidata.org/entity/Q174468,1208007000,Point(125.272647222 6.377591666),Malungon,Sarangani
+http://www.wikidata.org/entity/Q174417,1208003000,Point(124.625669444 5.991186111),Kiamba,Sarangani
+http://www.wikidata.org/entity/Q174442,1208005000,Point(124.483333333 6.033333333),Maitum,Sarangani
+http://www.wikidata.org/entity/Q106796,0405806000,Point(121.228888888 14.486111111),,Rizal
+http://www.wikidata.org/entity/Q106790,0405805000,Point(121.116666666 14.566666666),,Rizal
+http://www.wikidata.org/entity/Q106839,0405812000,Point(121.286389 14.497222),,Rizal
+http://www.wikidata.org/entity/Q106810,0405809000,Point(121.2385 14.5127),,Rizal
+http://www.wikidata.org/entity/Q106783,0405804000,Point(121.191944444 14.451388888),,Rizal
+http://www.wikidata.org/entity/Q106832,0405811000,Point(121.121944 14.696944),,Rizal
+http://www.wikidata.org/entity/Q106766,0405803000,Point(121.266666666 14.516666666),,Rizal
+http://www.wikidata.org/entity/Q106848,0405814000,Point(121.208333 14.558611),,Rizal
+http://www.wikidata.org/entity/Q106804,0405807000,Point(121.324 14.354),,Rizal
+http://www.wikidata.org/entity/Q106758,0405801000,Point(121.153625 14.523375),,Rizal
+http://www.wikidata.org/entity/Q106817,0405810000,Point(121.3 14.483333333),,Rizal
+http://www.wikidata.org/entity/Q106825,0405808000,Point(121.116666666 14.716666666),,Rizal
+http://www.wikidata.org/entity/Q30365,1402708000,Point(121.327222222 16.978888888),Aguinaldo,Ifugao
+http://www.wikidata.org/entity/Q30416,1402703000,Point(121.087777777 16.7775),Kiangan,Ifugao
+http://www.wikidata.org/entity/Q30413,1402702000,Point(121.0 16.833333333),Hungduan,Ifugao
+http://www.wikidata.org/entity/Q30428,1402710000,Point(120.936666666 16.675),Tinoc,Ifugao
+http://www.wikidata.org/entity/Q30425,1402706000,Point(121.221388888 16.973611111),Mayoyao,Ifugao
+http://www.wikidata.org/entity/Q30391,1402707000,Point(121.488333333 16.922777777),Alfonso Lista,Ifugao
+http://www.wikidata.org/entity/Q30394,1402711000,Point(121.069483333 16.720783333),Asipulo,Ifugao
+http://www.wikidata.org/entity/Q30410,1402709000,Point(121.098888888 16.852222222),Hingyon,Ifugao
+http://www.wikidata.org/entity/Q30421,1402705000,Point(121.217777777 16.651666666),Lamut,Ifugao
+http://www.wikidata.org/entity/Q30419,1402704000,Point(121.122777777 16.7975),Lagawe,Ifugao
+http://www.wikidata.org/entity/Q155241,1907003000,Point(118.514 6.975),Mapun,Tawi-Tawi
+http://www.wikidata.org/entity/Q155288,1907011000,Point(119.459 4.841),Sibutu,Tawi-Tawi
+http://www.wikidata.org/entity/Q155274,1907010000,Point(120.272875 5.089897222),Sapa-Sapa,Tawi-Tawi
+http://www.wikidata.org/entity/Q155318,1907004000,Point(119.821286111 4.897991666),Simunul,Tawi-Tawi
+http://www.wikidata.org/entity/Q155355,1907006000,Point(120.483333333 5.183333333),South Ubian,Tawi-Tawi
+http://www.wikidata.org/entity/Q155195,1907002000,Point(119.77306 5.02917),Bongao,Tawi-Tawi
+http://www.wikidata.org/entity/Q155334,1907005000,Point(119.391872222 4.661527777),Sitangkai,Tawi-Tawi
+http://www.wikidata.org/entity/Q155377,1907007000,Point(120.346 5.135),Tandubas,Tawi-Tawi
+http://www.wikidata.org/entity/Q155259,1907001000,Point(119.884677777 5.072786111),Panglima Sugala,Tawi-Tawi
+http://www.wikidata.org/entity/Q155396,1907008000,Point(118.312 6.073),,Tawi-Tawi
+http://www.wikidata.org/entity/Q155221,1907009000,Point(120.079 5.268),Languyan,Tawi-Tawi
+http://www.wikidata.org/entity/Q196145,1004217000,Point(123.566352777 8.249569444),Don Victoriano,Misamis Occidental
+http://www.wikidata.org/entity/Q196114,1004205000,Point(123.85 8.2),Clarin,Misamis Occidental
+http://www.wikidata.org/entity/Q174018,1206314000,Point(124.9266 6.443875),Tampakan,South Cotabato
+http://www.wikidata.org/entity/Q173922,1206311000,Point(124.661019444 6.519991666),Norala,South Cotabato
+http://www.wikidata.org/entity/Q173986,1206313000,Point(124.747252777 6.375622222),Surallah,South Cotabato
+http://www.wikidata.org/entity/Q196097,1004204000,Point(123.641666666 8.558333333),Calamba,Misamis Occidental
+http://www.wikidata.org/entity/Q196076,1004203000,Point(123.613594444 8.052697222),Bonifacio,Misamis Occidental
+http://www.wikidata.org/entity/Q174003,1206316000,Point(124.822858333 6.215652777),T'Boli,South Cotabato
+http://www.wikidata.org/entity/Q173944,1206312000,Point(125.063038888 6.220602777),Polomolok,South Cotabato
+http://www.wikidata.org/entity/Q174039,1206315000,Point(124.748197222 6.618969444),Tantangan,South Cotabato
+http://www.wikidata.org/entity/Q173898,1206319000,Point(124.712102777 6.226225),Lake Sebu,South Cotabato
+http://www.wikidata.org/entity/Q196158,1004207000,Point(123.833333333 8.333333333),Jimenez,Misamis Occidental
+http://www.wikidata.org/entity/Q196173,1004208000,Point(123.766666666 8.55),Lopez Jaena,Misamis Occidental
+http://www.wikidata.org/entity/Q196129,1004206000,Point(123.6 8.416666666),Concepcion,Misamis Occidental
+http://www.wikidata.org/entity/Q174055,1206317000,Point(124.95 6.333333333),Tupi,South Cotabato
+http://www.wikidata.org/entity/Q173965,1206318000,Point(124.679413888 6.429258333),Santo Niño,South Cotabato
+http://www.wikidata.org/entity/Q173870,1206302000,Point(124.775797222 6.424713888),Banga,South Cotabato
+http://www.wikidata.org/entity/Q196056,1004202000,Point(123.6 8.666666666),Baliangao,Misamis Occidental
+http://www.wikidata.org/entity/Q173665,0806406000,Point(125.13028 10.16139),Liloan,Southern Leyte
+http://www.wikidata.org/entity/Q173792,0806417000,Point(124.983333333 10.383333333),Sogod,Southern Leyte
+http://www.wikidata.org/entity/Q173655,0806405000,Point(125.05 10.3),Libagon,Southern Leyte
+http://www.wikidata.org/entity/Q173701,0806409000,Point(125.0 10.15),Malitbog,Southern Leyte
+http://www.wikidata.org/entity/Q173811,0806418000,Point(124.983333333 10.25),Tomas Oppus,Southern Leyte
+http://www.wikidata.org/entity/Q173632,0806403000,Point(125.2 10.4),Hinunangan,Southern Leyte
+http://www.wikidata.org/entity/Q173745,0806413000,Point(125.16056 10.06),San Francisco,Southern Leyte
+http://www.wikidata.org/entity/Q173641,0806404000,Point(125.25 10.35),Hinundayan,Southern Leyte
+http://www.wikidata.org/entity/Q173688,0806408000,Point(124.94306 10.07972),Macrohon,Southern Leyte
+http://www.wikidata.org/entity/Q173754,0806414000,Point(125.183333333 10.266666666),San Juan,Southern Leyte
+http://www.wikidata.org/entity/Q173735,0806412000,Point(125.133333333 10.283333333),Saint Bernard,Southern Leyte
+http://www.wikidata.org/entity/Q173774,0806416000,Point(125.1618 10.5291),Silago,Southern Leyte
+http://www.wikidata.org/entity/Q173678,0806419000,Point(125.075 9.907777777),Limasawa,Southern Leyte
+http://www.wikidata.org/entity/Q173713,0806410000,Point(125.016666666 10.033333333),Padre Burgos,Southern Leyte
+http://www.wikidata.org/entity/Q173763,0806415000,Point(125.283333333 9.916666666),San Ricardo,Southern Leyte
+http://www.wikidata.org/entity/Q173622,0806402000,Point(124.966666666 10.35),Bontoc,Southern Leyte
+http://www.wikidata.org/entity/Q173723,0806411000,Point(125.25 9.95),Pintuyan,Southern Leyte
+http://www.wikidata.org/entity/Q13606,140000000,Point(121.166666666 17.166666666),Cordillera Administrative Region,Philippines
+http://www.wikidata.org/entity/Q13669,070000000,Point(123.5 10.0),Central Visayas,Philippines
+http://www.wikidata.org/entity/Q13701,120000000,Point(124.85 6.5),Soccsksargen,Philippines
+http://www.wikidata.org/entity/Q12933,010000000,Point(120.316666666 16.616666666),Ilocos Region,Philippines
+http://www.wikidata.org/entity/Q13694,110000000,Point(125.583333333 7.083333333),Davao Region,Philippines
+http://www.wikidata.org/entity/Q13690,100000000,Point(124.916666666 8.75),Northern Mindanao,Philippines
+http://www.wikidata.org/entity/Q13704,160000000,Point(125.5 8.916666666),Caraga,Philippines
+http://www.wikidata.org/entity/Q13682,090000000,Point(122.416666666 7.833333333),Zamboanga Peninsula,Philippines
+http://www.wikidata.org/entity/Q13650,0400000000,Point(121.5 14.0),,Philippines
+http://www.wikidata.org/entity/Q13665,0600000000,Point(122.53 11.13),Western Visayas,Philippines
+http://www.wikidata.org/entity/Q13615,020000000,Point(121.716666666 17.616666666),Cagayan Valley,Philippines
+http://www.wikidata.org/entity/Q13675,080000000,Point(125.049722222 11.24),Eastern Visayas,Philippines
+http://www.wikidata.org/entity/Q13658,1700000000,Point(119.5 10.666666666),,Philippines
+http://www.wikidata.org/entity/Q13580,130000000,Point(121.0 14.583333333),Metro Manila,Philippines
+http://www.wikidata.org/entity/Q13662,0500000000,Point(123.333333333 13.5),Bicol Region,Philippines
+http://www.wikidata.org/entity/Q13617,030000000,Point(120.75 15.466666666),Central Luzon,Philippines
+http://www.wikidata.org/entity/Q30871,0304912000,Point(120.906944444 15.339166666),Jaen,Nueva Ecija
+http://www.wikidata.org/entity/Q30923,0304924000,Point(120.853333333 15.307777777),San Antonio,Nueva Ecija
+http://www.wikidata.org/entity/Q28731,0304932000,Point(120.793333333 15.449166666),,Nueva Ecija
+http://www.wikidata.org/entity/Q357021,1001303000,Point(125.002777777 7.611944444),Dangcagan,Bukidnon
+http://www.wikidata.org/entity/Q357100,1001306000,Point(124.909722222 7.600277777),Kadingilan,Bukidnon
+http://www.wikidata.org/entity/Q356943,1001301000,Point(124.687325 8.312794444),Baungon,Bukidnon
+http://www.wikidata.org/entity/Q357124,1001307000,Point(124.7475 7.746388888),Kalilangan,Bukidnon
+http://www.wikidata.org/entity/Q357075,1001305000,Point(125.001388888 8.302777777),Impasugong,Bukidnon
+http://www.wikidata.org/entity/Q356971,1001322000,Point(125.299166666 8.077222222),Cabanglasan,Bukidnon
+http://www.wikidata.org/entity/Q356997,1001302000,Point(124.941111111 7.485277777),Damulog,Bukidnon
+http://www.wikidata.org/entity/Q357053,1001304000,Point(124.995277777 7.680833333),Don Carlos,Bukidnon
+http://www.wikidata.org/entity/Q195164,074624000,Point(123.316666666 10.333333333),Vallehermoso,Negros Oriental
+http://www.wikidata.org/entity/Q195106,074620000,Point(123.283333333 9.35),Sibulan,Negros Oriental
+http://www.wikidata.org/entity/Q195090,1804619000,Point(123.033333333 9.066666666),Siaton,Negros Oriental
+http://www.wikidata.org/entity/Q356292,061912000,Point(122.833333333 11.483333333),Pontevedra,Capiz
+http://www.wikidata.org/entity/Q356204,061909000,Point(122.793055555 11.555277777),Panay,Capiz
+http://www.wikidata.org/entity/Q195018,074615000,Point(123.15 9.683333333),Manjuyod,Negros Oriental
+http://www.wikidata.org/entity/Q355986,061902000,Point(122.685833 11.394444),Dao,Capiz
+http://www.wikidata.org/entity/Q195074,1804618000,Point(122.865833 9.333056),Santa Catalina,Negros Oriental
+http://www.wikidata.org/entity/Q194940,1804609000,Point(123.266666666 9.2),Dauin,Negros Oriental
+http://www.wikidata.org/entity/Q195056,074617000,Point(123.233333333 9.416666666),San Jose,Negros Oriental
+http://www.wikidata.org/entity/Q356338,061915000,Point(122.604722222 11.493888888),Sapian,Capiz
+http://www.wikidata.org/entity/Q355953,061901000,Point(122.671388888 11.342777777),Cuartero,Capiz
+http://www.wikidata.org/entity/Q194983,074613000,Point(123.216666666 10.033333333),La Libertad,Negros Oriental
+http://www.wikidata.org/entity/Q194916,074607000,Point(123.133333333 9.766666666),Bindoy,Negros Oriental
+http://www.wikidata.org/entity/Q13893,157000000,Point(120.083333333 5.2),Tawi-Tawi,Bangsamoro
+http://www.wikidata.org/entity/Q356019,061903000,Point(122.621388888 11.303888888),Dumalag,Capiz
+http://www.wikidata.org/entity/Q195197,074611000,Point(123.266666666 10.116666666),Guihulngan,Negros Oriental
+http://www.wikidata.org/entity/Q356174,061908000,Point(122.595277777 11.43),Mambusao,Capiz
+http://www.wikidata.org/entity/Q356266,061911000,Point(122.995555555 11.487777777),Pilar,Capiz
+http://www.wikidata.org/entity/Q195121,074622000,Point(123.15 9.916666666),Tayasan,Negros Oriental
+http://www.wikidata.org/entity/Q195040,074616000,Point(123.116666666 9.466666666),Pamplona,Negros Oriental
+http://www.wikidata.org/entity/Q356231,061910000,Point(122.769444444 11.463888888),Panitan,Capiz
+http://www.wikidata.org/entity/Q356313,061913000,Point(122.924722222 11.429722222),President Roxas,Capiz
+http://www.wikidata.org/entity/Q356153,061907000,Point(122.782777777 11.390277777),Ma-ayon,Capiz
+http://www.wikidata.org/entity/Q194900,074605000,Point(122.633333333 9.416666666),Basay,Negros Oriental
+http://www.wikidata.org/entity/Q195140,074623000,Point(123.25 9.283333333),Valencia,Negros Oriental
+http://www.wikidata.org/entity/Q194822,074601000,Point(123.223652777 9.464366666),Amlan,Negros Oriental
+http://www.wikidata.org/entity/Q356106,061906000,Point(122.510277777 11.409444444),Jamindan,Capiz
+http://www.wikidata.org/entity/Q356081,061905000,Point(122.69083 11.52167),Ivisan,Capiz
+http://www.wikidata.org/entity/Q356368,061916000,Point(122.6662 11.4214),Sigma,Capiz
+http://www.wikidata.org/entity/Q194874,074603000,Point(123.294811111 9.246366666),Bacong,Negros Oriental
+http://www.wikidata.org/entity/Q195004,074614000,Point(122.916666666 9.733333333),Mabinay,Negros Oriental
+http://www.wikidata.org/entity/Q356053,061904000,Point(122.687777777 11.263055555),Dumarao,Capiz
+http://www.wikidata.org/entity/Q356398,061917000,Point(122.536944444 11.262222222),Tapaz,Capiz
+http://www.wikidata.org/entity/Q194854,074602000,Point(123.146758333 9.8584),Ayungon,Negros Oriental
+http://www.wikidata.org/entity/Q194967,074612000,Point(123.1999 9.9797),Jimalalud,Negros Oriental
+http://www.wikidata.org/entity/Q35975,1404401000,Point(121.099444444 17.041388888),Barlig,Mountain Province
+http://www.wikidata.org/entity/Q36049,1404406000,Point(121.403611111 17.181111111),Paracelis,Mountain Province
+http://www.wikidata.org/entity/Q36025,1404404000,Point(120.977222222 17.09),Bontoc,Mountain Province
+http://www.wikidata.org/entity/Q36061,1404407000,Point(120.923333333 17.004444444),Sabangan,Mountain Province
+http://www.wikidata.org/entity/Q30042,1408103000,Point(121.418611111 18.214722222),Flora,Mountain Province
+http://www.wikidata.org/entity/Q36076,1404408000,Point(121.026388888 17.168055555),Sadanga,Mountain Province
+http://www.wikidata.org/entity/Q36012,1404403000,Point(120.856111111 17.095277777),Besao,Mountain Province
+http://www.wikidata.org/entity/Q36040,1404405000,Point(121.279722222 17.108888888),Natonin,Mountain Province
+http://www.wikidata.org/entity/Q35994,1404402000,Point(120.864444444 16.991666666),Bauko,Mountain Province
+http://www.wikidata.org/entity/Q30042,1408103000,Point(121.418611111 18.214722222),Flora,Kalinga-Apayao
+http://www.wikidata.org/entity/Q12867,0102920000,Point(120.458333333 17.743055555),San Juan,Ilocos Sur
+http://www.wikidata.org/entity/Q12859,0102917000,Point(120.578611111 17.239444444),San Emilio,Ilocos Sur
+http://www.wikidata.org/entity/Q12853,0102915000,Point(120.676388888 17.138333333),Quirino,Ilocos Sur
+http://www.wikidata.org/entity/Q12885,0102928000,Point(120.410833333 17.641388888),Santo Domingo,Ilocos Sur
+http://www.wikidata.org/entity/Q12863,0102918000,Point(120.445277777 17.332222222),San Esteban,Ilocos Sur
+http://www.wikidata.org/entity/Q12884,0102927000,Point(120.445277777 17.294722222),Santiago,Ilocos Sur
+http://www.wikidata.org/entity/Q12848,0102913000,Point(120.525277777 17.446944444),Nagbukel,Ilocos Sur
+http://www.wikidata.org/entity/Q12875,0102923000,Point(120.364444444 17.591666666),Santa Catalina,Ilocos Sur
+http://www.wikidata.org/entity/Q12864,0102919000,Point(120.393888888 17.627222222),San Ildefonso,Ilocos Sur
+http://www.wikidata.org/entity/Q12882,0102925000,Point(120.449444444 17.122222222),Santa Lucia,Ilocos Sur
+http://www.wikidata.org/entity/Q12888,0102929000,Point(120.580555555 17.043888888),Sigay,Ilocos Sur
+http://www.wikidata.org/entity/Q12868,0102921000,Point(120.375277777 17.594722222),San Vicente,Ilocos Sur
+http://www.wikidata.org/entity/Q12856,0102916000,Point(120.536111111 17.151666666),Salcedo,Ilocos Sur
+http://www.wikidata.org/entity/Q12873,0102922000,Point(120.434444444 17.486041666),Santa,Ilocos Sur
+http://www.wikidata.org/entity/Q12891,0102930000,Point(120.458333333 17.866666666),Sinait,Ilocos Sur
+http://www.wikidata.org/entity/Q12880,0102924000,Point(120.455277777 17.085277777),Santa Cruz,Ilocos Sur
+http://www.wikidata.org/entity/Q12893,0102931000,Point(120.515277777 16.844722222),Sugpon,Ilocos Sur
+http://www.wikidata.org/entity/Q12895,0102933000,Point(120.446388888 16.936111111),Tagudin,Ilocos Sur
+http://www.wikidata.org/entity/Q12894,0102932000,Point(120.513888888 16.983888888),Suyo,Ilocos Sur
+http://www.wikidata.org/entity/Q13871,0105500000,Point(120.333333333 15.916666666),,Ilocos Region
+http://www.wikidata.org/entity/Q13813,012800000,Point(120.75 18.166666666),Ilocos Norte,Ilocos Region
+http://www.wikidata.org/entity/Q13829,013300000,Point(120.416666666 16.5),La Union,Ilocos Region
+http://www.wikidata.org/entity/Q459787,063022000,Point(122.566666666 10.7),Iloilo City,Western Visayas
+http://www.wikidata.org/entity/Q569215,060403000,Point(122.333055555 11.638888888),Banga,Aklan
+http://www.wikidata.org/entity/Q434743,060401000,Point(122.486944444 11.538333333),Altavas,Aklan
+http://www.wikidata.org/entity/Q13763,051600000,Point(122.75 14.166666666),,Bicol Region
+http://www.wikidata.org/entity/Q13847,054100000,Point(123.583333333 12.266666666),Masbate,Bicol Region
+http://www.wikidata.org/entity/Q13778,052000000,Point(124.25 13.833333333),Catanduanes,Bicol Region
+http://www.wikidata.org/entity/Q13726,050500000,Point(123.633333333 13.233333333),,Bicol Region
+http://www.wikidata.org/entity/Q13767,051700000,Point(123.333333333 13.666666666),Camarines Sur,Bicol Region
+http://www.wikidata.org/entity/Q13723,060400000,Point(122.333333333 11.666666666),Aklan,Western Visayas
+http://www.wikidata.org/entity/Q13772,061900000,Point(122.633333333 11.383333333),Capiz,Western Visayas
+http://www.wikidata.org/entity/Q13825,063000000,Point(122.666666666 11.0),,Western Visayas
+http://www.wikidata.org/entity/Q13727,060600000,Point(122.08333 11.16667),Antique,Western Visayas
+http://www.wikidata.org/entity/Q13810,067900000,Point(122.583333333 10.566666666),Guimaras,Western Visayas
+http://www.wikidata.org/entity/Q13861,144400000,Point(121.166666666 17.083333333),Mountain Province,Cordillera Administrative Region
+http://www.wikidata.org/entity/Q13812,142700000,Point(121.166666666 16.833333333),Ifugao,Cordillera Administrative Region
+http://www.wikidata.org/entity/Q13728,148100000,Point(121.25 17.75),Apayao,Cordillera Administrative Region
+http://www.wikidata.org/entity/Q13750,141100000,Point(120.666666666 16.5),Benguet,Cordillera Administrative Region
+http://www.wikidata.org/entity/Q13827,1403200000,Point(121.283333333 17.433333333),,Cordillera Administrative Region
+http://www.wikidata.org/entity/Q13711,140100000,Point(120.783333333 17.583333333),Abra,Cordillera Administrative Region
+http://www.wikidata.org/entity/Q13826,023100000,Point(122.0 17.0),Isabela,Cagayan Valley
+http://www.wikidata.org/entity/Q13759,021500000,Point(121.8 18.0),Cagayan,Cagayan Valley
+http://www.wikidata.org/entity/Q13866,025000000,Point(121.15 16.483333333),Nueva Vizcaya,Cagayan Valley
+http://www.wikidata.org/entity/Q13873,0205700000,Point(121.583333333 16.283333333),,Cagayan Valley
+http://www.wikidata.org/entity/Q13740,0200900000,Point(121.9 20.583333333),,Cagayan Valley
+http://www.wikidata.org/entity/Q13739,030800000,Point(120.45 14.68),Bataan,Central Luzon
+http://www.wikidata.org/entity/Q13865,034900000,Point(121.0 15.583333333),Nueva Ecija,Central Luzon
+http://www.wikidata.org/entity/Q13870,035400000,Point(120.666666666 15.066666666),,Central Luzon
+http://www.wikidata.org/entity/Q13755,031400000,Point(121.083333333 15.0),Bulacan,Central Luzon
+http://www.wikidata.org/entity/Q13730,037700000,Point(121.55 15.883333333),,Central Luzon
+http://www.wikidata.org/entity/Q13714,160200000,Point(125.5 9.166666666),,Caraga
+http://www.wikidata.org/entity/Q13791,124700000,Point(124.85 7.2),Cotabato,Soccsksargen
+http://www.wikidata.org/entity/Q13807,168500000,Point(125.6 10.1),Dinagat Islands,Caraga
+http://www.wikidata.org/entity/Q13721,160300000,Point(125.833333333 8.5),,Caraga
+http://www.wikidata.org/entity/Q13794,1102400000,Point(125.5 6.333333333),,Davao Region
+http://www.wikidata.org/entity/Q13792,1102300000,Point(125.7 7.35),,Davao Region
+http://www.wikidata.org/entity/Q13806,1102500000,Point(126.333333333 7.166666666),,Davao Region
+http://www.wikidata.org/entity/Q13789,1108200000,Point(125.95 7.6),,Davao Region
+http://www.wikidata.org/entity/Q13862,0604500000,Point(123.0 10.416666666),,Negros Island Region
+http://www.wikidata.org/entity/Q13863,074600000,Point(123.116666666 10.05),Negros Oriental,Negros Island Region
+http://www.wikidata.org/entity/Q13879,076100000,Point(123.58 9.18),,Negros Island Region
+http://www.wikidata.org/entity/Q406267,0807804000,Point(124.583333333 11.566666666),Caibiran,Biliran
+http://www.wikidata.org/entity/Q406353,0807806000,Point(124.366666666 11.7),Kawayan,Biliran
+http://www.wikidata.org/entity/Q406163,0807801000,Point(124.379355555 11.620572222),Almeria,Biliran
+http://www.wikidata.org/entity/Q406186,0807802000,Point(124.483333333 11.466666666),Biliran,Biliran
+http://www.wikidata.org/entity/Q406226,0807803000,Point(124.575 11.47194),Cabucgayan,Biliran
+http://www.wikidata.org/entity/Q406317,0807805000,Point(124.5425 11.65778),Culaba,Biliran
+http://www.wikidata.org/entity/Q406393,0807807000,Point(124.348 11.776),Maripipi,Biliran
+http://www.wikidata.org/entity/Q13841,103500000,Point(124.0 8.033333333),Lanao del Norte,Northern Mindanao
+http://www.wikidata.org/entity/Q13753,101300000,Point(125.083333333 7.916666666),Bukidnon,Northern Mindanao
+http://www.wikidata.org/entity/Q13860,104300000,Point(125.0 8.75),,Northern Mindanao
+http://www.wikidata.org/entity/Q13769,101800000,Point(124.716666666 9.166666666),,Northern Mindanao
+http://www.wikidata.org/entity/Q13857,104200000,Point(123.7 8.333333333),Misamis Occidental,Northern Mindanao
+http://www.wikidata.org/entity/Q315314,1204712000,Point(124.671855555 7.055022222),Pikit,Cotabato
+http://www.wikidata.org/entity/Q315334,1204713000,Point(125.051294444 7.159383333),President Roxas,Cotabato
+http://www.wikidata.org/entity/Q315345,1204714000,Point(124.874697222 6.831488888),Tulunan,Cotabato
+http://www.wikidata.org/entity/Q315283,1204709000,Point(124.533333333 7.191666666),Midsayap,Cotabato
+http://www.wikidata.org/entity/Q13843,153600000,Point(124.283333333 8.0),Lanao del Sur,Bangsamoro
+http://www.wikidata.org/entity/Q13845,153800000,Point(124.3 7.133333333),Maguindanao,Bangsamoro
+http://www.wikidata.org/entity/Q13737,150700000,Point(122.033333333 6.566666666),,Bangsamoro
+http://www.wikidata.org/entity/Q40626,0831600000,Point(125.003888888 11.244444444),Tacloban,Eastern Visayas
+http://www.wikidata.org/entity/Q492817,060607000,Point(121.945 10.517777777),"Tobias Fornier, Antique",Antique
+http://www.wikidata.org/entity/Q492155,060602000,Point(122.038888888 11.196111111),Barbaza,Antique
+http://www.wikidata.org/entity/Q492862,060618000,Point(122.129444444 11.003611111),Valderrama,Antique
+http://www.wikidata.org/entity/Q492363,0600605000,Point(121.548 11.932),Caluya,Antique
+http://www.wikidata.org/entity/Q492263,060603000,Point(121.960555555 10.838055555),Belison,Antique
+http://www.wikidata.org/entity/Q492577,060612000,Point(121.994722222 10.914166666),Patnongon,Antique
+http://www.wikidata.org/entity/Q492742,060616000,Point(122.0175 10.788333333),Sibalom,Antique
+http://www.wikidata.org/entity/Q492673,060614000,Point(122.087505555 10.833091666),San Remigio,Antique
+http://www.wikidata.org/entity/Q492325,060604000,Point(122.064722222 11.044722222),Bugasong,Antique
+http://www.wikidata.org/entity/Q492619,0600613000,Point(121.941111111 10.743333333),San Jose de Buenavista,Antique
+http://www.wikidata.org/entity/Q492707,060615000,Point(122.0945 11.5901),Sebaste,Antique
+http://www.wikidata.org/entity/Q492406,0600606000,Point(122.05601 11.42721),Culasi,Antique
+http://www.wikidata.org/entity/Q492479,060609000,Point(122.041733333 11.142944444),Laua-an,Antique
+http://www.wikidata.org/entity/Q492119,060601000,Point(121.925286111 10.432475),Anini-y,Antique
+http://www.wikidata.org/entity/Q492516,060610000,Point(121.918866666 11.768972222),Libertad,Antique
+http://www.wikidata.org/entity/Q492545,060611000,Point(122.096111111 11.720555555),Pandan,Antique
+http://www.wikidata.org/entity/Q492780,060617000,Point(122.034166666 11.289166666),Tibiao,Antique
+http://www.wikidata.org/entity/Q13752,0701200000,Point(124.216666666 9.883333333),Bohol,Central Visayas
+http://www.wikidata.org/entity/Q13786,072200000,Point(123.75 10.316666666),,Central Visayas
+http://www.wikidata.org/entity/Q13751,087800000,Point(124.483333333 11.583333333),Biliran,Eastern Visayas
+http://www.wikidata.org/entity/Q13864,084800000,Point(124.666666666 12.333333333),Northern Samar,Eastern Visayas
+http://www.wikidata.org/entity/Q13844,083700000,Point(124.85 11.0),,Eastern Visayas
+http://www.wikidata.org/entity/Q13809,082600000,Point(125.416666666 11.666666666),Eastern Samar,Eastern Visayas
+http://www.wikidata.org/entity/Q13876,086000000,Point(125.0 11.833333333),Samar,Eastern Visayas
+http://www.wikidata.org/entity/Q39303,0102803000,Point(120.475369444 17.926711111),Badoc,Ilocos Norte
+http://www.wikidata.org/entity/Q39573,0102816000,Point(120.520277777 18.0625),Paoay,Ilocos Norte
+http://www.wikidata.org/entity/Q39429,0102809000,Point(120.6975 18.103611111),Dingras,Ilocos Norte
+http://www.wikidata.org/entity/Q39523,0102813000,Point(120.678611111 18.044444444),Marcos,Ilocos Norte
+http://www.wikidata.org/entity/Q39393,0102807000,Point(120.821388888 18.142777777),Carasi,Ilocos Norte
+http://www.wikidata.org/entity/Q39540,0102814000,Point(120.666666666 17.916666666),Nueva Era,Ilocos Norte
+http://www.wikidata.org/entity/Q39271,0102802000,Point(120.610713888 18.251886111),Bacarra,Ilocos Norte
+http://www.wikidata.org/entity/Q39241,0102801000,Point(120.902102777 18.461419444),Adams,Ilocos Norte
+http://www.wikidata.org/entity/Q39511,0102810000,Point(120.811541666 18.521666666),Dumalneg,Ilocos Norte
+http://www.wikidata.org/entity/Q39629,0102819000,Point(120.527 17.954),Pinili,Ilocos Norte
+http://www.wikidata.org/entity/Q39559,0102815000,Point(120.787777777 18.561388888),Pagudpud,Ilocos Norte
+http://www.wikidata.org/entity/Q39346,0102811000,Point(120.654444444 17.980555555),Banna,Ilocos Norte
+http://www.wikidata.org/entity/Q39326,0102804000,Point(120.765277777 18.537777777),Bangui,Ilocos Norte
+http://www.wikidata.org/entity/Q39711,0102805000,Point(120.56489 18.0554),Batac,Ilocos Norte
+http://www.wikidata.org/entity/Q39694,0102823000,Point(120.648888888 18.230555555),Vintar,Ilocos Norte
+http://www.wikidata.org/entity/Q39616,0102818000,Point(120.717222222 18.164722222),Piddig,Ilocos Norte
+http://www.wikidata.org/entity/Q39416,0102808000,Point(120.486388888 18.020277777),Currimao,Ilocos Norte
+http://www.wikidata.org/entity/Q39673,0102821000,Point(120.644722222 18.157777777),Sarrat,Ilocos Norte
+http://www.wikidata.org/entity/Q39677,0102822000,Point(120.7725 18.096111111),Solsona,Ilocos Norte
+http://www.wikidata.org/entity/Q39653,0102820000,Point(120.594 18.173),San Nicolas,Ilocos Norte
+http://www.wikidata.org/entity/Q39368,0102806000,Point(120.644444444 18.511388888),Burgos,Ilocos Norte
+http://www.wikidata.org/entity/Q39738,012812000,Point(120.593611111 18.197777777),Laoag,Ilocos Norte
+http://www.wikidata.org/entity/Q39591,0102817000,Point(120.618333333 18.334166666),Pasuquin,Ilocos Norte
+http://www.wikidata.org/entity/Q406046,071247000,Point(124.208 9.6097),Valencia,Bohol
+http://www.wikidata.org/entity/Q405980,071245000,Point(123.966666666 9.95),Tubigon,Bohol
+http://www.wikidata.org/entity/Q404680,0701211000,Point(124.496 9.818),,Bohol
+http://www.wikidata.org/entity/Q404951,071221000,Point(124.4 9.716666666),Duero,Bohol
+http://www.wikidata.org/entity/Q404489,071205000,Point(123.913472222 9.622680555),Baclayon,Bohol
+http://www.wikidata.org/entity/Q405749,071244000,Point(124.34324 10.07955),Trinidad,Bohol
+http://www.wikidata.org/entity/Q405197,071229000,Point(124.033333333 9.633333333),,Bohol
+http://www.wikidata.org/entity/Q404908,0701219000,Point(123.865 9.625),Dauis,Bohol
+http://www.wikidata.org/entity/Q405303,071232000,Point(123.85 9.75),Maribojoc,Bohol
+http://www.wikidata.org/entity/Q404403,071202000,Point(124.441516666 9.895708333),Alicia,Bohol
+http://www.wikidata.org/entity/Q405005,071226000,Point(124.15 10.15),Getafe,Bohol
+http://www.wikidata.org/entity/Q404623,071209000,Point(124.116666666 10.083333333),Buenavista,Bohol
+http://www.wikidata.org/entity/Q404775,071214000,Point(124.016666666 9.966666666),Clarin,Bohol
+http://www.wikidata.org/entity/Q404549,071207000,Point(124.133333333 9.8),Batuan,Bohol
+http://www.wikidata.org/entity/Q405088,071224000,Point(124.066666666 10.033333333),Inabanga,Bohol
+http://www.wikidata.org/entity/Q405714,0701243000,Point(124.327 10.151),Talibon,Bohol
+http://www.wikidata.org/entity/Q405628,071240000,Point(124.283333333 9.816666666),Sierra Bullones,Bohol
+http://www.wikidata.org/entity/Q404976,071222000,Point(124.2946 9.6144),Garcia Hernandez,Bohol
+http://www.wikidata.org/entity/Q404459,071204000,Point(123.897497222 9.7812),Antequera,Bohol
+http://www.wikidata.org/entity/Q404882,071218000,Point(124.266666666 10.016666666),Danao,Bohol
+http://www.wikidata.org/entity/Q404799,071215000,Point(123.916666666 9.683333333),Corella,Bohol
+http://www.wikidata.org/entity/Q404604,071208000,Point(124.105 9.707777777),Bilar,Bohol
+http://www.wikidata.org/entity/Q405058,0701223000,Point(124.488 9.762),,Bohol
+http://www.wikidata.org/entity/Q386388,071239000,Point(124.05 9.7),Sevilla,Bohol
+http://www.wikidata.org/entity/Q404825,071216000,Point(123.883333333 9.716666666),Cortes,Bohol
+http://www.wikidata.org/entity/Q405674,071241000,Point(123.966666666 9.683333333),Sikatuna,Bohol
+http://www.wikidata.org/entity/Q404854,071217000,Point(124.283333333 9.916666666),Dagohoy,Bohol
+http://www.wikidata.org/entity/Q405427,0701235000,Point(124.553 10.121),President Carlos P. Garcia,Bohol
+http://www.wikidata.org/entity/Q405224,0701230000,Point(123.8 9.8),Loon,Bohol
+http://www.wikidata.org/entity/Q404434,0701203000,Point(124.576 9.744),Anda,Bohol
+http://www.wikidata.org/entity/Q405171,071228000,Point(124.016666666 9.6),Loay,Bohol
+http://www.wikidata.org/entity/Q404930,071220000,Point(124.166666666 9.616666666),Dimiao,Bohol
+http://www.wikidata.org/entity/Q404750,071213000,Point(124.033333333 9.833333333),Catigbian,Bohol
+http://www.wikidata.org/entity/Q406015,071246000,Point(124.47294 10.056),Ubay,Bohol
+http://www.wikidata.org/entity/Q404652,071210000,Point(123.883333333 9.883333333),Calape,Bohol
+http://www.wikidata.org/entity/Q404581,0701248000,Point(124.379 10.136),Bien Unido,Bohol
+http://www.wikidata.org/entity/Q405110,071225000,Point(124.366666666 9.65),Jagna,Bohol
+http://www.wikidata.org/entity/Q405472,071236000,Point(124.1 9.916666666),Sagbayan,Bohol
+http://www.wikidata.org/entity/Q404519,071206000,Point(123.966666666 9.75),Balilihan,Bohol
+http://www.wikidata.org/entity/Q405544,071238000,Point(124.316666666 10.0),San Miguel,Bohol
+http://www.wikidata.org/entity/Q405141,071227000,Point(124.1 9.6),Lila,Bohol
+http://www.wikidata.org/entity/Q404369,071201000,Point(123.954888888 9.610447222),Alburquerque,Bohol
+http://www.wikidata.org/entity/Q405384,071234000,Point(124.333333333 9.833333333),Pilar,Bohol
+http://www.wikidata.org/entity/Q405268,071231000,Point(124.523 9.865),,Bohol
+http://www.wikidata.org/entity/Q40239,0103302000,Point(120.355480555 16.398208333),Aringay,La Union
+http://www.wikidata.org/entity/Q40500,0103315000,Point(120.4 16.666666666),San Gabriel,La Union
+http://www.wikidata.org/entity/Q40313,0103307000,Point(120.333333333 16.533333333),Bauang,La Union
+http://www.wikidata.org/entity/Q40466,0103312000,Point(120.483333333 16.283333333),Pugo,La Union
+http://www.wikidata.org/entity/Q40517,0103316000,Point(120.333333333 16.666666666),San Juan,La Union
+http://www.wikidata.org/entity/Q40419,0103310000,Point(120.377 16.853),,La Union
+http://www.wikidata.org/entity/Q40584,013314000,Point(120.316666666 16.616666666),San Fernando,La Union
+http://www.wikidata.org/entity/Q40372,0103308000,Point(120.458333333 16.525),Burgos,La Union
+http://www.wikidata.org/entity/Q40298,0103306000,Point(120.423 16.893),,La Union
+http://www.wikidata.org/entity/Q40562,0103320000,Point(120.416666666 16.35),Tubao,La Union
+http://www.wikidata.org/entity/Q40275,0103304000,Point(120.437833333 16.607902777),Bagulin,La Union
+http://www.wikidata.org/entity/Q40168,0103301000,Point(120.364675 16.321961111),Agoo,La Union
+http://www.wikidata.org/entity/Q40521,0103317000,Point(120.383333333 16.283333333),Santo Tomas,La Union
+http://www.wikidata.org/entity/Q40450,0103311000,Point(120.4 16.533333333),Naguilian,La Union
+http://www.wikidata.org/entity/Q40259,0103303000,Point(120.348086111 16.719688888),Bacnotan,La Union
+http://www.wikidata.org/entity/Q40282,0103305000,Point(120.403 16.822),,La Union
+http://www.wikidata.org/entity/Q40557,0103319000,Point(120.466666666 16.9),Sudipen,La Union
+http://www.wikidata.org/entity/Q40536,0103318000,Point(120.45 16.766666666),Santol,La Union
+http://www.wikidata.org/entity/Q40393,0103309000,Point(120.3446 16.4316),Caba,La Union
+http://www.wikidata.org/entity/Q40486,0103313000,Point(120.483333333 16.233333333),Rosario,La Union
+http://www.wikidata.org/entity/Q357272,1001314000,Point(124.865555555 8.3675),Manolo Fortich,Bukidnon
+http://www.wikidata.org/entity/Q357371,1001318000,Point(125.328611111 7.917777777),San Fernando,Bukidnon
+http://www.wikidata.org/entity/Q357175,1001309000,Point(125.008611111 7.640555555),Kitaotao,Bukidnon
+http://www.wikidata.org/entity/Q357299,1001315000,Point(125.005 7.763055555),Maramag,Bukidnon
+http://www.wikidata.org/entity/Q357342,1001317000,Point(125.1 7.730555555),Quezon,Bukidnon
+http://www.wikidata.org/entity/Q357420,1001320000,Point(124.6025 8.231944444),Talakag,Bukidnon
+http://www.wikidata.org/entity/Q357252,1001313000,Point(124.880833333 8.536111111),Malitbog,Bukidnon
+http://www.wikidata.org/entity/Q357311,1001316000,Point(124.829444444 7.833055555),Pangantucan,Bukidnon
+http://www.wikidata.org/entity/Q357152,1001308000,Point(124.990277777 7.567777777),Kibawe,Bukidnon
+http://www.wikidata.org/entity/Q357226,1001311000,Point(124.743333333 8.333333333),Libona,Bukidnon
+http://www.wikidata.org/entity/Q357396,1001319000,Point(124.978333333 8.328055555),Sumilao,Bukidnon
+http://www.wikidata.org/entity/Q357198,1001310000,Point(125.023333333 8.0),Lantapan,Bukidnon
+http://www.wikidata.org/entity/Q542154,126306000,Point(124.85 6.5),Koronadal,South Cotabato
+http://www.wikidata.org/entity/Q373204,0405813000,Point(121.1325 14.569167),,Rizal
+http://www.wikidata.org/entity/Q36099,1404410000,Point(120.820833333 16.996111111),Tadian,Mountain Province
+http://www.wikidata.org/entity/Q36090,1404409000,Point(120.900833333 17.084166666),Sagada,Mountain Province
+http://www.wikidata.org/entity/Q806550,1900000000,Point(124.25 7.216666666),Bangsamoro,Philippines
+http://www.wikidata.org/entity/Q749283,1381400000,Point(121.03 14.604),San Juan,Metro Manila
+http://www.wikidata.org/entity/Q1017325,1381701000,Point(121.0671 14.5448),Pateros,Metro Manila
+http://www.wikidata.org/entity/Q594275,126303000,Point(125.166666666 6.116666666),General Santos,Soccsksargen
+http://www.wikidata.org/entity/Q574903,0731100000,Point(123.9488 10.3127),Lapu-Lapu,Central Visayas
+http://www.wikidata.org/entity/Q772211,133909000,Point(120.975 14.590833333),,Manila
+http://www.wikidata.org/entity/Q801530,1400121000,Point(120.6017 17.4656),San Isidro,Abra
+http://www.wikidata.org/entity/Q107573,1705208000,Point(121.30282 13.32328),,Oriental Mindoro
+http://www.wikidata.org/entity/Q107606,1705213000,Point(121.019166666 13.435833333),San Teodoro,Oriental Mindoro
+http://www.wikidata.org/entity/Q107598,1705212000,Point(121.5 12.583333333),Roxas,Oriental Mindoro
+http://www.wikidata.org/entity/Q107538,1705201000,Point(121.097663888 13.358394444),Baco,Oriental Mindoro
+http://www.wikidata.org/entity/Q107624,1705205000,Point(121.18 13.414),Calapan,Oriental Mindoro
+http://www.wikidata.org/entity/Q107567,1705207000,Point(121.43851 12.52044),,Oriental Mindoro
+http://www.wikidata.org/entity/Q107578,1705209000,Point(121.488888888 13.036388888),Pinamalayan,Oriental Mindoro
+http://www.wikidata.org/entity/Q107593,1705211000,Point(120.954167 13.5),,Oriental Mindoro
+http://www.wikidata.org/entity/Q107585,1705210000,Point(121.44 13.143888888),Pola,Oriental Mindoro
+http://www.wikidata.org/entity/Q107554,1705204000,Point(121.343 12.325),Bulalacao,Oriental Mindoro
+http://www.wikidata.org/entity/Q107550,1705203000,Point(121.488055555 12.746944444),Bongabong,Oriental Mindoro
+http://www.wikidata.org/entity/Q107559,1705206000,Point(121.477777777 12.972222222),Gloria,Oriental Mindoro
+http://www.wikidata.org/entity/Q107618,1705215000,Point(121.275555555 13.171944444),Victoria,Oriental Mindoro
+http://www.wikidata.org/entity/Q107612,1705214000,Point(121.411667 13.058333),Socorro,Oriental Mindoro
+http://www.wikidata.org/entity/Q107543,1705202000,Point(121.456666666 12.859444444),Bansud,Oriental Mindoro
+http://www.wikidata.org/entity/Q123163,0502006000,Point(124.166666666 14.05),Pandan,Catanduanes
+http://www.wikidata.org/entity/Q107499,1705108000,Point(120.966666666 12.466666666),Rizal,Occidental Mindoro
+http://www.wikidata.org/entity/Q107505,1705109000,Point(120.775 12.842777777),,Occidental Mindoro
+http://www.wikidata.org/entity/Q107519,1705111000,Point(120.719166666 13.083055555),Santa Cruz,Occidental Mindoro
+http://www.wikidata.org/entity/Q107511,1705110000,Point(121.06761 12.35275),San Jose,Occidental Mindoro
+http://www.wikidata.org/entity/Q126297,1903640000,Point(124.253608333 7.763375),Sultan Dumalondong,Lanao del Sur
+http://www.wikidata.org/entity/Q107493,1705107000,Point(120.466666666 13.416666666),Paluan,Occidental Mindoro
+http://www.wikidata.org/entity/Q801777,1408105000,Point(121.3725 18.331111111),Luna,Apayao
+http://www.wikidata.org/entity/Q583137,124704000,Point(125.08944 7.00833),Kidapawan,Cotabato
+http://www.wikidata.org/entity/Q840162,0502008000,Point(124.099166666 13.596111111),San Andres,Catanduanes
+http://www.wikidata.org/entity/Q111707,1705319000,Point(119.254166666 10.528055555),San Vicente,Palawan
+http://www.wikidata.org/entity/Q111521,1705314000,Point(121.05 10.866666666),Magsaysay,Palawan
+http://www.wikidata.org/entity/Q111372,1705304000,Point(117.065 7.986),Balabac,Palawan
+http://www.wikidata.org/entity/Q111730,1705320000,Point(119.516666666 10.816666666),Taytay,Palawan
+http://www.wikidata.org/entity/Q111378,1705305000,Point(117.616666666 8.666666666),Bataraza,Palawan
+http://www.wikidata.org/entity/Q111662,1705317000,Point(117.996666666 9.235),Quezon,Palawan
+http://www.wikidata.org/entity/Q111414,1705309000,Point(120.205277777 11.998888888),Coron,Palawan
+http://www.wikidata.org/entity/Q111689,1705318000,Point(119.340833333 10.319722222),Roxas,Palawan
+http://www.wikidata.org/entity/Q111427,1705322000,Point(120.022 11.89),Culion,Palawan
+http://www.wikidata.org/entity/Q111338,1705301000,Point(118.548136111 9.438638888),Aborlan,Palawan
+http://www.wikidata.org/entity/Q111677,1705323000,Point(117.643 9.034),Rizal,Palawan
+http://www.wikidata.org/entity/Q111495,1705321000,Point(114.283333333 11.052222222),Kalayaan,Palawan
+http://www.wikidata.org/entity/Q111506,1705313000,Point(119.871 11.492),Linapacan,Palawan
+http://www.wikidata.org/entity/Q111386,1705306000,Point(117.833333333 8.783333333),Brooke's Point,Palawan
+http://www.wikidata.org/entity/Q111351,1705302000,Point(120.939647222 11.151983333),Agutaya,Palawan
+http://www.wikidata.org/entity/Q111535,1705315000,Point(118.416666666 9.283333333),Narra,Palawan
+http://www.wikidata.org/entity/Q111468,1705311000,Point(119.766666666 10.533333333),Dumaran,Palawan
+http://www.wikidata.org/entity/Q111402,1705308000,Point(121.1972 9.5769),Cagayancillo,Palawan
+http://www.wikidata.org/entity/Q111438,1705310000,Point(121.016666666 10.85),Cuyo,Palawan
+http://www.wikidata.org/entity/Q111483,1705312000,Point(119.39 11.18),,Palawan
+http://www.wikidata.org/entity/Q111719,1705324000,Point(117.994008333 8.954755555),Sofronio Española,Palawan
+http://www.wikidata.org/entity/Q111360,1705303000,Point(119.990413888 10.5529),Araceli,Palawan
+http://www.wikidata.org/entity/Q111393,1705307000,Point(119.937 12.132),Busuanga,Palawan
+http://www.wikidata.org/entity/Q894059,082604000,Point(125.436111111 11.609444444),Borongan,Eastern Samar
+http://www.wikidata.org/entity/Q592338,153617000,Point(124.285 8.003055555),Marawi,Lanao del Sur
+http://www.wikidata.org/entity/Q628590,074604000,Point(123.121269444 9.590661111),Bais,Negros Oriental
+http://www.wikidata.org/entity/Q873377,074610000,Point(123.308056 9.310278),,Negros Oriental
+http://www.wikidata.org/entity/Q806138,1402701000,Point(121.061388888 16.911944444),Banaue,Ifugao
+http://www.wikidata.org/entity/Q812113,074606000,Point(122.8 9.366666666),Bayawan,Negros Oriental
+http://www.wikidata.org/entity/Q991602,074608000,Point(123.2 10.383333333),Canlaon,Negros Oriental
+http://www.wikidata.org/entity/Q576805,0600405000,Point(121.888794444 11.843752777),Buruanga,Aklan
+http://www.wikidata.org/entity/Q626721,060407000,Point(122.37 11.707222222),Kalibo,Aklan
+http://www.wikidata.org/entity/Q626695,060406000,Point(122.161666666 11.821111111),Ibajay,Aklan
+http://www.wikidata.org/entity/Q626959,060414000,Point(122.093888888 11.827777777),Nabas,Aklan
+http://www.wikidata.org/entity/Q626935,060413000,Point(122.307222222 11.643055555),Malinao,Aklan
+http://www.wikidata.org/entity/Q626586,060402000,Point(122.379166666 11.555277777),Balete,Aklan
+http://www.wikidata.org/entity/Q627028,060417000,Point(122.260277777 11.7775),Tangalan,Aklan
+http://www.wikidata.org/entity/Q626820,060410000,Point(122.306388888 11.526944444),Madalag,Aklan
+http://www.wikidata.org/entity/Q626905,0600412000,Point(121.909444444 11.899722222),,Aklan
+http://www.wikidata.org/entity/Q626786,060409000,Point(122.3 11.483333333),Libacao,Aklan
+http://www.wikidata.org/entity/Q627008,060416000,Point(122.328888888 11.704166666),Numancia,Aklan
+http://www.wikidata.org/entity/Q626645,060404000,Point(122.498055555 11.585277777),Batan,Aklan
+http://www.wikidata.org/entity/Q626873,060411000,Point(122.2922 11.712),Makato,Aklan
+http://www.wikidata.org/entity/Q626746,060408000,Point(122.326944444 11.669722222),Lezo,Aklan
+http://www.wikidata.org/entity/Q626992,060415000,Point(122.433888888 11.648333333),New Washington,Aklan
+http://www.wikidata.org/entity/Q816564,0806021000,Point(124.933333333 11.566666666),Villareal,Samar
+http://www.wikidata.org/entity/Q816413,0806014000,Point(125.027222222 12.055),San Jose de Buan,Samar
+http://www.wikidata.org/entity/Q816160,0806007000,Point(124.8118 12.013),Gandara,Samar
+http://www.wikidata.org/entity/Q816207,0806009000,Point(124.95194 11.7625),Jiabong,Samar
+http://www.wikidata.org/entity/Q816454,0806016000,Point(124.65778 12.03778),Santa Margarita,Samar
+http://www.wikidata.org/entity/Q816184,0806008000,Point(125.066666666 11.7),Hinabangan,Samar
+http://www.wikidata.org/entity/Q809957,0806002000,Point(125.06833 11.28167),Basey,Samar
+http://www.wikidata.org/entity/Q816296,0806012000,Point(125.0 11.783333333),Motiong,Samar
+http://www.wikidata.org/entity/Q577336,0806003000,Point(124.594722222 12.066944444),Calbayog,Samar
+http://www.wikidata.org/entity/Q816128,0806004000,Point(125.016666666 11.633333333),Calbiga,Samar
+http://www.wikidata.org/entity/Q816471,0806017000,Point(124.940833333 11.452222222),Santa Rita,Samar
+http://www.wikidata.org/entity/Q816142,0806006000,Point(124.7947 11.6341),Daram,Samar
+http://www.wikidata.org/entity/Q816320,0806026000,Point(124.7213 11.965088888),Pagsanghan,Samar
+http://www.wikidata.org/entity/Q816542,0806020000,Point(124.75 11.9),Tarangnan,Samar
+http://www.wikidata.org/entity/Q816342,0806022000,Point(125.022222222 11.773333333),Paranas,Samar
+http://www.wikidata.org/entity/Q608320,0806018000,Point(124.4492 11.9263),Santo Niño,Samar
+http://www.wikidata.org/entity/Q816267,0806011000,Point(124.883333333 12.15),Matuguinao,Samar
+http://www.wikidata.org/entity/Q816519,0806019000,Point(124.835555555 11.531111111),Talalora,Samar
+http://www.wikidata.org/entity/Q816435,0806015000,Point(125.016666666 11.7),San Sebastian,Samar
+http://www.wikidata.org/entity/Q816088,0806001000,Point(124.285208333 11.910772222),Almagro,Samar
+http://www.wikidata.org/entity/Q816396,0806025000,Point(124.816666666 11.983333333),San Jorge,Samar
+http://www.wikidata.org/entity/Q816240,0806010000,Point(125.212 11.107),Marabut,Samar
+http://www.wikidata.org/entity/Q126346,0806024000,Point(124.15 12.05),Tagapul-an,Samar
+http://www.wikidata.org/entity/Q726993,129804000,Point(124.25 7.216666666),Cotabato City,Bangsamoro
+http://www.wikidata.org/entity/Q1020674,112317000,Point(125.711666666 7.078333333),Samal,Davao
+http://www.wikidata.org/entity/Q1111831,133908000,Point(120.983 14.583),,Manila
+http://www.wikidata.org/entity/Q7414941,133907000,Point(121.0 14.6),San Miguel,Manila
+http://www.wikidata.org/entity/Q17081785,1800000000,Point(123.0 10.0),Negros Island Region,Philippines
+http://www.wikidata.org/entity/Q3545565,133906000,Point(121.002222222 14.603055555),Sampaloc,Manila
+http://www.wikidata.org/entity/Q7419141,133914000,Point(121.012 14.58),Santa Ana,Manila
+http://www.wikidata.org/entity/Q1075125,133903000,Point(120.983 14.6),,Manila
+http://www.wikidata.org/entity/Q7415008,133904000,Point(120.969444444 14.6),San Nicolas,Manila
+http://www.wikidata.org/entity/Q1287698,133901000,Point(120.967 14.617),Tondo,Manila
+http://www.wikidata.org/entity/Q1903520,133902000,Point(120.974 14.6),Binondo,Manila
+http://www.wikidata.org/entity/Q3545567,133905000,Point(120.985 14.6181),Santa Cruz,Manila
+http://www.wikidata.org/entity/Q3547032,133910000,Point(120.983 14.567),,Manila
+http://www.wikidata.org/entity/Q21021064,133913000,Point(120.968597 14.588726),Port Area,Manila
+http://www.wikidata.org/entity/Q208678,0501702000,Point(123.2403975 13.316856666),Balatan,Camarines Sur
+http://www.wikidata.org/entity/Q208690,0501704000,Point(123.199444444 13.686666666),Bombon,Camarines Sur
+http://www.wikidata.org/entity/Q208717,0501707000,Point(123.114166666 13.7275),Cabusao,Camarines Sur
+http://www.wikidata.org/entity/Q208683,0501703000,Point(123.367777777 13.357777777),Bato,Camarines Sur
+http://www.wikidata.org/entity/Q208699,0501705000,Point(123.516666666 13.434722222),Buhi,Camarines Sur
+http://www.wikidata.org/entity/Q208672,0501701000,Point(123.365394444 13.453455555),Baao,Camarines Sur
+http://www.wikidata.org/entity/Q208738,0501709000,Point(123.165555555 13.620833333),Camaligan,Camarines Sur
+http://www.wikidata.org/entity/Q208727,0501708000,Point(123.216111111 13.708888888),Calabanga,Camarines Sur
+http://www.wikidata.org/entity/Q208757,0501711000,Point(123.8631 13.7707),Caramoan,Camarines Sur
+http://www.wikidata.org/entity/Q208749,0501710000,Point(123.171111111 13.648055555),Canaman,Camarines Sur
+http://www.wikidata.org/entity/Q208712,0501706000,Point(123.2775 13.469444444),Bula,Camarines Sur
+http://www.wikidata.org/entity/Q205956,0102906000,Point(120.448888888 17.195833333),Candon,Ilocos Sur
+http://www.wikidata.org/entity/Q122827,1903823000,Point(124.784891666 6.781063888),Paglat,Maguindanao del Sur
+http://www.wikidata.org/entity/Q208950,0501732000,Point(123.1443199 13.5644173),San Fernando,Camarines Sur
+http://www.wikidata.org/entity/Q208924,0501730000,Point(122.789722222 13.821666666),Ragay,Camarines Sur
+http://www.wikidata.org/entity/Q208872,0501723000,Point(123.3729225 13.407768611),Nabua,Camarines Sur
+http://www.wikidata.org/entity/Q208966,0501733000,Point(123.518611111 13.698055555),San Jose,Camarines Sur
+http://www.wikidata.org/entity/Q208792,0501717000,Point(123.520833333 13.735277777),Lagonoy,Camarines Sur
+http://www.wikidata.org/entity/Q208878,0501725000,Point(123.3761 13.5594),Ocampo,Camarines Sur
+http://www.wikidata.org/entity/Q208852,0501721000,Point(123.178 13.598),,Camarines Sur
+http://www.wikidata.org/entity/Q208899,0501728000,Point(123.2740809 13.5562068),Pili,Camarines Sur
+http://www.wikidata.org/entity/Q208937,0501731000,Point(123.523333333 13.603888888),Sagñay,Camarines Sur
+http://www.wikidata.org/entity/Q208886,0501726000,Point(123.083333333 13.5925),Pamplona,Camarines Sur
+http://www.wikidata.org/entity/Q208919,0501729000,Point(123.745 13.71),Presentacion,Camarines Sur
+http://www.wikidata.org/entity/Q209024,0501737000,Point(123.324444444 13.818333333),Tinambac,Camarines Sur
+http://www.wikidata.org/entity/Q208814,0501718000,Point(123.06 13.696388888),,Camarines Sur
+http://www.wikidata.org/entity/Q208892,0501727000,Point(123.041944444 13.510277777),,Camarines Sur
+http://www.wikidata.org/entity/Q209011,0501736000,Point(123.4975 13.631944444),Tigaon,Camarines Sur
+http://www.wikidata.org/entity/Q208782,0501715000,Point(123.488888888 13.698333333),Goa,Camarines Sur
+http://www.wikidata.org/entity/Q208845,0501720000,Point(123.190277777 13.661944444),Magarao,Camarines Sur
+http://www.wikidata.org/entity/Q208775,0501714000,Point(123.7 13.883333333),Garchitorena,Camarines Sur
+http://www.wikidata.org/entity/Q208769,0501713000,Point(123.141388888 13.616666666),Gainza,Camarines Sur
+http://www.wikidata.org/entity/Q208995,0501735000,Point(123.258888888 14.021944444),Siruma,Camarines Sur
+http://www.wikidata.org/entity/Q208985,0501734000,Point(122.978333333 13.7675),Sipocot,Camarines Sur
+http://www.wikidata.org/entity/Q208864,0501722000,Point(123.181 13.567),,Camarines Sur
+http://www.wikidata.org/entity/Q208765,0501712000,Point(122.596111111 13.923333333),Del Gallego,Camarines Sur
+http://www.wikidata.org/entity/Q208835,0501719000,Point(122.909166666 13.790833333),Lupi,Camarines Sur
+http://www.wikidata.org/entity/Q12834,0102907000,Point(120.383055555 17.546944444),Caoayan,Ilocos Sur
+http://www.wikidata.org/entity/Q12835,0102908000,Point(120.733333333 16.991666666),Cervantes,Ilocos Sur
+http://www.wikidata.org/entity/Q12828,0102904000,Point(120.494444444 17.333055555),Burgos,Ilocos Sur
+http://www.wikidata.org/entity/Q12845,0102912000,Point(120.42444 17.685),Magsingal,Ilocos Sur
+http://www.wikidata.org/entity/Q12692,0102926000,Point(120.481388888 17.371944444),Santa Maria,Ilocos Sur
+http://www.wikidata.org/entity/Q12850,0102914000,Point(120.475555555 17.419166666),Narvacan,Ilocos Sur
+http://www.wikidata.org/entity/Q12813,0102901000,Point(120.531008333 16.886883333),Alilem,Ilocos Sur
+http://www.wikidata.org/entity/Q12818,0102902000,Point(120.479166666 17.236666666),Banayoyo,Ilocos Sur
+http://www.wikidata.org/entity/Q12843,0102911000,Point(120.520555555 17.253333333),Lidlidda,Ilocos Sur
+http://www.wikidata.org/entity/Q12838,0102909000,Point(120.466666666 17.183333333),Galimuyod,Ilocos Sur
+http://www.wikidata.org/entity/Q12825,0102903000,Point(120.390833333 17.583888888),Bantay,Ilocos Sur
+http://www.wikidata.org/entity/Q12832,0102905000,Point(120.455555555 17.794722222),Cabugao,Ilocos Sur
+http://www.wikidata.org/entity/Q12840,0102910000,Point(120.611111111 17.148333333),Gregorio del Pilar,Ilocos Sur
+http://www.wikidata.org/entity/Q9085,1380500000,Point(121.033333333 14.583333333),Mandaluyong,Metro Manila
+http://www.wikidata.org/entity/Q1624,137403000,Point(121.0765 14.5605),Pasig,Metro Manila
+http://www.wikidata.org/entity/Q1478,137501000,Point(120.966666666 14.65),Caloocan,Metro Manila
+http://www.wikidata.org/entity/Q1475,1381300000,Point(121.0475 14.65),Quezon City,Metro Manila
+http://www.wikidata.org/entity/Q1623,1381600000,Point(120.983333333 14.7),,Metro Manila
+http://www.wikidata.org/entity/Q8854,1380200000,Point(120.983333333 14.45),Las Piñas,Metro Manila
+http://www.wikidata.org/entity/Q1508,1380300000,Point(121.021388888 14.556666666),,Metro Manila
+http://www.wikidata.org/entity/Q1461,133900000,Point(120.977222222 14.595833333),Manila,Metro Manila
+http://www.wikidata.org/entity/Q12741,012900000,Point(120.583333333 17.333333333),Ilocos Sur,Ilocos Region
+http://www.wikidata.org/entity/Q8861,137502000,Point(120.956666666 14.6625),Malabon,Metro Manila
+http://www.wikidata.org/entity/Q1643,137607000,Point(121.05 14.516666666),Taguig,Metro Manila
+http://www.wikidata.org/entity/Q205677,0802623000,Point(125.418055555 11.905833333),Taft,Eastern Samar
+http://www.wikidata.org/entity/Q1822,1430300000,Point(120.593333333 16.411944444),,Cordillera Administrative Region
+http://www.wikidata.org/entity/Q3656379,1108600000,Point(125.666666666 6.083333333),,Davao Region
+http://www.wikidata.org/entity/Q1473,112402000,Point(125.609441666 7.066233333),Davao City,Davao Region
+http://www.wikidata.org/entity/Q1719,030803000,Point(120.533333333 14.683333333),Balanga,Bataan
+http://www.wikidata.org/entity/Q1467,072217000,Point(123.902 10.293),Cebu City,Central Visayas
+http://www.wikidata.org/entity/Q1889017,072230000,Point(123.933333333 10.333333333),Mandaue,Central Visayas
+http://www.wikidata.org/entity/Q1645,104305000,Point(124.65 8.483333333),Cagayan de Oro,Northern Mindanao
+http://www.wikidata.org/entity/Q1629,097332000,Point(122.076111111 6.904166666),Zamboanga,Zamboanga Peninsula
+http://www.wikidata.org/entity/Q1710,099701000,Point(121.966666666 6.7),Isabela,Zamboanga Peninsula
+http://www.wikidata.org/entity/Q1856,101312000,Point(125.133333333 8.156388888),Malaybalay,Bukidnon
+http://www.wikidata.org/entity/Q2158,101321000,Point(125.092777777 7.904166666),Valencia,Bukidnon
+http://www.wikidata.org/entity/Q196233,1004214000,Point(123.843583333 8.285358333),Sinacaban,Misamis Occidental
+http://www.wikidata.org/entity/Q196191,1004211000,Point(123.833333333 8.366666666),Panaon,Misamis Occidental
+http://www.wikidata.org/entity/Q2193,0301420000,Point(121.0475 14.8101),,Bulacan
+http://www.wikidata.org/entity/Q196222,1004213000,Point(123.566666666 8.55),Sapang Dalaga,Misamis Occidental
+http://www.wikidata.org/entity/Q2180,031410000,Point(120.811388888 14.843611111),Malolos,Bulacan
+http://www.wikidata.org/entity/Q2187,031412000,Point(120.966666666 14.733333333),Meycauayan,Bulacan
+http://www.wikidata.org/entity/Q196207,1004212000,Point(123.7101 8.6214),Plaridel,Misamis Occidental
+http://www.wikidata.org/entity/Q1686,160202000,Point(125.543 8.948),Butuan,Caraga
+http://www.wikidata.org/entity/Q196248,1004216000,Point(123.8424 8.2472),Tudela,Misamis Occidental
+http://www.wikidata.org/entity/Q1826,071242000,Point(123.85 9.65),Tagbilaran,Bohol
+http://www.wikidata.org/entity/Q2207,0501724000,Point(123.186388888 13.624444444),,Camarines Sur
+http://www.wikidata.org/entity/Q2205,051716000,Point(123.412222222 13.423055555),Iriga,Camarines Sur
+http://www.wikidata.org/entity/Q2200,021529000,Point(121.730277777 17.613333333),Tuguegarao,Cagayan
+http://www.wikidata.org/entity/Q212784,1903817000,Point(124.144302777 6.854844444),South Upi,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212519,1903826000,Point(124.415013888 6.926258333),Datu Saudi Ampatuan,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212389,1903835000,Point(124.425244444 6.858002777),Datu Hoffer Ampatuan,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212503,1903836000,Point(124.5 7.01666944),Datu Salibo,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212366,1903830000,Point(124.019169444 7.067905555),Datu Blah T. Sinsuat,Maguindanao del Norte
+http://www.wikidata.org/entity/Q212255,1903802000,Point(124.366666666 7.516666666),Buldon,Maguindanao del Norte
+http://www.wikidata.org/entity/Q212791,1903812000,Point(124.25 7.233333333),Sultan Kudarat,Maguindanao del Norte
+http://www.wikidata.org/entity/Q2209,061914000,Point(122.751111111 11.589444444),Roxas City,Capiz
+http://www.wikidata.org/entity/Q212623,1903820000,Point(124.500636111 6.893236111),Mamasapano,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212310,1903828000,Point(124.481675 6.766344444),Datu Abdullah Sangki,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212802,1903824000,Point(124.3 7.2833),Sultan Mastura,Maguindanao del Norte
+http://www.wikidata.org/entity/Q212488,1903806000,Point(124.504241666 7.025572222),Datu Piang,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212222,1903801000,Point(124.458102777 6.8348),Ampatuan,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212707,1903810000,Point(124.698730555 7.059236111),Pagalungan,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212581,1903825000,Point(124.386111111 6.976444444),Guindulungan,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212830,1903821000,Point(124.375755555 7.035325),Talitay,Maguindanao del Norte
+http://www.wikidata.org/entity/Q212603,1903814000,Point(124.364597222 7.118475),Kabuntalan,Maguindanao del Norte
+http://www.wikidata.org/entity/Q212240,1903818000,Point(124.356111111 7.470555555),Barira,Maguindanao del Norte
+http://www.wikidata.org/entity/Q212432,1903807000,Point(124.183888888 7.188888888),Datu Odin Sinsuat,Maguindanao del Norte
+http://www.wikidata.org/entity/Q212537,1903827000,Point(124.434808333 6.881577777),Datu Unsay,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212766,1903808000,Point(124.441667 6.864722),Shariff Aguak,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212778,1903837000,Point(124.48985 6.884727777),Shariff Saydona Mustapha,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212280,1903803000,Point(124.785447222 6.715405555),Buluan,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212843,1903815000,Point(124.162930555 7.010555555),Upi,Maguindanao del Norte
+http://www.wikidata.org/entity/Q212557,1903819000,Point(124.754241666 6.827275),General Salipada K. Pendatun,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212684,1903834000,Point(124.474736111 7.201661111),Northern Kabuntalan,Maguindanao del Norte
+http://www.wikidata.org/entity/Q212463,1903805000,Point(124.85 6.766944444),Datu Paglas,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212759,1903829000,Point(124.550833 6.910833),Rajah Buayan,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212808,1903813000,Point(124.633333333 6.8),Sultan sa Barongis,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212735,1903833000,Point(124.782713888 6.741052777),Pandag,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212644,1903832000,Point(124.785866666 6.646611111),Mangudadatu,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212823,1903816000,Point(124.356383333 6.98445),Talayan,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212336,1903831000,Point(124.341744444 6.993425),Datu Anggal Midtimbang,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212411,1903822000,Point(124.766666666 7.1),Datu Montawal,Maguindanao del Sur
+http://www.wikidata.org/entity/Q212662,1903809000,Point(124.259038888 7.466872222),Matanog,Maguindanao del Norte
+http://www.wikidata.org/entity/Q212748,1903811000,Point(124.268561111 7.374444444),Parang,Maguindanao del Norte
+http://www.wikidata.org/entity/Q1482,042105000,Point(120.9 14.483333333),Cavite City,Cavite
+http://www.wikidata.org/entity/Q1026277,104215000,Point(123.75 8.066666666),Tangub,Misamis Occidental
+http://www.wikidata.org/entity/Q1067897,104209000,Point(123.8 8.483333333),Oroquieta,Misamis Occidental
+http://www.wikidata.org/entity/Q1636,045802000,Point(121.176288888 14.584244444),,Rizal
+http://www.wikidata.org/entity/Q1025387,086407000,Point(124.85 10.133333333),Maasin,Southern Leyte
+http://www.wikidata.org/entity/Q54455,0300801000,Point(120.535433333 14.722213888),Abucay,Bataan
+http://www.wikidata.org/entity/Q54459,0300806000,Point(120.59833 14.56194),Limay,Bataan
+http://www.wikidata.org/entity/Q54458,0300805000,Point(120.5 14.833333333),Hermosa,Bataan
+http://www.wikidata.org/entity/Q54456,0300802000,Point(120.391830555 14.595058333),Bagac,Bataan
+http://www.wikidata.org/entity/Q54457,0300804000,Point(120.466666666 14.883333333),Dinalupihan,Bataan
+http://www.wikidata.org/entity/Q1020705,074621000,Point(123.158333333 9.516666666),Tanjay,Negros Oriental
+http://www.wikidata.org/entity/Q136340257,,Point(121.1002 16.2969),Dupax,Nueva Vizcaya
+http://www.wikidata.org/entity/Q22936133,,Point(122.06416667 12.40527778),,Romblon
+http://www.wikidata.org/entity/Q1020709,086005000,Point(124.883333333 11.783333333),Catbalogan,Samar
+http://www.wikidata.org/entity/Q31508546,1999908000,Point(124.613889 7.047222),Tugunan,Special Geographic Area
+http://www.wikidata.org/entity/Q31508472,1999906000,Point(124.678 7.061),Malidegao,Special Geographic Area
+http://www.wikidata.org/entity/Q31508510,1999902000,Point(124.816667 7.116667),Old Kaabakan,Special Geographic Area
+http://www.wikidata.org/entity/Q12835,0102908000,Point(120.733333333 16.991666666),Cervantes,Lepanto-Bontoc
+http://www.wikidata.org/entity/Q5217,1830200000,Point(122.950916666 10.676458333),,Negros Island Region
+http://www.wikidata.org/entity/Q31508528,1999905000,Point(124.375 7.205556),Pahamuddin,Special Geographic Area
+http://www.wikidata.org/entity/Q31508396,1999903000,Point(124.475 7.125),Kadayangan,Special Geographic Area
+http://www.wikidata.org/entity/Q31508433,1999901000,Point(124.791667 7.241667),Kapalawan,Special Geographic Area
+http://www.wikidata.org/entity/Q31508492,1999904000,Point(124.494444 7.105556),Nabalawag,Special Geographic Area
+http://www.wikidata.org/entity/Q31508452,1999907000,Point(124.683333 6.975),Ligawasan,Special Geographic Area
+http://www.wikidata.org/entity/Q43508,0201503000,Point(121.555583333 18.226966666),Allacapan,Cagayan
+http://www.wikidata.org/entity/Q43503,0201502000,Point(121.655555555 17.903055555),Alcala,Cagayan
+http://www.wikidata.org/entity/Q49324,0201518000,Point(121.3425 18.466111111),Pamplona,Cagayan
+http://www.wikidata.org/entity/Q43520,0201506000,Point(121.773333333 17.934722222),Baggao,Cagayan
+http://www.wikidata.org/entity/Q49313,0201510000,Point(121.675555555 18.275555555),Camalaniugan,Cagayan
+http://www.wikidata.org/entity/Q49316,0201513000,Point(121.645277777 18.061111111),Gattaran,Cagayan
+http://www.wikidata.org/entity/Q49331,0201520000,Point(121.476944444 17.791944444),Piat,Cagayan
+http://www.wikidata.org/entity/Q49321,0201517000,Point(121.6 18.066666666),Lasam,Cagayan
+http://www.wikidata.org/entity/Q49339,0201524000,Point(120.99 18.566111111),Santa Praxedes,Cagayan
+http://www.wikidata.org/entity/Q49346,0201526000,Point(121.5691 17.8861),Santo Niño,Cagayan
+http://www.wikidata.org/entity/Q49348,0201527000,Point(121.691388888 17.652222222),Solana,Cagayan
+http://www.wikidata.org/entity/Q43515,0201504000,Point(121.723483333 17.838655555),Amulung,Cagayan
+http://www.wikidata.org/entity/Q49327,0201519000,Point(121.785277777 17.625833333),Peñablanca,Cagayan
+http://www.wikidata.org/entity/Q49318,0201515000,Point(121.736388888 17.751666666),Iguig,Cagayan
+http://www.wikidata.org/entity/Q49337,0201523000,Point(122.141944444 18.458888888),Santa Ana,Cagayan
+http://www.wikidata.org/entity/Q49317,0201514000,Point(121.996944444 18.261388888),Gonzaga,Cagayan
+http://www.wikidata.org/entity/Q49062,0201509000,Point(121.475277777 19.261944444),Calayan,Cagayan
+http://www.wikidata.org/entity/Q43517,0201505000,Point(121.637222222 18.3575),,Cagayan
+http://www.wikidata.org/entity/Q43500,0201501000,Point(121.457636111 18.444113888),Abulug,Cagayan
+http://www.wikidata.org/entity/Q49336,0201522000,Point(121.234444444 18.561111111),Sanchez Mira,Cagayan
+http://www.wikidata.org/entity/Q49058,0201507000,Point(121.516944444 18.410833333),Ballesteros,Cagayan
+http://www.wikidata.org/entity/Q49350,0201528000,Point(121.455277777 17.735),,Cagayan
+http://www.wikidata.org/entity/Q49059,0201508000,Point(121.8331 18.28823),Buguey,Cagayan
+http://www.wikidata.org/entity/Q49320,0201516000,Point(121.662222222 18.2),Lal-lo,Cagayan
+http://www.wikidata.org/entity/Q49333,0201521000,Point(121.345 17.847777777),Rizal,Cagayan
+http://www.wikidata.org/entity/Q49315,0201512000,Point(121.701111111 17.562222222),Enrile,Cagayan
+http://www.wikidata.org/entity/Q49314,0201511000,Point(121.082222222 18.606111111),Claveria,Cagayan
+http://www.wikidata.org/entity/Q49342,0201525000,Point(121.91 18.251944444),Santa Teresita,Cagayan
+http://www.wikidata.org/entity/Q50149,0203123000,Point(121.735 17.135555555),Quirino,Isabela
+http://www.wikidata.org/entity/Q50158,0203127000,Point(121.75 16.516666666),San Agustin,Isabela
+http://www.wikidata.org/entity/Q50174,0203133000,Point(121.795 17.447777777),San Pablo,Isabela
+http://www.wikidata.org/entity/Q50179,0203114000,Point(121.889444444 17.148888888),,Isabela
+http://www.wikidata.org/entity/Q50102,0203121000,Point(122.43 17.058888888),Palanan,Isabela
+http://www.wikidata.org/entity/Q49354,0203101000,Point(121.697180555 16.778686111),Alicia,Isabela
+http://www.wikidata.org/entity/Q49363,0203109000,Point(121.45 16.666666666),Cordon,Isabela
+http://www.wikidata.org/entity/Q49370,0203113000,Point(121.833333333 17.05),Gamu,Isabela
+http://www.wikidata.org/entity/Q50145,0203122000,Point(121.605 17.311944444),Quezon,Isabela
+http://www.wikidata.org/entity/Q49362,0203107000,Point(121.669166666 16.958888888),Cabatuan,Isabela
+http://www.wikidata.org/entity/Q50152,0203124000,Point(121.533333333 16.783333333),Ramon,Isabela
+http://www.wikidata.org/entity/Q50066,0203120000,Point(121.85 17.016666666),Naguilian,Isabela
+http://www.wikidata.org/entity/Q49375,0203116000,Point(121.733333333 16.966666666),Luna,Isabela
+http://www.wikidata.org/entity/Q50177,0203137000,Point(121.8 17.266666666),Tumauini,Isabela
+http://www.wikidata.org/entity/Q49435,0203119000,Point(121.610555555 17.208611111),Mallig,Isabela
+http://www.wikidata.org/entity/Q50176,0203136000,Point(121.766666666 17.4),Santo Tomas,Isabela
+http://www.wikidata.org/entity/Q50171,0203132000,Point(121.583333333 16.883333333),San Mateo,Isabela
+http://www.wikidata.org/entity/Q49357,0203102000,Point(121.747927777 16.75715),Angadanan,Isabela
+http://www.wikidata.org/entity/Q50164,0203130000,Point(121.633333333 17.016666666),San Manuel,Isabela
+http://www.wikidata.org/entity/Q50180,023135000,Point(121.55 16.683333333),Santiago,Isabela
+http://www.wikidata.org/entity/Q49360,0203105000,Point(121.7 17.066666666),Burgos,Isabela
+http://www.wikidata.org/entity/Q49366,0203110000,Point(122.263611111 16.525),,Isabela
+http://www.wikidata.org/entity/Q49368,0203111000,Point(122.3 17.333333333),Divilacan,Isabela
+http://www.wikidata.org/entity/Q49365,0203118000,Point(121.783333333 17.316666666),Delfin Albano,Isabela
+http://www.wikidata.org/entity/Q49361,0203106000,Point(121.766666666 17.433333333),Cabagan,Isabela
+http://www.wikidata.org/entity/Q50163,0203129000,Point(121.766666666 16.866666666),San Isidro,Isabela
+http://www.wikidata.org/entity/Q50175,0203134000,Point(121.75 17.466666666),Santa Maria,Isabela
+http://www.wikidata.org/entity/Q50178,0203108000,Point(121.783333333 16.766666666),Cauayan,Isabela
+http://www.wikidata.org/entity/Q50154,0203126000,Point(121.616666666 17.116666666),Roxas,Isabela
+http://www.wikidata.org/entity/Q50153,0203125000,Point(121.827222222 16.987222222),Reina Mercedes,Isabela
+http://www.wikidata.org/entity/Q49369,0203112000,Point(121.676111111 16.705555555),,Isabela
+http://www.wikidata.org/entity/Q49358,0203103000,Point(121.635688888 16.991847222),Aurora,Isabela
+http://www.wikidata.org/entity/Q50167,0203131000,Point(122.016666666 16.983333333),San Mariano,Isabela
+http://www.wikidata.org/entity/Q49434,0203117000,Point(122.237916666 17.387125),Maconacon,Isabela
+http://www.wikidata.org/entity/Q50160,0203128000,Point(121.81 16.724444444),San Guillermo,Isabela
+http://www.wikidata.org/entity/Q49372,0203115000,Point(121.7 16.558333333),Jones,Isabela
+http://www.wikidata.org/entity/Q49359,0203104000,Point(121.95 16.983333333),Benito Soliven,Isabela
+http://www.wikidata.org/entity/Q51493,0205012000,Point(120.937777777 16.159166666),Santa Fe,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51483,0205007000,Point(121.101944444 16.3075),Dupax del Norte,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51479,0205004000,Point(121.1075 16.387222222),Bambang,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51485,0205009000,Point(121.295833333 16.318055555),Kasibu,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51487,0205011000,Point(121.263888888 16.489444444),Quezon,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51481,0205006000,Point(121.368611111 16.66),Diadi,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51494,0205013000,Point(121.181111111 16.518333333),Solano,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51486,0205010000,Point(120.886111111 16.358333333),Kayapa,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51484,0205008000,Point(121.091666666 16.284166666),Dupax del Sur,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51475,0205001000,Point(121.028169444 16.531608333),Ambaguio,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51478,0205003000,Point(121.252094444 16.604430555),Bagabag,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51477,0205002000,Point(121.033819444 16.297258333),Aritao,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51480,0205005000,Point(121.15 16.483333333),Bayombong,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51474,0205015000,Point(121.3025 15.793333333),Alfonso Castañeda,Nueva Vizcaya
+http://www.wikidata.org/entity/Q51496,0205014000,Point(121.182777777 16.606666666),Villaverde,Nueva Vizcaya
+http://www.wikidata.org/entity/Q55741,0330100000,Point(120.584733333 15.147180555),,Central Luzon
+http://www.wikidata.org/entity/Q54464,0300811000,Point(120.566666666 14.666666666),Pilar,Bataan
+http://www.wikidata.org/entity/Q54465,0300812000,Point(120.54306 14.76778),Samal,Bataan
+http://www.wikidata.org/entity/Q54461,0300808000,Point(120.268333333 14.68),Morong,Bataan
+http://www.wikidata.org/entity/Q54555,0301404000,Point(120.933333333 14.8),Bocaue,Bulacan
+http://www.wikidata.org/entity/Q54558,0301405000,Point(120.87889 14.79278),Bulakan,Bulacan
+http://www.wikidata.org/entity/Q54551,0301401000,Point(121.029319444 14.928147222),Angat,Bulacan
+http://www.wikidata.org/entity/Q54761,0301418000,Point(120.849 14.902),,Bulacan
+http://www.wikidata.org/entity/Q54598,0301413000,Point(121.05 14.916666666),Norzagaray,Bulacan
+http://www.wikidata.org/entity/Q54768,0301423000,Point(120.956333333 14.818333333),Santa Maria,Bulacan
+http://www.wikidata.org/entity/Q54760,0301417000,Point(120.856944444 14.886944444),Plaridel,Bulacan
+http://www.wikidata.org/entity/Q54765,0301422000,Point(120.966666666 14.95),San Rafael,Bulacan
+http://www.wikidata.org/entity/Q54566,0301424000,Point(121.083333333 15.0),Doña Remedios Trinidad,Bulacan
+http://www.wikidata.org/entity/Q54592,0301409000,Point(120.733333333 14.833333333),,Bulacan
+http://www.wikidata.org/entity/Q54560,0301406000,Point(120.916666666 14.95),Bustos,Bulacan
+http://www.wikidata.org/entity/Q54554,0301403000,Point(120.901 14.954),Baliwag,Bulacan
+http://www.wikidata.org/entity/Q54600,0301415000,Point(120.95 14.866666666),Pandi,Bulacan
+http://www.wikidata.org/entity/Q54595,0301411000,Point(120.948055555 14.758055555),Marilao,Bulacan
+http://www.wikidata.org/entity/Q54564,0301407000,Point(120.766666666 14.916666666),Calumpit,Bulacan
+http://www.wikidata.org/entity/Q54763,0301421000,Point(120.978333 15.145833),San Miguel,Bulacan
+http://www.wikidata.org/entity/Q54553,0301402000,Point(120.908467 14.814467),Balagtas,Bulacan
+http://www.wikidata.org/entity/Q54589,0301408000,Point(120.883333333 14.833333333),Guiguinto,Bulacan
+http://www.wikidata.org/entity/Q54762,0301419000,Point(120.941944 15.078889),San Ildefonso,Bulacan
+http://www.wikidata.org/entity/Q54605,0301416000,Point(120.789167 14.831111),,Bulacan
+http://www.wikidata.org/entity/Q54599,0301414000,Point(120.9375 14.708333333),Obando,Bulacan
+http://www.wikidata.org/entity/Q54463,0300810000,Point(120.58167 14.62056),Orion,Bataan
+http://www.wikidata.org/entity/Q54460,0300807000,Point(120.483333333 14.433333333),Mariveles,Bataan
+http://www.wikidata.org/entity/Q54462,0300809000,Point(120.533333333 14.8),Orani,Bataan
+http://www.wikidata.org/entity/Q55558,0304915000,Point(121.019722222 15.6625),Llanera,Nueva Ecija
+http://www.wikidata.org/entity/Q55545,0304904000,Point(120.8575 15.252222222),Cabiao,Nueva Ecija
+http://www.wikidata.org/entity/Q55567,0304920000,Point(121.143333333 15.808611111),Pantabangan,Nueva Ecija
+http://www.wikidata.org/entity/Q55560,0304918000,Point(120.635555555 15.734166666),Nampicuan,Nueva Ecija
+http://www.wikidata.org/entity/Q55549,0304909000,Point(121.051 15.603),General Mamerto Natividad,Nueva Ecija
+http://www.wikidata.org/entity/Q55596,034908000,Point(120.948888888 15.312222222),Gapan,Nueva Ecija
+http://www.wikidata.org/entity/Q55556,0304913000,Point(121.186388888 15.579722222),Laur,Nueva Ecija
+http://www.wikidata.org/entity/Q55570,0304923000,Point(121.104722222 15.71),Rizal,Nueva Ecija
+http://www.wikidata.org/entity/Q55551,0304910000,Point(121.05 15.35),General Tinio,Nueva Ecija
+http://www.wikidata.org/entity/Q55568,0304921000,Point(121.001666666 15.353055555),Peñaranda,Nueva Ecija
+http://www.wikidata.org/entity/Q55599,034926000,Point(120.99 15.791944444),San Jose,Nueva Ecija
+http://www.wikidata.org/entity/Q55591,0304929000,Point(120.878611111 15.59),Santo Domingo,Nueva Ecija
+http://www.wikidata.org/entity/Q55590,0304928000,Point(120.938888888 15.423888888),Santa Rosa,Nueva Ecija
+http://www.wikidata.org/entity/Q55572,0304925000,Point(120.906944444 15.309722222),San Isidro,Nueva Ecija
+http://www.wikidata.org/entity/Q55593,0304931000,Point(120.811111111 15.778888888),Talugtug,Nueva Ecija
+http://www.wikidata.org/entity/Q55547,0304906000,Point(120.660833333 15.777777777),Cuyapo,Nueva Ecija
+http://www.wikidata.org/entity/Q55597,034917000,Point(120.903888888 15.715277777),Muñoz,Nueva Ecija
+http://www.wikidata.org/entity/Q55569,0304922000,Point(120.811111111 15.554166666),Quezon,Nueva Ecija
+http://www.wikidata.org/entity/Q55559,0304916000,Point(120.899444444 15.879444444),Lupao,Nueva Ecija
+http://www.wikidata.org/entity/Q55595,034903000,Point(120.967777777 15.490833333),Cabanatuan,Nueva Ecija
+http://www.wikidata.org/entity/Q55546,0304905000,Point(121.063055555 15.960833333),Carranglan,Nueva Ecija
+http://www.wikidata.org/entity/Q55552,0304911000,Point(120.765 15.660555555),Guimba,Nueva Ecija
+http://www.wikidata.org/entity/Q55598,034919000,Point(121.084444444 15.542222222),Palayan,Nueva Ecija
+http://www.wikidata.org/entity/Q55548,0304907000,Point(121.337777777 15.450555555),Gabaldon,Nueva Ecija
+http://www.wikidata.org/entity/Q55592,0304930000,Point(120.918888888 15.583888888),Talavera,Nueva Ecija
+http://www.wikidata.org/entity/Q55573,0304927000,Point(120.962222222 15.361111111),San Leonardo,Nueva Ecija
+http://www.wikidata.org/entity/Q55557,0304914000,Point(120.761944444 15.54),Licab,Nueva Ecija
+http://www.wikidata.org/entity/Q55543,0304901000,Point(120.845 15.503611111),Aliaga,Nueva Ecija
+http://www.wikidata.org/entity/Q55544,0304902000,Point(121.1448 15.6321),Bongabon,Nueva Ecija
+http://www.wikidata.org/entity/Q267975,1204706000,Point(125.124327777 7.102916666),Magpet,Cotabato
+http://www.wikidata.org/entity/Q251691,1608506000,Point(125.588888888 10.008333333),San Jose,Dinagat Islands
+http://www.wikidata.org/entity/Q256494,133911000,Point(120.983 14.583),Paco,Manila
+http://www.wikidata.org/entity/Q235004,0102934000,Point(120.38694 17.57472),,Ilocos Sur
+http://www.wikidata.org/entity/Q273906,1903641000,Point(124.205655555 7.750319444),Lumbaca-Unayan,Lanao del Sur
+http://www.wikidata.org/entity/Q274037,1903622000,Point(124.35 7.85),Poona Bayabao,Lanao del Sur
+http://www.wikidata.org/entity/Q273948,1903614000,Point(124.049425 7.858583333),Madamba,Lanao del Sur
+http://www.wikidata.org/entity/Q273895,1903611000,Point(124.369794444 7.865413888),Lumba-Bayabao,Lanao del Sur
+http://www.wikidata.org/entity/Q274114,1903628000,Point(124.18415 7.747961111),Tubaran,Lanao del Sur
+http://www.wikidata.org/entity/Q273928,1903636000,Point(124.283333333 7.783333333),Lumbayanague,Lanao del Sur
+http://www.wikidata.org/entity/Q274124,1903629000,Point(124.176788888 7.883013888),Tugaya,Lanao del Sur
+http://www.wikidata.org/entity/Q273915,1903612000,Point(124.256 7.785),Lumbatan,Lanao del Sur
+http://www.wikidata.org/entity/Q274077,1903638000,Point(124.409708333 8.080016666),Tagoloan,Lanao del Sur
+http://www.wikidata.org/entity/Q274087,1903626000,Point(124.325402777 7.877405555),Tamparan,Lanao del Sur
+http://www.wikidata.org/entity/Q273998,1903618000,Point(124.330336111 7.81925),Masiu,Lanao del Sur
+http://www.wikidata.org/entity/Q273982,1903616000,Point(124.233 7.95),Marantao,Lanao del Sur
+http://www.wikidata.org/entity/Q273988,1903631000,Point(124.147844444 7.678677777),Marogong,Lanao del Sur
+http://www.wikidata.org/entity/Q273728,1903605000,Point(124.164655555 7.797463888),Binidayan,Lanao del Sur
+http://www.wikidata.org/entity/Q273775,1903637000,Point(124.682338888 7.785219444),Amai Manabilang,Lanao del Sur
+http://www.wikidata.org/entity/Q273744,1903633000,Point(124.372072222 7.967927777),Buadiposo-Buntong,Lanao del Sur
+http://www.wikidata.org/entity/Q274057,1903625000,Point(124.266666666 8.033333333),Saguiaran,Lanao del Sur
+http://www.wikidata.org/entity/Q273960,1903634000,Point(124.371447222 7.889097222),Maguing,Lanao del Sur
+http://www.wikidata.org/entity/Q274015,1903620000,Point(124.098136111 7.7991),Pagayawan,Lanao del Sur
+http://www.wikidata.org/entity/Q273882,1903639000,Point(124.214001 7.541741),Kapatagan,Lanao del Sur
+http://www.wikidata.org/entity/Q273828,1903624000,Point(124.3551 7.978727777),Ditsaan-Ramain,Lanao del Sur
+http://www.wikidata.org/entity/Q274047,1903623000,Point(124.079525 7.821027777),Pualas,Lanao del Sur
+http://www.wikidata.org/entity/Q273864,1903610000,Point(124.36505 8.074308333),Kapai,Lanao del Sur
+http://www.wikidata.org/entity/Q273657,1903601000,Point(124.139827777 7.855519444),Bacolod-Kalawi,Lanao del Sur
+http://www.wikidata.org/entity/Q274134,1903630000,Point(124.725733333 7.640375),Wao,Lanao del Sur
+http://www.wikidata.org/entity/Q273813,1903632000,Point(124.081769444 7.736205555),Calanogas,Lanao del Sur
+http://www.wikidata.org/entity/Q273718,1903604000,Point(124.192 7.793),Bayang,Lanao del Sur
+http://www.wikidata.org/entity/Q273700,1903603000,Point(124.200372222 7.911469444),Balindong,Lanao del Sur
+http://www.wikidata.org/entity/Q274022,1903621000,Point(124.177991666 7.990986111),Piagapo,Lanao del Sur
+http://www.wikidata.org/entity/Q273757,1903606000,Point(124.385613888 7.983080555),Bubong,Lanao del Sur
+http://www.wikidata.org/entity/Q273970,1903615000,Point(124.07028 7.59028),Malabang,Lanao del Sur
+http://www.wikidata.org/entity/Q274031,1903635000,Point(123.967036111 7.668991666),Picong,Lanao del Sur
+http://www.wikidata.org/entity/Q274097,1903627000,Point(124.334452777 7.900036111),Taraka,Lanao del Sur
+http://www.wikidata.org/entity/Q273680,1903602000,Point(124.128333333 7.508611111),Balabagan,Lanao del Sur
+http://www.wikidata.org/entity/Q273851,1903609000,Point(124.10344 7.82694),Ganassi,Lanao del Sur
+http://www.wikidata.org/entity/Q273796,1903607000,Point(124.301111111 7.723888888),Butig,Lanao del Sur
+http://www.wikidata.org/entity/Q273939,1903613000,Point(124.119 7.853),Madalum,Lanao del Sur
+http://www.wikidata.org/entity/Q274357,1003518000,Point(123.841311111 7.903516666),Salvador,Lanao del Norte
+http://www.wikidata.org/entity/Q274164,1003502000,Point(124.216666666 8.116666666),Balo-i,Lanao del Norte
+http://www.wikidata.org/entity/Q274329,1003523000,Point(124.266666666 8.066666666),Pantar,Lanao del Norte
+http://www.wikidata.org/entity/Q274387,1003506000,Point(123.718630555 7.795172222),Sultan Naga Dimaporo,Lanao del Norte
+http://www.wikidata.org/entity/Q274272,1003513000,Point(124.166666666 8.133333333),Matungao,Lanao del Norte
+http://www.wikidata.org/entity/Q274150,1003501000,Point(124.023777777 8.189219444),Bacolod,Lanao del Norte
+http://www.wikidata.org/entity/Q274186,1003505000,Point(123.766666666 7.9),Kapatagan,Lanao del Norte
+http://www.wikidata.org/entity/Q274197,1003507000,Point(124.08472 8.19167),Kauswagan,Lanao del Norte
+http://www.wikidata.org/entity/Q274313,1003516000,Point(124.184386111 8.062461111),Pantao Ragat,Lanao del Norte
+http://www.wikidata.org/entity/Q274260,1003512000,Point(123.959105555 8.159722222),Maigo,Lanao del Norte
+http://www.wikidata.org/entity/Q274287,1003514000,Point(124.052011111 8.078519444),Munai,Lanao del Norte
+http://www.wikidata.org/entity/Q274369,1003519000,Point(123.833333333 7.85),Sapad,Lanao del Norte
+http://www.wikidata.org/entity/Q274243,1003511000,Point(123.916666666 8.033333333),Magsaysay,Lanao del Norte
+http://www.wikidata.org/entity/Q274427,1003521000,Point(123.943433333 8.046286111),Tangcal,Lanao del Norte
+http://www.wikidata.org/entity/Q274343,1003517000,Point(124.117916666 8.13465),Poona Piagapo,Lanao del Norte
+http://www.wikidata.org/entity/Q274173,1003503000,Point(123.778472222 8.026125),Baroy,Lanao del Norte
+http://www.wikidata.org/entity/Q274299,1003515000,Point(123.908938888 7.788197222),Nunungan,Lanao del Norte
+http://www.wikidata.org/entity/Q274439,1003522000,Point(123.8 8.05),Tubod,Lanao del Norte
+http://www.wikidata.org/entity/Q274406,1003520000,Point(124.277972222 8.127061111),Tagoloan,Lanao del Norte
+http://www.wikidata.org/entity/Q274205,1003508000,Point(123.9024 8.114955555),Kolambugan,Lanao del Norte
+http://www.wikidata.org/entity/Q274215,1003509000,Point(123.746519444 7.973494444),Lala,Lanao del Norte
+http://www.wikidata.org/entity/Q274230,1003510000,Point(124.160341666 8.184605555),Linamon,Lanao del Norte
+http://www.wikidata.org/entity/Q259298,071237000,Point(124.3 9.8),San Isidro,Bohol
+http://www.wikidata.org/entity/Q241239,071212000,Point(124.2 9.816666666),Carmen,Bohol
+http://www.wikidata.org/entity/Q56759,037107000,Point(120.283333333 14.833333333),Olongapo,Central Luzon
+http://www.wikidata.org/entity/Q252184,0806013000,Point(124.983333333 11.616666666),Pinabacdao,Samar
+http://www.wikidata.org/entity/Q229664,0806023000,Point(124.841 11.639),Zumarraga,Samar
+http://www.wikidata.org/entity/Q263837,104210000,Point(123.85 8.15),Ozamiz,Misamis Occidental
+http://www.wikidata.org/entity/Q62729,0402110000,Point(120.883333333 14.2),Indang,Cavite
+http://www.wikidata.org/entity/Q63145,0402109000,Point(120.936666666 14.429722222),,Cavite
+http://www.wikidata.org/entity/Q63115,0402120000,Point(120.853056 14.394444),Tanza,Cavite
+http://www.wikidata.org/entity/Q62784,0402114000,Point(120.905833333 14.128611111),Mendez,Cavite
+http://www.wikidata.org/entity/Q62723,042108000,Point(120.883333333 14.383333333),General Trias,Cavite
+http://www.wikidata.org/entity/Q63110,0402118000,Point(120.975 14.230556),Silang,Cavite
+http://www.wikidata.org/entity/Q62771,0402112000,Point(120.75 14.183333333),,Cavite
+http://www.wikidata.org/entity/Q62776,0402113000,Point(120.735 14.274),,Cavite
+http://www.wikidata.org/entity/Q62755,0402111000,Point(120.9 14.433333333),Kawit,Cavite
+http://www.wikidata.org/entity/Q63124,0402121000,Point(120.716666666 14.283333333),Ternate,Cavite
+http://www.wikidata.org/entity/Q62600,0402101000,Point(120.855177777 14.137894444),Alfonso,Cavite
+http://www.wikidata.org/entity/Q63102,0402117000,Point(120.855 14.417),,Cavite
+http://www.wikidata.org/entity/Q63160,042122000,Point(120.866666666 14.283333333),Trece Martires,Cavite
+http://www.wikidata.org/entity/Q63139,042106000,Point(120.936666666 14.329444444),Dasmariñas,Cavite
+http://www.wikidata.org/entity/Q63129,042103000,Point(120.964452777 14.462422222),Bacoor,Cavite
+http://www.wikidata.org/entity/Q62611,042104000,Point(121.05 14.316666666),Carmona,Cavite
+http://www.wikidata.org/entity/Q62606,0402102000,Point(120.927680555 14.172802777),Amadeo,Cavite
+http://www.wikidata.org/entity/Q62638,0402123000,Point(121.0 14.3),,Cavite
+http://www.wikidata.org/entity/Q63096,0402116000,Point(120.881 14.428),,Cavite
+http://www.wikidata.org/entity/Q62719,0402107000,Point(120.8 14.183333333),General Emilio Aguinaldo,Cavite
+http://www.wikidata.org/entity/Q62799,0402115000,Point(120.766666666 14.316666666),Naic,Cavite
+http://www.wikidata.org/entity/Q63154,042119000,Point(120.933333333 14.1),Tagaytay,Cavite
+http://www.wikidata.org/entity/Q285488,103504000,Point(124.25 8.233333333),Iligan,Northern Mindanao
+http://www.wikidata.org/entity/Q315190,1204705000,Point(124.516769444 7.243386111),Libungan,Cotabato
+http://www.wikidata.org/entity/Q315213,1204710000,Point(124.879269444 6.946758333),M'lang,Cotabato
+http://www.wikidata.org/entity/Q315267,1204708000,Point(124.900991666 7.088630555),Matalam,Cotabato
+http://www.wikidata.org/entity/Q315081,1204715000,Point(125.055391666 7.249572222),Antipas,Cotabato
+http://www.wikidata.org/entity/Q304654,1204711000,Point(124.424252777 7.278980555),Pigcawayan,Cotabato
+http://www.wikidata.org/entity/Q315144,1204702000,Point(124.794916666 7.204386111),Carmen,Cotabato
+http://www.wikidata.org/entity/Q315164,1204703000,Point(124.823477777 7.108597222),Kabacan,Cotabato
+http://www.wikidata.org/entity/Q315061,1204717000,Point(124.575436111 7.15855),Aleosan,Cotabato
+http://www.wikidata.org/entity/Q315121,1204716000,Point(124.694722222 7.506183333),Banisilan,Cotabato
+http://www.wikidata.org/entity/Q315042,1204701000,Point(124.553447222 7.386822222),Alamada,Cotabato
+http://www.wikidata.org/entity/Q315098,1204718000,Point(125.128669444 7.352680555),Arakan,Cotabato
+http://www.wikidata.org/entity/Q315244,1204707000,Point(125.089197222 6.960391666),Makilala,Cotabato
+http://www.wikidata.org/entity/Q277211,0807808000,Point(124.45 11.583333333),Naval,Biliran
+http://www.wikidata.org/entity/Q314345,1608504000,Point(125.532847222 10.195966666),Libjo,Dinagat Islands
+http://www.wikidata.org/entity/Q314298,1608501000,Point(125.596844444 10.065427777),Basilisa,Dinagat Islands
+http://www.wikidata.org/entity/Q314356,1608505000,Point(125.581566666 10.358566666),Loreto,Dinagat Islands
+http://www.wikidata.org/entity/Q314318,1608502000,Point(125.666666666 9.916666666),Cagdianao,Dinagat Islands
+http://www.wikidata.org/entity/Q314374,1608507000,Point(125.557244444 10.325305555),Tubajon,Dinagat Islands
+http://www.wikidata.org/entity/Q314336,1608503000,Point(125.59333 9.95611),Dinagat,Dinagat Islands
+http://www.wikidata.org/entity/Q313984,0802609000,Point(125.733333333 11.033333333),Guiuan,Eastern Samar
+http://www.wikidata.org/entity/Q314257,0802622000,Point(125.45 11.816666666),Sulat,Eastern Samar
+http://www.wikidata.org/entity/Q314070,0802613000,Point(125.545833333 11.4125),Llorente,Eastern Samar
+http://www.wikidata.org/entity/Q314197,0802619000,Point(125.666666666 11.15),Salcedo,Eastern Samar
+http://www.wikidata.org/entity/Q314129,0802616000,Point(125.709166666 11.099444444),Mercedes,Eastern Samar
+http://www.wikidata.org/entity/Q314175,0802618000,Point(125.520833333 11.157777777),Quinapondan,Eastern Samar
+http://www.wikidata.org/entity/Q313914,0802603000,Point(125.510833333 11.472777777),Balangkayan,Eastern Samar
+http://www.wikidata.org/entity/Q313926,0802605000,Point(125.45 12.0),Can-avid,Eastern Samar
+http://www.wikidata.org/entity/Q313939,0802606000,Point(125.482777777 12.037777777),Dolores,Eastern Samar
+http://www.wikidata.org/entity/Q313904,0802602000,Point(125.386388888 11.109166666),Balangiga,Eastern Samar
+http://www.wikidata.org/entity/Q313967,0802608000,Point(125.449444444 11.120833333),Giporlos,Eastern Samar
+http://www.wikidata.org/entity/Q314096,0802614000,Point(125.246944444 12.159166666),Maslog,Eastern Samar
+http://www.wikidata.org/entity/Q313951,0802607000,Point(125.54 11.248611111),General MacArthur,Eastern Samar
+http://www.wikidata.org/entity/Q313880,0802601000,Point(125.371213888 12.269419444),Arteche,Eastern Samar
+http://www.wikidata.org/entity/Q314239,0802621000,Point(125.5072 12.1791),San Policarpo,Eastern Samar
+http://www.wikidata.org/entity/Q314002,0802610000,Point(125.618055555 11.323888888),Hernani,Eastern Samar
+http://www.wikidata.org/entity/Q314154,0802617000,Point(125.439166666 12.141388888),Oras,Eastern Samar
+http://www.wikidata.org/entity/Q314046,0802612000,Point(125.301111111 11.140833333),Lawaan,Eastern Samar
+http://www.wikidata.org/entity/Q314220,0802620000,Point(125.45583 11.75361),San Julian,Eastern Samar
+http://www.wikidata.org/entity/Q314117,0802615000,Point(125.5 11.5),Maydolong,Eastern Samar
+http://www.wikidata.org/entity/Q314021,0802611000,Point(125.235 12.286111111),Jipapad,Eastern Samar
+http://www.wikidata.org/entity/Q313810,0607903000,Point(122.54 10.526),Nueva Valencia,Guimaras
+http://www.wikidata.org/entity/Q313825,0607904000,Point(122.702 10.588),San Lorenzo,Guimaras
+http://www.wikidata.org/entity/Q313844,0607905000,Point(122.632 10.504),Sibunag,Guimaras
+http://www.wikidata.org/entity/Q313781,0607901000,Point(122.648 10.697),Buenavista,Guimaras
+http://www.wikidata.org/entity/Q313802,0607902000,Point(122.5878 10.596),Jordan,Guimaras
+http://www.wikidata.org/entity/Q103807,0405603000,Point(121.919861111 14.003588888),Atimonan,
+http://www.wikidata.org/entity/Q69759,0403408000,Point(121.45 14.433333333),Famy,
+http://www.wikidata.org/entity/Q75943,0403427000,Point(121.425 14.475),Santa Maria,
+http://www.wikidata.org/entity/Q75948,0403429000,Point(121.45 14.416666666),Siniloan,
+http://www.wikidata.org/entity/Q69749,0403407000,Point(121.507 14.245),Cavinti,
+http://www.wikidata.org/entity/Q103928,0405621000,Point(122.331 14.696),Jomalig,
+http://www.wikidata.org/entity/Q69771,0403409000,Point(121.48 14.328),Kalayaan,
+http://www.wikidata.org/entity/Q75933,0403425000,Point(121.058333333 14.358333333),,
+http://www.wikidata.org/entity/Q75918,0403421000,Point(121.466666666 14.4),Pangil,
+http://www.wikidata.org/entity/Q103825,0405606000,Point(121.969722222 14.843611111),Burdeos,
+http://www.wikidata.org/entity/Q82506,063019000,Point(123.15 11.45),Estancia,
+http://www.wikidata.org/entity/Q69739,0403406000,Point(121.316666666 14.15),Calauan,
+http://www.wikidata.org/entity/Q82570,063023000,Point(122.5 10.95),Janiuay,
+http://www.wikidata.org/entity/Q69824,0403413000,Point(121.459 14.297),Lumban,
+http://www.wikidata.org/entity/Q74758,063018000,Point(122.716666666 10.833333333),Dumangas,
+http://www.wikidata.org/entity/Q75905,0403419000,Point(121.45 14.266666666),,
+http://www.wikidata.org/entity/Q75953,0403430000,Point(121.325 14.225),Victoria,
+http://www.wikidata.org/entity/Q75875,0403414000,Point(121.416666666 14.433333333),Mabitac,
+http://www.wikidata.org/entity/Q74755,063021000,Point(122.266666666 10.716666666),Igbaras,
+http://www.wikidata.org/entity/Q69781,0403410000,Point(121.436 14.13),,
+http://www.wikidata.org/entity/Q75910,0403420000,Point(121.4786 14.3808),Pakil,
+http://www.wikidata.org/entity/Q75923,0403422000,Point(121.366666666 14.233333333),Pila,
+http://www.wikidata.org/entity/Q74753,063030000,Point(122.2352 10.6442),Miagao,
+http://www.wikidata.org/entity/Q103921,0405620000,Point(121.649444444 14.7425),Infanta,
+http://www.wikidata.org/entity/Q75899,0403418000,Point(121.483333333 14.366666666),Paete,
+http://www.wikidata.org/entity/Q75961,043403000,Point(121.083333333 14.333333333),Biñan,
+http://www.wikidata.org/entity/Q103786,0405602000,Point(122.013569444 14.102261111),,
+http://www.wikidata.org/entity/Q103914,0405619000,Point(122.1002 13.921),,
+http://www.wikidata.org/entity/Q82493,063008000,Point(122.85 11.05),Barotac Viejo,
+http://www.wikidata.org/entity/Q69793,0403411000,Point(121.216666666 14.166666666),Los Baños,
+http://www.wikidata.org/entity/Q82502,063007000,Point(122.7 10.9),Barotac Nuevo,
+http://www.wikidata.org/entity/Q103833,0405607000,Point(122.2875 13.9575),,
+http://www.wikidata.org/entity/Q103777,0405601000,Point(121.912208333 13.875772222),,
+http://www.wikidata.org/entity/Q82497,0603045000,Point(122.3776 10.67466),Tigbauan,
+http://www.wikidata.org/entity/Q75928,0403423000,Point(121.391666666 14.108333333),Rizal,
+http://www.wikidata.org/entity/Q75888,0403416000,Point(121.4729 14.1463),,
+http://www.wikidata.org/entity/Q69812,0403412000,Point(121.5109 14.185),,
+http://www.wikidata.org/entity/Q103879,0405615000,Point(121.4011 14.0157),Dolores,
+http://www.wikidata.org/entity/Q75938,0403426000,Point(121.416666666 14.283333333),Santa Cruz,
+http://www.wikidata.org/entity/Q75881,0403415000,Point(121.433333333 14.2),Magdalena,
+http://www.wikidata.org/entity/Q75895,0403417000,Point(121.4165 14.1364),Nagcarlan,
+http://www.wikidata.org/entity/Q76001,0403424000,Point(121.325 14.07),San Pablo,
+http://www.wikidata.org/entity/Q75978,043405000,Point(121.166666666 14.216666666),,
+http://www.wikidata.org/entity/Q103872,0405610000,Point(122.325 13.591666666),,
+http://www.wikidata.org/entity/Q76010,043428000,Point(121.116666666 14.316666666),Santa Rosa,
+http://www.wikidata.org/entity/Q103899,0405617000,Point(121.635 14.763056),,
+http://www.wikidata.org/entity/Q103841,0405608000,Point(121.423333333 13.931111111),Candelaria,
+http://www.wikidata.org/entity/Q103889,0405616000,Point(122.170833333 13.688055555),General Luna,
+http://www.wikidata.org/entity/Q103815,0405605000,Point(122.4675 13.739444444),Buenavista,
+http://www.wikidata.org/entity/Q103905,0405618000,Point(122.45 13.9),Guinayangan,
+http://www.wikidata.org/entity/Q155633,1606817000,Point(126.157777777 8.457777777),Tagbina,
+http://www.wikidata.org/entity/Q155648,1606818000,Point(126.233333333 9.019166666),Tago,
+http://www.wikidata.org/entity/Q155819,1606715000,Point(125.401944444 9.618333333),Malimono,
+http://www.wikidata.org/entity/Q155735,1606704000,Point(126.074 10.018),Burgos,
+http://www.wikidata.org/entity/Q155905,1606722000,Point(125.527222222 9.659166666),Sison,
+http://www.wikidata.org/entity/Q155784,1606710000,Point(126.156 9.783),,
+http://www.wikidata.org/entity/Q156008,1906601000,Point(120.966666666 6.0),Indanan,
+http://www.wikidata.org/entity/Q156024,1906602000,Point(121.0 6.05),Jolo,
+http://www.wikidata.org/entity/Q155598,1606812000,Point(126.412663888 8.038052777),Lingig,
+http://www.wikidata.org/entity/Q155946,1606727000,Point(125.569722222 9.554722222),Tubod,
+http://www.wikidata.org/entity/Q156055,1906617000,Point(120.816666666 5.7),Lugus,
+http://www.wikidata.org/entity/Q156042,1906603000,Point(121.266666666 5.883333333),Kalingalan Caluang,
+http://www.wikidata.org/entity/Q155582,1606810000,Point(126.059166666 9.232222222),Lanuza,
+http://www.wikidata.org/entity/Q155983,1906606000,Point(120.916666666 6.166666666),Hadji Panglima Tahil,
+http://www.wikidata.org/entity/Q148064,063047000,Point(122.6 10.816666666),Zarraga,
+http://www.wikidata.org/entity/Q155970,1906615000,Point(121.783333333 6.066666666),Banguingui,
+http://www.wikidata.org/entity/Q155864,1606719000,Point(125.423055555 9.777777777),San Francisco,
+http://www.wikidata.org/entity/Q155763,1606707000,Point(126.052777777 9.757777777),Dapa,
+http://www.wikidata.org/entity/Q156107,1906607000,Point(121.214083333 5.980455555),Panamao,
+http://www.wikidata.org/entity/Q155830,1606716000,Point(126.100833333 9.863888888),Pilar,
+http://www.wikidata.org/entity/Q155524,1606804000,Point(126.301666666 8.918055555),Cagwait,
+http://www.wikidata.org/entity/Q155808,1606714000,Point(125.523055555 9.536944444),Mainit,
+http://www.wikidata.org/entity/Q155499,1606802000,Point(126.281666666 8.967777777),Bayabas,
+http://www.wikidata.org/entity/Q156090,1906605000,Point(121.033333333 5.933333333),Maimbung,
+http://www.wikidata.org/entity/Q155876,1606720000,Point(126.088611 9.936944),San Isidro,
+http://www.wikidata.org/entity/Q155548,1606806000,Point(126.016666666 9.228888888),Carmen,
+http://www.wikidata.org/entity/Q155839,1606717000,Point(125.60161111 9.65702778),Placer,
+http://www.wikidata.org/entity/Q155674,166819000,Point(126.198611111 9.078888888),Tandag,
+http://www.wikidata.org/entity/Q132613,0907220000,Point(122.140555555 7.585277777),Sirawai,
+http://www.wikidata.org/entity/Q156071,1906604000,Point(121.313308333 5.967575),Luuk,
+http://www.wikidata.org/entity/Q132605,0907218000,Point(122.998611111 8.238611111),Sindangan,
+http://www.wikidata.org/entity/Q155917,1606723000,Point(125.966 9.618),Socorro,
+http://www.wikidata.org/entity/Q155795,1606711000,Point(125.6975 9.594722222),Gigaquit,
+http://www.wikidata.org/entity/Q155625,1606816000,Point(126.040277777 8.932222222),San Miguel,
+http://www.wikidata.org/entity/Q155568,1606808000,Point(126.191111111 9.275277777),Cortes,
+http://www.wikidata.org/entity/Q155618,1606815000,Point(126.221433333 8.743663888),San Agustin,
+http://www.wikidata.org/entity/Q155576,1606809000,Point(126.336111111 8.366111111),Hinatuan,
+http://www.wikidata.org/entity/Q132617,0907221000,Point(122.663888888 7.976111111),Tampilisan,
+http://www.wikidata.org/entity/Q155536,1606805000,Point(125.976944444 9.335555555),Cantilan,
+http://www.wikidata.org/entity/Q132610,0907219000,Point(122.136111111 7.706666666),Siocon,
+http://www.wikidata.org/entity/Q155605,1606813000,Point(125.964722222 9.261944444),Madrid,
+http://www.wikidata.org/entity/Q155558,1606807000,Point(125.949444444 9.368333333),Carrascal,
+http://www.wikidata.org/entity/Q155934,1606725000,Point(125.5825 9.696388888),Tagana-an,
+http://www.wikidata.org/entity/Q155611,1606814000,Point(126.298333333 8.800833333),Marihatag,
+http://www.wikidata.org/entity/Q155849,1606718000,Point(126.007 9.958),San Benito,
+http://www.wikidata.org/entity/Q155471,1606801000,Point(126.121666666 8.529166666),Barobo,
+http://www.wikidata.org/entity/Q155706,1606701000,Point(125.576666666 9.466666666),Alegria,
+http://www.wikidata.org/entity/Q155720,1606702000,Point(125.640486111 9.6081),Bacuag,
+http://www.wikidata.org/entity/Q155748,1606706000,Point(125.732777777 9.574166666),Claver,
+http://www.wikidata.org/entity/Q174317,076102000,Point(123.591 9.249),Larena,
+http://www.wikidata.org/entity/Q195650,1004303000,Point(124.85 9.0),Balingoan,
+http://www.wikidata.org/entity/Q176975,1600211000,Point(125.5226 9.165),Tubay,
+http://www.wikidata.org/entity/Q195373,064514000,Point(122.983333333 10.2),Isabela,
+http://www.wikidata.org/entity/Q156263,1906612000,Point(120.8145 5.5462),Siasi,
+http://www.wikidata.org/entity/Q195258,064505000,Point(123.483333333 10.6),Calatrava,
+http://www.wikidata.org/entity/Q195272,064506000,Point(122.6 9.816666666),Candoni,
+http://www.wikidata.org/entity/Q195726,1004312000,Point(124.793713888 8.985483333),Kinoguitan,
+http://www.wikidata.org/entity/Q174354,076105000,Point(123.494 9.159),San Juan,
+http://www.wikidata.org/entity/Q195287,064507000,Point(122.616666666 9.966666666),Cauayan,
+http://www.wikidata.org/entity/Q195459,064520000,Point(123.033333333 10.6),Murcia,
+http://www.wikidata.org/entity/Q156244,1906611000,Point(121.105669444 6.089055555),Patikul,
+http://www.wikidata.org/entity/Q195438,064519000,Point(123.083333333 10.266666666),Moises Padilla,
+http://www.wikidata.org/entity/Q195322,064511000,Point(122.85 10.266666666),Hinigaran,
+http://www.wikidata.org/entity/Q195637,1004302000,Point(124.783333333 8.75),Balingasag,
+http://www.wikidata.org/entity/Q195503,0604532000,Point(123.236389 10.550556),Don Salvador Benedicto,
+http://www.wikidata.org/entity/Q156126,1906619000,Point(121.387433333 6.009138888),Omar,
+http://www.wikidata.org/entity/Q195676,1004306000,Point(124.89472 8.61),Claveria,
+http://www.wikidata.org/entity/Q176033,1001803000,Point(124.783333333 9.15),Mahinog,
+http://www.wikidata.org/entity/Q195623,1004301000,Point(124.475125 8.571411111),Alubijid,
+http://www.wikidata.org/entity/Q195696,1004309000,Point(124.405413888 8.595638888),Gitagum,
+http://www.wikidata.org/entity/Q174332,076103000,Point(123.634 9.128),Lazi,
+http://www.wikidata.org/entity/Q156225,1906610000,Point(121.143861111 5.844408333),Pata,
+http://www.wikidata.org/entity/Q174373,076106000,Point(123.514 9.215),Siquijor,
+http://www.wikidata.org/entity/Q195477,064521000,Point(122.883333333 10.366666666),Pontevedra,
+http://www.wikidata.org/entity/Q156302,1906614000,Point(120.881769444 5.704805555),Tapul,
+http://www.wikidata.org/entity/Q195755,1004314000,Point(124.45 8.583333333),Laguindingan,
+http://www.wikidata.org/entity/Q195243,064503000,Point(122.866666666 10.2),Binalbagan,
+http://www.wikidata.org/entity/Q195489,064522000,Point(122.8 10.516666666),Pulupandan,
+http://www.wikidata.org/entity/Q195549,064529000,Point(123.516666666 10.716666666),Toboso,
+http://www.wikidata.org/entity/Q174305,0706101000,Point(123.647 9.276),Enrique Villanueva,
+http://www.wikidata.org/entity/Q195740,1004313000,Point(124.783333333 8.8),Lagonglong,
+http://www.wikidata.org/entity/Q195709,1004310000,Point(124.316666666 8.5),Initao,
+http://www.wikidata.org/entity/Q195418,064518000,Point(123.123 10.95803),Manapla,
+http://www.wikidata.org/entity/Q195686,104307000,Point(124.516666666 8.566666666),El Salvador,
+http://www.wikidata.org/entity/Q156159,1906618000,Point(120.801344444 5.542252777),Pandami,
+http://www.wikidata.org/entity/Q174343,076104000,Point(123.655 9.196),Maria,
+http://www.wikidata.org/entity/Q195663,1004304000,Point(124.8 8.916666666),Binuangan,
+http://www.wikidata.org/entity/Q156195,1906608000,Point(120.583333333 6.3),Pangutaran,
+http://www.wikidata.org/entity/Q156208,1906609000,Point(120.916666666 5.916666666),Parang,
+http://www.wikidata.org/entity/Q195352,064513000,Point(122.766666666 10.033333333),Ilog,
+http://www.wikidata.org/entity/Q187225,1108203000,Point(125.855555555 7.309166666),Mabini,
+http://www.wikidata.org/entity/Q195569,064530000,Point(122.833333333 10.466666666),Valladolid,
+http://www.wikidata.org/entity/Q156180,1906616000,Point(121.2 5.966666666),Panglima Estino,
+http://www.wikidata.org/entity/Q195717,1004311000,Point(124.75 8.65),Jasaan,
+http://www.wikidata.org/entity/Q195397,064517000,Point(123.066666666 10.35),La Castellana,
+http://www.wikidata.org/entity/Q195523,064525000,Point(122.85 10.416666666),San Enrique,
+http://www.wikidata.org/entity/Q156285,1906613000,Point(121.108744444 5.976030555),Talipao,
+http://www.wikidata.org/entity/Q195304,064508000,Point(122.966666666 10.883333333),,
+http://www.wikidata.org/entity/Q195336,064512000,Point(122.466833333 9.601788888),Hinoba-an,
+http://www.wikidata.org/entity/Q111739,1731500000,Point(118.744 9.74),Puerto Princesa,
+http://www.wikidata.org/entity/Q104005,0405635000,Point(122.020277777 13.951111111),Plaridel,
+http://www.wikidata.org/entity/Q103987,0405633000,Point(121.933333333 14.183333333),Perez,
+http://www.wikidata.org/entity/Q103952,0405627000,Point(121.730833333 14.191111111),,
+http://www.wikidata.org/entity/Q104026,0405638000,Point(121.6 14.666666666),Real,
+http://www.wikidata.org/entity/Q131906,0908308000,Point(123.032222222 7.631666666),Malangas,
+http://www.wikidata.org/entity/Q131941,0908311000,Point(122.802197222 7.585713888),Payao,
+http://www.wikidata.org/entity/Q131816,0908303000,Point(122.985277777 7.691111111),Diplahan,
+http://www.wikidata.org/entity/Q107011,1704001000,Point(121.833333333 13.45),,
+http://www.wikidata.org/entity/Q119624,0501602000,Point(122.492777777 14.331388888),Capalonga,
+http://www.wikidata.org/entity/Q131926,0908310000,Point(122.84639 7.31056),Olutanga,
+http://www.wikidata.org/entity/Q104063,0405642000,Point(122.516666666 13.35),San Francisco,
+http://www.wikidata.org/entity/Q104113,045647000,Point(121.583333333 14.016666666),Tayabas,
+http://www.wikidata.org/entity/Q103996,0405634000,Point(122.088 13.783),Pitogo,
+http://www.wikidata.org/entity/Q104099,0405649000,Point(121.97522 13.84132),,
+http://www.wikidata.org/entity/Q131838,0908304000,Point(122.9347 7.64275),Imelda,
+http://www.wikidata.org/entity/Q104052,0405641000,Point(121.3 13.9),San Antonio,
+http://www.wikidata.org/entity/Q107048,1704006000,Point(122.083333333 13.316666666),,
+http://www.wikidata.org/entity/Q124780,0908313000,Point(122.864094444 7.705613888),Siay,
+http://www.wikidata.org/entity/Q104011,0405636000,Point(121.938 14.714),Polillo,
+http://www.wikidata.org/entity/Q104125,0431200000,Point(121.616666666 13.933333333),,
+http://www.wikidata.org/entity/Q104092,0405648000,Point(121.316666666 13.95),Tiaong,
+http://www.wikidata.org/entity/Q131892,0908307000,Point(122.836991666 7.417552777),Mabuhay,
+http://www.wikidata.org/entity/Q103947,0405625000,Point(122.133333333 13.75),Macalelon,
+http://www.wikidata.org/entity/Q104087,0405646000,Point(122.533333333 13.966666666),,
+http://www.wikidata.org/entity/Q131850,0908305000,Point(122.586666666 7.782222222),Ipil,
+http://www.wikidata.org/entity/Q103971,0405630000,Point(121.687 13.972),Pagbilao,
+http://www.wikidata.org/entity/Q103976,0405631000,Point(121.816666666 14.933333333),Panukulan,
+http://www.wikidata.org/entity/Q131917,0908309000,Point(122.694444444 7.797777777),Naga,
+http://www.wikidata.org/entity/Q107042,1704005000,Point(122.033333333 13.483333333),Santa Cruz,
+http://www.wikidata.org/entity/Q103935,0405622000,Point(122.2604 13.884),Lopez,
+http://www.wikidata.org/entity/Q107034,1704004000,Point(121.861 13.474),,
+http://www.wikidata.org/entity/Q104113,0405647000,Point(121.583333333 14.016666666),Tayabas,
+http://www.wikidata.org/entity/Q107029,1704003000,Point(121.85 13.316666666),,
+http://www.wikidata.org/entity/Q103941,0405623000,Point(121.556944444 14.113333333),Lucban,
+http://www.wikidata.org/entity/Q104037,0405639000,Point(121.637777777 14.1625),,
+http://www.wikidata.org/entity/Q104071,0405644000,Point(122.5667 13.5677),San Narciso,
+http://www.wikidata.org/entity/Q122401,0105538000,Point(120.400833 16.003056),Santa Barbara,
+http://www.wikidata.org/entity/Q131870,0908306000,Point(122.762716666 7.796802777),Kabasalan,
+http://www.wikidata.org/entity/Q104078,0405645000,Point(121.533333333 13.966666666),,
+http://www.wikidata.org/entity/Q131954,0908312000,Point(122.463888888 7.658333333),Roseller Lim,
+http://www.wikidata.org/entity/Q103958,0405628000,Point(122.404166666 13.522222222),,
+http://www.wikidata.org/entity/Q103981,0405632000,Point(122.218 14.754),Patnanungan,
+http://www.wikidata.org/entity/Q104020,0405637000,Point(122.182361111 14.006819444),Quezon,
+http://www.wikidata.org/entity/Q104044,0405640000,Point(122.676111111 13.323055555),San Andres,
+http://www.wikidata.org/entity/Q131811,0908302000,Point(123.060833333 7.728611111),Buug,
+http://www.wikidata.org/entity/Q103965,0405629000,Point(121.81163 13.9226),Padre Burgos,
+http://www.wikidata.org/entity/Q131797,0908301000,Point(122.941222222 7.506005555),Alicia,
+http://www.wikidata.org/entity/Q107023,1704002000,Point(121.95 13.25),Buenavista,
+http://www.wikidata.org/entity/Q132230,0907315000,Point(123.438333333 8.129722222),Mahayag,
+http://www.wikidata.org/entity/Q132540,0907226000,Point(122.924402777 8.151361111),Leon B. Postigo,
+http://www.wikidata.org/entity/Q132403,0907344000,Point(123.223455555 7.8211),Tigbao,
+http://www.wikidata.org/entity/Q132591,0907214000,Point(123.508333333 8.300277777),Sergio Osmeña Sr.,
+http://www.wikidata.org/entity/Q132586,0907213000,Point(122.7575 8.1075),Salug,
+http://www.wikidata.org/entity/Q132271,0907319000,Point(123.485 8.093333333),Molave,
+http://www.wikidata.org/entity/Q131984,0908316000,Point(122.422777777 7.604722222),Tungawan,
+http://www.wikidata.org/entity/Q132432,0907341000,Point(123.170833333 7.514722222),Vincenzo A. Sagun,
+http://www.wikidata.org/entity/Q132184,0907312000,Point(123.516666666 7.866666666),Labangan,
+http://www.wikidata.org/entity/Q132527,0907203000,Point(123.284705555 8.513402777),Katipunan,
+http://www.wikidata.org/entity/Q132244,0907317000,Point(123.165913888 7.578263888),Margosatubig,
+http://www.wikidata.org/entity/Q132200,0907333000,Point(123.151113888 7.855413888),Lakewood,
+http://www.wikidata.org/entity/Q132535,0907205000,Point(122.524686111 8.064863888),Labason,
+http://www.wikidata.org/entity/Q132077,0907306000,Point(123.337777777 7.616111111),Dinas,
+http://www.wikidata.org/entity/Q132520,0907222000,Point(123.021944444 8.442777777),Jose Dalman,
+http://www.wikidata.org/entity/Q132561,0907207000,Point(123.091663888 8.516138888),Manukan,
+http://www.wikidata.org/entity/Q132104,0907307000,Point(123.366666666 7.816666666),Dumalinao,
+http://www.wikidata.org/entity/Q132284,0907338000,Point(123.313333333 7.453611111),Pitogo,
+http://www.wikidata.org/entity/Q132523,0907227000,Point(122.5236 7.908044444),Kalawit,
+http://www.wikidata.org/entity/Q131968,0908314000,Point(122.808402777 7.426311111),Talusan,
+http://www.wikidata.org/entity/Q132482,0907224000,Point(122.145180555 7.808847222),Baliguian,
+http://www.wikidata.org/entity/Q132317,0907324000,Point(123.267777777 7.65),San Miguel,
+http://www.wikidata.org/entity/Q132262,0907318000,Point(123.314722222 8.032777777),Midsalip,
+http://www.wikidata.org/entity/Q132583,0907212000,Point(123.551666666 8.527222222),Rizal,
+http://www.wikidata.org/entity/Q132417,0907330000,Point(123.578333333 7.854722222),Tukuran,
+http://www.wikidata.org/entity/Q132215,0907313000,Point(123.197472222 7.63845),Lapuyan,
+http://www.wikidata.org/entity/Q132141,0907343000,Point(123.321622222 7.730113888),Guipos,
+http://www.wikidata.org/entity/Q132599,0907216000,Point(122.066944444 7.292777777),Sibuco,
+http://www.wikidata.org/entity/Q132574,0907210000,Point(123.363055555 8.531944444),Polanco,
+http://www.wikidata.org/entity/Q132032,0907303000,Point(123.042258333 7.847405555),Bayog,
+http://www.wikidata.org/entity/Q132570,0907209000,Point(123.45 8.482222222),Piñan,
+http://www.wikidata.org/entity/Q132015,0907302000,Point(123.581877777 7.948427777),Aurora,
+http://www.wikidata.org/entity/Q132532,0907204000,Point(123.526552777 8.466958333),La Libertad,
+http://www.wikidata.org/entity/Q132301,0907323000,Point(123.486944444 8.005277777),Ramon Magsaysay,
+http://www.wikidata.org/entity/Q132507,0907223000,Point(122.405758333 7.980836111),Gutalac,
+http://www.wikidata.org/entity/Q132371,0907327000,Point(123.408563888 7.465486111),Tabina,
+http://www.wikidata.org/entity/Q132578,0907211000,Point(123.227677777 8.519633333),Roxas,
+http://www.wikidata.org/entity/Q132126,0907308000,Point(123.345 8.155),Dumingag,
+http://www.wikidata.org/entity/Q132155,0907337000,Point(123.543888888 8.214444444),Josefina,
+http://www.wikidata.org/entity/Q132337,0907325000,Point(123.459722222 7.657777777),San Pablo,
+http://www.wikidata.org/entity/Q132057,0907305000,Point(123.366111111 7.529722222),Dimataling,
+http://www.wikidata.org/entity/Q132594,0907215000,Point(123.114444444 8.251666666),Siayan,
+http://www.wikidata.org/entity/Q132391,0907328000,Point(123.537222222 8.07),Tambulig,
+http://www.wikidata.org/entity/Q132601,0907217000,Point(123.479722222 8.613055555),Sibutad,
+http://www.wikidata.org/entity/Q132553,0907206000,Point(122.673611111 8.122777777),Liloy,
+http://www.wikidata.org/entity/Q131975,0908315000,Point(122.559444444 7.870277777),Titay,
+http://www.wikidata.org/entity/Q132566,0907208000,Point(123.475563888 8.419944444),Mutia,
+http://www.wikidata.org/entity/Q132353,0907340000,Point(123.384644444 8.041547222),Sominot,
+http://www.wikidata.org/entity/Q132496,0907225000,Point(122.843777777 8.001497222),Godod,
+http://www.wikidata.org/entity/Q132161,0907311000,Point(123.144166666 7.747777777),Kumalarang,
+http://www.wikidata.org/entity/Q155590,1606811000,Point(126.093216666 8.632958333),Lianga,
+http://www.wikidata.org/entity/Q213400,0803745000,Point(124.371388888 11.306666666),Tabango,
+http://www.wikidata.org/entity/Q195870,1004321000,Point(124.566666666 8.516666666),Opol,
+http://www.wikidata.org/entity/Q195899,1004323000,Point(124.783333333 8.95),Sugbongcogon,
+http://www.wikidata.org/entity/Q213113,0803725000,Point(124.962222222 10.973055555),Julita,
+http://www.wikidata.org/entity/Q213130,0803726000,Point(124.559722222 11.185555555),Kananga,
+http://www.wikidata.org/entity/Q212924,0803706000,Point(124.733333333 11.316666666),Barugo,
+http://www.wikidata.org/entity/Q212877,0803701000,Point(125.012 10.747),Abuyog,
+http://www.wikidata.org/entity/Q204771,1900711000,Point(122.10849 6.49433),Ungkaya Pukan,
+http://www.wikidata.org/entity/Q213431,0803748000,Point(125.016666666 11.116666666),Tanauan,
+http://www.wikidata.org/entity/Q195767,1004315000,Point(124.35 8.558333333),Libertad,
+http://www.wikidata.org/entity/Q213303,0803740000,Point(124.3825 11.047777777),Palompon,
+http://www.wikidata.org/entity/Q212951,0803713000,Point(124.427777777 11.446666666),Calubian,
+http://www.wikidata.org/entity/Q213174,0803730000,Point(124.996388888 10.835555555),MacArthur,
+http://www.wikidata.org/entity/Q213190,0803731000,Point(124.965 10.605),Mahaplag,
+http://www.wikidata.org/entity/Q212945,0803710000,Point(124.9 10.983333333),Burauen,
+http://www.wikidata.org/entity/Q213227,0803734000,Point(124.8 10.283333333),Matalom,
+http://www.wikidata.org/entity/Q213323,0803741000,Point(124.883333333 11.133333333),Pastrana,
+http://www.wikidata.org/entity/Q213086,0803723000,Point(124.785277777 11.189444444),Jaro,
+http://www.wikidata.org/entity/Q213281,0803739000,Point(124.991666666 11.158333333),Palo,
+http://www.wikidata.org/entity/Q195780,1004316000,Point(124.25917 8.34111),Lugait,
+http://www.wikidata.org/entity/Q195883,1004322000,Point(124.8 8.866666666),Salay,
+http://www.wikidata.org/entity/Q213378,0803744000,Point(124.916111 11.185556),Santa Fe,
+http://www.wikidata.org/entity/Q213144,0803728000,Point(124.957222222 10.891111111),La Paz,
+http://www.wikidata.org/entity/Q212981,0803717000,Point(124.903055555 11.061111111),Dagami,
+http://www.wikidata.org/entity/Q213006,0803719000,Point(124.75 10.366666666),Hilongos,
+http://www.wikidata.org/entity/Q212969,0803715000,Point(124.683333333 11.3),Carigara,
+http://www.wikidata.org/entity/Q213101,0803724000,Point(124.936 10.793),Javier,
+http://www.wikidata.org/entity/Q195799,1004317000,Point(125.183333333 9.016666666),Magsaysay,
+http://www.wikidata.org/entity/Q195937,1004326000,Point(124.783333333 8.583333333),Villanueva,
+http://www.wikidata.org/entity/Q212935,0803707000,Point(124.792 10.328),Bato,
+http://www.wikidata.org/entity/Q213245,0803735000,Point(125.006 10.903),Mayorga,
+http://www.wikidata.org/entity/Q213160,0803729000,Point(124.483333333 11.366666666),Leyte,
+http://www.wikidata.org/entity/Q212896,0803703000,Point(124.692291666 10.918630555),Albuera,
+http://www.wikidata.org/entity/Q212988,0803718000,Point(125.033 10.953),Dulag,
+http://www.wikidata.org/entity/Q212958,0803714000,Point(124.641944444 11.294444444),Capoocan,
+http://www.wikidata.org/entity/Q195917,1004325000,Point(124.883333333 8.991666666),Talisayan,
+http://www.wikidata.org/entity/Q213357,0803743000,Point(124.83 11.294166666),San Miguel,
+http://www.wikidata.org/entity/Q195834,1004319000,Point(125.016666666 8.916666666),Medina,
+http://www.wikidata.org/entity/Q213060,0803722000,Point(124.433333333 10.933333333),Isabel,
+http://www.wikidata.org/entity/Q213209,0803733000,Point(124.473333333 11.146944444),Matag-ob,
+http://www.wikidata.org/entity/Q195815,1004318000,Point(124.28667 8.40417),Manticao,
+http://www.wikidata.org/entity/Q212888,0803702000,Point(124.847777777 11.206111111),Alangalang,
+http://www.wikidata.org/entity/Q213042,0803721000,Point(124.75 10.5),Inopacan,
+http://www.wikidata.org/entity/Q213261,0803736000,Point(124.5376 10.9098),Merida,
+http://www.wikidata.org/entity/Q213442,0803749000,Point(125.035277777 11.063333333),Tolosa,
+http://www.wikidata.org/entity/Q212907,0803705000,Point(124.843425 11.420733333),Babatngon,
+http://www.wikidata.org/entity/Q213341,0803742000,Point(124.35 11.416666666),San Isidro,
+http://www.wikidata.org/entity/Q213420,0803746000,Point(124.966666666 11.033333333),Tabontabon,
+http://www.wikidata.org/entity/Q213024,0803720000,Point(124.727777777 10.433888888),Hindang,
+http://www.wikidata.org/entity/Q195855,1004320000,Point(124.3 8.433333333),Naawan,
+http://www.wikidata.org/entity/Q1020685,0105525000,Point(120.485556 16.043889),Manaoag,
+http://www.wikidata.org/entity/Q493362,0500515000,Point(124.133333333 13.183333333),Rapu-Rapu,
+http://www.wikidata.org/entity/Q967367,112315000,Point(125.680966666 7.301416666),Panabo,
+http://www.wikidata.org/entity/Q803199,0401015000,Point(121.210413888 13.647319444),Lobo,
+http://www.wikidata.org/entity/Q627495,1600206000,Point(125.5756 9.4581),Kitcharao,
+http://www.wikidata.org/entity/Q627260,1600314000,Point(125.6938 8.8219),Sibagat,
+http://www.wikidata.org/entity/Q493409,0500516000,Point(123.776944444 13.235),Santo Domingo,
+http://www.wikidata.org/entity/Q627572,1600208000,Point(125.5179 9.0225),Magallanes,
+http://www.wikidata.org/entity/Q1014782,0803738000,Point(124.6075 11.010555555),Ormoc,
+http://www.wikidata.org/entity/Q875070,0105518000,Point(120.334 16.043),,
+http://www.wikidata.org/entity/Q627638,1600212000,Point(125.585 9.0518),Remedios T. Romualdez,
+http://www.wikidata.org/entity/Q493326,0500514000,Point(123.485555555 13.292222222),Polangui,
+http://www.wikidata.org/entity/Q802202,1900713000,Point(121.922222222 6.318055555),Tabuan-Lasa,
+http://www.wikidata.org/entity/Q1020688,064504000,Point(123.3 10.95),Cadiz,
+http://www.wikidata.org/entity/Q667595,1900706000,Point(122.119327777 6.500630555),Tipo-Tipo,
+http://www.wikidata.org/entity/Q627107,1600304000,Point(125.8092 8.2801),La Paz,
+http://www.wikidata.org/entity/Q802107,1900703000,Point(121.84 6.638),Lantawan,
+http://www.wikidata.org/entity/Q627190,1600308000,Point(125.9771 8.505),San Francisco,
+http://www.wikidata.org/entity/Q627390,1600201000,Point(125.409 8.9744),Buenavista,
+http://www.wikidata.org/entity/Q866414,166803000,Point(126.316111111 8.213333333),Bislig,
+http://www.wikidata.org/entity/Q627077,1600303000,Point(125.6454 8.676),Esperanza,
+http://www.wikidata.org/entity/Q630096,1900707000,Point(122.186325 6.611294444),Tuburan,
+http://www.wikidata.org/entity/Q627210,1600309000,Point(125.7364 8.4964),San Luis,
+http://www.wikidata.org/entity/Q874270,097322000,Point(123.436388888 7.827222222),Pagadian,
+http://www.wikidata.org/entity/Q1014775,0907201000,Point(123.4243 8.6549),Dapitan,
+http://www.wikidata.org/entity/Q628297,064502000,Point(122.838447222 10.538797222),Bago,
+http://www.wikidata.org/entity/Q802171,1900705000,Point(122.034213888 6.419858333),Sumisip,
+http://www.wikidata.org/entity/Q627144,1600306000,Point(125.9153 8.6057),Prosperidad,
+http://www.wikidata.org/entity/Q812117,0803708000,Point(124.8 10.683333333),Baybay,
+http://www.wikidata.org/entity/Q493444,0500518000,Point(123.6805 13.4585),Tiwi,
+http://www.wikidata.org/entity/Q627286,1600311000,Point(125.7869 8.4488),Talacogon,
+http://www.wikidata.org/entity/Q627434,1600204000,Point(125.2648 8.9999),Carmen,
+http://www.wikidata.org/entity/Q493246,0500512000,Point(123.495277777 13.258888888),Oas,
+http://www.wikidata.org/entity/Q802142,1900704000,Point(121.87 6.546),Maluso,
+http://www.wikidata.org/entity/Q1019949,166724000,Point(125.495833333 9.789722222),Surigao City,
+http://www.wikidata.org/entity/Q802075,1900712000,Point(121.586 6.662),Hadji Muhtamad,
+http://www.wikidata.org/entity/Q627349,1600313000,Point(125.9554 8.0698),Veruela,
+http://www.wikidata.org/entity/Q493178,0500510000,Point(123.7 13.4),Malinao,
+http://www.wikidata.org/entity/Q627231,1600310000,Point(126.0285 7.9842),Santa Josefa,
+http://www.wikidata.org/entity/Q627120,1600305000,Point(125.8538 8.1856),Loreto,
+http://www.wikidata.org/entity/Q725168,112319000,Point(125.80778 7.44778),Tagum,
+http://www.wikidata.org/entity/Q627461,1600205000,Point(125.51556 9.34306),Jabonga,
+http://www.wikidata.org/entity/Q588955,1600210000,Point(125.5602 9.2654),Santiago,
+http://www.wikidata.org/entity/Q890623,072211000,Point(124.0 11.016666666),Bogo,
+http://www.wikidata.org/entity/Q627529,1600207000,Point(125.601 8.7351),Las Nieves,
+http://www.wikidata.org/entity/Q627049,1600302000,Point(125.9935 8.1781),Bunawan,
+http://www.wikidata.org/entity/Q627604,1600209000,Point(125.3408 8.9884),Nasipit,
+http://www.wikidata.org/entity/Q493204,0500511000,Point(123.8693 13.1235),Manito,
+http://www.wikidata.org/entity/Q627320,1600312000,Point(126.0614 8.0459),Trento,
+http://www.wikidata.org/entity/Q627167,1600307000,Point(126.0015 8.3814),Rosario,
+http://www.wikidata.org/entity/Q41732,0105508000,Point(119.859167 16.186944),Bani,
+http://www.wikidata.org/entity/Q42036,0105534000,Point(120.441111 16.0725),San Jacinto,
+http://www.wikidata.org/entity/Q41737,0105509000,Point(120.3976 15.8524),,
+http://www.wikidata.org/entity/Q43168,015546000,Point(120.571111111 15.976111111),Urdaneta,
+http://www.wikidata.org/entity/Q43180,0200901000,Point(121.966666666 20.45),Basco,
+http://www.wikidata.org/entity/Q41771,0105512000,Point(120.6 16.05),Binalonan,
+http://www.wikidata.org/entity/Q42011,0105529000,Point(120.795277777 16.042222222),Natividad,
+http://www.wikidata.org/entity/Q41998,1900710000,Point(122.272616666 6.642438888),Hadji Mohammad Ajul,
+http://www.wikidata.org/entity/Q41985,0105524000,Point(120.416666666 15.916666666),Malasiqui,
+http://www.wikidata.org/entity/Q41917,0105519000,Point(119.880528 15.989639),Dasol,
+http://www.wikidata.org/entity/Q42039,0105535000,Point(120.666667 16.065556),San Manuel,
+http://www.wikidata.org/entity/Q42055,0105539000,Point(120.700278 15.980833),Santa Maria,
+http://www.wikidata.org/entity/Q43145,0105542000,Point(120.096 16.065),Sual,
+http://www.wikidata.org/entity/Q53071,0205703000,Point(121.5025 16.593611111),Diffun,
+http://www.wikidata.org/entity/Q41855,0105517000,Point(120.366666666 16.016666666),Calasiao,
+http://www.wikidata.org/entity/Q43152,0105544000,Point(120.841944444 15.928888888),Umingan,
+http://www.wikidata.org/entity/Q43451,0200902000,Point(121.8415 20.7878),,
+http://www.wikidata.org/entity/Q42001,0105527000,Point(120.2921 15.7874),Mangatarem,
+http://www.wikidata.org/entity/Q43140,0105540000,Point(120.588333333 15.879166666),Santo Tomas,
+http://www.wikidata.org/entity/Q43162,015503000,Point(119.980769444 16.155313888),Alaminos,
+http://www.wikidata.org/entity/Q41850,0105516000,Point(119.856778 16.046472),Burgos,
+http://www.wikidata.org/entity/Q42017,0105530000,Point(120.55 16.116666666),Pozorrubio,
+http://www.wikidata.org/entity/Q43154,0105545000,Point(120.3295 15.8227),,
+http://www.wikidata.org/entity/Q42006,0105528000,Point(120.454 16.026),Mapandan,
+http://www.wikidata.org/entity/Q41996,0105526000,Point(120.4025 16.07),Mangaldan,
+http://www.wikidata.org/entity/Q42043,0105536000,Point(120.762 16.069),San Nicolas,
+http://www.wikidata.org/entity/Q43454,0200903000,Point(121.916666666 20.366666666),Ivana,
+http://www.wikidata.org/entity/Q41982,0105523000,Point(119.94 16.069722),,
+http://www.wikidata.org/entity/Q43143,0105541000,Point(120.516666666 16.166666666),Sison,
+http://www.wikidata.org/entity/Q42031,0105533000,Point(120.45 16.15),San Fabian,
+http://www.wikidata.org/entity/Q41757,0105510000,Point(120.475555555 15.810277777),Bautista,
+http://www.wikidata.org/entity/Q43469,0200906000,Point(121.933333333 20.35),Uyugan,
+http://www.wikidata.org/entity/Q43460,0200905000,Point(121.872 20.335),,
+http://www.wikidata.org/entity/Q41826,0105515000,Point(120.183333333 15.916666666),Bugallon,
+http://www.wikidata.org/entity/Q43157,0105547000,Point(120.583333333 15.9),Villasis,
+http://www.wikidata.org/entity/Q41807,0105514000,Point(119.894722222 16.388055555),Bolinao,
+http://www.wikidata.org/entity/Q41942,0105521000,Point(120.146 16.025),Labrador,
+http://www.wikidata.org/entity/Q53070,0205702000,Point(121.522222222 16.510277777),Cabarroguis,
+http://www.wikidata.org/entity/Q41978,0105522000,Point(120.233333 16.016667),Lingayen,
+http://www.wikidata.org/entity/Q41999,1900709000,Point(122.141991666 6.491380555),Al-Barka,
+http://www.wikidata.org/entity/Q43148,0105543000,Point(120.747778 16.026667),Tayug,
+http://www.wikidata.org/entity/Q43458,0200904000,Point(121.95 20.416666666),Mahatao,
+http://www.wikidata.org/entity/Q42589,1900708000,Point(122.195161111 6.665111111),Akbar,
+http://www.wikidata.org/entity/Q41965,0105548000,Point(120.55 16.033333),Laoac,
+http://www.wikidata.org/entity/Q41779,0105513000,Point(120.26904 16.03232),Binmaley,
+http://www.wikidata.org/entity/Q43165,0105532000,Point(120.348889 15.928056),,
+http://www.wikidata.org/entity/Q41762,0105511000,Point(120.457 15.809),,
+http://www.wikidata.org/entity/Q42024,0105531000,Point(120.632778 15.894444),Rosales,
+http://www.wikidata.org/entity/Q42044,0105537000,Point(120.815 15.984444),San Quintin,
+http://www.wikidata.org/entity/Q41922,0105520000,Point(119.908333 15.820833),Infanta,
+http://www.wikidata.org/entity/Q315687,072204000,Point(123.549069444 10.222875),Aloguinsan,
+http://www.wikidata.org/entity/Q315851,072214000,Point(123.633333333 10.116666666),Carcar,
+http://www.wikidata.org/entity/Q315669,072203000,Point(123.340244444 9.724330555),Alegria,
+http://www.wikidata.org/entity/Q315771,072209000,Point(123.733333333 11.2),Bantayan,
+http://www.wikidata.org/entity/Q314980,1108604000,Point(125.473191666 6.551363888),Santa Maria,
+http://www.wikidata.org/entity/Q315543,1108207000,Point(126.053611111 7.823888888),Monkayo,
+http://www.wikidata.org/entity/Q314671,1102508000,Point(126.539330555 7.211219444),Manay,
+http://www.wikidata.org/entity/Q315557,1108208000,Point(125.990277777 7.705277777),Montevista,
+http://www.wikidata.org/entity/Q314745,1102511000,Point(126.44708 7.0491),Tarragona,
+http://www.wikidata.org/entity/Q315468,1108202000,Point(125.790555555 7.818888888),Laak,
+http://www.wikidata.org/entity/Q314965,1102412000,Point(125.416666666 6.833333333),Santa Cruz,
+http://www.wikidata.org/entity/Q314864,1102407000,Point(125.150786111 6.752630555),Magsaysay,
+http://www.wikidata.org/entity/Q314721,1102510000,Point(126.088888888 6.836111111),San Isidro,
+http://www.wikidata.org/entity/Q315733,072207000,Point(123.395925 9.869361111),Badian,
+http://www.wikidata.org/entity/Q314885,1102408000,Point(125.400102777 6.592744444),Malalag,
+http://www.wikidata.org/entity/Q315882,072215000,Point(123.966666666 10.583333333),Carmen,
+http://www.wikidata.org/entity/Q315524,1108206000,Point(125.920555555 7.508611111),Mawab,
+http://www.wikidata.org/entity/Q314808,1102404000,Point(125.297627777 6.689572222),Hagonoy,
+http://www.wikidata.org/entity/Q314824,1108602000,Point(125.644338888 5.912622222),Jose Abad Santos,
+http://www.wikidata.org/entity/Q314944,1102411000,Point(125.341594444 6.639205555),Padada,
+http://www.wikidata.org/entity/Q315923,072218000,Point(123.966666666 10.466666666),Compostela,
+http://www.wikidata.org/entity/Q315945,072219000,Point(123.95 10.4),Consolacion,
+http://www.wikidata.org/entity/Q315450,1108201000,Point(126.083333333 7.666666666),Compostela,
+http://www.wikidata.org/entity/Q315965,0702220000,Point(123.949 10.252),Cordova,
+http://www.wikidata.org/entity/Q315703,072205000,Point(123.6 9.883333333),Argao,
+http://www.wikidata.org/entity/Q314653,1102507000,Point(126.011666666 6.896944444),Lupon,
+http://www.wikidata.org/entity/Q315900,072216000,Point(123.95 10.666666666),Catmon,
+http://www.wikidata.org/entity/Q314778,1102401000,Point(125.211036111 6.787716666),Bansalan,
+http://www.wikidata.org/entity/Q315981,072221000,Point(124.0 11.25),Daanbantayan,
+http://www.wikidata.org/entity/Q315636,072201000,Point(123.404677777 9.971533333),Alcantara,
+http://www.wikidata.org/entity/Q315809,072212000,Point(123.433333333 9.633333333),Boljoon,
+http://www.wikidata.org/entity/Q314923,1102410000,Point(125.217788888 6.709686111),Matanao,
+http://www.wikidata.org/entity/Q315497,1108204000,Point(125.855833333 7.369677777),Maco,
+http://www.wikidata.org/entity/Q314632,1102506000,Point(126.071666666 6.653611111),Governor Generoso,
+http://www.wikidata.org/entity/Q315719,072206000,Point(123.717194444 10.567869444),Asturias,
+http://www.wikidata.org/entity/Q314686,112509000,Point(126.216272222 6.953527777),Mati,
+http://www.wikidata.org/entity/Q315570,1108209000,Point(125.967047222 7.603413888),Nabunturan,
+http://www.wikidata.org/entity/Q314999,1108605000,Point(125.422 5.412),Sarangani,
+http://www.wikidata.org/entity/Q314796,1108601000,Point(125.698311111 6.200016666),Don Marcelino,
+http://www.wikidata.org/entity/Q315512,1108205000,Point(126.123888888 7.316944444),Maragusan,
+http://www.wikidata.org/entity/Q315790,072210000,Point(123.533333333 10.116666666),Barili,
+http://www.wikidata.org/entity/Q314907,1108603000,Point(125.611088888 6.414538888),Malita,
+http://www.wikidata.org/entity/Q315827,072213000,Point(124.0 10.833333333),Borbon,
+http://www.wikidata.org/entity/Q315655,072202000,Point(123.506041666 9.708183333),Alcoy,
+http://www.wikidata.org/entity/Q315014,1102414000,Point(125.34361 6.59861),Sulop,
+http://www.wikidata.org/entity/Q316001,072222000,Point(123.5349 9.7612),Dalaguete,
+http://www.wikidata.org/entity/Q315598,1108211000,Point(125.8975 7.126944444),Pantukan,
+http://www.wikidata.org/entity/Q315754,0702208000,Point(123.783333333 10.466666666),Balamban,
+http://www.wikidata.org/entity/Q315582,1108210000,Point(126.138055555 7.548333333),New Bataan,
+http://www.wikidata.org/entity/Q314844,1102406000,Point(125.255222222 6.622163888),Kiblawan,
+http://www.wikidata.org/entity/Q41704,0105504000,Point(120.521822222 15.846794444),,
+http://www.wikidata.org/entity/Q1020696,064526000,Point(122.966666666 10.8),Silay,
+http://www.wikidata.org/entity/Q1020939,112403000,Point(125.355944444 6.745352777),Digos,
+http://www.wikidata.org/entity/Q1855693,063035000,Point(122.633333333 11.1),Passi,
+http://www.wikidata.org/entity/Q41668,0105501000,Point(119.802683333 16.116086111),,
+http://www.wikidata.org/entity/Q35858,1403206000,Point(121.183333333 17.35),Lubuagan,
+http://www.wikidata.org/entity/Q1026445,064515000,Point(122.816666666 9.983333333),Kabankalan,
+http://www.wikidata.org/entity/Q28735,1606708000,Point(125.97 9.869),Del Carmen,
+http://www.wikidata.org/entity/Q1423846,064510000,Point(122.866666666 10.1),,
+http://www.wikidata.org/entity/Q41713,0105505000,Point(119.9491 16.289613888),Anda,
+http://www.wikidata.org/entity/Q1027115,064527000,Point(122.4 9.75),Sipalay,
+http://www.wikidata.org/entity/Q1730,041031000,Point(121.15 14.083333333),Tanauan,
+http://www.wikidata.org/entity/Q1725,041014000,Point(121.162222222 13.941111111),Lipa,
+http://www.wikidata.org/entity/Q1026274,1004324000,Point(124.75 8.533333333),Tagoloan,
+http://www.wikidata.org/entity/Q1723,041005000,Point(121.05 13.75),Batangas City,
+http://www.wikidata.org/entity/Q35873,1403209000,Point(121.365277777 17.573055555),Pinukpuk,
+http://www.wikidata.org/entity/Q1026021,064531000,Point(123.083333333 10.9),Victorias,
+http://www.wikidata.org/entity/Q1525029,104308000,Point(125.1 8.816666666),Gingoog,
+http://www.wikidata.org/entity/Q1714,150702000,Point(122.145713888 6.658236111),Lamitan,
+http://www.wikidata.org/entity/Q5285,036916000,Point(120.59 15.486944444),Tarlac City,
+http://www.wikidata.org/entity/Q1789908,1804516000,Point(122.916666666 10.416666666),La Carlota,
+http://www.wikidata.org/entity/Q1027743,064509000,Point(123.5 10.833333333),Escalante,
+http://www.wikidata.org/entity/Q1694,1600301000,Point(125.7481 8.7143),Bayugan,
+http://www.wikidata.org/entity/Q13874,045800000,Point(121.25 14.666666666),Rizal,
+http://www.wikidata.org/entity/Q13868,175200000,Point(121.416666666 13.0),Oriental Mindoro,
+http://www.wikidata.org/entity/Q107792314,,Point(120.643333333 14.975277777),Betis,
+http://www.wikidata.org/entity/Q1692,160203000,Point(125.5346 9.1228),Cabadbaran,
+http://www.wikidata.org/entity/Q1787527,064523000,Point(123.416666666 10.9),Sagay,
+http://www.wikidata.org/entity/Q35909,1403215000,Point(121.148888888 17.265),Tinglayan,
+http://www.wikidata.org/entity/Q1701,050508000,Point(123.516666666 13.216666666),Ligao,
+http://www.wikidata.org/entity/Q41686,0105502000,Point(120.237852777 15.889886111),Aguilar,
+http://www.wikidata.org/entity/Q25096,043404000,Point(121.125 14.275),Cabuyao,
+http://www.wikidata.org/entity/Q13872,0405600000,Point(121.616666666 13.933333333),,
+http://www.wikidata.org/entity/Q35897,1403214000,Point(121.230277777 17.281388888),Tanudan,
+http://www.wikidata.org/entity/Q41725,0105507000,Point(120.7 15.9),Balungao,
+http://www.wikidata.org/entity/Q35866,1403208000,Point(121.159722222 17.389444444),Pasil,
+http://www.wikidata.org/entity/Q1706,050517000,Point(123.733333333 13.35),Tabaco,
+http://www.wikidata.org/entity/Q28733,0306907000,Point(120.728888888 15.443055555),La Paz,
+http://www.wikidata.org/entity/Q13846,174000000,Point(121.966666666 13.4),,
+http://www.wikidata.org/entity/Q28958,1606721000,Point(126.038 10.02),Santa Monica,
+http://www.wikidata.org/entity/Q13840,043400000,Point(121.33333333 14.16666667),,
+http://www.wikidata.org/entity/Q1159273,072223000,Point(123.933333333 10.533333333),Danao,
+http://www.wikidata.org/entity/Q13869,175300000,Point(118.833333333 10.0),Palawan,
+http://www.wikidata.org/entity/Q13875,175900000,Point(122.283333333 12.55),Romblon,
+http://www.wikidata.org/entity/Q13744,041000000,Point(121.0 13.833333333),,
+http://www.wikidata.org/entity/Q35848,1403201000,Point(121.200833333 17.443611111),Balbalan,
+http://www.wikidata.org/entity/Q1027120,064528000,Point(122.966666666 10.733333333),Talisay,
+http://www.wikidata.org/entity/Q13785,042100000,Point(120.866666666 14.266666666),Cavite,
+http://www.wikidata.org/entity/Q13867,175100000,Point(120.916666666 13.0),Occidental Mindoro,
+http://www.wikidata.org/entity/Q1025390,064524000,Point(123.409455555 10.492936111),San Carlos,
+http://www.wikidata.org/entity/Q35884,1403211000,Point(121.6 17.5),Rizal,
+http://www.wikidata.org/entity/Q35925,143213000,Point(121.4425 17.406944444),Tabuk,
+http://www.wikidata.org/entity/Q113874678,,Point(121.238888888 14.639722222),,
+http://www.wikidata.org/entity/Q30934,0306905000,Point(120.655386111 15.324852777),Concepcion,
+http://www.wikidata.org/entity/Q1696,050506000,Point(123.733333333 13.133333333),Legazpi,
+http://www.wikidata.org/entity/Q41721,0105506000,Point(120.669508333 16.002333333),,
+http://www.wikidata.org/entity/Q59814,0401029000,Point(120.933333333 13.883333333),Taal,
+http://www.wikidata.org/entity/Q59830,0401032000,Point(121.2 13.783333333),Taysan,
+http://www.wikidata.org/entity/Q59844,0401034000,Point(120.733333333 14.016666666),Tuy,
+http://www.wikidata.org/entity/Q59311,0401012000,Point(120.912722222 13.881033333),Lemery,
+http://www.wikidata.org/entity/Q59313,0401016000,Point(120.941944444 13.748333333),,
+http://www.wikidata.org/entity/Q63750,0403401000,Point(121.245127777 14.063469444),Alaminos,
+http://www.wikidata.org/entity/Q56581,0307109000,Point(120.086389 14.948611),San Antonio,
+http://www.wikidata.org/entity/Q59304,0401010000,Point(121.133 13.8176),Ibaan,
+http://www.wikidata.org/entity/Q59251,0401002000,Point(121.006319444 13.865047222),Alitagtag,
+http://www.wikidata.org/entity/Q59799,041028000,Point(121.183333333 14.083333333),,
+http://www.wikidata.org/entity/Q56561,0307104000,Point(120.2 14.933333333),Castillejos,
+http://www.wikidata.org/entity/Q59758,0401021000,Point(121.206 13.846),Rosario,
+http://www.wikidata.org/entity/Q59308,0401011000,Point(120.932327777 14.050380555),Laurel,
+http://www.wikidata.org/entity/Q59252,0401003000,Point(120.733333333 13.933333333),Balayan,
+http://www.wikidata.org/entity/Q59287,0401009000,Point(121.050530555 13.898838888),Cuenca,
+http://www.wikidata.org/entity/Q56623,0307111000,Point(120.15733 14.97418),,
+http://www.wikidata.org/entity/Q56647,0307112000,Point(120.083333333 15.016666666),San Narciso,
+http://www.wikidata.org/entity/Q59770,0401023000,Point(121.396 13.826),,
+http://www.wikidata.org/entity/Q56572,0307106000,Point(119.95 15.533333333),Masinloc,
+http://www.wikidata.org/entity/Q59764,0401022000,Point(121.105 13.877222222),San Jose,
+http://www.wikidata.org/entity/Q59784,0401026000,Point(121.033333333 13.8),San Pascual,
+http://www.wikidata.org/entity/Q59825,0401030000,Point(121.016666666 14.1),Talisay,
+http://www.wikidata.org/entity/Q59250,0401001000,Point(120.928480555 13.933358333),Agoncillo,
+http://www.wikidata.org/entity/Q59777,0401025000,Point(120.951 13.92825),San Nicolas,
+http://www.wikidata.org/entity/Q59276,0401007000,Point(120.813055555 13.93),Calaca,
+http://www.wikidata.org/entity/Q59835,0401033000,Point(120.866666666 13.65),,
+http://www.wikidata.org/entity/Q56663,0307114000,Point(120.232777777 14.876944444),,
+http://www.wikidata.org/entity/Q59731,0401017000,Point(121.158333333 14.041666666),Malvar,
+http://www.wikidata.org/entity/Q59312,0401013000,Point(120.65 14.033333333),Lian,
+http://www.wikidata.org/entity/Q56584,0307110000,Point(120.07 15.061944444),San Felipe,
+http://www.wikidata.org/entity/Q59740,0401018000,Point(121.112616666 13.959216666),,
+http://www.wikidata.org/entity/Q56538,0307103000,Point(119.933333333 15.633333333),Candelaria,
+http://www.wikidata.org/entity/Q59745,0401019000,Point(120.633333333 14.066666666),Nasugbu,
+http://www.wikidata.org/entity/Q59749,0401020000,Point(121.216666666 13.883333333),Padre Garcia,
+http://www.wikidata.org/entity/Q59253,0401004000,Point(121.1 14.016666666),Balete,
+http://www.wikidata.org/entity/Q56566,0307105000,Point(119.983333333 15.333333333),Iba,
+http://www.wikidata.org/entity/Q59773,0401024000,Point(120.933333333 13.833333333),San Luis,
+http://www.wikidata.org/entity/Q56575,0307108000,Point(119.908333333 15.433611111),Palauig,
+http://www.wikidata.org/entity/Q59272,0401006000,Point(121.0085 13.7917),Bauan,
+http://www.wikidata.org/entity/Q59788,0401027000,Point(120.98139 13.86639),Santa Teresita,
+http://www.wikidata.org/entity/Q56656,0307113000,Point(119.916666666 15.766666666),Santa Cruz,
+http://www.wikidata.org/entity/Q63763,0403402000,Point(121.283333333 14.183333333),Bay,
+http://www.wikidata.org/entity/Q59279,0401008000,Point(120.632 13.833),,
+http://www.wikidata.org/entity/Q492912,0500501000,Point(123.791686111 13.292516666),Bacacay,
+http://www.wikidata.org/entity/Q493032,0500504000,Point(123.6 13.183333333),Guinobatan,
+http://www.wikidata.org/entity/Q316230,072235000,Point(123.4 9.55),Oslob,
+http://www.wikidata.org/entity/Q316037,072225000,Point(123.35 9.6),Ginatilan,
+http://www.wikidata.org/entity/Q316453,072248000,Point(124.033333333 10.933333333),Tabogon,
+http://www.wikidata.org/entity/Q356442,1001801000,Point(124.683333333 9.133333333),Catarman,
+http://www.wikidata.org/entity/Q493065,0500505000,Point(123.6 13.066666666),Jovellar,
+http://www.wikidata.org/entity/Q316146,072232000,Point(123.7964 10.24498),Minglanilla,
+http://www.wikidata.org/entity/Q316564,072253000,Point(124.47 10.636),Tudela,
+http://www.wikidata.org/entity/Q356853,0501610000,Point(122.391944444 14.179722222),Santa Elena,
+http://www.wikidata.org/entity/Q316197,072234000,Point(123.75 10.216666666),,
+http://www.wikidata.org/entity/Q316171,072233000,Point(123.4 9.95),Moalboal,
+http://www.wikidata.org/entity/Q432169,0907202000,Point(123.340833333 8.587222222),Dipolog,
+http://www.wikidata.org/entity/Q492976,0500502000,Point(123.666666666 13.133333333),Camalig,
+http://www.wikidata.org/entity/Q356472,1001802000,Point(124.786 9.098),Guinsiliban,
+http://www.wikidata.org/entity/Q316101,072229000,Point(123.333333333 9.65),Malabuyoc,
+http://www.wikidata.org/entity/Q316019,072224000,Point(123.483333333 10.05),Dumanjug,
+http://www.wikidata.org/entity/Q356655,0501603000,Point(122.956388888 14.114166666),Daet,
+http://www.wikidata.org/entity/Q316275,072238000,Point(124.407 10.629),Poro,
+http://www.wikidata.org/entity/Q316350,072243000,Point(123.95 11.0),San Remigio,
+http://www.wikidata.org/entity/Q316289,0702239000,Point(123.409508333 10.000255555),Ronda,
+http://www.wikidata.org/entity/Q316332,072242000,Point(124.35 10.65),San Francisco,
+http://www.wikidata.org/entity/Q316056,072227000,Point(123.966666666 10.416666666),Liloan,
+http://www.wikidata.org/entity/Q316080,072228000,Point(123.733333333 11.266666666),Madridejos,
+http://www.wikidata.org/entity/Q316370,072244000,Point(123.8 11.15),Santa Fe,
+http://www.wikidata.org/entity/Q356681,0501605000,Point(122.692777777 14.292222222),Jose Panganiban,
+http://www.wikidata.org/entity/Q316125,072231000,Point(123.9622 11.1286),Medellin,
+http://www.wikidata.org/entity/Q493095,0500507000,Point(123.433333333 13.3),Libon,
+http://www.wikidata.org/entity/Q356607,0501601000,Point(122.966666666 14.066666666),Basud,
+http://www.wikidata.org/entity/Q356803,0501604000,Point(122.868333333 14.039166666),San Lorenzo Ruiz,
+http://www.wikidata.org/entity/Q316432,072247000,Point(124.0 10.75),Sogod,
+http://www.wikidata.org/entity/Q356878,0501611000,Point(122.924444444 14.135555555),Talisay,
+http://www.wikidata.org/entity/Q316259,072237000,Point(123.583333333 10.266666666),Pinamungajan,
+http://www.wikidata.org/entity/Q356759,0501608000,Point(122.787 14.28),Paracale,
+http://www.wikidata.org/entity/Q356708,0501606000,Point(122.829444444 14.156111111),Labo,
+http://www.wikidata.org/entity/Q316386,072245000,Point(123.333333333 9.45),Santander,
+http://www.wikidata.org/entity/Q316474,072249000,Point(123.9 10.85),Tabuelan,
+http://www.wikidata.org/entity/Q356518,1001804000,Point(124.716666666 9.25),Mambajao,
+http://www.wikidata.org/entity/Q316500,072250000,Point(123.833333333 10.25),Talisay,
+http://www.wikidata.org/entity/Q493132,0500509000,Point(123.733333333 13.316666666),Malilipot,
+http://www.wikidata.org/entity/Q316527,072251000,Point(123.65 10.383333333),Toledo,
+http://www.wikidata.org/entity/Q356734,0501607000,Point(123.0109 14.1093),Mercedes,
+http://www.wikidata.org/entity/Q316303,072240000,Point(123.306430555 9.528752777),Samboan,
+http://www.wikidata.org/entity/Q493008,0500503000,Point(123.7120775 13.1479697),Daraga,
+http://www.wikidata.org/entity/Q356549,1001805000,Point(124.716666666 9.116666666),Sagay,
+http://www.wikidata.org/entity/Q316245,072236000,Point(124.565 10.807),Pilar,
+http://www.wikidata.org/entity/Q356898,0501612000,Point(122.908055555 14.173888888),Vinzons,
+http://www.wikidata.org/entity/Q316318,072241000,Point(123.7 10.166666666),San Fernando,
+http://www.wikidata.org/entity/Q316547,072252000,Point(123.833333333 10.733333333),Tuburan,
+http://www.wikidata.org/entity/Q316404,072246000,Point(123.566666666 10.033333333),Sibonga,
+http://www.wikidata.org/entity/Q314438,1102305000,Point(125.705152777 7.585416666),Kapalong,
+http://www.wikidata.org/entity/Q274654,063009000,Point(123.116666666 11.416666666),Batad,
+http://www.wikidata.org/entity/Q256045,0500513000,Point(123.45 13.033333333),Pio Duran,
+http://www.wikidata.org/entity/Q275015,063029000,Point(122.433333333 10.883333333),Maasin,
+http://www.wikidata.org/entity/Q274557,063004000,Point(122.536936111 10.986025),Badiangan,
+http://www.wikidata.org/entity/Q275368,0603044000,Point(123.014 11.256),Sara,
+http://www.wikidata.org/entity/Q274795,063017000,Point(122.616666666 11.066666666),Dueñas,
+http://www.wikidata.org/entity/Q274987,0603028000,Point(122.3894 10.78085),Leon,
+http://www.wikidata.org/entity/Q314522,1102501000,Point(126.558452777 7.575155555),Baganga,
+http://www.wikidata.org/entity/Q274847,063020000,Point(122.316666666 10.666666666),Guimbal,
+http://www.wikidata.org/entity/Q275243,063037000,Point(122.633333333 10.95),Pototan,
+http://www.wikidata.org/entity/Q213455,0803750000,Point(124.75 11.25),Tunga,
+http://www.wikidata.org/entity/Q314501,1102322000,Point(125.574755555 7.632611111),Talaingod,
+http://www.wikidata.org/entity/Q275347,063043000,Point(122.53444 10.82306),Santa Barbara,
+http://www.wikidata.org/entity/Q274543,063003000,Point(122.753069444 10.978513888),Anilao,
+http://www.wikidata.org/entity/Q314574,1102503000,Point(126.376111111 7.869722222),Boston,
+http://www.wikidata.org/entity/Q274491,063001000,Point(123.019622222 11.172530555),Ajuy,
+http://www.wikidata.org/entity/Q274671,063010000,Point(122.566666666 11.233333333),Bingawan,
+http://www.wikidata.org/entity/Q314593,1102504000,Point(126.565833333 7.328333333),Caraga,
+http://www.wikidata.org/entity/Q274907,063025000,Point(122.483333333 11.05),Lambunao,
+http://www.wikidata.org/entity/Q274508,063002000,Point(122.432158333 10.819561111),Alimodian,
+http://www.wikidata.org/entity/Q275295,063040000,Point(122.083333333 10.6),San Joaquin,
+http://www.wikidata.org/entity/Q314542,1102502000,Point(126.011388888 6.966388888),Banaybanay,
+http://www.wikidata.org/entity/Q274961,063027000,Point(122.933333333 11.233333333),Lemery,
+http://www.wikidata.org/entity/Q314393,1102301000,Point(125.750825 7.5386),Asuncion,
+http://www.wikidata.org/entity/Q274749,063015000,Point(123.1 11.2),Concepcion,
+http://www.wikidata.org/entity/Q314486,1102318000,Point(125.623563888 7.533866666),Santo Tomas,
+http://www.wikidata.org/entity/Q275312,063041000,Point(122.466666666 10.783333333),San Miguel,
+http://www.wikidata.org/entity/Q274713,063013000,Point(122.5380249 11.1225175),Calinog,
+http://www.wikidata.org/entity/Q213463,0803751000,Point(124.4 11.216666666),Villaba,
+http://www.wikidata.org/entity/Q274937,063026000,Point(122.58333 10.78333),Leganes,
+http://www.wikidata.org/entity/Q275199,0603034000,Point(122.47361 10.69306),Oton,
+http://www.wikidata.org/entity/Q275280,063039000,Point(122.656667 11.069722),San Enrique,
+http://www.wikidata.org/entity/Q314422,1102303000,Point(125.705294444 7.356277777),Carmen,
+http://www.wikidata.org/entity/Q275221,063036000,Point(122.541666666 10.775),Pavia,
+http://www.wikidata.org/entity/Q314410,1102323000,Point(125.688597222 7.451044444),Braulio E. Dujali,
+http://www.wikidata.org/entity/Q274693,063012000,Point(122.483333333 10.883333333),Cabatuan,
+http://www.wikidata.org/entity/Q274578,063005000,Point(123.0878 11.4728),Balasan,
+http://www.wikidata.org/entity/Q314619,1102505000,Point(126.453055555 7.79),Cateel,
+http://www.wikidata.org/entity/Q314468,1102324000,Point(125.724922222 7.747958333),Sawata,
+http://www.wikidata.org/entity/Q275264,063038000,Point(123.094777777 11.271080555),San Dionisio,
+http://www.wikidata.org/entity/Q275184,063032000,Point(122.6 10.883333333),New Lucena,
+http://www.wikidata.org/entity/Q274780,063016000,Point(122.666666666 11.05),Dingle,
+http://www.wikidata.org/entity/Q275329,063042000,Point(122.826667 11.172778),San Rafael,
+http://www.wikidata.org/entity/Q274731,0603014000,Point(123.133333333 11.566666666),Carles,
+http://www.wikidata.org/entity/Q274595,063006000,Point(122.783333333 11.05),Banate,
+http://www.wikidata.org/entity/Q302791,0501609000,Point(122.873333333 14.106111111),San Vicente,
+http://www.wikidata.org/entity/Q275071,063031000,Point(122.583333333 10.933333333),Mina,
+http://www.wikidata.org/entity/Q275417,063046000,Point(122.3 10.783333333),Tubungan,
+http://www.wikidata.org/entity/Q314452,1102314000,Point(125.8237 7.5866),New Corella,
+http://www.wikidata.org/entity/Q55725,0305418000,Point(120.78 14.998),San Simon,
+http://www.wikidata.org/entity/Q56424,0306903000,Point(120.413055555 15.686666666),Camiling,
+http://www.wikidata.org/entity/Q56427,0306904000,Point(120.59 15.337222222),Capas,
+http://www.wikidata.org/entity/Q55734,0305422000,Point(120.623 14.936),Sasmuan,
+http://www.wikidata.org/entity/Q56444,0306908000,Point(120.3775 15.620277777),Mayantoc,
+http://www.wikidata.org/entity/Q56529,0307101000,Point(120.0245 15.2896),Botolan,
+http://www.wikidata.org/entity/Q55712,0305413000,Point(120.7203 15.0645),Mexico,
+http://www.wikidata.org/entity/Q56414,0306901000,Point(120.626413888 15.730386111),Anao,
+http://www.wikidata.org/entity/Q55699,0305405000,Point(120.828333 15.093333),,
+http://www.wikidata.org/entity/Q55737,035409000,Point(120.583333333 15.216666666),Mabalacat,
+http://www.wikidata.org/entity/Q56471,0306913000,Point(120.360277777 15.711944444),San Clemente,
+http://www.wikidata.org/entity/Q56476,0306918000,Point(120.463888888 15.478055555),San Jose,
+http://www.wikidata.org/entity/Q53072,0205704000,Point(121.683333333 16.341111111),Maddela,
+http://www.wikidata.org/entity/Q56457,0306910000,Point(120.578888888 15.668055555),Paniqui,
+http://www.wikidata.org/entity/Q53081,0307701000,Point(121.5625 15.758333),Baler,
+http://www.wikidata.org/entity/Q56420,0306902000,Point(120.566944444 15.274166666),Bamban,
+http://www.wikidata.org/entity/Q53074,0205705000,Point(121.563611111 16.539444444),Saguday,
+http://www.wikidata.org/entity/Q53087,0307705000,Point(121.4 15.383333333),Dingalan,
+http://www.wikidata.org/entity/Q55696,0305404000,Point(120.65265 14.998427777),Bacolor,
+http://www.wikidata.org/entity/Q55705,0305408000,Point(120.6 14.933333333),Lubao,
+http://www.wikidata.org/entity/Q56533,0307102000,Point(120.15 15.133333333),Cabangan,
+http://www.wikidata.org/entity/Q56493,0306917000,Point(120.681944444 15.578055555),Victoria,
+http://www.wikidata.org/entity/Q55707,0305410000,Point(120.715555555 14.908055555),Macabebe,
+http://www.wikidata.org/entity/Q53084,0307703000,Point(122.216666666 16.4),Dilasag,
+http://www.wikidata.org/entity/Q53083,0307702000,Point(122.116666666 16.283333333),,
+http://www.wikidata.org/entity/Q53092,0307708000,Point(121.516666666 15.716666666),,
+http://www.wikidata.org/entity/Q55724,0305417000,Point(120.791944444 15.04),San Luis,
+http://www.wikidata.org/entity/Q55731,0305421000,Point(120.75 15.0),Santo Tomas,
+http://www.wikidata.org/entity/Q55709,0305411000,Point(120.662 15.214),Magalang,
+http://www.wikidata.org/entity/Q53069,0205701000,Point(121.58735 16.488875),Aglipay,
+http://www.wikidata.org/entity/Q53073,0205706000,Point(121.6 16.216666666),Nagtipunan,
+http://www.wikidata.org/entity/Q56481,0306914000,Point(120.607222222 15.7975),San Manuel,
+http://www.wikidata.org/entity/Q55700,0305406000,Point(120.528 14.974),Floridablanca,
+http://www.wikidata.org/entity/Q53086,0307704000,Point(121.766666666 16.1),Dinalungan,
+http://www.wikidata.org/entity/Q55710,0305412000,Point(120.716666666 14.9),Masantol,
+http://www.wikidata.org/entity/Q55694,0305403000,Point(120.769158333 15.149261111),Arayat,
+http://www.wikidata.org/entity/Q55740,0305416000,Point(120.683333333 15.033333333),San Fernando,
+http://www.wikidata.org/entity/Q56461,0306911000,Point(120.648 15.6248),Pura,
+http://www.wikidata.org/entity/Q55730,0305420000,Point(120.615278 14.995278),,
+http://www.wikidata.org/entity/Q56439,0306906000,Point(120.598611111 15.606944444),Gerona,
+http://www.wikidata.org/entity/Q55727,0305419000,Point(120.768055555 15.093888888),Santa Ana,
+http://www.wikidata.org/entity/Q56453,0306909000,Point(120.5725 15.733055555),Moncada,
+http://www.wikidata.org/entity/Q55717,0305414000,Point(120.683333333 14.966666666),Minalin,
+http://www.wikidata.org/entity/Q56465,0306912000,Point(120.641666666 15.666666666),Ramos,
+http://www.wikidata.org/entity/Q55702,0305407000,Point(120.633333333 14.966666666),Guagua,
+http://www.wikidata.org/entity/Q55721,0305415000,Point(120.541944444 15.071944444),Porac,
+http://www.wikidata.org/entity/Q53090,0307707000,Point(121.4737 15.7967),Maria Aurora,
+http://www.wikidata.org/entity/Q55693,0305402000,Point(120.758691666 14.949561111),Apalit,
+http://www.wikidata.org/entity/Q56486,0306915000,Point(120.433333333 15.616666666),Santa Ignacia,
+http://www.wikidata.org/entity/Q53089,0307706000,Point(121.633333333 15.983333333),Dipaculao,

@@ -99,7 +99,7 @@ export const authMiddleware: MiddlewareHandler<{
     case 'device_mismatch':
       return c.json({ error: 'Session moved to another device', code: 'device_mismatch' }, 401);
     case 'banned':
-      return c.json({ error: tr(c, '이용이 정지된 계정이에요. 고객센터로 문의해주세요', 'このアカウントは利用停止中です。お問い合わせ窓口までご連絡ください'), code: 'banned' }, 403);
+      return c.json({ error: tr(c, '이용이 정지된 계정이에요. 고객센터로 문의해주세요', 'このアカウントは利用停止中です。お問い合わせ窓口までご連絡ください', 'This account has been suspended. Please contact customer support'), code: 'banned' }, 403);
   }
 
   c.set('user', payload);

@@ -86,7 +86,11 @@ bool isPolicyRejection(String err) =>
     err.contains('욕설·비속어') ||
     err.contains('出品禁止物') ||
     err.contains('連絡先は投稿に記載できません') ||
-    err.contains('暴言・不適切な表現');
+    err.contains('暴言・不適切な表現') ||
+    // 영어 (서버 prohibited.ts blockMessageEn)
+    err.contains('looks like a prohibited item') ||
+    err.contains('outside contact details') ||
+    err.contains('Profanity, slurs and hateful expressions');
 
 /// 상품 등록/수정 오류 표시 — 정책 위반이면 안내 다이얼로그, 아니면 SnackBar.
 void showProductError(BuildContext context, String err) {
