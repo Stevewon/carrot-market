@@ -94,6 +94,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   MarketItem? _item;
   Product? _product; // 정책 코드(_isMine, _changeStatus 등) 호환용 원본 보존.
   bool _liked = false;
+
   /// 이 거래에 내가 보낸 후기 (없으면 null). [_myReviewLoaded] 전에는 후기 카드를 숨긴다.
   Review? _myReview;
   bool _myReviewLoaded = false;
@@ -210,7 +211,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             title: Text(ctx.l10n.productQtaConfirmUnavailableTitle),
             content: Text(ctx.l10n.productQtaConfirmUnavailableBody),
             actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(ctx.l10n.commonConfirm)),
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(ctx.l10n.commonConfirm)),
             ],
           ),
         );
@@ -247,7 +250,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
     if (ok != true || !mounted) return;
 
-    final err = await context.read<ProductService>().confirmPurchase(p.id, expectedQtaPrice: p.qtaPrice);
+    final err = await context
+        .read<ProductService>()
+        .confirmPurchase(p.id, expectedQtaPrice: p.qtaPrice);
     if (!mounted) return;
     if (err != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
@@ -283,7 +288,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             p.hasQtaPrice
                 ? context.l10n.productBuyerAssignedBodyQta(p.qtaPriceFormatted)
                 : context.l10n.productBuyerAssignedBody,
-            style: const TextStyle(fontSize: 13, color: EggplantColors.textSecondary),
+            style: const TextStyle(
+                fontSize: 13, color: EggplantColors.textSecondary),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -341,7 +347,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     if (status == 'sold' && buyer != null) {
       await _showReviewSheet(
-          counterpartNickname: buyer['nickname']?.toString() ?? context.l10n.productBuyer);
+          counterpartNickname:
+              buyer['nickname']?.toString() ?? context.l10n.productBuyer);
     }
   }
 
@@ -366,7 +373,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final chatPartners = context
         .read<ChatService>()
         .rooms
-        .where((r) => r.productId == p.id && r.peerId.isNotEmpty && r.peerId != me)
+        .where(
+            (r) => r.productId == p.id && r.peerId.isNotEmpty && r.peerId != me)
         .map((r) => <String, dynamic>{
               'id': r.peerId,
               'nickname': r.peerNickname,
@@ -388,7 +396,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   ReviewerRole? get _myReviewRole {
     final p = _product;
     final u = context.read<AuthService>().user;
-    if (p == null || u == null || p.status != 'sold' || p.buyerId == null) return null;
+    if (p == null || u == null || p.status != 'sold' || p.buyerId == null)
+      return null;
     if (p.buyerId == u.id && p.sellerId != u.id) return ReviewerRole.buyer;
     if (p.sellerId == u.id && p.buyerId != u.id) return ReviewerRole.seller;
     return null;
@@ -397,7 +406,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   /// 후기 상대 닉네임 — 구매자는 판매자, 판매자는 구매자.
   String _counterpartNickname(ReviewerRole role) {
     final p = _product!;
-    final n = role == ReviewerRole.buyer ? p.sellerNickname : (p.buyerNickname ?? '');
+    final n =
+        role == ReviewerRole.buyer ? p.sellerNickname : (p.buyerNickname ?? '');
     return n.isEmpty ? context.l10n.reviewCounterpartFallback : n;
   }
 
@@ -443,7 +453,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         color: mine == null ? EggplantColors.background : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: mine == null ? EggplantColors.primaryLight : Colors.grey.shade300,
+          color:
+              mine == null ? EggplantColors.primaryLight : Colors.grey.shade300,
         ),
       ),
       child: Column(
@@ -458,7 +469,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             mine == null
                 ? l.reviewPromptBody
                 : '${reviewRatingEmoji(mine.rating)} ${reviewRatingLabel(l, mine.rating)}',
-            style: const TextStyle(fontSize: 13, color: EggplantColors.textSecondary),
+            style: const TextStyle(
+                fontSize: 13, color: EggplantColors.textSecondary),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -541,17 +553,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ListTile(
               leading: const Icon(Icons.local_offer),
               title: Text(ctx.l10n.productChangeToSale),
-              onTap: () { Navigator.pop(ctx); _changeStatus('sale'); },
+              onTap: () {
+                Navigator.pop(ctx);
+                _changeStatus('sale');
+              },
             ),
             ListTile(
               leading: const Icon(Icons.event_available),
               title: Text(ctx.l10n.productChangeToReserved),
-              onTap: () { Navigator.pop(ctx); _changeStatus('reserved'); },
+              onTap: () {
+                Navigator.pop(ctx);
+                _changeStatus('reserved');
+              },
             ),
             ListTile(
               leading: const Icon(Icons.check_circle),
               title: Text(ctx.l10n.productChangeToSold),
-              onTap: () { Navigator.pop(ctx); _changeStatus('sold'); },
+              onTap: () {
+                Navigator.pop(ctx);
+                _changeStatus('sold');
+              },
             ),
             const Divider(height: 1),
             ListTile(
@@ -561,7 +582,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 Navigator.pop(ctx);
                 final p = _product;
                 if (p == null) return;
-                final result = await context.push<bool>('/product/${p.id}/edit');
+                final result =
+                    await context.push<bool>('/product/${p.id}/edit');
                 if (result == true && mounted) {
                   // 수정 완료 → 즉시 반영
                   _loadDetail();
@@ -571,7 +593,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
-              title: Text(ctx.l10n.commonDelete, style: const TextStyle(color: Colors.red)),
+              title: Text(ctx.l10n.commonDelete,
+                  style: const TextStyle(color: Colors.red)),
               onTap: () async {
                 Navigator.pop(ctx);
                 final p = _product;
@@ -722,83 +745,51 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     final item = _item!;
 
+    // 당근처럼: 맨 위에 화면 폭 가득 사진(옆으로 넘김 · "1 / 3"), 그 아래 내용.
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
+      padding: const EdgeInsets.only(bottom: 140),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildImageSection(item),
-          const SizedBox(height: 20),
-          if (_product != null && _product!.hasVideo) ...[
-            _ProductVideo(
-                key: ValueKey(_product!.videoUrl), product: _product!),
-            const SizedBox(height: 20),
-          ],
-          if (_awaitingMyConfirmation) ...[
-            _buildBuyerConfirmCard(),
-            const SizedBox(height: 20),
-          ],
-          if (_myReviewLoaded && _myReviewRole != null) ...[
-            _buildReviewCard(_myReviewRole!),
-            const SizedBox(height: 20),
-          ],
-          _buildSellerSection(item),
-          const SizedBox(height: 20),
-          _buildTitleSection(item),
-          const SizedBox(height: 16),
-          _buildDescriptionSection(item),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_product != null && _product!.hasVideo) ...[
+                  _ProductVideo(
+                      key: ValueKey(_product!.videoUrl), product: _product!),
+                  const SizedBox(height: 20),
+                ],
+                if (_awaitingMyConfirmation) ...[
+                  _buildBuyerConfirmCard(),
+                  const SizedBox(height: 20),
+                ],
+                if (_myReviewLoaded && _myReviewRole != null) ...[
+                  _buildReviewCard(_myReviewRole!),
+                  const SizedBox(height: 20),
+                ],
+                _buildSellerSection(item),
+                const SizedBox(height: 20),
+                _buildTitleSection(item),
+                const SizedBox(height: 16),
+                _buildDescriptionSection(item),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildImageSection(MarketItem item) {
-    if (item.imageUrls.isEmpty) {
-      return Container(
-        height: 280,
+    // 화면 폭 정사각형 (넓은 화면에선 최대 600). 사진이 없으면 가지 마스코트.
+    return LayoutBuilder(
+      builder: (context, c) => SizedBox(
         width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        alignment: Alignment.center,
-        child: Icon(
-          Icons.image_outlined,
-          size: 56,
-          color: Colors.grey.shade400,
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 320,
-      child: PageView.builder(
-        itemCount: item.imageUrls.length,
-        itemBuilder: (context, index) {
-          final raw = item.imageUrls[index];
-          final url = raw.startsWith('http')
-              ? raw
-              : '${AppConfig.apiBase}${raw.startsWith('/') ? '' : '/'}$raw';
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: CachedNetworkImage(
-              imageUrl: url,
-              memCacheWidth: 1080,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              placeholder: (_, __) => Container(color: Colors.grey.shade100),
-              errorWidget: (_, __, ___) => Container(
-                color: Colors.grey.shade100,
-                alignment: Alignment.center,
-                child: Icon(
-                  Icons.broken_image_outlined,
-                  size: 48,
-                  color: Colors.grey.shade400,
-                ),
-              ),
-            ),
-          );
-        },
+        height: c.maxWidth.clamp(0, 600).toDouble(),
+        child: _ImageCarousel(images: item.imageUrls),
       ),
     );
   }
@@ -813,8 +804,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
     );
   }
-
-
 
   Widget _buildSellerSection(MarketItem item) {
     return Container(
@@ -1149,7 +1138,7 @@ class _ImageCarouselState extends State<_ImageCarousel> {
         if (widget.images.length > 1) ...[
           // Page dots (bottom center)
           Positioned(
-            bottom: 16,
+            bottom: 20,
             left: 0,
             right: 0,
             child: Row(
@@ -1171,13 +1160,12 @@ class _ImageCarouselState extends State<_ImageCarousel> {
               ),
             ),
           ),
-          // Page counter (top right) "1 / 5"
+          // 장수 표시 (오른쪽 아래) "1 / 3" — 당근과 같은 위치.
           Positioned(
-            top: 12,
+            bottom: 12,
             right: 12,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.black.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(12),
@@ -1294,12 +1282,9 @@ class _LikeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = isMine
-        ? Colors.grey
-        : (liked ? Colors.red : Colors.grey.shade700);
-    final icon = (!isMine && liked)
-        ? Icons.favorite
-        : Icons.favorite_border;
+    final iconColor =
+        isMine ? Colors.grey : (liked ? Colors.red : Colors.grey.shade700);
+    final icon = (!isMine && liked) ? Icons.favorite : Icons.favorite_border;
 
     return InkWell(
       onTap: isMine ? null : onTap,
@@ -1357,7 +1342,8 @@ class _BuyerPickerSheetState extends State<_BuyerPickerSheet> {
     // 입력하자마자 "검색 중" 으로 바꿔, 디바운스 동안 대화 상대 목록이 남아 보이지 않게.
     setState(() => _searching = q.trim().isNotEmpty);
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () => _search(q.trim()));
+    _debounce =
+        Timer(const Duration(milliseconds: 350), () => _search(q.trim()));
   }
 
   Future<void> _search(String q) async {
@@ -1397,7 +1383,8 @@ class _BuyerPickerSheetState extends State<_BuyerPickerSheet> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text(context.l10n.productMannerTemp(_manner(u['manner_score']))),
+        subtitle:
+            Text(context.l10n.productMannerTemp(_manner(u['manner_score']))),
         onTap: () => Navigator.of(context).pop(u),
       );
 
@@ -1406,10 +1393,12 @@ class _BuyerPickerSheetState extends State<_BuyerPickerSheet> {
     final searching = _searchCtl.text.trim().isNotEmpty;
     final list = searching ? _results : widget.chatPartners;
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SafeArea(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+          constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Column(
@@ -1429,12 +1418,14 @@ class _BuyerPickerSheetState extends State<_BuyerPickerSheet> {
                 ),
                 Text(
                   context.l10n.productPickBuyerTitle,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   context.l10n.productPickBuyerHint,
-                  style: const TextStyle(fontSize: 12, color: EggplantColors.textSecondary),
+                  style: const TextStyle(
+                      fontSize: 12, color: EggplantColors.textSecondary),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -1453,7 +1444,8 @@ class _BuyerPickerSheetState extends State<_BuyerPickerSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Text(
                       context.l10n.productPickBuyerChatPartners,
-                      style: const TextStyle(fontSize: 12, color: EggplantColors.textSecondary),
+                      style: const TextStyle(
+                          fontSize: 12, color: EggplantColors.textSecondary),
                     ),
                   ),
                 Flexible(
@@ -1470,7 +1462,8 @@ class _BuyerPickerSheetState extends State<_BuyerPickerSheet> {
                                     ? context.l10n.productPickBuyerNoResults
                                     : context.l10n.productPickBuyerEmpty,
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(color: EggplantColors.textSecondary),
+                                style: const TextStyle(
+                                    color: EggplantColors.textSecondary),
                               ),
                             )
                           : ListView.builder(
@@ -1608,9 +1601,7 @@ class _ProductVideoState extends State<_ProductVideo> {
       );
     }
 
-    if (_chewieCtl == null ||
-        _vpCtl == null ||
-        !_vpCtl!.value.isInitialized) {
+    if (_chewieCtl == null || _vpCtl == null || !_vpCtl!.value.isInitialized) {
       return SizedBox(
         height: fallbackHeight,
         child: const Center(
@@ -1620,9 +1611,8 @@ class _ProductVideoState extends State<_ProductVideo> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: AspectRatio(
-        aspectRatio: _vpCtl!.value.aspectRatio == 0
-            ? 16 / 9
-            : _vpCtl!.value.aspectRatio,
+        aspectRatio:
+            _vpCtl!.value.aspectRatio == 0 ? 16 / 9 : _vpCtl!.value.aspectRatio,
         child: Chewie(controller: _chewieCtl!),
       ),
     );
