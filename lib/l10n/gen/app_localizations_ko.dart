@@ -349,7 +349,7 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get authCheckWalletCode => '내 지갑 인증코드 확인하기';
+  String get authCheckWalletCode => 'scan.quantarium.io 에서 내 지갑 보기';
 
   @override
   String get authReceivedAmount => '받은 수량';
@@ -687,7 +687,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get authQuantumBadge => '양자내성 서명(SPHINCS+)으로 보낸 거래예요';
 
   @override
-  String get authViewTxOnScan => 'scan에서 송금 거래 보기';
+  String get authViewTxOnScan => 'scan.quantarium.io 에서 받은 수량 확인';
 
   @override
   String get authResetWalletTitle => '지갑 인증 (다른 기기에서 재설정 시)';
@@ -698,6 +698,10 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get authResetWalletVerified => '지갑 인증 완료! 아래에 새 비밀번호를 입력하세요.';
+
+  @override
+  String get authScanHint =>
+      '지갑 앱에 소량이 안 보이면 위 scan 버튼을 눌러 화면의 Value(예: 0.234567 QTA)를 확인하고, 소수점 아래 6자리를 아래 칸에 입력하세요.';
 
   @override
   String get chatLeaveWarningSubtitle => '🔒 나가면 양쪽 모두 완전 삭제돼요';

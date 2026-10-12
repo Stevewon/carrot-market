@@ -285,7 +285,9 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
                     ],
                   ),
                 ),
-                TextButton.icon(
+                const SizedBox(height: 8),
+                // 소량이라 지갑 앱에 안 보일 수 있다 — scan 거래 화면에 보낸 수량이 그대로 나온다.
+                ElevatedButton.icon(
                   onPressed: () => launchUrl(
                     Uri.parse('https://scan.quantarium.io/tx/${req.txHash}'),
                     mode: LaunchMode.externalApplication,
@@ -305,6 +307,9 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
               icon: const Icon(Icons.open_in_new_rounded, size: 18),
               label: Text(l10n.authCheckWalletCode),
             ),
+            const SizedBox(height: 6),
+            Text(l10n.authScanHint,
+                style: const TextStyle(fontSize: 11.5, color: EggplantColors.textSecondary, height: 1.5)),
             const SizedBox(height: 10),
             TextField(
               controller: _amountCtl,

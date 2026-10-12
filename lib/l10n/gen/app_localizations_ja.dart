@@ -350,7 +350,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get authCheckWalletCode => 'ウォレットの認証コードを確認する';
+  String get authCheckWalletCode => 'scan.quantarium.io で自分のウォレットを見る';
 
   @override
   String get authReceivedAmount => '受け取った数量';
@@ -689,7 +689,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authQuantumBadge => '耐量子署名(SPHINCS+)で送金された取引です';
 
   @override
-  String get authViewTxOnScan => 'scanで送金取引を見る';
+  String get authViewTxOnScan => 'scan.quantarium.io で受け取った数量を確認';
 
   @override
   String get authResetWalletTitle => 'ウォレット認証(別の端末で再設定する場合)';
@@ -700,6 +700,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get authResetWalletVerified => 'ウォレット認証が完了しました。下に新しいパスワードを入力してください。';
+
+  @override
+  String get authScanHint =>
+      'ウォレットアプリで少額が表示されない場合は、上の scan ボタンで画面の Value(例:0.234567 QTA)を確認し、小数点以下6桁を下の欄に入力してください。';
 
   @override
   String get chatLeaveWarningSubtitle => '🔒 退出すると双方から完全に削除されます';

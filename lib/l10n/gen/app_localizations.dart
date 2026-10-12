@@ -731,7 +731,7 @@ abstract class AppLocalizations {
   /// No description provided for @authCheckWalletCode.
   ///
   /// In ko, this message translates to:
-  /// **'내 지갑 인증코드 확인하기'**
+  /// **'scan.quantarium.io 에서 내 지갑 보기'**
   String get authCheckWalletCode;
 
   /// No description provided for @authReceivedAmount.
@@ -1361,7 +1361,7 @@ abstract class AppLocalizations {
   /// No description provided for @authViewTxOnScan.
   ///
   /// In ko, this message translates to:
-  /// **'scan에서 송금 거래 보기'**
+  /// **'scan.quantarium.io 에서 받은 수량 확인'**
   String get authViewTxOnScan;
 
   /// No description provided for @authResetWalletTitle.
@@ -1381,6 +1381,12 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'지갑 인증 완료! 아래에 새 비밀번호를 입력하세요.'**
   String get authResetWalletVerified;
+
+  /// No description provided for @authScanHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'지갑 앱에 소량이 안 보이면 위 scan 버튼을 눌러 화면의 Value(예: 0.234567 QTA)를 확인하고, 소수점 아래 6자리를 아래 칸에 입력하세요.'**
+  String get authScanHint;
 
   /// No description provided for @chatLeaveWarningSubtitle.
   ///
