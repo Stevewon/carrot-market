@@ -1034,6 +1034,58 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // ── 계정 찾기(비밀번호 재설정) 지갑 인증 — 로그인 전이라 기기 UUID 로 묶는다 ──
+  // 입력한 지갑이 가입 때 등록한 지갑과 같은지 서버가 먼저 확인하고(아니면 에러),
+  // 맞으면 본사 지갑이 그 지갑으로 6자리 수량을 보낸다.
+
+  Future<({WalletReceive? request, String? error})> requestResetWalletReceive(String walletAddress) async {
+    try {
+      final res = await api.post('/api/auth/reset-wallet-receive', data: {
+        'wallet_address': walletAddress.trim(),
+        'device_uuid': deviceUuid,
+      });
+      if (res.statusCode == 200 && res.data is Map) {
+        return (request: WalletReceive.fromJson(Map<String, dynamic>.from(res.data as Map)), error: null);
+      }
+      return (request: null, error: _errorOf(res.data) ?? L10n.current.authWalletVerifyStartFailed);
+    } catch (e) {
+      return (request: null, error: _parseError(e));
+    }
+  }
+
+  Future<WalletReceive?> getResetWalletReceive(String id) async {
+    try {
+      final res = await api.get('/api/auth/reset-wallet-receive/$id',
+          query: {'device_uuid': deviceUuid});
+      if (res.statusCode == 200 && res.data is Map) {
+        return WalletReceive.fromJson(Map<String, dynamic>.from(res.data as Map));
+      }
+    } catch (e) {
+      debugPrint('[auth] reset-wallet-receive status warning: $e');
+    }
+    return null;
+  }
+
+  /// 받은 수량 입력. verified=true 면 그 id 를 resetPassword(walletChallengeId:) 에 넘긴다.
+  Future<({bool verified, String? error, int? attemptsLeft})> confirmResetWalletReceive(
+      String id, String amount) async {
+    try {
+      final res = await api.post('/api/auth/reset-wallet-receive/$id/confirm',
+          data: {'device_uuid': deviceUuid, 'amount': amount});
+      if (res.statusCode == 200 && res.data is Map && res.data['verified'] == true) {
+        return (verified: true, error: null, attemptsLeft: null);
+      }
+      return (verified: false, error: _errorOf(res.data) ?? L10n.current.authAmountCheckFailed, attemptsLeft: null);
+    } catch (e) {
+      int? left;
+      if (e is DioException && e.response?.data is Map) {
+        final l = (e.response!.data as Map)['attempts_left'];
+        if (l is num) left = l.toInt();
+      }
+      return (verified: false, error: _parseError(e), attemptsLeft: left);
+    }
+  }
+
   /// 2단계 휴대폰 인증. 반환: null = 성공, 그 외 = 에러 문구.
   Future<String?> verifyPhone(String firebaseIdToken) async {
     try {

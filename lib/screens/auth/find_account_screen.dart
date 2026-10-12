@@ -10,7 +10,7 @@ import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../services/auth_service.dart';
 import '_auth_shared.dart';
-import 'wallet_proof_card.dart';
+import 'wallet_receive_card.dart';
 
 /// Two-step screen:
 ///   Step 1: enter wallet -> show nickname on file
@@ -315,9 +315,9 @@ class _FindAccountScreenState extends State<FindAccountScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          WalletProofCard(
-            walletAddress: () => _walletCtl.text,
-            purpose: 'reset',
+          // 가입 때 등록한 지갑인지 서버가 먼저 확인 → 본사 지갑이 6자리 수량을 보냄 → 받은 수량 입력.
+          WalletReceiveCard.reset(
+            wallet: _walletCtl.text.trim(),
             onVerified: (id) => setState(() => _walletChallengeId = id),
           ),
           const SizedBox(height: 20),

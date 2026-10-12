@@ -692,6 +692,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authViewTxOnScan => 'scanで送金取引を見る';
 
   @override
+  String get authResetWalletTitle => 'ウォレット認証(別の端末で再設定する場合)';
+
+  @override
+  String get authResetWalletDesc =>
+      '登録時のウォレットと一致するかを確認したうえで、Eggplant 本社ウォレットからそのウォレットへ小数点以下6桁の数量(例:0.234567 QTA)をお送りします。ウォレットアプリで届いた数量を入力すれば認証完了です!';
+
+  @override
+  String get authResetWalletVerified => 'ウォレット認証が完了しました。下に新しいパスワードを入力してください。';
+
+  @override
   String get chatLeaveWarningSubtitle => '🔒 退出すると双方から完全に削除されます';
 
   @override

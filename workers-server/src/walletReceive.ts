@@ -130,6 +130,9 @@ export function receiveEnabled(env: Env): boolean {
 
 // ── 1) 요청 ─────────────────────────────────────────────────────
 
+/** verify = 로그인 회원의 지갑 등록 · reset = 비밀번호 재설정(계정 찾기) 때 가입 지갑 소유 확인. */
+export type ReceivePurpose = 'verify' | 'reset';
+
 export type CreateReceiveResult =
   | { ok: true; row: ReceiveRow }
   | { ok: false; status: 409 | 429 | 503; error: string; code: string };
@@ -141,6 +144,7 @@ export async function createReceiveChallenge(
   walletLower: string,
   clientIp = '',
   lang: Lang = 'ko',
+  purpose: ReceivePurpose = 'verify',
 ): Promise<CreateReceiveResult> {
   if (!receiveEnabled(env)) {
     return { ok: false, status: 503, error: trl(lang, '지갑 인증 송금을 준비 중이에요. 잠시 후 다시 시도해주세요', 'ウォレット認証の送金を準備中です。しばらくしてから再度お試しください'), code: 'sender_not_ready' };
@@ -149,16 +153,17 @@ export async function createReceiveChallenge(
     return { ok: false, status: 409, error: trl(lang, '이 주소는 등록할 수 없어요', 'このアドレスは登録できません'), code: 'wallet_reserved' };
   }
 
-  // 같은 회원·같은 지갑으로 아직 살아 있는 요청이 있으면 그대로 (다시 보내지 않음).
+  // 같은 회원·지갑·기기·용도로 아직 살아 있는 요청이 있으면 그대로 (다시 보내지 않음).
   const existing = await env.DB
     .prepare(
       `SELECT * FROM wallet_challenges
         WHERE direction = 'to_user' AND user_id = ? AND wallet_address = ?
+          AND purpose = ? AND device_uuid = ?
           AND status = 'pending' AND send_status != 'failed'
           AND expires_at > datetime('now') AND confirm_attempts < ?
         ORDER BY created_at DESC LIMIT 1`,
     )
-    .bind(userId, walletLower, MAX_CONFIRM_ATTEMPTS)
+    .bind(userId, walletLower, purpose, deviceUuid, MAX_CONFIRM_ATTEMPTS)
     .first<ReceiveRow>();
   if (existing) return { ok: true, row: existing };
 
@@ -198,18 +203,23 @@ export async function createReceiveChallenge(
       `INSERT INTO wallet_challenges
          (id, wallet_address, purpose, device_uuid, amount_wei, amount_display, expires_at, client_ip,
           direction, user_id, send_status)
-       VALUES (?, ?, 'verify', ?, ?, ?, datetime('now', ?), ?, 'to_user', ?, 'queued')`,
+       VALUES (?, ?, ?, ?, ?, ?, datetime('now', ?), ?, 'to_user', ?, 'queued')`,
     )
-    .bind(id, walletLower, deviceUuid, amountWei, amountDisplay, `+${RECEIVE_TTL_HOURS} hours`, clientIp || null, userId)
+    .bind(id, walletLower, purpose, deviceUuid, amountWei, amountDisplay, `+${RECEIVE_TTL_HOURS} hours`, clientIp || null, userId)
     .run();
   const row = await env.DB.prepare('SELECT * FROM wallet_challenges WHERE id = ?').bind(id).first<ReceiveRow>();
   return { ok: true, row: row! };
 }
 
-export async function getReceiveChallenge(env: Env, userId: string, id: string): Promise<ReceiveRow | null> {
+export async function getReceiveChallenge(
+  env: Env,
+  userId: string,
+  id: string,
+  purpose: ReceivePurpose = 'verify',
+): Promise<ReceiveRow | null> {
   return env.DB
-    .prepare(`SELECT * FROM wallet_challenges WHERE id = ? AND user_id = ? AND direction = 'to_user'`)
-    .bind(id, userId)
+    .prepare(`SELECT * FROM wallet_challenges WHERE id = ? AND user_id = ? AND direction = 'to_user' AND purpose = ?`)
+    .bind(id, userId, purpose)
     .first<ReceiveRow>();
 }
 
@@ -367,8 +377,15 @@ export type ConfirmResult =
   | { ok: true; row: ReceiveRow }
   | { ok: false; status: 400 | 404 | 409 | 410 | 429; error: string; code: string; attempts_left?: number };
 
-export async function confirmReceive(env: Env, userId: string, id: string, input: string, lang: Lang = 'ko'): Promise<ConfirmResult> {
-  const row = await getReceiveChallenge(env, userId, id);
+export async function confirmReceive(
+  env: Env,
+  userId: string,
+  id: string,
+  input: string,
+  lang: Lang = 'ko',
+  purpose: ReceivePurpose = 'verify',
+): Promise<ConfirmResult> {
+  const row = await getReceiveChallenge(env, userId, id, purpose);
   if (!row) return { ok: false, status: 404, error: trl(lang, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません'), code: 'not_found' };
   if (row.status !== 'pending') {
     return { ok: false, status: 409, error: trl(lang, '이미 끝난 인증이에요. 처음부터 다시 진행해주세요', 'この認証はすでに終了しています。最初からやり直してください'), code: 'used' };
@@ -413,10 +430,14 @@ export async function confirmReceive(env: Env, userId: string, id: string, input
       attempts_left: left,
     };
   }
+  // reset 은 'verified' 로 두고, 비밀번호 재설정(consumeChallenge)이 'used' 로 바꾼다.
   const done = await env.DB
     .prepare(
-      `UPDATE wallet_challenges SET status = 'used', verified_at = datetime('now'), used_at = datetime('now')
-        WHERE id = ? AND status = 'pending' RETURNING *`,
+      purpose === 'reset'
+        ? `UPDATE wallet_challenges SET status = 'verified', verified_at = datetime('now')
+            WHERE id = ? AND status = 'pending' RETURNING *`
+        : `UPDATE wallet_challenges SET status = 'used', verified_at = datetime('now'), used_at = datetime('now')
+            WHERE id = ? AND status = 'pending' RETURNING *`,
     )
     .bind(row.id)
     .first<ReceiveRow>();

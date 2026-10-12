@@ -29,6 +29,13 @@ import {
   unlinkQrchat,
   verifyQrchatCredentials,
 } from '../qrchatBridge';
+import {
+  confirmReceive,
+  createReceiveChallenge,
+  processReceiveSends,
+  receiveView,
+  type ReceiveRow,
+} from '../walletReceive';
 import { checkNickname } from '../prohibited';
 
 
@@ -408,6 +415,88 @@ app.post('/wallet-challenge/:id/check', async (c) => {
   const r = await checkChallenge(c.env, c.req.param('id'), body.device_uuid, reqLang(c));
   if (!r.ok) return c.json({ verified: false, error: r.error, code: r.code }, r.status);
   return c.json({ verified: true, ...challengeView(r.row, c.env) });
+});
+
+// ================================================================
+// 계정 찾기(비밀번호 재설정) 지갑 인증 — 본사가 보내고, 회원이 받은 수량을 입력.
+//
+// POST /api/auth/reset-wallet-receive              { wallet_address, device_uuid }
+//   1차: 입력한 지갑주소가 가입 때 등록한 지갑과 일치하는지 확인 (아니면 404).
+//   맞으면 본사 지갑이 그 지갑으로 소수점 6자리 임의 수량을 보낸다 (금액은 안 알려줌).
+// GET  /api/auth/reset-wallet-receive/:id?device_uuid=  → 송금 상태
+// POST /api/auth/reset-wallet-receive/:id/confirm  { device_uuid, amount }
+//   2차: 지갑에 들어온 수량이 맞으면 verified → /reset-password 에 wallet_challenge_id 로 쓴다.
+// ================================================================
+app.post('/reset-wallet-receive', async (c) => {
+  let body: { wallet_address?: string; device_uuid?: string } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+  }
+  const { wallet_address, device_uuid } = body;
+  if (!wallet_address || !isValidWallet(wallet_address)) {
+    return c.json({ error: tr(c, '퀀타리움 지갑주소 형식을 확인해주세요 (0x + 40자리)', 'Quantariumウォレットアドレスの形式をご確認ください（0x + 40桁）') }, 400);
+  }
+  if (!device_uuid || typeof device_uuid !== 'string' || device_uuid.length < 8) {
+    return c.json({ error: tr(c, '기기 정보가 올바르지 않아요', '端末情報が正しくありません') }, 400);
+  }
+  const walletNorm = normalizeWallet(wallet_address);
+  const user = await c.env.DB
+    .prepare('SELECT id FROM users WHERE wallet_address = ? COLLATE NOCASE')
+    .bind(walletNorm)
+    .first<{ id: string }>();
+  if (!user) {
+    return c.json(
+      { error: tr(c, '가입할 때 등록한 지갑주소와 일치하지 않아요', '登録時のウォレットアドレスと一致しません'), code: 'wallet_mismatch' },
+      404,
+    );
+  }
+  if (await isUserBanned(c.env.DB, user.id)) {
+    return c.json({ error: tr(c, '이용이 정지된 계정이에요. 고객센터로 문의해주세요', 'このアカウントは利用停止中です。お問い合わせ窓口までご連絡ください'), code: 'banned' }, 403);
+  }
+  const r = await createReceiveChallenge(
+    c.env, user.id, device_uuid, walletNorm.toLowerCase(), c.req.header('cf-connecting-ip') || '', reqLang(c), 'reset',
+  );
+  if (!r.ok) return c.json({ error: r.error, code: r.code }, r.status);
+  if (r.row.send_status === 'queued') {
+    c.executionCtx.waitUntil(processReceiveSends(c.env).catch((e) => console.error('[reset-receive] tick', e)));
+  }
+  return c.json(receiveView(r.row, c.env));
+});
+
+/** 계정 찾기 요청을 그 요청을 만든 기기에서만 본다. */
+async function resetReceiveRow(c: { env: Env }, id: string, deviceUuid: string) {
+  if (!deviceUuid) return null;
+  return c.env.DB
+    .prepare(
+      `SELECT * FROM wallet_challenges
+        WHERE id = ? AND direction = 'to_user' AND purpose = 'reset' AND device_uuid = ?`,
+    )
+    .bind(id, deviceUuid)
+    .first<ReceiveRow>();
+}
+
+app.get('/reset-wallet-receive/:id', async (c) => {
+  const row = await resetReceiveRow(c, c.req.param('id'), c.req.query('device_uuid') || '');
+  if (!row) return c.json({ error: tr(c, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません'), code: 'not_found' }, 404);
+  return c.json(receiveView(row, c.env));
+});
+
+app.post('/reset-wallet-receive/:id/confirm', async (c) => {
+  let body: { device_uuid?: string; amount?: string | number } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: tr(c, '잘못된 요청', '不正なリクエストです') }, 400);
+  }
+  const row = await resetReceiveRow(c, c.req.param('id'), String(body.device_uuid || ''));
+  if (!row) return c.json({ verified: false, error: tr(c, '인증 요청을 찾을 수 없어요', '認証リクエストが見つかりません'), code: 'not_found' }, 404);
+  const r = await confirmReceive(c.env, row.user_id, row.id, String(body.amount ?? ''), reqLang(c), 'reset');
+  if (!r.ok) {
+    return c.json({ verified: false, error: r.error, code: r.code, attempts_left: r.attempts_left }, r.status);
+  }
+  return c.json({ verified: true, challenge_id: r.row.id });
 });
 
 // ================================================================

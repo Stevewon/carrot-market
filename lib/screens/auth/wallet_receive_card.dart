@@ -22,7 +22,21 @@ class WalletReceiveCard extends StatefulWidget {
   /// 인증이 끝나면 호출 (사용자 정보는 AuthService 가 갱신).
   final VoidCallback onVerified;
 
-  const WalletReceiveCard({super.key, this.initialWallet = '', required this.onVerified});
+  /// 계정 찾기(비밀번호 재설정) 용 — 로그인 전. 서버가 이 지갑이 가입 때 등록한 지갑과
+  /// 같은지 먼저 확인하고, 맞으면 본사 지갑이 보낸다. 끝나면 challenge id 를 넘긴다.
+  final ValueChanged<String>? onResetVerified;
+
+  bool get isReset => onResetVerified != null;
+
+  const WalletReceiveCard({super.key, this.initialWallet = '', required this.onVerified})
+      : onResetVerified = null;
+
+  const WalletReceiveCard.reset({super.key, required String wallet, required ValueChanged<String> onVerified})
+      : initialWallet = wallet,
+        onResetVerified = onVerified,
+        onVerified = _noop;
+
+  static void _noop() {}
 
   @override
   State<WalletReceiveCard> createState() => _WalletReceiveCardState();
@@ -33,6 +47,7 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
   final _amountCtl = TextEditingController();
   WalletReceive? _req;
   bool _busy = false;
+  bool _done = false; // 계정 찾기: 인증 완료
   String? _error;
   Timer? _poll;
 
@@ -62,7 +77,19 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
       _busy = true;
       _error = null;
     });
-    final r = await context.read<AuthService>().requestWalletReceive(wallet);
+    final auth = context.read<AuthService>();
+    if (widget.isReset) {
+      final r = await auth.requestResetWalletReceive(wallet);
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _req = r.request;
+        _error = r.error;
+      });
+      _startPolling();
+      return;
+    }
+    final r = await auth.requestWalletReceive(wallet);
     if (!mounted) return;
     if (r.alreadyVerified) {
       setState(() => _busy = false);
@@ -84,7 +111,10 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
     _poll = Timer.periodic(const Duration(seconds: 4), (_) async {
       final cur = _req;
       if (cur == null) return;
-      final next = await context.read<AuthService>().getWalletReceive(cur.id);
+      final auth = context.read<AuthService>();
+      final next = widget.isReset
+          ? await auth.getResetWalletReceive(cur.id)
+          : await auth.getWalletReceive(cur.id);
       if (!mounted || next == null) return;
       setState(() => _req = next);
       if (next.isSent) _poll?.cancel();
@@ -103,14 +133,22 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
       _busy = true;
       _error = null;
     });
-    final r = await context.read<AuthService>().confirmWalletReceive(req.id, '0.$raw');
+    final auth = context.read<AuthService>();
+    final r = widget.isReset
+        ? await auth.confirmResetWalletReceive(req.id, '0.$raw')
+        : await auth.confirmWalletReceive(req.id, '0.$raw');
     if (!mounted) return;
     setState(() {
       _busy = false;
       _error = r.verified ? null : r.error;
+      if (r.verified && widget.isReset) _done = true;
     });
     if (r.verified) {
-      widget.onVerified();
+      if (widget.isReset) {
+        widget.onResetVerified!(req.id);
+      } else {
+        widget.onVerified();
+      }
     } else if (r.attemptsLeft == 0) {
       // 기회를 다 썼으면 처음부터 다시 요청.
       setState(() {
@@ -118,7 +156,10 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
         _amountCtl.clear();
       });
     } else if (r.attemptsLeft != null) {
-      final next = await context.read<AuthService>().getWalletReceive(req.id);
+      final auth = context.read<AuthService>();
+      final next = widget.isReset
+          ? await auth.getResetWalletReceive(req.id)
+          : await auth.getWalletReceive(req.id);
       if (mounted && next != null) setState(() => _req = next);
     }
   }
@@ -148,16 +189,30 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(l10n.authWalletStepTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          Text(widget.isReset ? l10n.authResetWalletTitle : l10n.authWalletStepTitle,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           Text(
-            l10n.authWalletStepDesc,
+            widget.isReset ? l10n.authResetWalletDesc : l10n.authWalletStepDesc,
             style: const TextStyle(fontSize: 12, color: EggplantColors.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 12),
-          if (req == null) ...[
+          if (_done) ...[
+            Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: EggplantColors.primary, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(l10n.authResetWalletVerified,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ] else if (req == null) ...[
             TextField(
               controller: _walletCtl,
+              // 계정 찾기에선 위에서 확인한 지갑으로만 받는다.
+              readOnly: widget.isReset,
               autocorrect: false,
               enableSuggestions: false,
               decoration: InputDecoration(
@@ -165,7 +220,7 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
                 hintText: l10n.authWalletHint42,
                 hintStyle: const TextStyle(fontSize: 12),
                 isDense: true,
-                suffixIcon: IconButton(
+                suffixIcon: widget.isReset ? null : IconButton(
                   icon: const Icon(Icons.content_paste_rounded, size: 20),
                   tooltip: l10n.authPaste,
                   onPressed: _pasteWallet,

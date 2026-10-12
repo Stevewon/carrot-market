@@ -1364,6 +1364,24 @@ abstract class AppLocalizations {
   /// **'scan에서 송금 거래 보기'**
   String get authViewTxOnScan;
 
+  /// No description provided for @authResetWalletTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'지갑 인증 (다른 기기에서 재설정 시)'**
+  String get authResetWalletTitle;
+
+  /// No description provided for @authResetWalletDesc.
+  ///
+  /// In ko, this message translates to:
+  /// **'가입할 때 등록한 지갑과 같은지 먼저 확인한 뒤, 가지 본사 지갑이 그 지갑으로 소수점 6자리 수량(예: 0.234567 QTA)을 보내드려요. 지갑 앱에서 들어온 수량을 입력하면 인증 끝!'**
+  String get authResetWalletDesc;
+
+  /// No description provided for @authResetWalletVerified.
+  ///
+  /// In ko, this message translates to:
+  /// **'지갑 인증 완료! 아래에 새 비밀번호를 입력하세요.'**
+  String get authResetWalletVerified;
+
   /// No description provided for @chatLeaveWarningSubtitle.
   ///
   /// In ko, this message translates to:

@@ -690,6 +690,16 @@ class AppLocalizationsKo extends AppLocalizations {
   String get authViewTxOnScan => 'scan에서 송금 거래 보기';
 
   @override
+  String get authResetWalletTitle => '지갑 인증 (다른 기기에서 재설정 시)';
+
+  @override
+  String get authResetWalletDesc =>
+      '가입할 때 등록한 지갑과 같은지 먼저 확인한 뒤, 가지 본사 지갑이 그 지갑으로 소수점 6자리 수량(예: 0.234567 QTA)을 보내드려요. 지갑 앱에서 들어온 수량을 입력하면 인증 끝!';
+
+  @override
+  String get authResetWalletVerified => '지갑 인증 완료! 아래에 새 비밀번호를 입력하세요.';
+
+  @override
   String get chatLeaveWarningSubtitle => '🔒 나가면 양쪽 모두 완전 삭제돼요';
 
   @override
