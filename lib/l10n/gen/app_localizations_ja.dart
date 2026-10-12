@@ -325,7 +325,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get authWalletStepDesc =>
-      'Quantarium ウォレットアドレスを入力すると、Eggplant 本社ウォレットから小数点以下6桁の数量(例:0.234567 QTA)をお送りします。ウォレットアプリで届いた数量を確認して入力すれば認証完了です!';
+      'Quantarium ウォレットアドレスを入力すると、Eggplant 本社ウォレットから 5.xxxxxx QTA をお送りします。アプリに表示される 1.xxxxxx QTA を本社ウォレットへ返送すれば認証完了です!(ウォレットの持ち主しか送金できないので安全です)';
 
   @override
   String get authRequesting => 'リクエスト中…';
@@ -689,14 +689,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authQuantumBadge => '耐量子署名(SPHINCS+)で送金された取引です';
 
   @override
-  String get authViewTxOnScan => 'scan.quantarium.io で受け取った数量を確認';
+  String get authViewTxOnScan => 'scan.quantarium.io で本社からの送金を見る';
 
   @override
   String get authResetWalletTitle => 'ウォレット認証(別の端末で再設定する場合)';
 
   @override
   String get authResetWalletDesc =>
-      '登録時のウォレットと一致するかを確認したうえで、Eggplant 本社ウォレットからそのウォレットへ小数点以下6桁の数量(例:0.234567 QTA)をお送りします。ウォレットアプリで届いた数量を入力すれば認証完了です!';
+      '登録時のウォレットと一致するかを確認したうえで、Eggplant 本社ウォレットからそのウォレットへ 5.xxxxxx QTA をお送りします。アプリに表示される 1.xxxxxx QTA を本社ウォレットへ返送すれば認証完了です!';
 
   @override
   String get authResetWalletVerified => 'ウォレット認証が完了しました。下に新しいパスワードを入力してください。';
@@ -704,6 +704,31 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get authScanHint =>
       'ウォレットアプリで少額が表示されない場合は、上の scan ボタンで画面の Value(例:0.234567 QTA)を確認し、小数点以下6桁を下の欄に入力してください。';
+
+  @override
+  String authReturnSent(String wallet, String amount) {
+    return 'Eggplant 本社ウォレットから $wallet へ $amount QTA を送金しました。';
+  }
+
+  @override
+  String get authReturnTitle => 'この数量を本社ウォレットへ返送してください';
+
+  @override
+  String get authReturnDesc =>
+      'Quantarium ウォレットアプリで、下の数量を正確に下のアドレスへ送金してください。ウォレットの持ち主しか送金できないため、これでご本人のウォレットであることが証明されます。';
+
+  @override
+  String get authReturnAmountLabel => '返送する数量(正確に)';
+
+  @override
+  String get authReturnToLabel => '送金先(Eggplant 本社ウォレット)';
+
+  @override
+  String get authReturnNote =>
+      'この数量は今回1回限りです・2時間以内に送金してください・ブロックに取り込まれるまで数十秒かかることがあります';
+
+  @override
+  String get authReturnSentButton => '送金しました — 確認する';
 
   @override
   String get chatLeaveWarningSubtitle => '🔒 退出すると双方から完全に削除されます';

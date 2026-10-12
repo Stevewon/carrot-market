@@ -183,7 +183,7 @@ interface BsPage { items?: BsTx[]; next_page_params?: Record<string, unknown> | 
  * Quantarium 거래는 SPHINCS+ 서명(약 16KB)이 붙어 한 페이지가 ~870KB 라
  * 더 넘기지 않는다. 챌린지 유효시간(30분) 안의 송금은 첫 페이지에 있다.
  */
-async function listOutgoingTxs(env: Env, walletLower: string): Promise<BsTx[]> {
+export async function listOutgoingTxs(env: Env, walletLower: string): Promise<BsTx[]> {
   const base = (env.QTA_EXPLORER_URL || DEFAULT_EXPLORER).replace(/\/+$/, '');
   const out: BsTx[] = [];
   let next: Record<string, unknown> | null = null;
@@ -308,8 +308,8 @@ export async function checkChallenge(
  * VERIFIED_USE_WINDOW_MIN 이내여야 한다. 원자적 UPDATE 라 같은 챌린지로
  * 두 번 가입/재설정할 수 없다.
  */
-// from_user(회원이 자기 지갑에서 송금)만 소유 증명이 된다. to_user(본사가 송금)는 수량이
-// scan 에 공개돼 남도 볼 수 있으므로 비밀번호 재설정에 쓰지 않는다.
+// 소유 증명 = 그 지갑에서 나간 송금. from_user(회원이 본사로 송금)와 to_user(본사가 보낸 뒤
+// 회원이 1.xxxxxx 를 돌려보냄 — tx_hash 가 그 거래) 모두 그 거래가 있어야 verified 가 된다.
 export async function consumeChallenge(
   env: Env,
   challengeId: string,
@@ -322,7 +322,7 @@ export async function consumeChallenge(
       `UPDATE wallet_challenges
           SET status = 'used', used_at = datetime('now')
         WHERE id = ? AND wallet_address = ? AND purpose = ? AND device_uuid = ?
-          AND direction = 'from_user' AND status = 'verified'
+          AND status = 'verified' AND tx_hash IS NOT NULL
           AND verified_at >= datetime('now', ?)`,
     )
     .bind(challengeId, walletLower, purpose, deviceUuid, `-${VERIFIED_USE_WINDOW_MIN} minutes`)

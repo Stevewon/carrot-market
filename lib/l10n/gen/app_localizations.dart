@@ -689,7 +689,7 @@ abstract class AppLocalizations {
   /// No description provided for @authWalletStepDesc.
   ///
   /// In ko, this message translates to:
-  /// **'내 퀀타리움 지갑주소를 넣으면 가지 본사 지갑이 소수점 6자리 수량(예: 0.234567 QTA)을 보내드려요. 지갑 앱에서 들어온 수량을 확인해 입력하면 인증 끝!'**
+  /// **'내 퀀타리움 지갑주소를 넣으면 가지 본사 지갑이 5.xxxxxx QTA 를 보내드려요. 그중 앱이 알려주는 1.xxxxxx QTA 를 본사 지갑으로 돌려보내면 인증 끝! (지갑 주인만 보낼 수 있어서 안전해요)'**
   String get authWalletStepDesc;
 
   /// No description provided for @authRequesting.
@@ -1361,7 +1361,7 @@ abstract class AppLocalizations {
   /// No description provided for @authViewTxOnScan.
   ///
   /// In ko, this message translates to:
-  /// **'scan.quantarium.io 에서 받은 수량 확인'**
+  /// **'scan.quantarium.io 에서 본사 송금 보기'**
   String get authViewTxOnScan;
 
   /// No description provided for @authResetWalletTitle.
@@ -1373,7 +1373,7 @@ abstract class AppLocalizations {
   /// No description provided for @authResetWalletDesc.
   ///
   /// In ko, this message translates to:
-  /// **'가입할 때 등록한 지갑과 같은지 먼저 확인한 뒤, 가지 본사 지갑이 그 지갑으로 소수점 6자리 수량(예: 0.234567 QTA)을 보내드려요. 지갑 앱에서 들어온 수량을 입력하면 인증 끝!'**
+  /// **'가입할 때 등록한 지갑과 같은지 먼저 확인한 뒤, 가지 본사 지갑이 그 지갑으로 5.xxxxxx QTA 를 보내드려요. 앱이 알려주는 1.xxxxxx QTA 를 본사 지갑으로 돌려보내면 인증 끝!'**
   String get authResetWalletDesc;
 
   /// No description provided for @authResetWalletVerified.
@@ -1387,6 +1387,48 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'지갑 앱에 소량이 안 보이면 위 scan 버튼을 눌러 화면의 Value(예: 0.234567 QTA)를 확인하고, 소수점 아래 6자리를 아래 칸에 입력하세요.'**
   String get authScanHint;
+
+  /// No description provided for @authReturnSent.
+  ///
+  /// In ko, this message translates to:
+  /// **'가지 본사 지갑이 {wallet} 으로 {amount} QTA 를 보냈어요.'**
+  String authReturnSent(String wallet, String amount);
+
+  /// No description provided for @authReturnTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'이제 이 수량을 본사 지갑으로 돌려보내 주세요'**
+  String get authReturnTitle;
+
+  /// No description provided for @authReturnDesc.
+  ///
+  /// In ko, this message translates to:
+  /// **'퀀타리움 지갑 앱에서 아래 수량을 정확히, 아래 주소로 보내세요. 지갑 주인만 보낼 수 있어서 이걸로 내 지갑임이 증명돼요.'**
+  String get authReturnDesc;
+
+  /// No description provided for @authReturnAmountLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'돌려보낼 수량 (정확히)'**
+  String get authReturnAmountLabel;
+
+  /// No description provided for @authReturnToLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'받는 주소 (가지 본사 지갑)'**
+  String get authReturnToLabel;
+
+  /// No description provided for @authReturnNote.
+  ///
+  /// In ko, this message translates to:
+  /// **'이 수량은 이번 한 번만 쓰여요 · 2시간 안에 보내주세요 · 블록에 담기기까지 수십 초 걸릴 수 있어요'**
+  String get authReturnNote;
+
+  /// No description provided for @authReturnSentButton.
+  ///
+  /// In ko, this message translates to:
+  /// **'보냈어요 — 확인하기'**
+  String get authReturnSentButton;
 
   /// No description provided for @chatLeaveWarningSubtitle.
   ///

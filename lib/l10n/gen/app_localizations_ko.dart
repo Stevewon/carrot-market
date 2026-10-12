@@ -324,7 +324,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get authWalletStepDesc =>
-      '내 퀀타리움 지갑주소를 넣으면 가지 본사 지갑이 소수점 6자리 수량(예: 0.234567 QTA)을 보내드려요. 지갑 앱에서 들어온 수량을 확인해 입력하면 인증 끝!';
+      '내 퀀타리움 지갑주소를 넣으면 가지 본사 지갑이 5.xxxxxx QTA 를 보내드려요. 그중 앱이 알려주는 1.xxxxxx QTA 를 본사 지갑으로 돌려보내면 인증 끝! (지갑 주인만 보낼 수 있어서 안전해요)';
 
   @override
   String get authRequesting => '요청 중…';
@@ -687,14 +687,14 @@ class AppLocalizationsKo extends AppLocalizations {
   String get authQuantumBadge => '양자내성 서명(SPHINCS+)으로 보낸 거래예요';
 
   @override
-  String get authViewTxOnScan => 'scan.quantarium.io 에서 받은 수량 확인';
+  String get authViewTxOnScan => 'scan.quantarium.io 에서 본사 송금 보기';
 
   @override
   String get authResetWalletTitle => '지갑 인증 (다른 기기에서 재설정 시)';
 
   @override
   String get authResetWalletDesc =>
-      '가입할 때 등록한 지갑과 같은지 먼저 확인한 뒤, 가지 본사 지갑이 그 지갑으로 소수점 6자리 수량(예: 0.234567 QTA)을 보내드려요. 지갑 앱에서 들어온 수량을 입력하면 인증 끝!';
+      '가입할 때 등록한 지갑과 같은지 먼저 확인한 뒤, 가지 본사 지갑이 그 지갑으로 5.xxxxxx QTA 를 보내드려요. 앱이 알려주는 1.xxxxxx QTA 를 본사 지갑으로 돌려보내면 인증 끝!';
 
   @override
   String get authResetWalletVerified => '지갑 인증 완료! 아래에 새 비밀번호를 입력하세요.';
@@ -702,6 +702,31 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get authScanHint =>
       '지갑 앱에 소량이 안 보이면 위 scan 버튼을 눌러 화면의 Value(예: 0.234567 QTA)를 확인하고, 소수점 아래 6자리를 아래 칸에 입력하세요.';
+
+  @override
+  String authReturnSent(String wallet, String amount) {
+    return '가지 본사 지갑이 $wallet 으로 $amount QTA 를 보냈어요.';
+  }
+
+  @override
+  String get authReturnTitle => '이제 이 수량을 본사 지갑으로 돌려보내 주세요';
+
+  @override
+  String get authReturnDesc =>
+      '퀀타리움 지갑 앱에서 아래 수량을 정확히, 아래 주소로 보내세요. 지갑 주인만 보낼 수 있어서 이걸로 내 지갑임이 증명돼요.';
+
+  @override
+  String get authReturnAmountLabel => '돌려보낼 수량 (정확히)';
+
+  @override
+  String get authReturnToLabel => '받는 주소 (가지 본사 지갑)';
+
+  @override
+  String get authReturnNote =>
+      '이 수량은 이번 한 번만 쓰여요 · 2시간 안에 보내주세요 · 블록에 담기기까지 수십 초 걸릴 수 있어요';
+
+  @override
+  String get authReturnSentButton => '보냈어요 — 확인하기';
 
   @override
   String get chatLeaveWarningSubtitle => '🔒 나가면 양쪽 모두 완전 삭제돼요';

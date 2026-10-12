@@ -1162,6 +1162,12 @@ class WalletReceive {
   final String walletAddress;
   /// 보내는 곳 — 가지 본사 지갑.
   final String sendFrom;
+  /// 본사가 보낸 수량 (예: 5.234567). 송금이 끝난 뒤에만 온다.
+  final String? sendAmount;
+  /// 회원이 본사 지갑으로 돌려보낼 수량 (예: 1.234567). 송금이 끝난 뒤에만 온다.
+  final String? returnAmount;
+  /// 돌려보낼 곳 — 가지 본사 지갑.
+  final String returnTo;
   /// 'queued' | 'sending' | 'sent' | 'failed'
   final String sendStatus;
   final String? txHash;
@@ -1172,6 +1178,9 @@ class WalletReceive {
     required this.id,
     required this.walletAddress,
     required this.sendFrom,
+    this.sendAmount,
+    this.returnAmount,
+    required this.returnTo,
     required this.sendStatus,
     this.txHash,
     required this.attemptsLeft,
@@ -1185,6 +1194,9 @@ class WalletReceive {
         id: j['challenge_id'].toString(),
         walletAddress: (j['wallet_address'] ?? '').toString(),
         sendFrom: (j['send_from'] ?? '').toString(),
+        sendAmount: j['send_amount']?.toString(),
+        returnAmount: j['return_amount']?.toString(),
+        returnTo: (j['return_to'] ?? j['send_from'] ?? '').toString(),
         sendStatus: (j['send_status'] ?? 'queued').toString(),
         txHash: j['send_tx_hash']?.toString(),
         attemptsLeft: (j['attempts_left'] as num?)?.toInt() ?? 5,

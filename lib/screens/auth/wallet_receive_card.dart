@@ -10,11 +10,12 @@ import '../../app/theme.dart';
 import '../../services/auth_service.dart';
 import '_auth_shared.dart';
 
-/// 1단계 지갑 인증 카드.
+/// 지갑 인증 카드 (가입 1단계 · 계정 찾기).
 ///
-/// 회원이 지갑주소를 넣으면 가지 본사 지갑이 그 지갑으로 소수점 6자리 임의 수량
-/// (예: 0.234567 QTA)을 보낸다. 회원이 지갑 앱에서 들어온 수량을 보고 입력하면 통과.
-/// 수량은 서버가 알려주지 않는다 — 지갑 주인만 볼 수 있다.
+/// 1) 회원이 지갑주소를 넣으면 가지 본사 지갑이 그 지갑으로 5.xxxxxx QTA 를 보낸다 (가스비 포함).
+/// 2) 앱이 돌려보낼 수량 1.xxxxxx 를 알려주고, 회원이 자기 지갑에서 본사 지갑으로 보낸다.
+/// 3) "보냈어요" 를 누르면 서버가 블록 탐색기에서 그 송금을 찾아 인증한다.
+/// 본사가 보낸 수량은 scan 에 공개돼 증명이 안 된다 — 그 지갑에서 나간 송금만이 주인 증명이다.
 class WalletReceiveCard extends StatefulWidget {
   /// 이미 등록된(인증 전) 지갑주소 — 입력칸 기본값.
   final String initialWallet;
@@ -44,7 +45,6 @@ class WalletReceiveCard extends StatefulWidget {
 
 class _WalletReceiveCardState extends State<WalletReceiveCard> {
   late final TextEditingController _walletCtl = TextEditingController(text: widget.initialWallet);
-  final _amountCtl = TextEditingController();
   WalletReceive? _req;
   bool _busy = false;
   bool _done = false; // 계정 찾기: 인증 완료
@@ -55,7 +55,6 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
   void dispose() {
     _poll?.cancel();
     _walletCtl.dispose();
-    _amountCtl.dispose();
     super.dispose();
   }
 
@@ -124,19 +123,14 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
   Future<void> _confirm() async {
     final req = _req;
     if (req == null) return;
-    final raw = _amountCtl.text.trim();
-    if (!RegExp(r'^\d{6}$').hasMatch(raw)) {
-      setState(() => _error = context.l10n.authReceiveAmountInvalid);
-      return;
-    }
     setState(() {
       _busy = true;
       _error = null;
     });
     final auth = context.read<AuthService>();
     final r = widget.isReset
-        ? await auth.confirmResetWalletReceive(req.id, '0.$raw')
-        : await auth.confirmWalletReceive(req.id, '0.$raw');
+        ? await auth.confirmResetWalletReceive(req.id, '')
+        : await auth.confirmWalletReceive(req.id, '');
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -149,27 +143,53 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
       } else {
         widget.onVerified();
       }
-    } else if (r.attemptsLeft == 0) {
-      // 기회를 다 썼으면 처음부터 다시 요청.
-      setState(() {
-        _req = null;
-        _amountCtl.clear();
-      });
-    } else if (r.attemptsLeft != null) {
-      final auth = context.read<AuthService>();
-      final next = widget.isReset
-          ? await auth.getResetWalletReceive(req.id)
-          : await auth.getWalletReceive(req.id);
-      if (mounted && next != null) setState(() => _req = next);
     }
   }
+
+  Future<void> _copy(String text, String toast) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(toast), duration: const Duration(seconds: 1)));
+  }
+
+  /// 복사 버튼이 달린 한 줄 (돌려보낼 수량 · 본사 지갑 주소).
+  Widget _copyRow(String label, String value, String toast, {bool big = false}) => Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: EggplantColors.border),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: const TextStyle(fontSize: 11, color: EggplantColors.textSecondary)),
+                  const SizedBox(height: 2),
+                  SelectableText(value,
+                      style: TextStyle(
+                          fontSize: big ? 20 : 12.5,
+                          fontWeight: big ? FontWeight.w800 : FontWeight.w600,
+                          color: big ? EggplantColors.primary : EggplantColors.textPrimary)),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: context.l10n.authCopy,
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              onPressed: () => _copy(value.replaceAll(' QTA', ''), toast),
+            ),
+          ],
+        ),
+      );
 
   void _restart() {
     _poll?.cancel();
     setState(() {
       _req = null;
       _error = null;
-      _amountCtl.clear();
     });
   }
 
@@ -256,7 +276,7 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
               )
             else ...[
               Text(
-                l10n.authReceiveSent(_short(req.walletAddress)),
+                l10n.authReturnSent(_short(req.walletAddress), req.sendAmount ?? ''),
                 style: const TextStyle(fontSize: 12.5, height: 1.5),
               ),
               if (req.txHash != null && req.txHash!.isNotEmpty) ...[
@@ -286,8 +306,8 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // 소량이라 지갑 앱에 안 보일 수 있다 — scan 거래 화면에 보낸 수량이 그대로 나온다.
-                ElevatedButton.icon(
+                // 지갑 앱에 바로 안 보여도 scan 거래 화면에서 본사 송금을 확인할 수 있다.
+                OutlinedButton.icon(
                   onPressed: () => launchUrl(
                     Uri.parse('https://scan.quantarium.io/tx/${req.txHash}'),
                     mode: LaunchMode.externalApplication,
@@ -307,32 +327,26 @@ class _WalletReceiveCardState extends State<WalletReceiveCard> {
               icon: const Icon(Icons.open_in_new_rounded, size: 18),
               label: Text(l10n.authCheckWalletCode),
             ),
-            const SizedBox(height: 6),
-            Text(l10n.authScanHint,
-                style: const TextStyle(fontSize: 11.5, color: EggplantColors.textSecondary, height: 1.5)),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _amountCtl,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: 2),
-              decoration: InputDecoration(
-                labelText: l10n.authReceivedAmount,
-                prefixText: '0.',
-                suffixText: 'QTA',
-                hintText: '234567',
-                counterText: '',
+            if (req.isSent && req.returnAmount != null) ...[
+              const SizedBox(height: 14),
+              Text(l10n.authReturnTitle,
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text(l10n.authReturnDesc,
+                  style: const TextStyle(fontSize: 12, color: EggplantColors.textSecondary, height: 1.5)),
+              const SizedBox(height: 8),
+              _copyRow(l10n.authReturnAmountLabel, '${req.returnAmount} QTA', l10n.authAmountCopied, big: true),
+              const SizedBox(height: 6),
+              _copyRow(l10n.authReturnToLabel, req.returnTo, l10n.authAddressCopied),
+              const SizedBox(height: 6),
+              Text(l10n.authReturnNote,
+                  style: const TextStyle(fontSize: 11, color: EggplantColors.textTertiary, height: 1.5)),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _busy ? null : _confirm,
+                child: Text(_busy ? l10n.authChecking : l10n.authReturnSentButton),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(l10n.authAttemptsLeft('${req.attemptsLeft}'),
-                style: const TextStyle(fontSize: 11, color: EggplantColors.textTertiary)),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: _busy ? null : _confirm,
-              child: Text(_busy ? l10n.authChecking : l10n.authVerify),
-            ),
+            ],
           ],
           if (_error != null) ...[
             const SizedBox(height: 8),
