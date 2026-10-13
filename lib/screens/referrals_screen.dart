@@ -101,13 +101,15 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                     children: [
                       const Icon(Icons.card_giftcard, color: Colors.white, size: 22),
                       const SizedBox(width: 8),
-                      Text(
-                        context.l10n.myRefHeadline,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          height: 1.4,
+                      Expanded(
+                        child: Text(
+                          context.l10n.myRefHeadline,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            height: 1.4,
+                          ),
                         ),
                       ),
                     ],

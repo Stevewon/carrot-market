@@ -1567,14 +1567,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get myPrivacyDialogBody =>
-      'Eggplant does NOT collect:\\n\\n• Phone number · Email · Real name\\n• Exact GPS (discarded right after neighborhood check)\\n• Chat messages (0 saved in DB)\\n• Call content (P2P, never goes through our servers)\\n\\nChats are temporary. Once a message is gone, it can\'t be restored on either device. If you close the app or log in on another device, all conversations start fresh 💨';
+      'Eggplant does NOT collect:\n\n• Phone number · Email · Real name\n• Exact GPS (discarded right after neighborhood check)\n• Chat messages (0 saved in DB)\n• Call content (P2P, never goes through our servers)\n\nChats are temporary. Once a message is gone, it can\'t be restored on either device. If you close the app or log in on another device, all conversations start fresh 💨';
 
   @override
   String get myMenuAppInfo => 'App info';
 
   @override
   String get myAppLegalese =>
-      '© 2026 Eggplant Team\\nSafe, anonymous buy & sell';
+      '© 2026 Eggplant Team\nSafe, anonymous buy & sell';
 
   @override
   String get myMenuLogout => 'Log out';
@@ -1619,7 +1619,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get myWalletCardNote =>
-      'Forgot your nickname or password? You can recover your account with this wallet address.\\nWithdraw to your own wallet from 5,000 QTA, in multiples of 5,000.';
+      'Forgot your nickname or password? You can recover your account with this wallet address.\nWithdraw to your own wallet from 5,000 QTA, in multiples of 5,000.';
 
   @override
   String get myMaskOnSnack =>
@@ -1880,7 +1880,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get myNicknameGuideBody =>
-      '• Changes show up in chats and calls right away\\n• Must be different from other users\' nicknames\\n• Only your nickname is shown, whether or not you\'re verified';
+      '• Changes show up in chats and calls right away\n• Must be different from other users\' nicknames\n• Only your nickname is shown, whether or not you\'re verified';
 
   @override
   String get mySaveButton => 'Save';
@@ -1890,7 +1890,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get myWdNeedWalletBody =>
-      'Withdrawn QTA is sent to your verified wallet.\\nEnter the amount our official wallet sent you to confirm you own the wallet.';
+      'Withdrawn QTA is sent to your verified wallet.\nEnter the amount our official wallet sent you to confirm you own the wallet.';
 
   @override
   String get myWdNeedPhoneTitle => 'Step 2 phone verification required';
@@ -1900,11 +1900,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get myWdNeedPhoneBody =>
-      'To keep it one account per person, phone verification is required before withdrawing.\\nYou\'ll also get 1,000 QTA when you finish.';
+      'To keep it one account per person, phone verification is required before withdrawing.\nYou\'ll also get 1,000 QTA when you finish.';
 
   @override
   String get myWdPreparingBody =>
-      'Withdrawals need phone verification, which we\'re still preparing.\\nWe\'ll let you know with an app update once it\'s ready. Your QTA keeps adding up in the meantime.';
+      'Withdrawals need phone verification, which we\'re still preparing.\nWe\'ll let you know with an app update once it\'s ready. Your QTA keeps adding up in the meantime.';
 
   @override
   String get myWdNoWallet => 'No wallet address registered';
@@ -1919,7 +1919,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String myWdConfirmBody(String amount, String wallet) {
-    return 'Withdraw $amount QTA to\\n$wallet\\n?\\n\\nThe amount is deducted from your balance right away, and our team will send it within 1–3 days.';
+    return 'Withdraw $amount QTA to\n$wallet\n?\n\nThe amount is deducted from your balance right away, and our team will send it within 1–3 days.';
   }
 
   @override
@@ -1934,7 +1934,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String myWdCancelBody(String amount) {
-    return 'Cancel your $amount QTA withdrawal request?\\nIt will be refunded to your balance right away.';
+    return 'Cancel your $amount QTA withdrawal request?\nIt will be refunded to your balance right away.';
   }
 
   @override
@@ -2071,7 +2071,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String myMiningRule(int percent, int rate, String examplePrice,
       String exampleQta, String maxPerListing, String maxPerDay) {
-    return '⛏️ List an item and mine $percent% of its price in QTA (1 QTA = ₱$rate)\\n   e.g. $examplePrice item → +$exampleQta QTA\\n• Up to $maxPerListing QTA per item · $maxPerDay QTA per day\\n• Lower the price and the difference is deducted; delete the item and what you received is deducted\\n• Sold items aren\'t deducted (unless you delete them)';
+    return '⛏️ List an item and mine $percent% of its price in QTA (1 QTA = ₱$rate)\n   e.g. $examplePrice item → +$exampleQta QTA\n• Up to $maxPerListing QTA per item · $maxPerDay QTA per day\n• Lower the price and the difference is deducted; delete the item and what you received is deducted\n• Sold items aren\'t deducted (unless you delete them)';
   }
 
   @override
@@ -2093,7 +2093,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get myRefHeadline =>
-      'Get +200 QTA when a friend\\nenters your nickname at sign-up';
+      'Get +200 QTA when a friend\nenters your nickname at sign-up';
 
   @override
   String get myRefCopyNick => 'Copy nickname';
@@ -2119,7 +2119,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get myRefRuleBody =>
-      '• +200 QTA per friend · No limit\\n• Your friend enters your nickname in the last field at sign-up\\n• If your friend deletes their account, that 200 QTA is taken back right away\\n• You can\'t refer yourself';
+      '• +200 QTA per friend · No limit\n• Your friend enters your nickname in the last field at sign-up\n• If your friend deletes their account, that 200 QTA is taken back right away\n• You can\'t refer yourself';
 
   @override
   String get myRefListTitle => 'Friends you invited';

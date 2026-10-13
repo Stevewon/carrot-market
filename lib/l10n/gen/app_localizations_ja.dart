@@ -1494,13 +1494,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get myPrivacyDialogBody =>
-      'Eggplantは次の情報を収集しません:\\n\\n• 電話番号・メールアドレス・本名\\n• 正確なGPS(地域認証後すぐに破棄)\\n• チャット内容(DB保存ゼロ)\\n• 通話内容(P2P、サーバー非経由)\\n\\nチャットは消える仕組みです。一度流れたメッセージはどちらの端末にも復元されません。アプリを終了したり別の端末でログインすると、すべての会話がまっさらな状態から始まります 💨';
+      'Eggplantは次の情報を収集しません:\n\n• 電話番号・メールアドレス・本名\n• 正確なGPS(地域認証後すぐに破棄)\n• チャット内容(DB保存ゼロ)\n• 通話内容(P2P、サーバー非経由)\n\nチャットは消える仕組みです。一度流れたメッセージはどちらの端末にも復元されません。アプリを終了したり別の端末でログインすると、すべての会話がまっさらな状態から始まります 💨';
 
   @override
   String get myMenuAppInfo => 'アプリ情報';
 
   @override
-  String get myAppLegalese => '© 2026 Eggplant Team\\n匿名で安心なフリマ取引';
+  String get myAppLegalese => '© 2026 Eggplant Team\n匿名で安心なフリマ取引';
 
   @override
   String get myMenuLogout => 'ログアウト';
@@ -1543,7 +1543,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get myWalletCardNote =>
-      'ニックネーム・パスワードを忘れたときは、このウォレットアドレスで復旧できます。\\n5,000 QTAから5,000単位でご自身のウォレットへ出金できます。';
+      'ニックネーム・パスワードを忘れたときは、このウォレットアドレスで復旧できます。\n5,000 QTAから5,000単位でご自身のウォレットへ出金できます。';
 
   @override
   String get myMaskOnSnack => '通知の本文を非表示にしました。ロック画面でも安心です 🔒';
@@ -1793,7 +1793,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get myNicknameGuideBody =>
-      '• 変更するとすぐにチャット・通話に反映されます\\n• 他のユーザーと同じニックネームは使えません\\n• 電話番号認証の有無にかかわらず、ニックネームのみ使用します';
+      '• 変更するとすぐにチャット・通話に反映されます\n• 他のユーザーと同じニックネームは使えません\n• 電話番号認証の有無にかかわらず、ニックネームのみ使用します';
 
   @override
   String get mySaveButton => '保存する';
@@ -1803,7 +1803,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get myWdNeedWalletBody =>
-      '出金したQTAは認証済みのウォレットに送金されます。\\n運営のウォレットから届いた数量を入力して、ウォレットの所有者であることを確認してください。';
+      '出金したQTAは認証済みのウォレットに送金されます。\n運営のウォレットから届いた数量を入力して、ウォレットの所有者であることを確認してください。';
 
   @override
   String get myWdNeedPhoneTitle => 'ステップ2 電話番号認証が必要です';
@@ -1813,11 +1813,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get myWdNeedPhoneBody =>
-      '1人1アカウントを守るため、出金前に電話番号認証が必要です。\\n完了すると1,000 QTAもプレゼントします。';
+      '1人1アカウントを守るため、出金前に電話番号認証が必要です。\n完了すると1,000 QTAもプレゼントします。';
 
   @override
   String get myWdPreparingBody =>
-      '出金には電話番号認証が必要ですが、現在準備中です。\\n開始したらアプリのアップデートでお知らせします。それまでQTAはそのまま貯まります。';
+      '出金には電話番号認証が必要ですが、現在準備中です。\n開始したらアプリのアップデートでお知らせします。それまでQTAはそのまま貯まります。';
 
   @override
   String get myWdNoWallet => 'ウォレットアドレスが登録されていません';
@@ -1832,7 +1832,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String myWdConfirmBody(String amount, String wallet) {
-    return '$amount QTAを\\n$wallet\\nへ出金申請しますか?\\n\\n申請するとすぐに残高から差し引かれ、運営が1〜3日以内に送金します。';
+    return '$amount QTAを\n$wallet\nへ出金申請しますか?\n\n申請するとすぐに残高から差し引かれ、運営が1〜3日以内に送金します。';
   }
 
   @override
@@ -1846,7 +1846,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String myWdCancelBody(String amount) {
-    return '$amount QTAの出金申請を取り消しますか?\\n取り消すとすぐに残高へ返金されます。';
+    return '$amount QTAの出金申請を取り消しますか?\n取り消すとすぐに残高へ返金されます。';
   }
 
   @override
@@ -1977,7 +1977,7 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String myMiningRule(int percent, int rate, String examplePrice,
       String exampleQta, String maxPerListing, String maxPerDay) {
-    return '⛏️ 出品すると価格の$percent%をQTAでマイニングします(1 QTA = $rate円)\\n   例)$examplePriceの商品 → +$exampleQta QTA\\n• 1商品あたり最大$maxPerListing QTA・1日最大$maxPerDay QTA\\n• 値下げすると差額分、商品を削除すると受け取った分が差し引かれます\\n• 売り切れになった商品は差し引かれません(削除すると差し引き)';
+    return '⛏️ 出品すると価格の$percent%をQTAでマイニングします(1 QTA = $rate円)\n   例)$examplePriceの商品 → +$exampleQta QTA\n• 1商品あたり最大$maxPerListing QTA・1日最大$maxPerDay QTA\n• 値下げすると差額分、商品を削除すると受け取った分が差し引かれます\n• 売り切れになった商品は差し引かれません(削除すると差し引き)';
   }
 
   @override
@@ -1996,7 +1996,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get myRefTitle => '友だち招待';
 
   @override
-  String get myRefHeadline => '友だちが登録時に\\nあなたのニックネームを入力すると +200 QTA';
+  String get myRefHeadline => '友だちが登録時に\nあなたのニックネームを入力すると +200 QTA';
 
   @override
   String get myRefCopyNick => 'ニックネームをコピー';
@@ -2021,7 +2021,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get myRefRuleBody =>
-      '• 友だち1人につき +200 QTA・上限なし\\n• 友だちが会員登録の最後の欄にあなたのニックネームを入力\\n• 友だちが退会すると、その200 QTAはすぐに回収されます\\n• 自分自身を招待者にすることはできません';
+      '• 友だち1人につき +200 QTA・上限なし\n• 友だちが会員登録の最後の欄にあなたのニックネームを入力\n• 友だちが退会すると、その200 QTAはすぐに回収されます\n• 自分自身を招待者にすることはできません';
 
   @override
   String get myRefListTitle => '招待した友だち';

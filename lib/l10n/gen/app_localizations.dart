@@ -2839,7 +2839,7 @@ abstract class AppLocalizations {
   /// No description provided for @myPrivacyDialogBody.
   ///
   /// In ko, this message translates to:
-  /// **'Eggplant는 다음을 수집하지 않아요:\\n\\n• 전화번호 · 이메일 · 실명\\n• 정확한 GPS (동네 인증 시 즉시 폐기)\\n• 채팅 내용 (DB 저장 0)\\n• 통화 내용 (P2P, 서버 미경유)\\n\\n채팅은 휘발성이에요. 한 번 흘러간 메시지는 양쪽 기기 어디에도 복원되지 않아요. 앱을 종료하거나 다른 기기로 로그인하면 모든 대화가 빈 상태에서 시작돼요 💨'**
+  /// **'Eggplant는 다음을 수집하지 않아요:\n\n• 전화번호 · 이메일 · 실명\n• 정확한 GPS (동네 인증 시 즉시 폐기)\n• 채팅 내용 (DB 저장 0)\n• 통화 내용 (P2P, 서버 미경유)\n\n채팅은 휘발성이에요. 한 번 흘러간 메시지는 양쪽 기기 어디에도 복원되지 않아요. 앱을 종료하거나 다른 기기로 로그인하면 모든 대화가 빈 상태에서 시작돼요 💨'**
   String get myPrivacyDialogBody;
 
   /// No description provided for @myMenuAppInfo.
@@ -2851,7 +2851,7 @@ abstract class AppLocalizations {
   /// No description provided for @myAppLegalese.
   ///
   /// In ko, this message translates to:
-  /// **'© 2026 Eggplant Team\\n익명으로 안전한 중고거래'**
+  /// **'© 2026 Eggplant Team\n익명으로 안전한 중고거래'**
   String get myAppLegalese;
 
   /// No description provided for @myMenuLogout.
@@ -2935,7 +2935,7 @@ abstract class AppLocalizations {
   /// No description provided for @myWalletCardNote.
   ///
   /// In ko, this message translates to:
-  /// **'닉네임·비밀번호 분실 시 이 지갑주소로 복구할 수 있어요.\\n5,000 QTA 부터 5,000 단위로 본인 지갑으로 출금할 수 있어요.'**
+  /// **'닉네임·비밀번호 분실 시 이 지갑주소로 복구할 수 있어요.\n5,000 QTA 부터 5,000 단위로 본인 지갑으로 출금할 수 있어요.'**
   String get myWalletCardNote;
 
   /// No description provided for @myMaskOnSnack.
@@ -3391,7 +3391,7 @@ abstract class AppLocalizations {
   /// No description provided for @myNicknameGuideBody.
   ///
   /// In ko, this message translates to:
-  /// **'• 변경 즉시 채팅·통화에 반영돼요\\n• 다른 사용자와 중복될 수 없어요\\n• 본인인증과 무관하게 닉네임만 사용해요'**
+  /// **'• 변경 즉시 채팅·통화에 반영돼요\n• 다른 사용자와 중복될 수 없어요\n• 본인인증과 무관하게 닉네임만 사용해요'**
   String get myNicknameGuideBody;
 
   /// No description provided for @mySaveButton.
@@ -3409,7 +3409,7 @@ abstract class AppLocalizations {
   /// No description provided for @myWdNeedWalletBody.
   ///
   /// In ko, this message translates to:
-  /// **'출금한 QTA 는 인증한 지갑으로 송금돼요.\\n본사 지갑이 보낸 수량을 입력해 지갑 주인임을 확인해주세요.'**
+  /// **'출금한 QTA 는 인증한 지갑으로 송금돼요.\n본사 지갑이 보낸 수량을 입력해 지갑 주인임을 확인해주세요.'**
   String get myWdNeedWalletBody;
 
   /// No description provided for @myWdNeedPhoneTitle.
@@ -3427,13 +3427,13 @@ abstract class AppLocalizations {
   /// No description provided for @myWdNeedPhoneBody.
   ///
   /// In ko, this message translates to:
-  /// **'1인 1계정 보장을 위해 출금 전에 휴대폰 인증이 필요해요.\\n마치면 1,000 QTA 도 드려요.'**
+  /// **'1인 1계정 보장을 위해 출금 전에 휴대폰 인증이 필요해요.\n마치면 1,000 QTA 도 드려요.'**
   String get myWdNeedPhoneBody;
 
   /// No description provided for @myWdPreparingBody.
   ///
   /// In ko, this message translates to:
-  /// **'출금에는 휴대폰 인증이 필요한데, 준비하고 있어요.\\n열리면 앱 업데이트로 알려드릴게요. 그동안 QTA 는 그대로 쌓여요.'**
+  /// **'출금에는 휴대폰 인증이 필요한데, 준비하고 있어요.\n열리면 앱 업데이트로 알려드릴게요. 그동안 QTA 는 그대로 쌓여요.'**
   String get myWdPreparingBody;
 
   /// No description provided for @myWdNoWallet.
@@ -3457,7 +3457,7 @@ abstract class AppLocalizations {
   /// No description provided for @myWdConfirmBody.
   ///
   /// In ko, this message translates to:
-  /// **'{amount} QTA 를\\n{wallet}\\n로 출금 신청할까요?\\n\\n신청 즉시 잔액에서 차감되며, 운영자가 1~3일 내에 송금 처리합니다.'**
+  /// **'{amount} QTA 를\n{wallet}\n로 출금 신청할까요?\n\n신청 즉시 잔액에서 차감되며, 운영자가 1~3일 내에 송금 처리합니다.'**
   String myWdConfirmBody(String amount, String wallet);
 
   /// No description provided for @myWdApply.
@@ -3481,7 +3481,7 @@ abstract class AppLocalizations {
   /// No description provided for @myWdCancelBody.
   ///
   /// In ko, this message translates to:
-  /// **'{amount} QTA 출금 신청을 취소할까요?\\n취소 즉시 잔액으로 환불돼요.'**
+  /// **'{amount} QTA 출금 신청을 취소할까요?\n취소 즉시 잔액으로 환불돼요.'**
   String myWdCancelBody(String amount);
 
   /// No description provided for @myWdNo.
@@ -3703,7 +3703,7 @@ abstract class AppLocalizations {
   /// No description provided for @myMiningRule.
   ///
   /// In ko, this message translates to:
-  /// **'⛏️ 상품을 올리면 가격의 {percent}%를 QTA로 채굴해요 (1 QTA = {rate}원)\\n   예) {examplePrice} 상품 → +{exampleQta} QTA\\n• 상품 1개 최대 {maxPerListing} QTA · 하루 최대 {maxPerDay} QTA\\n• 가격을 내리면 차액만큼, 상품을 삭제하면 받은 만큼 차감돼요\\n• 판매 완료된 상품은 차감되지 않아요 (삭제하면 차감)'**
+  /// **'⛏️ 상품을 올리면 가격의 {percent}%를 QTA로 채굴해요 (1 QTA = {rate}원)\n   예) {examplePrice} 상품 → +{exampleQta} QTA\n• 상품 1개 최대 {maxPerListing} QTA · 하루 최대 {maxPerDay} QTA\n• 가격을 내리면 차액만큼, 상품을 삭제하면 받은 만큼 차감돼요\n• 판매 완료된 상품은 차감되지 않아요 (삭제하면 차감)'**
   String myMiningRule(int percent, int rate, String examplePrice,
       String exampleQta, String maxPerListing, String maxPerDay);
 
@@ -3740,7 +3740,7 @@ abstract class AppLocalizations {
   /// No description provided for @myRefHeadline.
   ///
   /// In ko, this message translates to:
-  /// **'친구가 가입할 때\\n내 닉네임을 입력하면 +200 QTA'**
+  /// **'친구가 가입할 때\n내 닉네임을 입력하면 +200 QTA'**
   String get myRefHeadline;
 
   /// No description provided for @myRefCopyNick.
@@ -3788,7 +3788,7 @@ abstract class AppLocalizations {
   /// No description provided for @myRefRuleBody.
   ///
   /// In ko, this message translates to:
-  /// **'• 친구 1명당 +200 QTA · 무제한\\n• 친구가 회원가입 마지막 칸에 내 닉네임 입력\\n• 친구가 탈퇴하면 그 200 QTA는 즉시 회수돼요\\n• 자기 자신은 추천인이 될 수 없어요'**
+  /// **'• 친구 1명당 +200 QTA · 무제한\n• 친구가 회원가입 마지막 칸에 내 닉네임 입력\n• 친구가 탈퇴하면 그 200 QTA는 즉시 회수돼요\n• 자기 자신은 추천인이 될 수 없어요'**
   String get myRefRuleBody;
 
   /// No description provided for @myRefListTitle.
