@@ -2833,14 +2833,8 @@ abstract class AppLocalizations {
   /// No description provided for @myPrivacyDialogTitle.
   ///
   /// In ko, this message translates to:
-  /// **'🔐 개인정보 보호'**
+  /// **'개인정보 보호'**
   String get myPrivacyDialogTitle;
-
-  /// No description provided for @myPrivacyDialogBody.
-  ///
-  /// In ko, this message translates to:
-  /// **'Eggplant는 다음을 수집하지 않아요:\n\n• 전화번호 · 이메일 · 실명\n• 정확한 GPS (동네 인증 시 즉시 폐기)\n• 채팅 내용 (DB 저장 0)\n• 통화 내용 (P2P, 서버 미경유)\n\n채팅은 휘발성이에요. 한 번 흘러간 메시지는 양쪽 기기 어디에도 복원되지 않아요. 앱을 종료하거나 다른 기기로 로그인하면 모든 대화가 빈 상태에서 시작돼요 💨'**
-  String get myPrivacyDialogBody;
 
   /// No description provided for @myMenuAppInfo.
   ///
@@ -4000,6 +3994,84 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'채굴한 QTA는 바로 쌓여요 · 거래완료와 출금은 휴대폰 인증 후에 할 수 있어요'**
   String get myRuleVerifyRequired;
+
+  /// No description provided for @myPrivacyNoCollect.
+  ///
+  /// In ko, this message translates to:
+  /// **'수집하지 않아요'**
+  String get myPrivacyNoCollect;
+
+  /// No description provided for @myPrivacyItemName.
+  ///
+  /// In ko, this message translates to:
+  /// **'이메일 · 실명'**
+  String get myPrivacyItemName;
+
+  /// No description provided for @myPrivacyItemNameSub.
+  ///
+  /// In ko, this message translates to:
+  /// **'닉네임과 비밀번호만으로 가입해요'**
+  String get myPrivacyItemNameSub;
+
+  /// No description provided for @myPrivacyItemGps.
+  ///
+  /// In ko, this message translates to:
+  /// **'정확한 위치'**
+  String get myPrivacyItemGps;
+
+  /// No description provided for @myPrivacyItemGpsSub.
+  ///
+  /// In ko, this message translates to:
+  /// **'동네 인증에 쓴 GPS는 바로 버려요'**
+  String get myPrivacyItemGpsSub;
+
+  /// No description provided for @myPrivacyItemChat.
+  ///
+  /// In ko, this message translates to:
+  /// **'채팅 내용'**
+  String get myPrivacyItemChat;
+
+  /// No description provided for @myPrivacyItemChatSub.
+  ///
+  /// In ko, this message translates to:
+  /// **'서버에 저장하지 않아요'**
+  String get myPrivacyItemChatSub;
+
+  /// No description provided for @myPrivacyItemCall.
+  ///
+  /// In ko, this message translates to:
+  /// **'통화 내용'**
+  String get myPrivacyItemCall;
+
+  /// No description provided for @myPrivacyItemCallSub.
+  ///
+  /// In ko, this message translates to:
+  /// **'기기끼리 바로 연결돼요 (서버를 거치지 않아요)'**
+  String get myPrivacyItemCallSub;
+
+  /// No description provided for @myPrivacyPhoneTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'휴대폰 번호'**
+  String get myPrivacyPhoneTitle;
+
+  /// No description provided for @myPrivacyPhoneSub.
+  ///
+  /// In ko, this message translates to:
+  /// **'휴대폰 인증에만 쓰고 암호화해 보관해요. 탈퇴하면 바로 삭제돼요'**
+  String get myPrivacyPhoneSub;
+
+  /// No description provided for @myPrivacyVolatileTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'채팅은 남지 않아요'**
+  String get myPrivacyVolatileTitle;
+
+  /// No description provided for @myPrivacyVolatileSub.
+  ///
+  /// In ko, this message translates to:
+  /// **'지나간 메시지는 복원되지 않아요. 앱을 닫거나 기기를 바꾸면 대화가 비워져요'**
+  String get myPrivacyVolatileSub;
 
   /// No description provided for @productCategoryAll.
   ///

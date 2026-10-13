@@ -1563,11 +1563,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Chats and calls are never stored · Messages disappear for good';
 
   @override
-  String get myPrivacyDialogTitle => '🔐 Privacy';
-
-  @override
-  String get myPrivacyDialogBody =>
-      'Eggplant does NOT collect:\n\n• Phone number · Email · Real name\n• Exact GPS (discarded right after neighborhood check)\n• Chat messages (0 saved in DB)\n• Call content (P2P, never goes through our servers)\n\nChats are temporary. Once a message is gone, it can\'t be restored on either device. If you close the app or log in on another device, all conversations start fresh 💨';
+  String get myPrivacyDialogTitle => 'Privacy';
 
   @override
   String get myMenuAppInfo => 'App info';
@@ -2231,6 +2227,47 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get myRuleVerifyRequired =>
       'Mined QTA is added right away · Completing deals and withdrawals need phone verification';
+
+  @override
+  String get myPrivacyNoCollect => 'We never collect';
+
+  @override
+  String get myPrivacyItemName => 'Email · Real name';
+
+  @override
+  String get myPrivacyItemNameSub => 'Just a nickname and password';
+
+  @override
+  String get myPrivacyItemGps => 'Exact location';
+
+  @override
+  String get myPrivacyItemGpsSub => 'Neighborhood-check GPS is discarded';
+
+  @override
+  String get myPrivacyItemChat => 'Chat messages';
+
+  @override
+  String get myPrivacyItemChatSub => 'Never stored on our servers';
+
+  @override
+  String get myPrivacyItemCall => 'Call content';
+
+  @override
+  String get myPrivacyItemCallSub => 'Device to device, not via our servers';
+
+  @override
+  String get myPrivacyPhoneTitle => 'Phone number';
+
+  @override
+  String get myPrivacyPhoneSub =>
+      'Only for verification · encrypted · deleted when you leave';
+
+  @override
+  String get myPrivacyVolatileTitle => 'Chats are not kept';
+
+  @override
+  String get myPrivacyVolatileSub =>
+      'Closing the app or switching devices clears them for good';
 
   @override
   String get productCategoryAll => 'All';

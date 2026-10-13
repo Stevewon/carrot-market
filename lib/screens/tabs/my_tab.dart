@@ -21,6 +21,7 @@ import '../../services/hidden_products_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/qta_service.dart';
 import '../../models/user.dart';
+import '../../widgets/privacy_dialog.dart';
 
 class MyTab extends StatefulWidget {
   const MyTab({super.key});
@@ -274,24 +275,7 @@ class _MyTabState extends State<MyTab> {
               icon: Icons.shield_outlined,
               title: context.l10n.myMenuPrivacy,
               subtitle: context.l10n.myMenuPrivacySub,
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: Text(context.l10n.myPrivacyDialogTitle),
-                    content: Text(
-                      context.l10n.myPrivacyDialogBody,
-                      style: const TextStyle(height: 1.6),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text(context.l10n.commonConfirm),
-                      ),
-                    ],
-                  ),
-                );
-              },
+              onTap: () => showPrivacyDialog(context),
             ),
             _MenuTile(
               icon: Icons.info_outline,

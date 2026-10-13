@@ -1490,11 +1490,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get myMenuPrivacySub => 'チャット・通話は一切保存しません・流れたメッセージは完全に消えます';
 
   @override
-  String get myPrivacyDialogTitle => '🔐 プライバシー保護';
-
-  @override
-  String get myPrivacyDialogBody =>
-      'Eggplantは次の情報を収集しません:\n\n• 電話番号・メールアドレス・本名\n• 正確なGPS(地域認証後すぐに破棄)\n• チャット内容(DB保存ゼロ)\n• 通話内容(P2P、サーバー非経由)\n\nチャットは消える仕組みです。一度流れたメッセージはどちらの端末にも復元されません。アプリを終了したり別の端末でログインすると、すべての会話がまっさらな状態から始まります 💨';
+  String get myPrivacyDialogTitle => 'プライバシー保護';
 
   @override
   String get myMenuAppInfo => 'アプリ情報';
@@ -2132,6 +2128,45 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get myRuleVerifyRequired =>
       '採掘した QTA はすぐに貯まります · 取引完了と出金は電話番号認証の後にできます';
+
+  @override
+  String get myPrivacyNoCollect => '収集しない情報';
+
+  @override
+  String get myPrivacyItemName => 'メールアドレス・本名';
+
+  @override
+  String get myPrivacyItemNameSub => 'ニックネームとパスワードだけ';
+
+  @override
+  String get myPrivacyItemGps => '正確な位置情報';
+
+  @override
+  String get myPrivacyItemGpsSub => '地域認証のGPSはすぐ破棄';
+
+  @override
+  String get myPrivacyItemChat => 'チャットの内容';
+
+  @override
+  String get myPrivacyItemChatSub => 'サーバーに保存しません';
+
+  @override
+  String get myPrivacyItemCall => '通話の内容';
+
+  @override
+  String get myPrivacyItemCallSub => '端末同士で直接(サーバー非経由)';
+
+  @override
+  String get myPrivacyPhoneTitle => '電話番号';
+
+  @override
+  String get myPrivacyPhoneSub => '認証にのみ使用・暗号化して保管・退会で即削除';
+
+  @override
+  String get myPrivacyVolatileTitle => 'チャットは残りません';
+
+  @override
+  String get myPrivacyVolatileSub => 'アプリを閉じるか端末を変えると消えます';
 
   @override
   String get productCategoryAll => 'すべて';
