@@ -414,5 +414,6 @@
   "myVerifyLabelNone": "미인증",
   "myVerifyLabelIdentity": "본인인증 완료",
   "myVerifyLabelBank": "출금 인증 완료",
-  "myMenuLanguage": "언어"
+  "myMenuLanguage": "언어",
+  "myRuleVerifyRequired": "모든 QTA 보상은 3단계(가입·지갑·휴대폰) 인증을 마친 회원만 받아요"
 }

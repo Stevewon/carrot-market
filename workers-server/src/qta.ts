@@ -115,6 +115,19 @@ async function creditOnce(
 }
 
 /**
+ * 코인 지급 자격 — 가입 + 1단계 지갑 인증 + 2단계 휴대폰 인증을 모두 마친 회원만.
+ * 사장님 원칙: 3단계를 다 하지 않으면 어떤 보상 코인도 주지 않는다
+ * (로그인·등록·둘러보기·보유 채굴·친구 초대·거래 보너스 모두).
+ */
+export async function isRewardEligible(env: Env, user_id: string): Promise<boolean> {
+  const u = await env.DB
+    .prepare('SELECT wallet_verified_at, verified_at FROM users WHERE id = ?')
+    .bind(user_id)
+    .first<{ wallet_verified_at: string | null; verified_at: string | null }>();
+  return !!(u?.wallet_verified_at && u?.verified_at);
+}
+
+/**
  * 회원가입 보너스 (1회, 멱등).
  *
  * personKeys: 사람 단위 키 ('wallet:<lowercase>' / 'qrchat:<uid>'). 탈퇴 후 재가입해도
@@ -191,7 +204,10 @@ export async function grantVerifyBonus(
 export async function grantLoginDailyBonus(
   env: Env,
   user_id: string,
-): Promise<{ credited: boolean; count: number; remaining: number }> {
+): Promise<{ credited: boolean; count: number; remaining: number; reason?: 'verify_required' }> {
+  if (!(await isRewardEligible(env, user_id))) {
+    return { credited: false, count: 0, remaining: 0, reason: 'verify_required' };
+  }
   const ymd = ymdUtc();
 
   // 1) 현재 카운트 조회 (없으면 0).
@@ -271,6 +287,10 @@ export async function grantTradeBonus(
   seller_id: string,
   buyer_id: string,
 ): Promise<{ seller_credited: boolean; buyer_credited: boolean }> {
+  // 호출자(products.ts)가 이미 양쪽 인증을 보지만, 지갑+휴대폰 둘 다인지 여기서 다시 확인.
+  if (!(await isRewardEligible(env, seller_id)) || !(await isRewardEligible(env, buyer_id))) {
+    return { seller_credited: false, buyer_credited: false };
+  }
   const sellerOk = await creditOnce(
     env,
     seller_id,
@@ -508,6 +528,32 @@ export async function grantReferralBonus(
     console.error('[qta] referral bonus failed', msg);
     return { credited: false, reason: 'error' };
   }
+}
+
+/**
+ * 친구 초대 보상 정산 — 회원이 3단계 인증을 마친 직후 호출.
+ *   ① 이 회원을 초대한 사람이 이미 인증을 마쳤으면 그 사람에게 +200
+ *   ② 이 회원이 초대한 사람들 중 인증을 마친 사람마다 이 회원에게 +200
+ * grantReferralBonus 는 referee 당 1회라 여러 번 불려도 중복 지급되지 않는다.
+ */
+export async function settleReferrals(env: Env, user_id: string): Promise<void> {
+  if (!(await isRewardEligible(env, user_id))) return;
+  const me = await env.DB
+    .prepare('SELECT referred_by FROM users WHERE id = ?')
+    .bind(user_id)
+    .first<{ referred_by: string | null }>();
+  if (me?.referred_by && (await isRewardEligible(env, me.referred_by))) {
+    await grantReferralBonus(env, me.referred_by, user_id);
+  }
+  const { results } = await env.DB
+    .prepare(
+      `SELECT u.id FROM users u
+        WHERE u.referred_by = ? AND u.wallet_verified_at IS NOT NULL AND u.verified_at IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM referrals r WHERE r.referee_id = u.id)`,
+    )
+    .bind(user_id)
+    .all<{ id: string }>();
+  for (const r of results ?? []) await grantReferralBonus(env, user_id, r.id);
 }
 
 /**
@@ -1005,6 +1051,9 @@ export async function grantListingMiningBonus(
   if (ageDays < QTA_MINING_LISTING_DAYS) {
     return { credited: false, reason: 'too_young' };
   }
+  if (!(await isRewardEligible(env, seller_id))) {
+    return { credited: false, reason: 'verify_required' };
+  }
 
   const ok = await creditOnce(
     env,
@@ -1088,7 +1137,8 @@ export async function recordBrowseAndMaybeMine(
   let credited = false;
   if (
     count >= QTA_MINING_BROWSE_THRESHOLD &&
-    !alreadyCredited
+    !alreadyCredited &&
+    (await isRewardEligible(env, user_id))
   ) {
     const ok = await creditOnce(
       env,
@@ -1298,6 +1348,7 @@ export async function grantListingReward(
     .first<{ s: number }>();
   const amount = Math.min(target, QTA_LISTING_REWARD_DAILY_MAX - (today?.s ?? 0));
   if (amount <= 0) return 0;
+  if (!(await isRewardEligible(env, user_id))) return 0;
 
   const ok = await creditOnce(
     env,

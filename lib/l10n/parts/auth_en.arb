@@ -162,11 +162,11 @@
   "authProfileStepsTitle": "Verification steps",
   "authProfileStep0Title": "Sign up",
   "authProfileStep0Desc": "Done automatically when you sign up with a nickname and password.\nBrowse · chat · call · list items.",
-  "authProfileStep1Desc": "Enter your Quantarium wallet address and the Eggplant HQ wallet will send you an amount with 6 decimal places (e.g. 0.234567 QTA).\nEnter the amount you received and you're verified!\nQTA you withdraw will be sent to this wallet.",
+  "authProfileStep1Desc": "Enter your Quantarium wallet address and the Eggplant HQ wallet will send you 5.xxxxxx QTA.\nSend the 1.xxxxxx QTA shown back to HQ from that wallet and you're verified!\nQTA you withdraw will be sent to this wallet.",
   "authProfileDoneLabel": "Done",
   "authProfileWalletDoneSnack": "Wallet verified. Next up: Step 2 phone verification!",
   "authProfileStep2Title": "Phone verification",
-  "authProfileStep2Desc": "Enter the code we send by SMS. One number can verify only one account.\nUnlocks QTA payment deals · deal bonuses · withdrawals.\n\n🔒 Your phone number is stored encrypted and used only to trace misuse. Only Korean (010) and Japanese mobile numbers can be verified.",
+  "authProfileStep2Desc": "Enter the code we send by SMS. One number can verify only one account.\nFinish all 3 steps (sign-up, wallet, phone) to unlock QTA rewards · QTA payment deals · withdrawals.\n\n🔒 Your phone number is stored encrypted and used only to trace misuse. Only Philippine (09), Korean (010) and Japanese (070/080/090) mobile numbers can be verified.",
   "authProfileWalletFirst": "Please finish Step 1 wallet verification first.",
   "authProfileComingSoon": "Coming soon",
   "authProfilePhoneStart": "Start phone verification",
@@ -220,5 +220,6 @@
   "authReturnAmountLabel": "Amount to send back (exact)",
   "authReturnToLabel": "Recipient address (Eggplant HQ wallet)",
   "authReturnNote": "This amount works only this once · send within 2 hours · it may take a few seconds to a minute to be included in a block",
-  "authReturnSentButton": "I've sent it — check now"
+  "authReturnSentButton": "I've sent it — check now",
+  "authReferralPending": "Referrer {nickname} has been recorded. Once you both finish wallet and phone verification, your referrer gets +200 QTA."
 }

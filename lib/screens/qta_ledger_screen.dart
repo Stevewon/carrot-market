@@ -311,6 +311,8 @@ class _RuleBox extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
+          _RuleLine(emoji: '🔒', text: t.myRuleVerifyRequired),
+          const SizedBox(height: 4),
           _RuleLine(emoji: '🎁', text: t.myRuleVerify),
           const SizedBox(height: 4),
           _RuleLine(emoji: '⛏️', text: t.myRuleListing(AppMarket.moneyPerQta(market))),

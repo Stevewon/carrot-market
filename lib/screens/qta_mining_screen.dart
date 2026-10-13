@@ -136,6 +136,7 @@ class _QtaMiningScreenState extends State<QtaMiningScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
+                  '🔒 ${t.myRuleVerifyRequired}\n' +
                   t.myMiningRule(
                     _percent,
                     _moneyPerQta,

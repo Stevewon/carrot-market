@@ -570,7 +570,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authProfileStep1Desc =>
-      'Enter your Quantarium wallet address and the Eggplant HQ wallet will send you an amount with 6 decimal places (e.g. 0.234567 QTA).\nEnter the amount you received and you\'re verified!\nQTA you withdraw will be sent to this wallet.';
+      'Enter your Quantarium wallet address and the Eggplant HQ wallet will send you 5.xxxxxx QTA.\nSend the 1.xxxxxx QTA shown back to HQ from that wallet and you\'re verified!\nQTA you withdraw will be sent to this wallet.';
 
   @override
   String get authProfileDoneLabel => 'Done';
@@ -584,7 +584,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authProfileStep2Desc =>
-      'Enter the code we send by SMS. One number can verify only one account.\nUnlocks QTA payment deals · deal bonuses · withdrawals.\n\n🔒 Your phone number is stored encrypted and used only to trace misuse. Only Korean (010) and Japanese mobile numbers can be verified.';
+      'Enter the code we send by SMS. One number can verify only one account.\nFinish all 3 steps (sign-up, wallet, phone) to unlock QTA rewards · QTA payment deals · withdrawals.\n\n🔒 Your phone number is stored encrypted and used only to trace misuse. Only Philippine (09), Korean (010) and Japanese (070/080/090) mobile numbers can be verified.';
 
   @override
   String get authProfileWalletFirst =>
@@ -776,6 +776,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authReturnSentButton => 'I\'ve sent it — check now';
+
+  @override
+  String authReferralPending(String nickname) {
+    return 'Referrer $nickname has been recorded. Once you both finish wallet and phone verification, your referrer gets +200 QTA.';
+  }
 
   @override
   String get chatLeaveWarningSubtitle =>
@@ -2227,6 +2232,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get myMenuLanguage => 'Language';
+
+  @override
+  String get myRuleVerifyRequired =>
+      'All QTA rewards are only for members who have finished all 3 steps (sign-up, wallet, phone)';
 
   @override
   String get productCategoryAll => 'All';

@@ -532,7 +532,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get authProfileStep1Desc =>
-      '내 퀀타리움 지갑주소를 넣으면 가지 본사 지갑이 소수점 6자리 수량(예: 0.234567 QTA)을 보내드려요.\n지갑에 들어온 수량을 입력하면 인증 끝!\n출금한 QTA 는 이 지갑으로 송금돼요.';
+      '내 퀀타리움 지갑주소를 넣으면 가지 본사 지갑이 5.xxxxxx QTA를 보내드려요.\n받은 지갑에서 안내된 1.xxxxxx QTA를 본사로 돌려보내면 인증 끝!\n출금한 QTA 는 이 지갑으로 송금돼요.';
 
   @override
   String get authProfileDoneLabel => '완료됨';
@@ -545,7 +545,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get authProfileStep2Desc =>
-      '문자로 받은 인증번호를 입력해요. 한 번호로 한 계정만 인증돼요.\nQTA 결제 거래 · 거래 보너스 · 출금이 열려요.\n\n🔒 전화번호는 암호화해 보관하며, 불법 이용 추적 외에는 쓰지 않아요. 한국(010)·일본 휴대폰 번호만 인증돼요.';
+      '문자로 받은 인증번호를 입력해요. 한 번호로 한 계정만 인증돼요.\n3단계(가입·지갑·휴대폰)를 모두 마쳐야 QTA 보상 · QTA 결제 거래 · 출금이 열려요.\n\n🔒 전화번호는 암호화해 보관하며, 불법 이용 추적 외에는 쓰지 않아요. 한국(010)·일본(070/080/090)·필리핀(09) 휴대폰 번호만 인증돼요.';
 
   @override
   String get authProfileWalletFirst => '1단계 지갑 인증을 먼저 마쳐주세요.';
@@ -727,6 +727,11 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get authReturnSentButton => '보냈어요 — 확인하기';
+
+  @override
+  String authReferralPending(String nickname) {
+    return '추천인 $nickname님이 기록됐어요. 두 분 모두 지갑·휴대폰 인증을 마치면 추천인에게 +200 QTA가 지급돼요.';
+  }
 
   @override
   String get chatLeaveWarningSubtitle => '🔒 나가면 양쪽 모두 완전 삭제돼요';
@@ -2127,6 +2132,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get myMenuLanguage => '언어';
+
+  @override
+  String get myRuleVerifyRequired => '모든 QTA 보상은 3단계(가입·지갑·휴대폰) 인증을 마친 회원만 받아요';
 
   @override
   String get productCategoryAll => '전체';

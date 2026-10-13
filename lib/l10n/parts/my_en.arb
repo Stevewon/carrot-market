@@ -212,5 +212,6 @@
   "myVerifyLabelNone": "Not verified",
   "myVerifyLabelIdentity": "Identity verified",
   "myVerifyLabelBank": "Withdrawal verified",
-  "myMenuLanguage": "Language"
+  "myMenuLanguage": "Language",
+  "myRuleVerifyRequired": "All QTA rewards are only for members who have finished all 3 steps (sign-up, wallet, phone)"
 }

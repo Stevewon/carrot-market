@@ -225,11 +225,11 @@
   "authProfileStepsTitle": "인증 단계",
   "authProfileStep0Title": "가입",
   "authProfileStep0Desc": "닉네임·비밀번호로 가입하면 자동 완료.\n둘러보기 · 채팅 · 통화 · 상품 등록 가능.",
-  "authProfileStep1Desc": "내 퀀타리움 지갑주소를 넣으면 가지 본사 지갑이 소수점 6자리 수량(예: 0.234567 QTA)을 보내드려요.\n지갑에 들어온 수량을 입력하면 인증 끝!\n출금한 QTA 는 이 지갑으로 송금돼요.",
+  "authProfileStep1Desc": "내 퀀타리움 지갑주소를 넣으면 가지 본사 지갑이 5.xxxxxx QTA를 보내드려요.\n받은 지갑에서 안내된 1.xxxxxx QTA를 본사로 돌려보내면 인증 끝!\n출금한 QTA 는 이 지갑으로 송금돼요.",
   "authProfileDoneLabel": "완료됨",
   "authProfileWalletDoneSnack": "지갑 인증을 마쳤어요. 이제 2단계 휴대폰 인증!",
   "authProfileStep2Title": "휴대폰 인증",
-  "authProfileStep2Desc": "문자로 받은 인증번호를 입력해요. 한 번호로 한 계정만 인증돼요.\nQTA 결제 거래 · 거래 보너스 · 출금이 열려요.\n\n🔒 전화번호는 암호화해 보관하며, 불법 이용 추적 외에는 쓰지 않아요. 한국(010)·일본 휴대폰 번호만 인증돼요.",
+  "authProfileStep2Desc": "문자로 받은 인증번호를 입력해요. 한 번호로 한 계정만 인증돼요.\n3단계(가입·지갑·휴대폰)를 모두 마쳐야 QTA 보상 · QTA 결제 거래 · 출금이 열려요.\n\n🔒 전화번호는 암호화해 보관하며, 불법 이용 추적 외에는 쓰지 않아요. 한국(010)·일본(070/080/090)·필리핀(09) 휴대폰 번호만 인증돼요.",
   "authProfileWalletFirst": "1단계 지갑 인증을 먼저 마쳐주세요.",
   "authProfileComingSoon": "곧 열려요",
   "authProfilePhoneStart": "휴대폰 인증 시작",
@@ -313,11 +313,28 @@
   "authResetWalletVerified": "지갑 인증 완료! 아래에 새 비밀번호를 입력하세요.",
   "authScanHint": "지갑 앱에 소량이 안 보이면 위 scan 버튼을 눌러 화면의 Value(예: 0.234567 QTA)를 확인하고, 소수점 아래 6자리를 아래 칸에 입력하세요.",
   "authReturnSent": "가지 본사 지갑이 {wallet} 으로 {amount} QTA 를 보냈어요.",
-  "@authReturnSent": {"placeholders":{"wallet":{"type":"String"},"amount":{"type":"String"}}},
+  "@authReturnSent": {
+    "placeholders": {
+      "wallet": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "authReturnTitle": "이제 이 수량을 본사 지갑으로 돌려보내 주세요",
   "authReturnDesc": "퀀타리움 지갑 앱에서 아래 수량을 정확히, 아래 주소로 보내세요. 지갑 주인만 보낼 수 있어서 이걸로 내 지갑임이 증명돼요.",
   "authReturnAmountLabel": "돌려보낼 수량 (정확히)",
   "authReturnToLabel": "받는 주소 (가지 본사 지갑)",
   "authReturnNote": "이 수량은 이번 한 번만 쓰여요 · 2시간 안에 보내주세요 · 블록에 담기기까지 수십 초 걸릴 수 있어요",
-  "authReturnSentButton": "보냈어요 — 확인하기"
+  "authReturnSentButton": "보냈어요 — 확인하기",
+  "authReferralPending": "추천인 {nickname}님이 기록됐어요. 두 분 모두 지갑·휴대폰 인증을 마치면 추천인에게 +200 QTA가 지급돼요.",
+  "@authReferralPending": {
+    "placeholders": {
+      "nickname": {
+        "type": "String"
+      }
+    }
+  }
 }

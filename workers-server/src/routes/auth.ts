@@ -11,7 +11,6 @@ import {
 } from '../crypto';
 import {
   grantLoginDailyBonus,
-  grantReferralBonus,
   clawbackReferralsOnDelete,
   QTA_LOGIN_DAILY_MAX,
   QTA_REFERRAL_BONUS,
@@ -649,7 +648,7 @@ app.post('/register', async (c) => {
   // 가입 보너스는 없다 — 1단계 지갑 + 2단계 휴대폰 인증을 마치면 +1,000 QTA (users.ts).
   const signupBonusGranted = false;
 
-  // ── 친구 초대 보너스 (추천인에게 +200 QTA, 무제한, best-effort) ──
+  // ── 친구 초대 기록 (추천인 +200 QTA 는 두 사람 모두 인증을 마친 뒤, best-effort) ──
   let referralResult: { credited: boolean; inviter_nickname?: string; reason?: string } | null = null;
   if (referrer_nickname && typeof referrer_nickname === 'string' && referrer_nickname.trim()) {
     const refTrim = referrer_nickname.trim();
@@ -664,8 +663,9 @@ app.post('/register', async (c) => {
         if (!inviter) {
           referralResult = { credited: false, reason: 'inviter_not_found' };
         } else {
-          const r = await grantReferralBonus(c.env, inviter.id, id);
-          referralResult = { credited: r.credited, inviter_nickname: inviter.nickname, reason: r.reason };
+          // 보상은 지금 주지 않는다 — 두 사람 모두 3단계 인증을 마치면 지급 (qta.ts settleReferrals).
+          await c.env.DB.prepare('UPDATE users SET referred_by = ? WHERE id = ?').bind(inviter.id, id).run();
+          referralResult = { credited: false, inviter_nickname: inviter.nickname, reason: 'pending_verification' };
         }
       } catch (e) {
         console.error('[auth/register] referral grant failed', e);

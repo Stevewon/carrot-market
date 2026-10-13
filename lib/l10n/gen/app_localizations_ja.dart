@@ -533,7 +533,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get authProfileStep1Desc =>
-      'Quantarium ウォレットアドレスを入力すると、Eggplant 本社ウォレットから小数点以下6桁の数量(例:0.234567 QTA)をお送りします。\nウォレットに届いた数量を入力すれば認証完了!\n出金した QTA はこのウォレットに送金されます。';
+      'Quantarium ウォレットアドレスを入力すると、Eggplant 本社ウォレットから 5.xxxxxx QTA をお送りします。\n受け取ったウォレットから案内された 1.xxxxxx QTA を本社へ送り返せば認証完了!\n出金した QTA はこのウォレットに送金されます。';
 
   @override
   String get authProfileDoneLabel => '完了済み';
@@ -546,7 +546,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get authProfileStep2Desc =>
-      'SMSで届いた認証コードを入力します。1つの番号で認証できるのは1アカウントのみです。\nQTA 決済取引 · 取引ボーナス · 出金が利用できるようになります。\n\n🔒 電話番号は暗号化して保管し、不正利用の追跡以外には使用しません。日本(070/080/090)・韓国の携帯電話番号のみ認証できます。';
+      'SMSで届いた認証コードを入力します。1つの番号で認証できるのは1アカウントのみです。\n3ステップ(登録・ウォレット・電話番号)をすべて完了すると、QTA 報酬 · QTA 決済取引 · 出金が利用できるようになります。\n\n🔒 電話番号は暗号化して保管し、不正利用の追跡以外には使用しません。日本(070/080/090)・韓国(010)・フィリピン(09)の携帯電話番号のみ認証できます。';
 
   @override
   String get authProfileWalletFirst => '先にステップ1のウォレット認証を完了してください。';
@@ -729,6 +729,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get authReturnSentButton => '送金しました — 確認する';
+
+  @override
+  String authReferralPending(String nickname) {
+    return '紹介者 $nickname さんを登録しました。お二人ともウォレット・電話番号認証を完了すると、紹介者に +200 QTA が付与されます。';
+  }
 
   @override
   String get chatLeaveWarningSubtitle => '🔒 退出すると双方から完全に削除されます';
@@ -2128,6 +2133,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get myMenuLanguage => '言語';
+
+  @override
+  String get myRuleVerifyRequired =>
+      'すべての QTA 報酬は、3ステップ(登録・ウォレット・電話番号)認証を完了した会員のみ受け取れます';
 
   @override
   String get productCategoryAll => 'すべて';

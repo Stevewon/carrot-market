@@ -212,5 +212,6 @@
   "myVerifyLabelNone": "未認証",
   "myVerifyLabelIdentity": "電話番号認証済み",
   "myVerifyLabelBank": "出金認証済み",
-  "myMenuLanguage": "言語"
+  "myMenuLanguage": "言語",
+  "myRuleVerifyRequired": "すべての QTA 報酬は、3ステップ(登録・ウォレット・電話番号)認証を完了した会員のみ受け取れます"
 }
