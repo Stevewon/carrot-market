@@ -915,6 +915,15 @@ app.put('/:id/status', authMiddleware, async (c) => {
     return c.json({ error: tr(c, '구매자가 거래를 확인한 상품은 상태를 바꿀 수 없어요', '購入者が取引を確認した商品はステータスを変更できません', `You can't change the status after the buyer has confirmed the deal`) }, 409);
   }
 
+  // 거래완료는 휴대폰 인증(Lv1)을 마친 회원만 — 원화·QTA 거래 모두 (사장님 원칙).
+  // 채굴 코인은 인증 전에도 쌓이지만, 최종 거래완료는 인증해야 된다. 앱은 code 를 보고 인증 화면으로 안내.
+  if (body.status === 'sold' && !(await isVerified(c.env, user.id))) {
+    return c.json({
+      error: tr(c, '거래완료는 휴대폰 인증을 마친 뒤에 할 수 있어요. 마이페이지 → 인증에서 휴대폰 인증을 해주세요', '取引完了は電話番号認証の後にできます。マイページ → 認証から電話番号認証をしてください', 'You can complete a deal after phone verification. Please verify your phone in My page → Verification'),
+      code: 'phone_required',
+    }, 403);
+  }
+
   // Validate buyer_id if provided (must be a real user, not the seller).
   let buyerId: string | null = null;
   if (body.status === 'sold' && body.buyer_id) {
@@ -1026,8 +1035,12 @@ app.post('/:id/confirm-purchase', authMiddleware, async (c) => {
     .bind(user.id, row.seller_id)
     .first<{ buyer_lv: number | null; seller_lv: number | null }>();
   const bothVerified = (levels?.buyer_lv ?? 0) >= 1 && (levels?.seller_lv ?? 0) >= 1;
-  if ((row.qta_price ?? 0) > 0 && (levels?.buyer_lv ?? 0) < 1) {
-    return c.json({ error: tr(c, '거래 확인에는 본인 인증이 필요해요', '取引の確認には本人確認が必要です', 'Identity verification is required to confirm a deal'), code: 'verification_required' }, 403);
+  // 구매자도 휴대폰 인증을 마쳐야 거래가 완료된다 — 원화·QTA 거래 모두.
+  if ((levels?.buyer_lv ?? 0) < 1) {
+    return c.json({
+      error: tr(c, '거래를 완료하려면 휴대폰 인증이 필요해요. 마이페이지 → 인증에서 휴대폰 인증을 해주세요', '取引を完了するには電話番号認証が必要です。マイページ → 認証から電話番号認証をしてください', 'Phone verification is required to complete the deal. Please verify your phone in My page → Verification'),
+      code: 'phone_required',
+    }, 403);
   }
 
   // 구매자가 화면에서 본 QTA 가격 (앱이 보냄). 다르면 판매자가 그사이 가격을 바꾼 것 →

@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app/constants.dart';
 import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../models/product.dart';
+import '../models/user.dart';
+import '../services/auth_service.dart';
 import '../services/product_service.dart';
 import '../services/qta_service.dart';
 import '../widgets/product_card.dart';
+import 'profile_verify_screen.dart';
 
 /// Shows the products the current user has uploaded.
 ///
@@ -109,6 +113,24 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
       ),
     );
     if (picked == null || picked == p.status || !mounted) return;
+    // 거래완료는 휴대폰 인증 필수 (원화·QTA 모두). 서버도 막지만 먼저 인증 안내.
+    final user = context.read<AuthService>().user;
+    if (picked == 'sold' && user != null && !user.verificationLevel.canTrade) {
+      if (!AppConfig.identityVerificationEnabled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.productQtaConfirmUnavailableBody)),
+        );
+        return;
+      }
+      await showVerificationGuard(
+        context,
+        current: user.verificationLevel,
+        required: VerificationLevel.identity,
+        customTitle: context.l10n.productSoldVerifyTitle,
+        customMessage: context.l10n.productSoldVerifyBody,
+      );
+      return;
+    }
     final err = await context.read<ProductService>().updateStatus(p.id, picked);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

@@ -166,7 +166,7 @@
   "authProfileDoneLabel": "完了済み",
   "authProfileWalletDoneSnack": "ウォレット認証が完了しました。次はステップ2の電話番号認証です!",
   "authProfileStep2Title": "電話番号認証",
-  "authProfileStep2Desc": "SMSで届いた認証コードを入力します。1つの番号で認証できるのは1アカウントのみです。\n3ステップ(登録・ウォレット・電話番号)をすべて完了すると、QTA 報酬 · QTA 決済取引 · 出金が利用できるようになります。\n\n🔒 電話番号は暗号化して保管し、不正利用の追跡以外には使用しません。日本(070/080/090)・韓国(010)・フィリピン(09)の携帯電話番号のみ認証できます。",
+  "authProfileStep2Desc": "SMSで届いた認証コードを入力します。1つの番号で認証できるのは1アカウントのみです。\n取引完了 · QTA 決済取引 · 出金が利用できるようになります。\n\n🔒 電話番号は暗号化して保管し、不正利用の追跡以外には使用しません。日本(070/080/090)・韓国(010)・フィリピン(09)の携帯電話番号のみ認証できます。",
   "authProfileWalletFirst": "先にステップ1のウォレット認証を完了してください。",
   "authProfileComingSoon": "近日公開",
   "authProfilePhoneStart": "電話番号認証を開始",
@@ -220,6 +220,5 @@
   "authReturnAmountLabel": "返送する数量(正確に)",
   "authReturnToLabel": "送金先(Eggplant 本社ウォレット)",
   "authReturnNote": "この数量は今回1回限りです・2時間以内に送金してください・ブロックに取り込まれるまで数十秒かかることがあります",
-  "authReturnSentButton": "送金しました — 確認する",
-  "authReferralPending": "紹介者 {nickname} さんを登録しました。お二人ともウォレット・電話番号認証を完了すると、紹介者に +200 QTA が付与されます。"
+  "authReturnSentButton": "送金しました — 確認する"
 }

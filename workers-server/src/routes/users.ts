@@ -9,7 +9,6 @@ import { isValidWallet, normalizeWallet } from '../crypto';
 import { encryptPhone, phoneHash, phoneVaultReady } from '../phoneVault';
 import {
   grantVerifyBonus,
-  settleReferrals,
   QTA_VERIFY_BONUS,
   MINING_REASONS,
   QTA_KRW_PER_QTA,
@@ -716,10 +715,7 @@ async function maybeGrantVerifyBonus(env: Env, userId: string): Promise<number> 
     const keys = [`wallet:${u.wallet_address.toLowerCase()}`, `phone:${u.verified_ci_hash}`];
     const q = await linkedQrchatUid(env, userId);
     if (q) keys.push(`qrchat:${q}`);
-    const granted = await grantVerifyBonus(env, userId, keys);
-    // 3단계를 마쳤으니 미뤄 둔 친구 초대 보상도 정산 (실패해도 인증 보너스는 그대로).
-    await settleReferrals(env, userId).catch((e) => console.error('[referral] settle failed', e));
-    return granted ? QTA_VERIFY_BONUS : 0;
+    return (await grantVerifyBonus(env, userId, keys)) ? QTA_VERIFY_BONUS : 0;
   } catch (e) {
     console.error('[verify-bonus] failed', e);
     return 0;

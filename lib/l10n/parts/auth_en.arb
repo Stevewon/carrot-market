@@ -166,7 +166,7 @@
   "authProfileDoneLabel": "Done",
   "authProfileWalletDoneSnack": "Wallet verified. Next up: Step 2 phone verification!",
   "authProfileStep2Title": "Phone verification",
-  "authProfileStep2Desc": "Enter the code we send by SMS. One number can verify only one account.\nFinish all 3 steps (sign-up, wallet, phone) to unlock QTA rewards · QTA payment deals · withdrawals.\n\n🔒 Your phone number is stored encrypted and used only to trace misuse. Only Philippine (09), Korean (010) and Japanese (070/080/090) mobile numbers can be verified.",
+  "authProfileStep2Desc": "Enter the code we send by SMS. One number can verify only one account.\nUnlocks completing deals · QTA payment deals · withdrawals.\n\n🔒 Your phone number is stored encrypted and used only to trace misuse. Only Philippine (09), Korean (010) and Japanese (070/080/090) mobile numbers can be verified.",
   "authProfileWalletFirst": "Please finish Step 1 wallet verification first.",
   "authProfileComingSoon": "Coming soon",
   "authProfilePhoneStart": "Start phone verification",
@@ -220,6 +220,5 @@
   "authReturnAmountLabel": "Amount to send back (exact)",
   "authReturnToLabel": "Recipient address (Eggplant HQ wallet)",
   "authReturnNote": "This amount works only this once · send within 2 hours · it may take a few seconds to a minute to be included in a block",
-  "authReturnSentButton": "I've sent it — check now",
-  "authReferralPending": "Referrer {nickname} has been recorded. Once you both finish wallet and phone verification, your referrer gets +200 QTA."
+  "authReturnSentButton": "I've sent it — check now"
 }

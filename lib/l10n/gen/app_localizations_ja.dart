@@ -546,7 +546,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get authProfileStep2Desc =>
-      'SMSで届いた認証コードを入力します。1つの番号で認証できるのは1アカウントのみです。\n3ステップ(登録・ウォレット・電話番号)をすべて完了すると、QTA 報酬 · QTA 決済取引 · 出金が利用できるようになります。\n\n🔒 電話番号は暗号化して保管し、不正利用の追跡以外には使用しません。日本(070/080/090)・韓国(010)・フィリピン(09)の携帯電話番号のみ認証できます。';
+      'SMSで届いた認証コードを入力します。1つの番号で認証できるのは1アカウントのみです。\n取引完了 · QTA 決済取引 · 出金が利用できるようになります。\n\n🔒 電話番号は暗号化して保管し、不正利用の追跡以外には使用しません。日本(070/080/090)・韓国(010)・フィリピン(09)の携帯電話番号のみ認証できます。';
 
   @override
   String get authProfileWalletFirst => '先にステップ1のウォレット認証を完了してください。';
@@ -729,11 +729,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get authReturnSentButton => '送金しました — 確認する';
-
-  @override
-  String authReferralPending(String nickname) {
-    return '紹介者 $nickname さんを登録しました。お二人ともウォレット・電話番号認証を完了すると、紹介者に +200 QTA が付与されます。';
-  }
 
   @override
   String get chatLeaveWarningSubtitle => '🔒 退出すると双方から完全に削除されます';
@@ -2136,7 +2131,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get myRuleVerifyRequired =>
-      'すべての QTA 報酬は、3ステップ(登録・ウォレット・電話番号)認証を完了した会員のみ受け取れます';
+      '採掘した QTA はすぐに貯まります · 取引完了と出金は電話番号認証の後にできます';
 
   @override
   String get productCategoryAll => 'すべて';
@@ -2236,18 +2231,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get productDetailTimeout => 'サーバーの応答が遅れています。しばらくしてからもう一度お試しください。';
 
   @override
-  String get productQtaConfirmUnavailableTitle => 'QTA決済の取引はまだ確認できません';
+  String get productQtaConfirmUnavailableTitle => '電話番号認証は準備中です';
 
   @override
   String get productQtaConfirmUnavailableBody =>
-      'QTA決済は電話番号認証の提供開始後にご利用いただけます。\n出品者に、販売中に戻してQTA価格を0に変更したうえで、もう一度取引完了にするよう依頼してください。';
+      '取引完了は電話番号認証の後にできます。\n電話番号認証が始まりましたら、すぐに完了できるようご案内します。';
 
   @override
-  String get productConfirmVerifyTitle => '取引の確認には電話番号認証が必要です';
+  String get productConfirmVerifyTitle => '取引完了の前に電話番号認証が必要です';
 
   @override
   String get productConfirmVerifyBody =>
-      'QTAがやり取りされる取引のため、1人1アカウントを保証するために購入者も電話番号認証が必須です。\n認証してもチャット・通話は匿名のままです。';
+      'すべての取引は電話番号認証を完了すると最終的に完了します(1人1アカウントの保証)。\nこれまでに採掘した QTA はそのまま貯まっています。認証してもチャット・通話は匿名のままです。';
 
   @override
   String get productConfirmDialogTitle => '取引を確認しますか?';
@@ -2282,11 +2277,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get productConfirmDealButton => '取引を確認する';
 
   @override
-  String get productSoldVerifyTitle => '取引完了には電話番号認証が必要です';
+  String get productSoldVerifyTitle => '取引完了の前に電話番号認証が必要です';
 
   @override
   String get productSoldVerifyBody =>
-      'QTAがやり取りされる取引のため、1人1アカウントを保証するために出品者の電話番号認証が必須です。\n認証してもチャット・通話は匿名のままです。';
+      'すべての取引は電話番号認証を完了すると取引完了にできます(1人1アカウントの保証)。\nこれまでに採掘した QTA はそのまま貯まっています。認証してもチャット・通話は匿名のままです。';
 
   @override
   String get productStatusChangedSold =>

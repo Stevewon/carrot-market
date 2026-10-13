@@ -86,8 +86,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (ref != null) {
         if (ref.credited) {
           _showSnack(l10n.authReferralCredited(ref.inviterNickname ?? ''));
-        } else if (ref.reason == 'pending_verification') {
-          _showSnack(l10n.authReferralPending(ref.inviterNickname ?? ''));
         } else if (ref.reason == 'inviter_not_found') {
           _showSnack(l10n.authReferralNotFound);
         } else if (ref.reason == 'self_referral') {

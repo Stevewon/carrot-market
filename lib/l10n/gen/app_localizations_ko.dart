@@ -545,7 +545,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get authProfileStep2Desc =>
-      '문자로 받은 인증번호를 입력해요. 한 번호로 한 계정만 인증돼요.\n3단계(가입·지갑·휴대폰)를 모두 마쳐야 QTA 보상 · QTA 결제 거래 · 출금이 열려요.\n\n🔒 전화번호는 암호화해 보관하며, 불법 이용 추적 외에는 쓰지 않아요. 한국(010)·일본(070/080/090)·필리핀(09) 휴대폰 번호만 인증돼요.';
+      '문자로 받은 인증번호를 입력해요. 한 번호로 한 계정만 인증돼요.\n거래완료 · QTA 결제 거래 · 출금이 열려요.\n\n🔒 전화번호는 암호화해 보관하며, 불법 이용 추적 외에는 쓰지 않아요. 한국(010)·일본(070/080/090)·필리핀(09) 휴대폰 번호만 인증돼요.';
 
   @override
   String get authProfileWalletFirst => '1단계 지갑 인증을 먼저 마쳐주세요.';
@@ -727,11 +727,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get authReturnSentButton => '보냈어요 — 확인하기';
-
-  @override
-  String authReferralPending(String nickname) {
-    return '추천인 $nickname님이 기록됐어요. 두 분 모두 지갑·휴대폰 인증을 마치면 추천인에게 +200 QTA가 지급돼요.';
-  }
 
   @override
   String get chatLeaveWarningSubtitle => '🔒 나가면 양쪽 모두 완전 삭제돼요';
@@ -2134,7 +2129,8 @@ class AppLocalizationsKo extends AppLocalizations {
   String get myMenuLanguage => '언어';
 
   @override
-  String get myRuleVerifyRequired => '모든 QTA 보상은 3단계(가입·지갑·휴대폰) 인증을 마친 회원만 받아요';
+  String get myRuleVerifyRequired =>
+      '채굴한 QTA는 바로 쌓여요 · 거래완료와 출금은 휴대폰 인증 후에 할 수 있어요';
 
   @override
   String get productCategoryAll => '전체';
@@ -2234,18 +2230,18 @@ class AppLocalizationsKo extends AppLocalizations {
   String get productDetailTimeout => '서버 응답이 늦어요. 잠시 후 다시 시도해주세요.';
 
   @override
-  String get productQtaConfirmUnavailableTitle => 'QTA 결제 거래는 아직 확인할 수 없어요';
+  String get productQtaConfirmUnavailableTitle => '휴대폰 인증 준비 중이에요';
 
   @override
   String get productQtaConfirmUnavailableBody =>
-      'QTA 결제는 본인인증이 열린 뒤에 할 수 있어요.\n판매자에게 판매중으로 되돌리고 QTA 가격을 0 으로 바꾼 뒤 다시 거래완료로 지정해 달라고 요청해주세요.';
+      '거래완료는 휴대폰 인증을 마친 뒤에 할 수 있어요.\n휴대폰 인증이 열리면 바로 완료할 수 있게 안내해 드릴게요.';
 
   @override
-  String get productConfirmVerifyTitle => '거래 확인에는 본인 인증이 필요해요';
+  String get productConfirmVerifyTitle => '거래완료 전에 휴대폰 인증이 필요해요';
 
   @override
   String get productConfirmVerifyBody =>
-      'QTA 가 오가는 거래라 1인 1계정 보장을 위해 구매자도 본인 인증이 필수입니다.\n인증해도 채팅·통화는 익명 그대로 유지돼요.';
+      '모든 거래는 휴대폰 인증을 마쳐야 최종 완료돼요 (1인 1계정 보장).\n그동안 채굴한 QTA는 그대로 쌓여 있어요. 인증해도 채팅·통화는 익명 그대로예요.';
 
   @override
   String get productConfirmDialogTitle => '거래를 확인할까요?';
@@ -2280,11 +2276,11 @@ class AppLocalizationsKo extends AppLocalizations {
   String get productConfirmDealButton => '거래 확인하기';
 
   @override
-  String get productSoldVerifyTitle => '거래완료에는 본인 인증이 필요해요';
+  String get productSoldVerifyTitle => '거래완료 전에 휴대폰 인증이 필요해요';
 
   @override
   String get productSoldVerifyBody =>
-      'QTA 가 오가는 거래라 1인 1계정 보장을 위해 판매자 본인 인증이 필수입니다.\n인증해도 채팅·통화는 익명 그대로 유지돼요.';
+      '모든 거래는 휴대폰 인증을 마쳐야 거래완료로 바꿀 수 있어요 (1인 1계정 보장).\n그동안 채굴한 QTA는 그대로 쌓여 있어요. 인증해도 채팅·통화는 익명 그대로예요.';
 
   @override
   String get productStatusChangedSold =>

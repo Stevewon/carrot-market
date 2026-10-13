@@ -201,8 +201,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final p = _product;
     if (p == null) return;
     final user = context.read<AuthService>().user;
-    // QTA 결제 거래만 본인인증 필요 (원화 거래는 인증 없이 확인 가능).
-    if (p.hasQtaPrice && user != null && !user.verificationLevel.canTrade) {
+    // 모든 거래는 휴대폰 인증(Lv1)을 마쳐야 최종 완료 (원화·QTA 모두). 채굴 코인은 인증 전에도 쌓인다.
+    if (user != null && !user.verificationLevel.canTrade) {
       if (!AppConfig.identityVerificationEnabled) {
         // 본인인증이 아직 없는 빌드 — 인증하러 갈 수 없으므로 해결 방법을 안내.
         await showDialog<void>(
@@ -312,7 +312,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     Map<String, dynamic>? buyer;
     if (status == 'sold') {
       final user = context.read<AuthService>().user;
-      if (p.hasQtaPrice && user != null && !user.verificationLevel.canTrade) {
+      // 거래완료는 휴대폰 인증 필수 (원화·QTA 모두).
+      if (user != null && !user.verificationLevel.canTrade) {
+        if (!AppConfig.identityVerificationEnabled) {
+          await showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(ctx.l10n.productQtaConfirmUnavailableTitle),
+              content: Text(ctx.l10n.productQtaConfirmUnavailableBody),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: Text(ctx.l10n.commonConfirm)),
+              ],
+            ),
+          );
+          return;
+        }
         await showVerificationGuard(
           context,
           current: user.verificationLevel,

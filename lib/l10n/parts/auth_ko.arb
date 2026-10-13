@@ -229,7 +229,7 @@
   "authProfileDoneLabel": "완료됨",
   "authProfileWalletDoneSnack": "지갑 인증을 마쳤어요. 이제 2단계 휴대폰 인증!",
   "authProfileStep2Title": "휴대폰 인증",
-  "authProfileStep2Desc": "문자로 받은 인증번호를 입력해요. 한 번호로 한 계정만 인증돼요.\n3단계(가입·지갑·휴대폰)를 모두 마쳐야 QTA 보상 · QTA 결제 거래 · 출금이 열려요.\n\n🔒 전화번호는 암호화해 보관하며, 불법 이용 추적 외에는 쓰지 않아요. 한국(010)·일본(070/080/090)·필리핀(09) 휴대폰 번호만 인증돼요.",
+  "authProfileStep2Desc": "문자로 받은 인증번호를 입력해요. 한 번호로 한 계정만 인증돼요.\n거래완료 · QTA 결제 거래 · 출금이 열려요.\n\n🔒 전화번호는 암호화해 보관하며, 불법 이용 추적 외에는 쓰지 않아요. 한국(010)·일본(070/080/090)·필리핀(09) 휴대폰 번호만 인증돼요.",
   "authProfileWalletFirst": "1단계 지갑 인증을 먼저 마쳐주세요.",
   "authProfileComingSoon": "곧 열려요",
   "authProfilePhoneStart": "휴대폰 인증 시작",
@@ -328,13 +328,5 @@
   "authReturnAmountLabel": "돌려보낼 수량 (정확히)",
   "authReturnToLabel": "받는 주소 (가지 본사 지갑)",
   "authReturnNote": "이 수량은 이번 한 번만 쓰여요 · 2시간 안에 보내주세요 · 블록에 담기기까지 수십 초 걸릴 수 있어요",
-  "authReturnSentButton": "보냈어요 — 확인하기",
-  "authReferralPending": "추천인 {nickname}님이 기록됐어요. 두 분 모두 지갑·휴대폰 인증을 마치면 추천인에게 +200 QTA가 지급돼요.",
-  "@authReferralPending": {
-    "placeholders": {
-      "nickname": {
-        "type": "String"
-      }
-    }
-  }
+  "authReturnSentButton": "보냈어요 — 확인하기"
 }

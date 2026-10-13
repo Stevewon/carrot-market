@@ -415,5 +415,5 @@
   "myVerifyLabelIdentity": "본인인증 완료",
   "myVerifyLabelBank": "출금 인증 완료",
   "myMenuLanguage": "언어",
-  "myRuleVerifyRequired": "모든 QTA 보상은 3단계(가입·지갑·휴대폰) 인증을 마친 회원만 받아요"
+  "myRuleVerifyRequired": "채굴한 QTA는 바로 쌓여요 · 거래완료와 출금은 휴대폰 인증 후에 할 수 있어요"
 }

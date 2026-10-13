@@ -584,7 +584,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authProfileStep2Desc =>
-      'Enter the code we send by SMS. One number can verify only one account.\nFinish all 3 steps (sign-up, wallet, phone) to unlock QTA rewards · QTA payment deals · withdrawals.\n\n🔒 Your phone number is stored encrypted and used only to trace misuse. Only Philippine (09), Korean (010) and Japanese (070/080/090) mobile numbers can be verified.';
+      'Enter the code we send by SMS. One number can verify only one account.\nUnlocks completing deals · QTA payment deals · withdrawals.\n\n🔒 Your phone number is stored encrypted and used only to trace misuse. Only Philippine (09), Korean (010) and Japanese (070/080/090) mobile numbers can be verified.';
 
   @override
   String get authProfileWalletFirst =>
@@ -776,11 +776,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authReturnSentButton => 'I\'ve sent it — check now';
-
-  @override
-  String authReferralPending(String nickname) {
-    return 'Referrer $nickname has been recorded. Once you both finish wallet and phone verification, your referrer gets +200 QTA.';
-  }
 
   @override
   String get chatLeaveWarningSubtitle =>
@@ -2235,7 +2230,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get myRuleVerifyRequired =>
-      'All QTA rewards are only for members who have finished all 3 steps (sign-up, wallet, phone)';
+      'Mined QTA is added right away · Completing deals and withdrawals need phone verification';
 
   @override
   String get productCategoryAll => 'All';
@@ -2337,19 +2332,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get productQtaConfirmUnavailableTitle =>
-      'QTA deals can\'t be confirmed yet';
+      'Phone verification is coming soon';
 
   @override
   String get productQtaConfirmUnavailableBody =>
-      'QTA payments will be available once identity verification opens.\nPlease ask the seller to switch it back to For sale, set the QTA price to 0, then mark it as Sold again.';
+      'Deals can be completed after phone verification.\nWe will let you know as soon as phone verification opens.';
 
   @override
   String get productConfirmVerifyTitle =>
-      'Verification required to confirm the deal';
+      'Phone verification needed before completing the deal';
 
   @override
   String get productConfirmVerifyBody =>
-      'Since QTA changes hands in this deal, buyers must also verify their identity to keep it one account per person.\nYour chats and calls stay anonymous even after verifying.';
+      'Every deal is completed only after phone verification (one account per person).\nThe QTA you have mined stays in your balance. Your chats and calls stay anonymous even after verifying.';
 
   @override
   String get productConfirmDialogTitle => 'Confirm this deal?';
@@ -2385,11 +2380,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get productConfirmDealButton => 'Confirm deal';
 
   @override
-  String get productSoldVerifyTitle => 'Verification required to mark as Sold';
+  String get productSoldVerifyTitle =>
+      'Phone verification needed before completing the deal';
 
   @override
   String get productSoldVerifyBody =>
-      'Since QTA changes hands in this deal, sellers must verify their identity to keep it one account per person.\nYour chats and calls stay anonymous even after verifying.';
+      'You can mark a deal as Sold only after phone verification (one account per person).\nThe QTA you have mined stays in your balance. Your chats and calls stay anonymous even after verifying.';
 
   @override
   String get productStatusChangedSold =>

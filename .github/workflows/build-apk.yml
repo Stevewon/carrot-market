@@ -80,7 +80,7 @@ jobs:
             --build-number=${{ steps.build_info.outputs.build_number }} \
             --dart-define=API_BASE=${{ vars.API_BASE || 'https://api.eggplant.life' }} \
             --dart-define=SOCKET_URL=${{ vars.SOCKET_URL || 'wss://api.eggplant.life/socket' }} \
-            --dart-define=IDENTITY_ENABLED=${{ vars.IDENTITY_ENABLED || 'false' }}
+            --dart-define=IDENTITY_ENABLED=${{ vars.IDENTITY_ENABLED || 'true' }}
 
       - name: 📝 Rename APK + delete any per-ABI stragglers
         run: |
