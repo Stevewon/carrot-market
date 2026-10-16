@@ -226,7 +226,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 connected: chat.connected,
                 // Price-offer button only makes sense in product-tied rooms.
                 onOffer: widget.productTitle != null ? () => _openOfferSheet() : null,
-                onAttach: chat.connected ? _openAttachMenu : null,
+                onAttach: _openAttachMenu,
                 sendingPhoto: _sendingPhoto,
               ),
             ],
@@ -1567,7 +1567,7 @@ class _AppointmentSheetState extends State<_AppointmentSheet> {
                   child: OutlinedButton.icon(
                     onPressed: _pickDate,
                     icon: const Icon(Icons.calendar_today_outlined, size: 18),
-                    label: Text(DateFormat.MMMEd(locale).format(_date)),
+                    label: FittedBox(fit: BoxFit.scaleDown, child: Text(DateFormat.MMMEd(locale).format(_date), maxLines: 1)),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1575,7 +1575,7 @@ class _AppointmentSheetState extends State<_AppointmentSheet> {
                   child: OutlinedButton.icon(
                     onPressed: _pickTime,
                     icon: const Icon(Icons.schedule, size: 18),
-                    label: Text(_time.format(context)),
+                    label: FittedBox(fit: BoxFit.scaleDown, child: Text(_time.format(context), maxLines: 1)),
                   ),
                 ),
               ],
@@ -1595,32 +1595,23 @@ class _AppointmentSheetState extends State<_AppointmentSheet> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(_error!, style: const TextStyle(fontSize: 12.5, color: Colors.redAccent)),
               ),
-            Row(
-              children: [
-                if (widget.initial != null) ...[
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, const _AppointmentResult(cancel: true)),
-                      child: Text(l10n.chatAppointmentCancel),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                ],
-                Expanded(
-                  flex: 2,
-                  child: FilledButton(
-                    onPressed: () {
-                      if (!_at.isAfter(DateTime.now())) {
-                        setState(() => _error = l10n.chatAppointmentPast);
-                        return;
-                      }
-                      Navigator.pop(context, _AppointmentResult(at: _at, place: _placeCtl.text.trim()));
-                    },
-                    child: Text(l10n.chatAppointmentSend),
-                  ),
-                ),
-              ],
+            // 큰 글씨·영어에서도 버튼 글자가 쪼개지지 않게 위아래로 둔다.
+            FilledButton(
+              onPressed: () {
+                if (!_at.isAfter(DateTime.now())) {
+                  setState(() => _error = l10n.chatAppointmentPast);
+                  return;
+                }
+                Navigator.pop(context, _AppointmentResult(at: _at, place: _placeCtl.text.trim()));
+              },
+              child: Text(l10n.chatAppointmentSend),
             ),
+            if (widget.initial != null)
+              TextButton(
+                onPressed: () => Navigator.pop(context, const _AppointmentResult(cancel: true)),
+                style: TextButton.styleFrom(foregroundColor: EggplantColors.textSecondary),
+                child: Text(l10n.chatAppointmentCancel),
+              ),
           ],
         ),
       ),

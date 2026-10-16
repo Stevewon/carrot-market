@@ -1511,10 +1511,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get homePriceTitle => '가격 범위';
 
   @override
-  String get homePriceMin => '최소 가격';
+  String get homePriceMin => '최소';
 
   @override
-  String get homePriceMax => '최대 가격';
+  String get homePriceMax => '최대';
 
   @override
   String get homePriceReset => '초기화';

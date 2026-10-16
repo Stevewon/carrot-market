@@ -463,13 +463,6 @@ class _FilterBar extends StatelessWidget {
     }
   }
 
-  String _priceLabel(BuildContext context, ProductService s) {
-    if (!s.hasPriceFilter) return context.l10n.homeFilterPrice;
-    final lo = s.minPrice != null ? AppMarket.money(s.minPrice!, market) : '';
-    final hi = s.maxPrice != null ? AppMarket.money(s.maxPrice!, market) : '';
-    return '$lo ~ $hi';
-  }
-
   Future<void> _pickSort(BuildContext context, ProductService s) async {
     final picked = await showModalBottomSheet<String>(
       context: context,
@@ -550,7 +543,8 @@ class _FilterBar extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           _FilterChip(
-            label: _priceLabel(context, s),
+            // 범위를 다 적으면 칸이 길어져 정렬 칸이 화면 밖으로 밀린다 → 당근처럼 "가격" 만, 걸려 있으면 보라색.
+            label: context.l10n.homeFilterPrice,
             selected: s.hasPriceFilter,
             trailing: Icons.keyboard_arrow_down_rounded,
             onTap: () => _pickPrice(context, s),

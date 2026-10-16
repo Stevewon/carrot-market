@@ -1513,10 +1513,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get homePriceTitle => '価格の範囲';
 
   @override
-  String get homePriceMin => '最低価格';
+  String get homePriceMin => '最低';
 
   @override
-  String get homePriceMax => '最高価格';
+  String get homePriceMax => '最高';
 
   @override
   String get homePriceReset => 'リセット';

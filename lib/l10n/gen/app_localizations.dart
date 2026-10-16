@@ -2875,13 +2875,13 @@ abstract class AppLocalizations {
   /// No description provided for @homePriceMin.
   ///
   /// In ko, this message translates to:
-  /// **'최소 가격'**
+  /// **'최소'**
   String get homePriceMin;
 
   /// No description provided for @homePriceMax.
   ///
   /// In ko, this message translates to:
-  /// **'최대 가격'**
+  /// **'최대'**
   String get homePriceMax;
 
   /// No description provided for @homePriceReset.

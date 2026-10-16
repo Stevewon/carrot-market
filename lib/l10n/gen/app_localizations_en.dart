@@ -1586,10 +1586,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homePriceTitle => 'Price range';
 
   @override
-  String get homePriceMin => 'Min price';
+  String get homePriceMin => 'Min';
 
   @override
-  String get homePriceMax => 'Max price';
+  String get homePriceMax => 'Max';
 
   @override
   String get homePriceReset => 'Reset';
