@@ -448,6 +448,96 @@ export class ChatHub {
         return;
       }
 
+      // ---------- 사진 · 약속 (휘발성) ----------
+      // 사진: { type:'image', room_id, media_id, key, w?, h? }
+      //   media_id = /api/chat/media 에 올린 암호문, key = 그 암호문을 여는 열쇠(base64).
+      //   서버는 열쇠를 저장하지 않고 상대에게 전달만 한다.
+      // 약속: { type:'appointment', room_id, at(ISO8601), place? }
+      case 'image':
+      case 'appointment': {
+        const room_id = String(msg.room_id || '');
+        if (!room_id) return;
+        if (!isRoomMember(room_id, meta.userId)) {
+          this.sendSafe(ws, { type: 'error', message: trl(meta.lang ?? 'ko', '이 채팅방에 참여할 수 없어요', 'このチャットルームには参加できません', "You can't join this chat room") });
+          return;
+        }
+        const lang = meta.lang ?? 'ko';
+        let extra: Record<string, unknown>;
+        let text: string;
+        let pushData: Record<string, string>;
+        if (t === 'image') {
+          const media_id = String(msg.media_id || '');
+          const key = String(msg.key || '');
+          if (!/^[0-9a-f-]{36}$/.test(media_id) || !/^[A-Za-z0-9+/=]{40,64}$/.test(key)) return;
+          const w = Math.max(0, Math.min(10000, Number(msg.w) || 0));
+          const h = Math.max(0, Math.min(10000, Number(msg.h) || 0));
+          extra = { image: { media_id, key, w, h } };
+          text = trl(lang, '📷 사진', '📷 写真', '📷 Photo');
+          pushData = { image: JSON.stringify({ media_id, key, w, h }) };
+        } else {
+          const at = new Date(String(msg.at || ''));
+          if (Number.isNaN(at.getTime())) return;
+          // 지난 시각이나 1년 뒤보다 먼 약속은 받지 않는다.
+          if (at.getTime() < Date.now() - 60_000 || at.getTime() > Date.now() + 366 * 86_400_000) return;
+          const place = maskChatText(String(msg.place || '').slice(0, 60)).trim();
+          const atIso = at.toISOString();
+          const action = msg.action === 'cancel' ? 'cancel' : 'set';
+          extra = { appointment: { at: atIso, place, action } };
+          text = action === 'cancel'
+            ? trl(lang, '📅 약속을 취소했어요', '📅 約束をキャンセルしました', '📅 Meetup cancelled')
+            : trl(lang, '📅 거래 약속을 잡았어요', '📅 取引の約束を決めました', '📅 Meetup scheduled');
+          pushData = { appointment: JSON.stringify({ at: atIso, place, action }) };
+        }
+        if (!meta.rooms.includes(room_id)) {
+          meta.rooms.push(room_id);
+          ws.serializeAttachment(meta);
+        }
+        const msgId = crypto.randomUUID();
+        const sentAt = new Date().toISOString();
+        const payload = {
+          type: 'message',
+          id: msgId,
+          room_id,
+          sender_id: meta.userId,
+          sender_nickname: meta.nickname || '익명',
+          text,
+          msg_type: t,
+          sent_at: sentAt,
+          ...extra,
+        };
+        this.broadcastToRoom(room_id, null, payload);
+        const peerId = room_id.split('_').find((x) => x.length >= 30 && x !== meta.userId);
+        if (peerId) {
+          this.sendToUserOutsideRoom(peerId, room_id, payload);
+          const delivered = this.sendToUser(peerId, {
+            type: 'room_updated',
+            room_id,
+            last_message: text,
+            last_sender_id: meta.userId,
+            last_sender_nickname: meta.nickname || '익명',
+            last_message_at: sentAt,
+          });
+          if (!delivered) {
+            this.sendOfflinePush(peerId, {
+              title: (l) => trl(l, '새 메시지', '新着メッセージ', 'New message'),
+              body: (l) => trl(l, '새 메시지가 도착했어요', '新しいメッセージが届きました', 'You have a new message'),
+              data: {
+                type: 'message',
+                room_id,
+                text,
+                msg_type: t,
+                sender_id: meta.userId,
+                sender_nickname: meta.nickname || '익명',
+                sent_at: sentAt,
+                ...pushData,
+              },
+              isCall: false,
+            });
+          }
+        }
+        return;
+      }
+
       // ---------- 가격 제안 (휘발성) ----------
       // 클라이언트가 보내는 형식:
       //   { type: 'price_offer', room_id, price, currency? }

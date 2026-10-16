@@ -44,6 +44,8 @@ class Product {
   final int qtaPrice;
   final String category;
   final String region;
+  /// 거래 희망 장소 (판매자가 적음, 없으면 '').
+  final String meetPlace;
 
   /// 'kr'(원) | 'jp'(엔) — 올린 사람의 시장.
   final String market;
@@ -84,6 +86,7 @@ class Product {
     this.qtaPrice = 0,
     required this.category,
     required this.region,
+    this.meetPlace = '',
     this.market = 'kr',
     required this.images,
     this.videoUrl = '',
@@ -147,6 +150,7 @@ class Product {
           : int.tryParse(json['qta_price']?.toString() ?? '0') ?? 0,
       category: json['category'] ?? 'etc',
       region: json['region'] ?? '',
+      meetPlace: (json['meet_place'] ?? '').toString(),
       market: const ['jp', 'ph'].contains(json['market']?.toString()) ? json['market'].toString() : 'kr',
       images: parsedImages,
       videoUrl: (json['video_url'] ?? '').toString(),

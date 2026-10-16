@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
 import '../app/constants.dart';
@@ -42,6 +44,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
   String get _market => AppMarket.of(context.read<AuthService>().user);
   final _descCtl = TextEditingController();
   final _youtubeCtl = TextEditingController();
+  final _meetCtl = TextEditingController();
 
   String _category = 'digital';
   final List<File> _images = [];
@@ -49,8 +52,124 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
   VideoPlayerController? _videoPreviewCtl;
   bool _submitting = false;
 
+  // ---------- 임시저장 (당근식: 쓰다가 나가도 다음에 이어 쓰기) ----------
+  static const _draftKey = 'product_draft_v1';
+  bool _submitted = false;
+  Timer? _draftTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    for (final c in [_titleCtl, _priceCtl, _qtaPriceCtl, _descCtl, _meetCtl]) {
+      c.addListener(_scheduleDraftSave);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _offerDraft());
+  }
+
+  bool get _hasContent =>
+      _titleCtl.text.trim().isNotEmpty ||
+      _descCtl.text.trim().isNotEmpty ||
+      _priceCtl.text.trim().isNotEmpty ||
+      _meetCtl.text.trim().isNotEmpty ||
+      _images.isNotEmpty;
+
+  void _scheduleDraftSave() {
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 800), _saveDraft);
+  }
+
+  Future<void> _saveDraft() async {
+    if (_submitted) return;
+    // dispose 중에도 불리므로 값은 기다리기 전에 먼저 읽어 둔다.
+    final draft = _hasContent
+        ? jsonEncode({
+            'title': _titleCtl.text,
+            'price': _priceCtl.text,
+            'qta': _qtaPriceCtl.text,
+            'desc': _descCtl.text,
+            'meet': _meetCtl.text,
+            'youtube': _youtubeCtl.text,
+            'category': _category,
+            'images': _images.map((f) => f.path).toList(),
+            'saved_at': DateTime.now().toIso8601String(),
+          })
+        : null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (draft == null) {
+        await prefs.remove(_draftKey);
+      } else {
+        await prefs.setString(_draftKey, draft);
+      }
+    } catch (e) {
+      debugPrint('[product-draft] save failed: $e');
+    }
+  }
+
+  Future<void> _clearDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_draftKey);
+    } catch (_) {}
+  }
+
+  Future<void> _offerDraft() async {
+    Map<String, dynamic>? d;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_draftKey);
+      if (raw == null) return;
+      d = jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+    final resume = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.l10n.productDraftTitle),
+        content: Text(ctx.l10n.productDraftBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ctx.l10n.productDraftDiscard),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ctx.l10n.productDraftResume),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (resume != true) {
+      await _clearDraft();
+      return;
+    }
+    setState(() {
+      _titleCtl.text = (d!['title'] ?? '').toString();
+      _priceCtl.text = (d['price'] ?? '').toString();
+      _qtaPriceCtl.text = (d['qta'] ?? '').toString();
+      _descCtl.text = (d['desc'] ?? '').toString();
+      _meetCtl.text = (d['meet'] ?? '').toString();
+      _youtubeCtl.text = (d['youtube'] ?? '').toString();
+      final cat = (d['category'] ?? '').toString();
+      if (Categories.all.any((c) => c.id == cat && c.id != 'all')) _category = cat;
+      // 사진은 폰 임시 폴더에 있어서 지워졌을 수 있다 → 남아 있는 것만.
+      final paths = (d['images'] as List? ?? const []).map((e) => e.toString());
+      _images
+        ..clear()
+        ..addAll(paths.map(File.new).where((f) => f.existsSync()).take(_maxImages));
+    });
+  }
+
   @override
   void dispose() {
+    _draftTimer?.cancel();
+    // 화면을 나갈 때 마지막 내용 저장 (등록을 마쳤으면 저장 안 함).
+    if (!_submitted) _saveDraft();
+    _meetCtl.dispose();
     _titleCtl.dispose();
     _priceCtl.dispose();
     _qtaPriceCtl.dispose();
@@ -301,6 +420,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
             imageFiles: _images,
             youtubeUrl: _youtubeCtl.text.trim(),
             videoFile: _videoFile,
+            meetPlace: _meetCtl.text.trim(),
           )
           .timeout(const Duration(minutes: 5, seconds: 30));
     } on TimeoutException {
@@ -316,6 +436,10 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
     if (err != null) {
       showProductError(context, err);
     } else {
+      _submitted = true;
+      _draftTimer?.cancel();
+      await _clearDraft();
+      if (!mounted) return;
       final reward = context.read<ProductService>().lastListingReward;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -463,6 +587,16 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
                 if (v == null || v.trim().length < 10) return context.l10n.productFieldDescriptionMin;
                 return null;
               },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _meetCtl,
+              maxLength: 60,
+              decoration: InputDecoration(
+                labelText: context.l10n.productFieldMeetPlace,
+                hintText: context.l10n.productFieldMeetPlaceHint,
+                prefixIcon: const Icon(Icons.place_outlined, size: 20),
+              ),
             ),
             Align(
               alignment: Alignment.centerLeft,

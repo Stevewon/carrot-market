@@ -160,5 +160,19 @@
         "type": "String"
       }
     }
-  }
+  },
+  "homeFilterAvailable": "거래 가능만",
+  "homeFilterPrice": "가격",
+  "homeSortRecent": "최신순",
+  "homeSortPriceAsc": "낮은 가격순",
+  "homeSortPriceDesc": "높은 가격순",
+  "homeSortTitle": "정렬",
+  "homePriceTitle": "가격 범위",
+  "homePriceMin": "최소 가격",
+  "homePriceMax": "최대 가격",
+  "homePriceReset": "초기화",
+  "homePriceApply": "적용하기",
+  "homePriceInvalid": "최소 가격이 최대 가격보다 커요",
+  "homeFilterNoResult": "조건에 맞는 상품이 없어요",
+  "homeFilterClear": "필터 지우기"
 }

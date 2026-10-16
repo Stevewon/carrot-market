@@ -1124,6 +1124,70 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chatCurrencyUnitPhp => 'ペソ';
 
   @override
+  String get chatAttachTooltip => '写真・約束';
+
+  @override
+  String get chatAttachGallery => 'アルバムから写真を送る';
+
+  @override
+  String get chatAttachCamera => 'カメラで撮って送る';
+
+  @override
+  String get chatAttachAppointment => '取引の約束を決める';
+
+  @override
+  String get chatPhotoSendFailed => '写真を送れませんでした。もう一度お試しください';
+
+  @override
+  String get chatPhotoUnavailable => '写真を開けません\n（24時間が過ぎたか、すでに削除されました）';
+
+  @override
+  String get chatAppointmentChange => '変更';
+
+  @override
+  String chatAppointmentSetBy(String name) {
+    return '$nameさんが取引の約束を決めました';
+  }
+
+  @override
+  String chatAppointmentCancelledBy(String name) {
+    return '$nameさんが取引の約束をキャンセルしました';
+  }
+
+  @override
+  String get chatAppointmentReminderNote => '約束の30分前にお知らせします';
+
+  @override
+  String get chatAppointmentTitle => '取引の約束を決める';
+
+  @override
+  String get chatAppointmentEditTitle => '取引の約束を変更';
+
+  @override
+  String get chatAppointmentPlace => '待ち合わせ場所（任意）';
+
+  @override
+  String get chatAppointmentCancel => '約束をキャンセル';
+
+  @override
+  String get chatAppointmentSend => '約束を送る';
+
+  @override
+  String get chatAppointmentPast => '今より後の時刻を選んでください';
+
+  @override
+  String get chatAppointmentReminderTitle => '30分後に取引の約束があります';
+
+  @override
+  String get chatAppointmentReminderBody => '約束の時間を守りましょう';
+
+  @override
+  String get chatAppointmentSetByMe => '取引の約束を決めました';
+
+  @override
+  String get chatAppointmentCancelledByMe => '取引の約束をキャンセルしました';
+
+  @override
   String get commonCancel => 'キャンセル';
 
   @override
@@ -1426,6 +1490,48 @@ class AppLocalizationsJa extends AppLocalizations {
   String homePageNotFound(String error) {
     return 'ページが見つかりません: $error';
   }
+
+  @override
+  String get homeFilterAvailable => '取引可能のみ';
+
+  @override
+  String get homeFilterPrice => '価格';
+
+  @override
+  String get homeSortRecent => '新着順';
+
+  @override
+  String get homeSortPriceAsc => '価格の安い順';
+
+  @override
+  String get homeSortPriceDesc => '価格の高い順';
+
+  @override
+  String get homeSortTitle => '並び替え';
+
+  @override
+  String get homePriceTitle => '価格の範囲';
+
+  @override
+  String get homePriceMin => '最低価格';
+
+  @override
+  String get homePriceMax => '最高価格';
+
+  @override
+  String get homePriceReset => 'リセット';
+
+  @override
+  String get homePriceApply => '適用する';
+
+  @override
+  String get homePriceInvalid => '最低価格が最高価格より高くなっています';
+
+  @override
+  String get homeFilterNoResult => '条件に合う商品がありません';
+
+  @override
+  String get homeFilterClear => 'フィルターを解除';
 
   @override
   String get myTabTitle => 'マイページ';
@@ -2917,6 +3023,44 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get productFieldPriceHintPhp => '0(無料で譲る場合は0ペソ)';
+
+  @override
+  String get productShare => '共有';
+
+  @override
+  String get productLinkCopied => '商品リンクをコピーしました';
+
+  @override
+  String productSellerOthers(String name) {
+    return '$nameさんの出品商品';
+  }
+
+  @override
+  String get productSimilar => 'こんな商品はいかがですか？';
+
+  @override
+  String get productSeeAll => 'すべて見る';
+
+  @override
+  String get productMeetPlaceTitle => '取引希望場所';
+
+  @override
+  String get productFieldMeetPlace => '取引希望場所（任意）';
+
+  @override
+  String get productFieldMeetPlaceHint => '例）渋谷駅ハチ公前';
+
+  @override
+  String get productDraftTitle => '書きかけの投稿があります';
+
+  @override
+  String get productDraftBody => '続きから書きますか？';
+
+  @override
+  String get productDraftDiscard => '新しく書く';
+
+  @override
+  String get productDraftResume => '続きを書く';
 
   @override
   String get regionPrefectureSearchHint => '都道府県・市区町村名で検索(例:渋谷)';

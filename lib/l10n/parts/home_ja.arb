@@ -77,5 +77,19 @@
   "homeQrScanGuide": "EggplantのQRコードを枠内に合わせてください",
   "homeQrScanDesc": "スキャンするとすぐに匿名チャットが始まります",
   "homeAnonymous": "匿名",
-  "homePageNotFound": "ページが見つかりません: {error}"
+  "homePageNotFound": "ページが見つかりません: {error}",
+  "homeFilterAvailable": "取引可能のみ",
+  "homeFilterPrice": "価格",
+  "homeSortRecent": "新着順",
+  "homeSortPriceAsc": "価格の安い順",
+  "homeSortPriceDesc": "価格の高い順",
+  "homeSortTitle": "並び替え",
+  "homePriceTitle": "価格の範囲",
+  "homePriceMin": "最低価格",
+  "homePriceMax": "最高価格",
+  "homePriceReset": "リセット",
+  "homePriceApply": "適用する",
+  "homePriceInvalid": "最低価格が最高価格より高くなっています",
+  "homeFilterNoResult": "条件に合う商品がありません",
+  "homeFilterClear": "フィルターを解除"
 }

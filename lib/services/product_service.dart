@@ -53,6 +53,59 @@ class ProductService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 피드 필터 (당근식): 거래 가능만 · 가격 범위 · 정렬.
+  /// 정렬 값: 'recent'(최신순) | 'price_asc'(낮은 가격순) | 'price_desc'(높은 가격순).
+  bool _availableOnly = false;
+  int? _minPrice;
+  int? _maxPrice;
+  String _sort = 'recent';
+  bool get availableOnly => _availableOnly;
+  int? get minPrice => _minPrice;
+  int? get maxPrice => _maxPrice;
+  String get sort => _sort;
+  bool get hasPriceFilter => _minPrice != null || _maxPrice != null;
+
+  void setFilters({
+    bool? availableOnly,
+    String? sort,
+    bool setPrice = false,
+    int? minPrice,
+    int? maxPrice,
+  }) {
+    if (availableOnly != null) _availableOnly = availableOnly;
+    if (sort != null) _sort = sort;
+    if (setPrice) {
+      _minPrice = minPrice;
+      _maxPrice = maxPrice;
+    }
+    notifyListeners();
+  }
+
+  /// 피드 상태를 건드리지 않는 목록 조회 — 상품 화면 아래
+  /// '판매자의 다른 상품' · '비슷한 상품' 용.
+  Future<List<Product>> fetchRelated({
+    String? sellerId,
+    String? category,
+    required String excludeId,
+    int limit = 6,
+  }) async {
+    try {
+      final res = await auth.api.get('/api/products', query: {
+        if (sellerId != null) 'seller_id': sellerId,
+        if (category != null && category.isNotEmpty) 'category': category,
+        'exclude_id': excludeId,
+        'available': '1',
+        'limit': '$limit',
+      });
+      return (res.data['products'] as List? ?? [])
+          .map((e) => Product.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('fetchRelated error: $e');
+      return [];
+    }
+  }
+
   Future<void> fetchProducts({
     String category = 'all',
     String? region,
@@ -73,6 +126,10 @@ class ProductService extends ChangeNotifier {
           'region': region,
         if (search != null && search.isNotEmpty) 'search': search,
         if (_rangeKm > 0) 'range_km': '$_rangeKm',
+        if (_availableOnly) 'available': '1',
+        if (_minPrice != null) 'min_price': '$_minPrice',
+        if (_maxPrice != null) 'max_price': '$_maxPrice',
+        if (_sort != 'recent') 'sort': _sort,
       });
       final list = (res.data['products'] as List? ?? [])
           .map((e) => Product.fromJson(e as Map<String, dynamic>))
@@ -131,6 +188,7 @@ class ProductService extends ChangeNotifier {
     required List<File> imageFiles,
     String youtubeUrl = '',
     File? videoFile,
+    String meetPlace = '',
   }) async {
     try {
       final fields = <String, dynamic>{
@@ -140,6 +198,7 @@ class ProductService extends ChangeNotifier {
         'qta_price': qtaPrice,
         'category': category,
         'region': region,
+        if (meetPlace.isNotEmpty) 'meet_place': meetPlace,
       };
       if (youtubeUrl.trim().isNotEmpty) {
         fields['youtube_url'] = youtubeUrl.trim();
@@ -357,9 +416,11 @@ class ProductService extends ChangeNotifier {
     String? category,
     String? region,
     String? youtubeUrl,
+    String? meetPlace,
   }) async {
     try {
       final data = <String, dynamic>{};
+      if (meetPlace != null) data['meet_place'] = meetPlace;
       if (title != null) data['title'] = title;
       if (description != null) data['description'] = description;
       if (price != null) data['price'] = price;

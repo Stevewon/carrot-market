@@ -2158,6 +2158,126 @@ abstract class AppLocalizations {
   /// **'페소'**
   String get chatCurrencyUnitPhp;
 
+  /// No description provided for @chatAttachTooltip.
+  ///
+  /// In ko, this message translates to:
+  /// **'사진 · 약속'**
+  String get chatAttachTooltip;
+
+  /// No description provided for @chatAttachGallery.
+  ///
+  /// In ko, this message translates to:
+  /// **'앨범에서 사진 보내기'**
+  String get chatAttachGallery;
+
+  /// No description provided for @chatAttachCamera.
+  ///
+  /// In ko, this message translates to:
+  /// **'카메라로 찍어 보내기'**
+  String get chatAttachCamera;
+
+  /// No description provided for @chatAttachAppointment.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 약속 잡기'**
+  String get chatAttachAppointment;
+
+  /// No description provided for @chatPhotoSendFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'사진을 보내지 못했어요. 다시 시도해주세요'**
+  String get chatPhotoSendFailed;
+
+  /// No description provided for @chatPhotoUnavailable.
+  ///
+  /// In ko, this message translates to:
+  /// **'사진을 열 수 없어요\n(받은 지 24시간이 지났거나 이미 지워졌어요)'**
+  String get chatPhotoUnavailable;
+
+  /// No description provided for @chatAppointmentChange.
+  ///
+  /// In ko, this message translates to:
+  /// **'변경'**
+  String get chatAppointmentChange;
+
+  /// No description provided for @chatAppointmentSetBy.
+  ///
+  /// In ko, this message translates to:
+  /// **'{name}님이 거래 약속을 잡았어요'**
+  String chatAppointmentSetBy(String name);
+
+  /// No description provided for @chatAppointmentCancelledBy.
+  ///
+  /// In ko, this message translates to:
+  /// **'{name}님이 거래 약속을 취소했어요'**
+  String chatAppointmentCancelledBy(String name);
+
+  /// No description provided for @chatAppointmentReminderNote.
+  ///
+  /// In ko, this message translates to:
+  /// **'약속 30분 전에 알려드려요'**
+  String get chatAppointmentReminderNote;
+
+  /// No description provided for @chatAppointmentTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 약속 잡기'**
+  String get chatAppointmentTitle;
+
+  /// No description provided for @chatAppointmentEditTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 약속 변경'**
+  String get chatAppointmentEditTitle;
+
+  /// No description provided for @chatAppointmentPlace.
+  ///
+  /// In ko, this message translates to:
+  /// **'만날 장소 (선택)'**
+  String get chatAppointmentPlace;
+
+  /// No description provided for @chatAppointmentCancel.
+  ///
+  /// In ko, this message translates to:
+  /// **'약속 취소'**
+  String get chatAppointmentCancel;
+
+  /// No description provided for @chatAppointmentSend.
+  ///
+  /// In ko, this message translates to:
+  /// **'약속 보내기'**
+  String get chatAppointmentSend;
+
+  /// No description provided for @chatAppointmentPast.
+  ///
+  /// In ko, this message translates to:
+  /// **'지금보다 나중 시각을 골라주세요'**
+  String get chatAppointmentPast;
+
+  /// No description provided for @chatAppointmentReminderTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'30분 뒤 거래 약속이 있어요'**
+  String get chatAppointmentReminderTitle;
+
+  /// No description provided for @chatAppointmentReminderBody.
+  ///
+  /// In ko, this message translates to:
+  /// **'약속 시간을 지켜주세요'**
+  String get chatAppointmentReminderBody;
+
+  /// No description provided for @chatAppointmentSetByMe.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 약속을 잡았어요'**
+  String get chatAppointmentSetByMe;
+
+  /// No description provided for @chatAppointmentCancelledByMe.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 약속을 취소했어요'**
+  String get chatAppointmentCancelledByMe;
+
   /// No description provided for @commonCancel.
   ///
   /// In ko, this message translates to:
@@ -2709,6 +2829,90 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'페이지를 찾을 수 없어요: {error}'**
   String homePageNotFound(String error);
+
+  /// No description provided for @homeFilterAvailable.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 가능만'**
+  String get homeFilterAvailable;
+
+  /// No description provided for @homeFilterPrice.
+  ///
+  /// In ko, this message translates to:
+  /// **'가격'**
+  String get homeFilterPrice;
+
+  /// No description provided for @homeSortRecent.
+  ///
+  /// In ko, this message translates to:
+  /// **'최신순'**
+  String get homeSortRecent;
+
+  /// No description provided for @homeSortPriceAsc.
+  ///
+  /// In ko, this message translates to:
+  /// **'낮은 가격순'**
+  String get homeSortPriceAsc;
+
+  /// No description provided for @homeSortPriceDesc.
+  ///
+  /// In ko, this message translates to:
+  /// **'높은 가격순'**
+  String get homeSortPriceDesc;
+
+  /// No description provided for @homeSortTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'정렬'**
+  String get homeSortTitle;
+
+  /// No description provided for @homePriceTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'가격 범위'**
+  String get homePriceTitle;
+
+  /// No description provided for @homePriceMin.
+  ///
+  /// In ko, this message translates to:
+  /// **'최소 가격'**
+  String get homePriceMin;
+
+  /// No description provided for @homePriceMax.
+  ///
+  /// In ko, this message translates to:
+  /// **'최대 가격'**
+  String get homePriceMax;
+
+  /// No description provided for @homePriceReset.
+  ///
+  /// In ko, this message translates to:
+  /// **'초기화'**
+  String get homePriceReset;
+
+  /// No description provided for @homePriceApply.
+  ///
+  /// In ko, this message translates to:
+  /// **'적용하기'**
+  String get homePriceApply;
+
+  /// No description provided for @homePriceInvalid.
+  ///
+  /// In ko, this message translates to:
+  /// **'최소 가격이 최대 가격보다 커요'**
+  String get homePriceInvalid;
+
+  /// No description provided for @homeFilterNoResult.
+  ///
+  /// In ko, this message translates to:
+  /// **'조건에 맞는 상품이 없어요'**
+  String get homeFilterNoResult;
+
+  /// No description provided for @homeFilterClear.
+  ///
+  /// In ko, this message translates to:
+  /// **'필터 지우기'**
+  String get homeFilterClear;
 
   /// No description provided for @myTabTitle.
   ///
@@ -5452,6 +5656,78 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'0 (나눔하려면 0페소)'**
   String get productFieldPriceHintPhp;
+
+  /// No description provided for @productShare.
+  ///
+  /// In ko, this message translates to:
+  /// **'공유하기'**
+  String get productShare;
+
+  /// No description provided for @productLinkCopied.
+  ///
+  /// In ko, this message translates to:
+  /// **'상품 링크를 복사했어요'**
+  String get productLinkCopied;
+
+  /// No description provided for @productSellerOthers.
+  ///
+  /// In ko, this message translates to:
+  /// **'{name}님의 판매 상품'**
+  String productSellerOthers(String name);
+
+  /// No description provided for @productSimilar.
+  ///
+  /// In ko, this message translates to:
+  /// **'이런 상품은 어때요?'**
+  String get productSimilar;
+
+  /// No description provided for @productSeeAll.
+  ///
+  /// In ko, this message translates to:
+  /// **'모두 보기'**
+  String get productSeeAll;
+
+  /// No description provided for @productMeetPlaceTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 희망 장소'**
+  String get productMeetPlaceTitle;
+
+  /// No description provided for @productFieldMeetPlace.
+  ///
+  /// In ko, this message translates to:
+  /// **'거래 희망 장소 (선택)'**
+  String get productFieldMeetPlace;
+
+  /// No description provided for @productFieldMeetPlaceHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'예) 강남역 2번 출구 앞'**
+  String get productFieldMeetPlaceHint;
+
+  /// No description provided for @productDraftTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'작성 중인 글이 있어요'**
+  String get productDraftTitle;
+
+  /// No description provided for @productDraftBody.
+  ///
+  /// In ko, this message translates to:
+  /// **'이어서 쓸까요?'**
+  String get productDraftBody;
+
+  /// No description provided for @productDraftDiscard.
+  ///
+  /// In ko, this message translates to:
+  /// **'새로 쓰기'**
+  String get productDraftDiscard;
+
+  /// No description provided for @productDraftResume.
+  ///
+  /// In ko, this message translates to:
+  /// **'이어 쓰기'**
+  String get productDraftResume;
 
   /// No description provided for @regionPrefectureSearchHint.
   ///

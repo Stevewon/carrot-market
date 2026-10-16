@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../app/l10n.dart';
 
@@ -164,6 +165,51 @@ class NotificationService {
       );
     } catch (e) {
       debugPrint('[notif] keyword alert failed: $e');
+    }
+  }
+
+  /// 거래 약속 30분 전 알림 (당근식). 같은 방의 약속은 하나만 — 새로 잡으면 덮어쓴다.
+  /// 이미 30분 안쪽이면 알림 없이 넘어간다. [at] 이 null 이면 그 방의 예약 알림 취소.
+  Future<void> scheduleAppointmentReminder({
+    required String roomId,
+    DateTime? at,
+    String place = '',
+  }) async {
+    final id = ('appt_$roomId').hashCode;
+    try {
+      if (!_initialized) await init();
+      await _plugin.cancel(id);
+      if (at == null) return;
+      final fireAt = at.subtract(const Duration(minutes: 30));
+      if (fireAt.isBefore(DateTime.now().add(const Duration(seconds: 30)))) return;
+      final t = L10n.current;
+      await _plugin.zonedSchedule(
+        id,
+        t.chatAppointmentReminderTitle,
+        place.isEmpty ? t.chatAppointmentReminderBody : '${t.chatAppointmentReminderBody} · $place',
+        tz.TZDateTime.from(fireAt.toUtc(), tz.UTC),
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'chat_messages',
+            t.chatChannelChatName,
+            channelDescription: t.chatChannelChatDesc,
+            importance: Importance.high,
+            priority: Priority.high,
+            category: AndroidNotificationCategory.reminder,
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: false,
+            presentSound: true,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: roomId,
+      );
+    } catch (e) {
+      debugPrint('[notif] appointment reminder failed: $e');
     }
   }
 

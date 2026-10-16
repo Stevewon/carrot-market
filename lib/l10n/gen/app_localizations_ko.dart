@@ -1122,6 +1122,70 @@ class AppLocalizationsKo extends AppLocalizations {
   String get chatCurrencyUnitPhp => '페소';
 
   @override
+  String get chatAttachTooltip => '사진 · 약속';
+
+  @override
+  String get chatAttachGallery => '앨범에서 사진 보내기';
+
+  @override
+  String get chatAttachCamera => '카메라로 찍어 보내기';
+
+  @override
+  String get chatAttachAppointment => '거래 약속 잡기';
+
+  @override
+  String get chatPhotoSendFailed => '사진을 보내지 못했어요. 다시 시도해주세요';
+
+  @override
+  String get chatPhotoUnavailable => '사진을 열 수 없어요\n(받은 지 24시간이 지났거나 이미 지워졌어요)';
+
+  @override
+  String get chatAppointmentChange => '변경';
+
+  @override
+  String chatAppointmentSetBy(String name) {
+    return '$name님이 거래 약속을 잡았어요';
+  }
+
+  @override
+  String chatAppointmentCancelledBy(String name) {
+    return '$name님이 거래 약속을 취소했어요';
+  }
+
+  @override
+  String get chatAppointmentReminderNote => '약속 30분 전에 알려드려요';
+
+  @override
+  String get chatAppointmentTitle => '거래 약속 잡기';
+
+  @override
+  String get chatAppointmentEditTitle => '거래 약속 변경';
+
+  @override
+  String get chatAppointmentPlace => '만날 장소 (선택)';
+
+  @override
+  String get chatAppointmentCancel => '약속 취소';
+
+  @override
+  String get chatAppointmentSend => '약속 보내기';
+
+  @override
+  String get chatAppointmentPast => '지금보다 나중 시각을 골라주세요';
+
+  @override
+  String get chatAppointmentReminderTitle => '30분 뒤 거래 약속이 있어요';
+
+  @override
+  String get chatAppointmentReminderBody => '약속 시간을 지켜주세요';
+
+  @override
+  String get chatAppointmentSetByMe => '거래 약속을 잡았어요';
+
+  @override
+  String get chatAppointmentCancelledByMe => '거래 약속을 취소했어요';
+
+  @override
   String get commonCancel => '취소';
 
   @override
@@ -1424,6 +1488,48 @@ class AppLocalizationsKo extends AppLocalizations {
   String homePageNotFound(String error) {
     return '페이지를 찾을 수 없어요: $error';
   }
+
+  @override
+  String get homeFilterAvailable => '거래 가능만';
+
+  @override
+  String get homeFilterPrice => '가격';
+
+  @override
+  String get homeSortRecent => '최신순';
+
+  @override
+  String get homeSortPriceAsc => '낮은 가격순';
+
+  @override
+  String get homeSortPriceDesc => '높은 가격순';
+
+  @override
+  String get homeSortTitle => '정렬';
+
+  @override
+  String get homePriceTitle => '가격 범위';
+
+  @override
+  String get homePriceMin => '최소 가격';
+
+  @override
+  String get homePriceMax => '최대 가격';
+
+  @override
+  String get homePriceReset => '초기화';
+
+  @override
+  String get homePriceApply => '적용하기';
+
+  @override
+  String get homePriceInvalid => '최소 가격이 최대 가격보다 커요';
+
+  @override
+  String get homeFilterNoResult => '조건에 맞는 상품이 없어요';
+
+  @override
+  String get homeFilterClear => '필터 지우기';
 
   @override
   String get myTabTitle => '나의 Eggplant';
@@ -2917,6 +3023,44 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get productFieldPriceHintPhp => '0 (나눔하려면 0페소)';
+
+  @override
+  String get productShare => '공유하기';
+
+  @override
+  String get productLinkCopied => '상품 링크를 복사했어요';
+
+  @override
+  String productSellerOthers(String name) {
+    return '$name님의 판매 상품';
+  }
+
+  @override
+  String get productSimilar => '이런 상품은 어때요?';
+
+  @override
+  String get productSeeAll => '모두 보기';
+
+  @override
+  String get productMeetPlaceTitle => '거래 희망 장소';
+
+  @override
+  String get productFieldMeetPlace => '거래 희망 장소 (선택)';
+
+  @override
+  String get productFieldMeetPlaceHint => '예) 강남역 2번 출구 앞';
+
+  @override
+  String get productDraftTitle => '작성 중인 글이 있어요';
+
+  @override
+  String get productDraftBody => '이어서 쓸까요?';
+
+  @override
+  String get productDraftDiscard => '새로 쓰기';
+
+  @override
+  String get productDraftResume => '이어 쓰기';
 
   @override
   String get regionPrefectureSearchHint => '도도부현·시구정촌 이름으로 검색 (예: 渋谷)';

@@ -228,5 +228,17 @@
   "productBlockFailed": "ブロックに失敗しました",
   "productUnblockFailed": "ブロック解除に失敗しました",
   "productReportFailed": "通報の送信に失敗しました",
-  "productFieldPriceHintPhp": "0(無料で譲る場合は0ペソ)"
+  "productFieldPriceHintPhp": "0(無料で譲る場合は0ペソ)",
+  "productShare": "共有",
+  "productLinkCopied": "商品リンクをコピーしました",
+  "productSellerOthers": "{name}さんの出品商品",
+  "productSimilar": "こんな商品はいかがですか？",
+  "productSeeAll": "すべて見る",
+  "productMeetPlaceTitle": "取引希望場所",
+  "productFieldMeetPlace": "取引希望場所（任意）",
+  "productFieldMeetPlaceHint": "例）渋谷駅ハチ公前",
+  "productDraftTitle": "書きかけの投稿があります",
+  "productDraftBody": "続きから書きますか？",
+  "productDraftDiscard": "新しく書く",
+  "productDraftResume": "続きを書く"
 }

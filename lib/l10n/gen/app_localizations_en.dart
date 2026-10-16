@@ -1188,6 +1188,73 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatCurrencyUnitPhp => '₱';
 
   @override
+  String get chatAttachTooltip => 'Photo · Meetup';
+
+  @override
+  String get chatAttachGallery => 'Send a photo from gallery';
+
+  @override
+  String get chatAttachCamera => 'Take a photo';
+
+  @override
+  String get chatAttachAppointment => 'Schedule a meetup';
+
+  @override
+  String get chatPhotoSendFailed =>
+      'Couldn\'t send the photo. Please try again';
+
+  @override
+  String get chatPhotoUnavailable =>
+      'Can\'t open this photo\n(it expired after 24 hours or was already deleted)';
+
+  @override
+  String get chatAppointmentChange => 'Change';
+
+  @override
+  String chatAppointmentSetBy(String name) {
+    return '$name scheduled a meetup';
+  }
+
+  @override
+  String chatAppointmentCancelledBy(String name) {
+    return '$name cancelled the meetup';
+  }
+
+  @override
+  String get chatAppointmentReminderNote =>
+      'We\'ll remind you 30 minutes before';
+
+  @override
+  String get chatAppointmentTitle => 'Schedule a meetup';
+
+  @override
+  String get chatAppointmentEditTitle => 'Change the meetup';
+
+  @override
+  String get chatAppointmentPlace => 'Meeting place (optional)';
+
+  @override
+  String get chatAppointmentCancel => 'Cancel meetup';
+
+  @override
+  String get chatAppointmentSend => 'Send';
+
+  @override
+  String get chatAppointmentPast => 'Please choose a time in the future';
+
+  @override
+  String get chatAppointmentReminderTitle => 'You have a meetup in 30 minutes';
+
+  @override
+  String get chatAppointmentReminderBody => 'Please be on time';
+
+  @override
+  String get chatAppointmentSetByMe => 'You scheduled a meetup';
+
+  @override
+  String get chatAppointmentCancelledByMe => 'You cancelled the meetup';
+
+  @override
   String get commonCancel => 'Cancel';
 
   @override
@@ -1496,6 +1563,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String homePageNotFound(String error) {
     return 'Page not found: $error';
   }
+
+  @override
+  String get homeFilterAvailable => 'Available only';
+
+  @override
+  String get homeFilterPrice => 'Price';
+
+  @override
+  String get homeSortRecent => 'Newest';
+
+  @override
+  String get homeSortPriceAsc => 'Price: low to high';
+
+  @override
+  String get homeSortPriceDesc => 'Price: high to low';
+
+  @override
+  String get homeSortTitle => 'Sort';
+
+  @override
+  String get homePriceTitle => 'Price range';
+
+  @override
+  String get homePriceMin => 'Min price';
+
+  @override
+  String get homePriceMax => 'Max price';
+
+  @override
+  String get homePriceReset => 'Reset';
+
+  @override
+  String get homePriceApply => 'Apply';
+
+  @override
+  String get homePriceInvalid => 'Min price is higher than max price';
+
+  @override
+  String get homeFilterNoResult => 'No items match your filters';
+
+  @override
+  String get homeFilterClear => 'Clear filters';
 
   @override
   String get myTabTitle => 'My Eggplant';
@@ -3058,6 +3167,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get productFieldPriceHintPhp => '0 (enter ₱0 to give it away free)';
+
+  @override
+  String get productShare => 'Share';
+
+  @override
+  String get productLinkCopied => 'Item link copied';
+
+  @override
+  String productSellerOthers(String name) {
+    return 'More from $name';
+  }
+
+  @override
+  String get productSimilar => 'You might also like';
+
+  @override
+  String get productSeeAll => 'See all';
+
+  @override
+  String get productMeetPlaceTitle => 'Preferred meeting place';
+
+  @override
+  String get productFieldMeetPlace => 'Preferred meeting place (optional)';
+
+  @override
+  String get productFieldMeetPlaceHint => 'e.g. SM Megamall main entrance';
+
+  @override
+  String get productDraftTitle => 'You have an unfinished post';
+
+  @override
+  String get productDraftBody => 'Do you want to continue where you left off?';
+
+  @override
+  String get productDraftDiscard => 'Start over';
+
+  @override
+  String get productDraftResume => 'Continue';
 
   @override
   String get regionPrefectureSearchHint =>

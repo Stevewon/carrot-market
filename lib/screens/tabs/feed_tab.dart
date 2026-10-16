@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/constants.dart';
 import '../../app/l10n.dart';
+import '../../app/market.dart';
 import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../models/product.dart';
@@ -71,6 +72,9 @@ class _FeedTabState extends State<FeedTab> {
       rangeKm: (auth.user?.isRegionVerified ?? false) ? productSvc.rangeKm : 0,
     );
   }
+
+  bool _hasFilters(ProductService s) =>
+      s.availableOnly || s.hasPriceFilter || s.sort != 'recent';
 
   Future<void> _submitSearch(String raw) async {
     final term = raw.trim();
@@ -180,6 +184,10 @@ class _FeedTabState extends State<FeedTab> {
                     _load();
                   },
                 ),
+              _FilterBar(
+                market: AppMarket.of(auth.user),
+                onChanged: _load,
+              ),
               const Divider(height: 1, color: EggplantColors.border),
               Expanded(
                 // 태블릿/폴드 펼침에서 상품 카드 리스트가 가로로 무한정
@@ -195,7 +203,20 @@ class _FeedTabState extends State<FeedTab> {
                                 color: EggplantColors.primary),
                           )
                         : productSvc.products.isEmpty
-                            ? _EmptyView(onRefresh: _load, error: productSvc.loadError)
+                            ? _EmptyView(
+                                onRefresh: _load,
+                                error: productSvc.loadError,
+                                onClearFilters: _hasFilters(productSvc)
+                                    ? () {
+                                        productSvc.setFilters(
+                                          availableOnly: false,
+                                          sort: 'recent',
+                                          setPrice: true,
+                                        );
+                                        _load();
+                                      }
+                                    : null,
+                              )
                             : RefreshIndicator(
                                 color: EggplantColors.primary,
                                 onRefresh: () async => _load(),
@@ -425,6 +446,285 @@ class _RangeBar extends StatelessWidget {
   }
 }
 
+/// 당근식 필터 줄 — 거래 가능만 · 가격 · 정렬. 값은 ProductService 에 둔다.
+class _FilterBar extends StatelessWidget {
+  final String market;
+  final VoidCallback onChanged;
+  const _FilterBar({required this.market, required this.onChanged});
+
+  String _sortLabel(BuildContext context, String sort) {
+    switch (sort) {
+      case 'price_asc':
+        return context.l10n.homeSortPriceAsc;
+      case 'price_desc':
+        return context.l10n.homeSortPriceDesc;
+      default:
+        return context.l10n.homeSortRecent;
+    }
+  }
+
+  String _priceLabel(BuildContext context, ProductService s) {
+    if (!s.hasPriceFilter) return context.l10n.homeFilterPrice;
+    final lo = s.minPrice != null ? AppMarket.money(s.minPrice!, market) : '';
+    final hi = s.maxPrice != null ? AppMarket.money(s.maxPrice!, market) : '';
+    return '$lo ~ $hi';
+  }
+
+  Future<void> _pickSort(BuildContext context, ProductService s) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(ctx.l10n.homeSortTitle,
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              ),
+            ),
+            for (final v in const ['recent', 'price_asc', 'price_desc'])
+              ListTile(
+                title: Text(_sortLabel(ctx, v),
+                    style: TextStyle(
+                      fontWeight: v == s.sort ? FontWeight.w800 : FontWeight.w500,
+                      color: v == s.sort ? EggplantColors.primary : EggplantColors.textPrimary,
+                    )),
+                trailing: v == s.sort
+                    ? const Icon(Icons.check_rounded, color: EggplantColors.primary)
+                    : null,
+                onTap: () => Navigator.pop(ctx, v),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || picked == s.sort) return;
+    s.setFilters(sort: picked);
+    onChanged();
+  }
+
+  Future<void> _pickPrice(BuildContext context, ProductService s) async {
+    final result = await showModalBottomSheet<(int?, int?)>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _PriceRangeSheet(
+        market: market,
+        initialMin: s.minPrice,
+        initialMax: s.maxPrice,
+      ),
+    );
+    if (result == null) return;
+    s.setFilters(setPrice: true, minPrice: result.$1, maxPrice: result.$2);
+    onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<ProductService>();
+    return SizedBox(
+      height: MediaQuery.textScalerOf(context).scale(44).clamp(44.0, 64.0),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+        children: [
+          _FilterChip(
+            label: context.l10n.homeFilterAvailable,
+            selected: s.availableOnly,
+            icon: s.availableOnly ? Icons.check_rounded : null,
+            onTap: () {
+              s.setFilters(availableOnly: !s.availableOnly);
+              onChanged();
+            },
+          ),
+          const SizedBox(width: 6),
+          _FilterChip(
+            label: _priceLabel(context, s),
+            selected: s.hasPriceFilter,
+            trailing: Icons.keyboard_arrow_down_rounded,
+            onTap: () => _pickPrice(context, s),
+          ),
+          const SizedBox(width: 6),
+          _FilterChip(
+            label: _sortLabel(context, s.sort),
+            selected: s.sort != 'recent',
+            icon: Icons.swap_vert_rounded,
+            trailing: Icons.keyboard_arrow_down_rounded,
+            onTap: () => _pickSort(context, s),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final IconData? icon;
+  final IconData? trailing;
+  final VoidCallback onTap;
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = selected ? EggplantColors.primary : EggplantColors.textSecondary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? EggplantColors.primary.withOpacity(0.08) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? EggplantColors.primary : EggplantColors.border,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 15, color: fg),
+                const SizedBox(width: 3),
+              ],
+              Text(label,
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: fg)),
+              if (trailing != null) Icon(trailing, size: 17, color: fg),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 가격 범위 입력 시트. 비워 두면 그쪽 제한 없음. 결과 (최소, 최대).
+class _PriceRangeSheet extends StatefulWidget {
+  final String market;
+  final int? initialMin;
+  final int? initialMax;
+  const _PriceRangeSheet({required this.market, this.initialMin, this.initialMax});
+
+  @override
+  State<_PriceRangeSheet> createState() => _PriceRangeSheetState();
+}
+
+class _PriceRangeSheetState extends State<_PriceRangeSheet> {
+  late final TextEditingController _minCtl =
+      TextEditingController(text: widget.initialMin?.toString() ?? '');
+  late final TextEditingController _maxCtl =
+      TextEditingController(text: widget.initialMax?.toString() ?? '');
+  String? _error;
+
+  @override
+  void dispose() {
+    _minCtl.dispose();
+    _maxCtl.dispose();
+    super.dispose();
+  }
+
+  int? _parse(String s) {
+    final d = s.replaceAll(RegExp(r'\D'), '');
+    return d.isEmpty ? null : int.tryParse(d);
+  }
+
+  Widget _field(TextEditingController ctl, String hint) => TextField(
+        controller: ctl,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixText: AppMarket.currencyPrefix(widget.market),
+          isDense: true,
+        ),
+        onChanged: (_) {
+          if (_error != null) setState(() => _error = null);
+        },
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(context.l10n.homePriceTitle,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(child: _field(_minCtl, context.l10n.homePriceMin)),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('~'),
+                ),
+                Expanded(child: _field(_maxCtl, context.l10n.homePriceMax)),
+              ],
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!,
+                  style: const TextStyle(fontSize: 12.5, color: Colors.redAccent)),
+            ],
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, (null, null)),
+                    child: Text(context.l10n.homePriceReset),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton(
+                    onPressed: () {
+                      final lo = _parse(_minCtl.text);
+                      final hi = _parse(_maxCtl.text);
+                      if (lo != null && hi != null && lo > hi) {
+                        setState(() => _error = context.l10n.homePriceInvalid);
+                        return;
+                      }
+                      Navigator.pop(context, (lo, hi));
+                    },
+                    child: Text(context.l10n.homePriceApply),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CategoryBar extends StatefulWidget {
   final String selected;
   final ValueChanged<String> onSelected;
@@ -618,7 +918,9 @@ class _EmptyView extends StatelessWidget {
   final VoidCallback onRefresh;
   /// 로드 실패 문구 — 있으면 "상품 없음" 대신 오류와 다시 시도를 보여준다.
   final String? error;
-  const _EmptyView({required this.onRefresh, this.error});
+  /// 필터가 걸려 있을 때만 — "조건에 맞는 상품이 없어요" + 필터 지우기.
+  final VoidCallback? onClearFilters;
+  const _EmptyView({required this.onRefresh, this.error, this.onClearFilters});
 
   @override
   Widget build(BuildContext context) {
@@ -629,7 +931,10 @@ class _EmptyView extends StatelessWidget {
           Text(error != null ? '📡' : '🍆', style: const TextStyle(fontSize: 56)),
           const SizedBox(height: 12),
           Text(
-            error ?? context.l10n.homeNoProducts,
+            error ??
+                (onClearFilters != null
+                    ? context.l10n.homeFilterNoResult
+                    : context.l10n.homeNoProducts),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 16,
@@ -637,21 +942,30 @@ class _EmptyView extends StatelessWidget {
               color: EggplantColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            error != null ? context.l10n.homeCheckNetwork : context.l10n.homeFirstProduct,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 13,
-              color: EggplantColors.textSecondary,
+          if (error != null || onClearFilters == null) ...[
+            const SizedBox(height: 4),
+            Text(
+              error != null ? context.l10n.homeCheckNetwork : context.l10n.homeFirstProduct,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: EggplantColors.textSecondary,
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: 20),
-          OutlinedButton.icon(
-            onPressed: onRefresh,
-            icon: const Icon(Icons.refresh, size: 18),
-            label: Text(error != null ? context.l10n.commonRetry : context.l10n.homeRefresh),
-          ),
+          if (error == null && onClearFilters != null)
+            OutlinedButton.icon(
+              onPressed: onClearFilters,
+              icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
+              label: Text(context.l10n.homeFilterClear),
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(error != null ? context.l10n.commonRetry : context.l10n.homeRefresh),
+            ),
         ],
       ),
     );

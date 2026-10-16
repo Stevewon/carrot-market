@@ -41,6 +41,7 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
       (_original?.qtaPrice ?? 0) > 0;
   final _descCtl = TextEditingController();
   final _youtubeCtl = TextEditingController();
+  final _meetCtl = TextEditingController();
 
   String _category = 'digital';
   String _region = '';
@@ -62,6 +63,7 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
     _qtaPriceCtl.dispose();
     _descCtl.dispose();
     _youtubeCtl.dispose();
+    _meetCtl.dispose();
     super.dispose();
   }
 
@@ -84,6 +86,7 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
           ? _ThousandsSeparatorFormatter._withCommas(p.qtaPrice.toString())
           : '';
       _descCtl.text = p.description;
+      _meetCtl.text = p.meetPlace;
       _category = p.category;
       _region = p.region;
       // Only pre-fill YouTube URLs (not uploaded /uploads/ videos).
@@ -136,6 +139,8 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
         ? _original!.videoUrl
         : '';
     if (newYt != originalYt) data['youtube_url'] = newYt;
+    final newMeet = _meetCtl.text.trim();
+    if (newMeet != _original!.meetPlace) data['meet_place'] = newMeet;
 
     if (data.isEmpty) {
       ScaffoldMessenger.of(context)
@@ -153,6 +158,7 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
           category: data['category'] as String?,
           region: data['region'] as String?,
           youtubeUrl: data['youtube_url'] as String?,
+          meetPlace: data['meet_place'] as String?,
         );
     if (!mounted) return;
     setState(() => _submitting = false);
@@ -378,6 +384,16 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
               },
             ),
             const SizedBox(height: 16),
+            TextFormField(
+              controller: _meetCtl,
+              maxLength: 60,
+              decoration: InputDecoration(
+                labelText: context.l10n.productFieldMeetPlace,
+                hintText: context.l10n.productFieldMeetPlaceHint,
+                prefixIcon: const Icon(Icons.place_outlined, size: 20),
+              ),
+            ),
+            const SizedBox(height: 8),
 
             // YouTube URL (optional) — uploaded videos can't be edited here
             if (_original!.videoUrl.isNotEmpty &&

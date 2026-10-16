@@ -148,6 +148,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       });
       // ignore: discarded_futures
       _loadMyReview();
+      // ignore: discarded_futures
+      _loadRelated(p);
 
       debugPrint('[GAJI_DETAIL] body widget rendered=true');
     } on TimeoutException {
@@ -166,6 +168,44 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         _errorMessage = context.l10n.productDetailLoadFailed;
         _isLoading = false;
       });
+    }
+  }
+
+  /// 당근처럼 상품 아래 '판매자의 다른 상품' · '비슷한 상품'.
+  List<Product> _sellerOthers = const [];
+  List<Product> _similar = const [];
+
+  Future<void> _loadRelated(Product p) async {
+    final svc = context.read<ProductService>();
+    final results = await Future.wait([
+      svc.fetchRelated(sellerId: p.sellerId, excludeId: p.id, limit: 4),
+      svc.fetchRelated(category: p.category, excludeId: p.id, limit: 8),
+    ]);
+    if (!mounted) return;
+    final mine = results[0];
+    final mineIds = mine.map((e) => e.id).toSet();
+    setState(() {
+      _sellerOthers = mine;
+      // 판매자 상품과 겹치지 않게, 최대 6개.
+      _similar = results[1].where((e) => !mineIds.contains(e.id)).take(6).toList();
+    });
+  }
+
+  /// 상품 링크 공유 — 받은 사람은 웹 미리보기에서 앱으로 열 수 있다.
+  Future<void> _share() async {
+    final p = _product;
+    if (p == null) return;
+    final url = '${AppConfig.apiBase}/p/${p.id}';
+    final text = '${p.title} · ${AppMarket.formatPrice(p.price, p.market)}\n$url';
+    try {
+      await const MethodChannel('eggplant.market/share')
+          .invokeMethod('shareText', {'text': text, 'title': p.title});
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: url));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.productLinkCopied)),
+      );
     }
   }
 
@@ -708,6 +748,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         actions: [
           if (!_isLoading && _product != null)
             IconButton(
+              icon: const Icon(Icons.share_outlined),
+              tooltip: context.l10n.productShare,
+              onPressed: _share,
+            ),
+          if (!_isLoading && _product != null)
+            IconButton(
               icon: const Icon(Icons.more_vert),
               tooltip: _isMine
                   ? context.l10n.productOwnerMenuTooltip
@@ -791,6 +837,61 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 _buildTitleSection(item),
                 const SizedBox(height: 16),
                 _buildDescriptionSection(item),
+                if (_product != null && _product!.meetPlace.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _buildMeetPlace(_product!.meetPlace),
+                ],
+                if (_sellerOthers.isNotEmpty) ...[
+                  const SizedBox(height: 28),
+                  _RelatedGrid(
+                    title: context.l10n.productSellerOthers(item.sellerName),
+                    products: _sellerOthers,
+                    onMore: _product == null
+                        ? null
+                        : () => context.push('/user/${_product!.sellerId}'),
+                  ),
+                ],
+                if (_similar.isNotEmpty) ...[
+                  const SizedBox(height: 28),
+                  _RelatedGrid(
+                    title: context.l10n.productSimilar,
+                    products: _similar,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMeetPlace(String place) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.place_outlined, size: 20, color: EggplantColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.l10n.productMeetPlaceTitle,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: EggplantColors.textSecondary)),
+                const SizedBox(height: 4),
+                Text(place,
+                    style: const TextStyle(fontSize: 15, color: Colors.black)),
               ],
             ),
           ),
@@ -1628,6 +1729,108 @@ class _ProductVideoState extends State<_ProductVideo> {
         aspectRatio:
             _vpCtl!.value.aspectRatio == 0 ? 16 / 9 : _vpCtl!.value.aspectRatio,
         child: Chewie(controller: _chewieCtl!),
+      ),
+    );
+  }
+}
+
+/// 상품 아래 2열 카드 목록 — '판매자의 다른 상품' · '비슷한 상품'.
+class _RelatedGrid extends StatelessWidget {
+  final String title;
+  final List<Product> products;
+  final VoidCallback? onMore;
+  const _RelatedGrid({required this.title, required this.products, this.onMore});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            ),
+            if (onMore != null)
+              TextButton(
+                onPressed: onMore,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 0),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(context.l10n.productSeeAll,
+                    style: const TextStyle(fontSize: 13, color: EggplantColors.textSecondary)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(builder: (context, c) {
+          const gap = 12.0;
+          final w = (c.maxWidth - gap) / 2;
+          return Wrap(
+            spacing: gap,
+            runSpacing: 16,
+            children: [
+              for (final p in products)
+                SizedBox(width: w, child: _RelatedCard(product: p)),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _RelatedCard extends StatelessWidget {
+  final Product product;
+  const _RelatedCard({required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    final img = product.images.isNotEmpty
+        ? '${AppConfig.apiBase}${product.images.first.startsWith('/') ? '' : '/'}${product.images.first}'
+        : null;
+    return InkWell(
+      onTap: () => context.push('/product/${product.id}'),
+      borderRadius: BorderRadius.circular(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: img == null
+                  ? Container(
+                      color: EggplantColors.background,
+                      alignment: Alignment.center,
+                      child: const Text('🍆', style: TextStyle(fontSize: 36)),
+                    )
+                  : CachedNetworkImage(
+                      imageUrl: img,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => Container(
+                        color: EggplantColors.background,
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.image_not_supported_outlined,
+                            color: EggplantColors.textTertiary),
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(product.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14, color: EggplantColors.textPrimary)),
+          const SizedBox(height: 2),
+          Text(AppMarket.formatPrice(product.price, product.market),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+        ],
       ),
     );
   }

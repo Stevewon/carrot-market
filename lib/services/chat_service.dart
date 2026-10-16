@@ -1,5 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:cryptography/cryptography.dart';
+import 'package:dio/dio.dart';
 
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -414,6 +418,9 @@ class ChatService extends ChangeNotifier {
     String? senderNickname,
     String? text,
     DateTime? sentAt,
+    String? msgType,
+    Object? image,
+    Object? appointment,
   }) {
     final me = auth.user?.id;
     if (me == null) return;
@@ -488,12 +495,15 @@ class ChatService extends ChangeNotifier {
               ? senderNickname
               : L10n.current.chatAnonymous,
           text: text,
-          type: 'text',
+          type: (msgType == 'image' || msgType == 'appointment') ? msgType! : 'text',
           sentAt: now,
           isMine: senderId == me,
           offer: null,
+          image: msgType == 'image' ? ChatImageInfo.tryParse(image) : null,
+          appointment: msgType == 'appointment' ? AppointmentInfo.tryParse(appointment) : null,
           isRead: false,
         ));
+        if (msgType == 'appointment') _onAppointmentMessage(list.last);
       }
     }
 
@@ -550,6 +560,9 @@ class ChatService extends ChangeNotifier {
           senderNickname: e['sender_nickname']?.toString(),
           text: e['text']?.toString(),
           sentAt: parsePushSentAt(e['sent_at']),
+          msgType: e['msg_type']?.toString(),
+          image: e['image'],
+          appointment: e['appointment'],
         );
       }
 
@@ -687,7 +700,14 @@ class ChatService extends ChangeNotifier {
       case 'message': {
         final chatMsg = ChatMessage.fromJson(msg, currentUserId: auth.user?.id);
         _roomMessages.putIfAbsent(chatMsg.roomId, () => []);
+        // 푸시로 먼저 들어온 같은 메시지(합성본 id 'push_…')는 WS 본으로 교체.
+        _roomMessages[chatMsg.roomId]!.removeWhere((m) =>
+            m.id.startsWith('push_') &&
+            m.senderId == chatMsg.senderId &&
+            m.text == chatMsg.text &&
+            m.sentAt.difference(chatMsg.sentAt).inMilliseconds.abs() <= 1000);
         _roomMessages[chatMsg.roomId]!.add(chatMsg);
+        if (chatMsg.type == 'appointment') _onAppointmentMessage(chatMsg);
 
         // Bump local room preview.
         var idx = _rooms.indexWhere((r) => r.id == chatMsg.roomId);
@@ -976,6 +996,157 @@ class ChatService extends ChangeNotifier {
     });
   }
 
+  // ── 사진 (암호화본만 서버에 잠시, 열쇠는 메시지로만) ─────────────────
+
+  static final AesGcm _aes = AesGcm.with256bits();
+
+  /// 받은/보낸 사진 원본 (메모리만 — 앱을 끄면 채팅과 함께 사라진다).
+  final Map<String, Uint8List> _imageCache = {};
+  final Map<String, Future<Uint8List?>> _imageLoads = {};
+
+  Uint8List? cachedImage(String mediaId) => _imageCache[mediaId];
+
+  /// 사진 암호화 — 새 열쇠(AES-256-GCM)로 잠근다.
+  /// 반환: (올릴 바이트 = nonce 12 + 암호문 + 인증태그 16, 열쇠 base64).
+  static Future<(Uint8List, String)> sealImage(List<int> bytes) async {
+    final secret = await _aes.newSecretKey();
+    final keyBytes = await secret.extractBytes();
+    final box = await _aes.encrypt(bytes, secretKey: secret);
+    return (
+      Uint8List.fromList([...box.nonce, ...box.cipherText, ...box.mac.bytes]),
+      base64Encode(keyBytes),
+    );
+  }
+
+  /// [sealImage] 로 잠근 바이트를 연다. 열쇠가 틀리거나 내용이 바뀌었으면 null.
+  static Future<Uint8List?> openImage(List<int> raw, String keyB64) async {
+    if (raw.length < 12 + 16) return null;
+    try {
+      final box = SecretBox(
+        raw.sublist(12, raw.length - 16),
+        nonce: raw.sublist(0, 12),
+        mac: Mac(raw.sublist(raw.length - 16)),
+      );
+      final clear = await _aes.decrypt(box, secretKey: SecretKey(base64Decode(keyB64)));
+      return Uint8List.fromList(clear);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 사진 보내기. [bytes] 는 이미 줄인 JPEG. 성공하면 null, 실패하면 안내 문구.
+  Future<String?> sendImage(String roomId, Uint8List bytes,
+      {int width = 0, int height = 0}) async {
+    if (auth.user == null) return L10n.current.commonLoginRequired;
+    if (!_connected) {
+      connect();
+      return L10n.current.chatReconnecting;
+    }
+    try {
+      final (payload, key) = await sealImage(bytes);
+      final res = await auth.api.dio.post(
+        '/api/chat/media',
+        queryParameters: {'room_id': roomId},
+        data: Stream.fromIterable([payload]),
+        options: Options(
+          contentType: 'application/octet-stream',
+          headers: {Headers.contentLengthHeader: payload.length},
+        ),
+      );
+      final id = (res.data is Map) ? res.data['id']?.toString() : null;
+      if (id == null || id.isEmpty) return L10n.current.chatPhotoSendFailed;
+      _imageCache[id] = bytes;
+      emit('image', {
+        'room_id': roomId,
+        'media_id': id,
+        'key': key,
+        'w': width,
+        'h': height,
+      });
+      return null;
+    } catch (e) {
+      debugPrint('[chat] sendImage failed: $e');
+      final data = e is DioException ? e.response?.data : null;
+      if (data is Map && data['error'] != null) return data['error'].toString();
+      return L10n.current.chatPhotoSendFailed;
+    }
+  }
+
+  /// 사진 받아서 열기. 상대가 보낸 사진은 받은 즉시 서버에서 지운다.
+  Future<Uint8List?> loadImage(ChatImageInfo info, {required bool mine}) {
+    final hit = _imageCache[info.mediaId];
+    if (hit != null) return Future.value(hit);
+    return _imageLoads.putIfAbsent(info.mediaId, () async {
+      try {
+        final res = await auth.api.dio.get<List<int>>(
+          '/api/chat/media/${info.mediaId}',
+          options: Options(responseType: ResponseType.bytes),
+        );
+        final raw = res.data;
+        if (raw == null) return null;
+        final bytes = await openImage(raw, info.key);
+        if (bytes == null) return null;
+        _imageCache[info.mediaId] = bytes;
+        if (!mine) {
+          try {
+            await auth.api.dio.delete('/api/chat/media/${info.mediaId}');
+          } catch (_) {
+            // 못 지워도 24시간 뒤 서버가 지운다.
+          }
+        }
+        return bytes;
+      } catch (e) {
+        debugPrint('[chat] loadImage failed: $e');
+        return null;
+      } finally {
+        // ignore: discarded_futures
+        Future.microtask(() => _imageLoads.remove(info.mediaId));
+      }
+    });
+  }
+
+  // ── 거래 약속 ───────────────────────────────────────────────────────
+
+  /// 약속 잡기 / 취소. 양쪽 폰에 30분 전 알림이 예약된다.
+  Future<String?> sendAppointment(String roomId, DateTime at,
+      {String place = '', bool cancel = false}) async {
+    if (auth.user == null) return L10n.current.commonLoginRequired;
+    if (!_connected) {
+      connect();
+      return L10n.current.chatReconnecting;
+    }
+    emit('appointment', {
+      'room_id': roomId,
+      'at': at.toUtc().toIso8601String(),
+      'place': place,
+      if (cancel) 'action': 'cancel',
+    });
+    return null;
+  }
+
+  /// 방의 가장 최근 약속 (취소됐거나 없으면 null).
+  AppointmentInfo? currentAppointment(String roomId) {
+    final list = _roomMessages[roomId];
+    if (list == null) return null;
+    for (final m in list.reversed) {
+      if (m.type == 'appointment' && m.appointment != null) {
+        return m.appointment!.cancelled ? null : m.appointment;
+      }
+    }
+    return null;
+  }
+
+  void _onAppointmentMessage(ChatMessage m) {
+    final a = m.appointment;
+    if (a == null) return;
+    // ignore: discarded_futures
+    NotificationService.instance.scheduleAppointmentReminder(
+      roomId: m.roomId,
+      at: a.cancelled ? null : a.at,
+      place: a.place,
+    );
+  }
+
   void disconnect() {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
@@ -991,6 +1162,7 @@ class ChatService extends ChangeNotifier {
     _reconnectAttempts = 0;
     _rooms = [];
     _roomMessages.clear();
+    _imageCache.clear();
     _activeRoomId = null;
     notifyListeners();
   }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../app/l10n.dart';
 import '../app/market.dart';
 
@@ -95,16 +97,79 @@ class PriceOfferInfo {
   }
 }
 
+/// 채팅 사진 — 서버에 잠시 있는 암호문(mediaId)과 그것을 여는 열쇠(key, base64).
+class ChatImageInfo {
+  final String mediaId;
+  final String key;
+  final int width;
+  final int height;
+  const ChatImageInfo({required this.mediaId, required this.key, this.width = 0, this.height = 0});
+
+  static ChatImageInfo? tryParse(Object? raw) {
+    Object? v = raw;
+    if (v is String && v.isNotEmpty) {
+      try {
+        v = jsonDecode(v);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (v is! Map) return null;
+    final id = v['media_id']?.toString() ?? '';
+    final key = v['key']?.toString() ?? '';
+    if (id.isEmpty || key.isEmpty) return null;
+    int n(Object? x) => x is num ? x.toInt() : int.tryParse('${x ?? ''}') ?? 0;
+    return ChatImageInfo(mediaId: id, key: key, width: n(v['w']), height: n(v['h']));
+  }
+
+  Map<String, dynamic> toJson() => {'media_id': mediaId, 'key': key, 'w': width, 'h': height};
+}
+
+/// 거래 약속 — 날짜·시간 + 장소. action 'cancel' 이면 약속 취소 알림.
+class AppointmentInfo {
+  final DateTime at;
+  final String place;
+  final bool cancelled;
+  const AppointmentInfo({required this.at, this.place = '', this.cancelled = false});
+
+  static AppointmentInfo? tryParse(Object? raw) {
+    Object? v = raw;
+    if (v is String && v.isNotEmpty) {
+      try {
+        v = jsonDecode(v);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (v is! Map) return null;
+    final at = DateTime.tryParse(v['at']?.toString() ?? '')?.toLocal();
+    if (at == null) return null;
+    return AppointmentInfo(
+      at: at,
+      place: v['place']?.toString() ?? '',
+      cancelled: v['action']?.toString() == 'cancel',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'at': at.toUtc().toIso8601String(),
+        'place': place,
+        'action': cancelled ? 'cancel' : 'set',
+      };
+}
+
 class ChatMessage {
   final String id;
   final String roomId;
   final String senderId;
   final String senderNickname;
   final String text;
-  final String type; // 'text', 'image', 'system', 'price_offer'
+  final String type; // 'text', 'image', 'system', 'price_offer', 'appointment'
   final DateTime sentAt;
   final bool isMine;
   final PriceOfferInfo? offer;
+  final ChatImageInfo? image;
+  final AppointmentInfo? appointment;
 
   /// 상대방이 이 메시지를 읽었는지 (당근식 '1' 표시용).
   ///
@@ -127,14 +192,18 @@ class ChatMessage {
     required this.sentAt,
     this.isMine = false,
     this.offer,
+    this.image,
+    this.appointment,
     this.isRead = false,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
     final senderId = json['sender_id']?.toString() ?? '';
-    // 서버는 메시지 타입을 'msg_type' (REST) 혹은 'type' (WS) 둘 다 쓸 수 있음.
-    final type = json['type']?.toString() ??
-        json['msg_type']?.toString() ??
+    // WS 이벤트는 type 이 'message'(이벤트 이름)이고 메시지 종류는 msg_type 에 온다.
+    // 예전엔 type 을 먼저 읽어서 가격 제안이 'message' 로 바뀌어 제안 칸이 안 보였다.
+    final rawType = json['type']?.toString();
+    final type = json['msg_type']?.toString() ??
+        (rawType == null || rawType == 'message' ? null : rawType) ??
         'text';
     return ChatMessage(
       id: json['id']?.toString() ?? '',
@@ -148,6 +217,8 @@ class ChatMessage {
           DateTime.now(),
       isMine: currentUserId != null && senderId == currentUserId,
       offer: type == 'price_offer' ? PriceOfferInfo.tryParse(json) : null,
+      image: type == 'image' ? ChatImageInfo.tryParse(json['image']) : null,
+      appointment: type == 'appointment' ? AppointmentInfo.tryParse(json['appointment']) : null,
       isRead: false,
     );
   }
@@ -168,6 +239,8 @@ class ChatMessage {
       sentAt: sentAt,
       isMine: isMine,
       offer: offer ?? this.offer,
+      image: image,
+      appointment: appointment,
       isRead: isRead ?? this.isRead,
     );
   }
@@ -188,5 +261,7 @@ class ChatMessage {
             'buyer_id': offer!.buyerId,
             'seller_id': offer!.sellerId,
           },
+        if (image != null) 'image': image!.toJson(),
+        if (appointment != null) 'appointment': appointment!.toJson(),
       };
 }

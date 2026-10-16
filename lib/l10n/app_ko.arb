@@ -542,6 +542,40 @@
     }
   },
   "chatCurrencyUnitPhp": "페소",
+  "chatAttachTooltip": "사진 · 약속",
+  "chatAttachGallery": "앨범에서 사진 보내기",
+  "chatAttachCamera": "카메라로 찍어 보내기",
+  "chatAttachAppointment": "거래 약속 잡기",
+  "chatPhotoSendFailed": "사진을 보내지 못했어요. 다시 시도해주세요",
+  "chatPhotoUnavailable": "사진을 열 수 없어요\n(받은 지 24시간이 지났거나 이미 지워졌어요)",
+  "chatAppointmentChange": "변경",
+  "chatAppointmentSetBy": "{name}님이 거래 약속을 잡았어요",
+  "@chatAppointmentSetBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatAppointmentCancelledBy": "{name}님이 거래 약속을 취소했어요",
+  "@chatAppointmentCancelledBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatAppointmentReminderNote": "약속 30분 전에 알려드려요",
+  "chatAppointmentTitle": "거래 약속 잡기",
+  "chatAppointmentEditTitle": "거래 약속 변경",
+  "chatAppointmentPlace": "만날 장소 (선택)",
+  "chatAppointmentCancel": "약속 취소",
+  "chatAppointmentSend": "약속 보내기",
+  "chatAppointmentPast": "지금보다 나중 시각을 골라주세요",
+  "chatAppointmentReminderTitle": "30분 뒤 거래 약속이 있어요",
+  "chatAppointmentReminderBody": "약속 시간을 지켜주세요",
+  "chatAppointmentSetByMe": "거래 약속을 잡았어요",
+  "chatAppointmentCancelledByMe": "거래 약속을 취소했어요",
   "commonCancel": "취소",
   "commonConfirm": "확인",
   "commonDelete": "삭제",
@@ -738,6 +772,20 @@
       }
     }
   },
+  "homeFilterAvailable": "거래 가능만",
+  "homeFilterPrice": "가격",
+  "homeSortRecent": "최신순",
+  "homeSortPriceAsc": "낮은 가격순",
+  "homeSortPriceDesc": "높은 가격순",
+  "homeSortTitle": "정렬",
+  "homePriceTitle": "가격 범위",
+  "homePriceMin": "최소 가격",
+  "homePriceMax": "최대 가격",
+  "homePriceReset": "초기화",
+  "homePriceApply": "적용하기",
+  "homePriceInvalid": "최소 가격이 최대 가격보다 커요",
+  "homeFilterNoResult": "조건에 맞는 상품이 없어요",
+  "homeFilterClear": "필터 지우기",
   "myTabTitle": "나의 Eggplant",
   "myMannerTemp": "매너온도 {temp}°C",
   "@myMannerTemp": {
@@ -1561,6 +1609,25 @@
   "productUnblockFailed": "차단 해제 실패",
   "productReportFailed": "신고 접수 실패",
   "productFieldPriceHintPhp": "0 (나눔하려면 0페소)",
+  "productShare": "공유하기",
+  "productLinkCopied": "상품 링크를 복사했어요",
+  "productSellerOthers": "{name}님의 판매 상품",
+  "@productSellerOthers": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "productSimilar": "이런 상품은 어때요?",
+  "productSeeAll": "모두 보기",
+  "productMeetPlaceTitle": "거래 희망 장소",
+  "productFieldMeetPlace": "거래 희망 장소 (선택)",
+  "productFieldMeetPlaceHint": "예) 강남역 2번 출구 앞",
+  "productDraftTitle": "작성 중인 글이 있어요",
+  "productDraftBody": "이어서 쓸까요?",
+  "productDraftDiscard": "새로 쓰기",
+  "productDraftResume": "이어 쓰기",
   "regionPrefectureSearchHint": "도도부현·시구정촌 이름으로 검색 (예: 渋谷)",
   "regionCitySearchHint": "{prefecture}의 시구정촌 검색",
   "@regionCitySearchHint": {

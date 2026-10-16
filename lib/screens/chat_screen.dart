@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -161,6 +164,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   productId: _productId(chat),
                   peerUserId: _derivePeerUserId(auth.user?.id),
                 ),
+              if (chat.currentAppointment(widget.roomId) != null)
+                _AppointmentBanner(
+                  appointment: chat.currentAppointment(widget.roomId)!,
+                  onTap: _openAppointmentSheet,
+                ),
               Expanded(
                 child: messages.isEmpty
                     ? _EmptyChat(peerNickname: widget.peerNickname)
@@ -193,6 +201,16 @@ class _ChatScreenState extends State<ChatScreen> {
                                       _respondToOffer(msg.offer!.id, action),
                                 );
                               }
+                              if (msg.type == 'appointment' && msg.appointment != null) {
+                                return _AppointmentCard(message: msg);
+                              }
+                              if (msg.type == 'image' && msg.image != null) {
+                                return _MessageBubble(
+                                  message: msg,
+                                  peerLastReadAt: peerReadAt,
+                                  child: _ChatPhoto(message: msg),
+                                );
+                              }
                               return _MessageBubble(
                                 message: msg,
                                 peerLastReadAt: peerReadAt,
@@ -208,12 +226,123 @@ class _ChatScreenState extends State<ChatScreen> {
                 connected: chat.connected,
                 // Price-offer button only makes sense in product-tied rooms.
                 onOffer: widget.productTitle != null ? () => _openOfferSheet() : null,
+                onAttach: chat.connected ? _openAttachMenu : null,
+                sendingPhoto: _sendingPhoto,
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  // ── 사진 · 약속 ─────────────────────────────────────────────────────
+
+  bool _sendingPhoto = false;
+
+  Future<void> _openAttachMenu() async {
+    final l10n = context.l10n;
+    final pick = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined, color: EggplantColors.primary),
+              title: Text(l10n.chatAttachGallery),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined, color: EggplantColors.primary),
+              title: Text(l10n.chatAttachCamera),
+              onTap: () => Navigator.pop(ctx, 'camera'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.event_available_outlined, color: EggplantColors.primary),
+              title: Text(l10n.chatAttachAppointment),
+              onTap: () => Navigator.pop(ctx, 'appointment'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || pick == null) return;
+    if (pick == 'appointment') {
+      await _openAppointmentSheet();
+    } else {
+      await _sendPhoto(pick == 'camera' ? ImageSource.camera : ImageSource.gallery);
+    }
+  }
+
+  Future<void> _sendPhoto(ImageSource source) async {
+    final XFile? x;
+    try {
+      // 1280px · 품질 75 로 줄여서 보낸다 (보통 200~400KB).
+      x = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 75,
+      );
+    } catch (e) {
+      debugPrint('[chat] pick photo failed: $e');
+      return;
+    }
+    if (x == null || !mounted) return;
+    setState(() => _sendingPhoto = true);
+    final bytes = await x.readAsBytes();
+    int w = 0, h = 0;
+    try {
+      final img = await decodeImageFromList(bytes);
+      w = img.width;
+      h = img.height;
+      img.dispose();
+    } catch (_) {}
+    if (!mounted) return;
+    final err = await context.read<ChatService>().sendImage(
+          widget.roomId,
+          Uint8List.fromList(bytes),
+          width: w,
+          height: h,
+        );
+    if (!mounted) return;
+    setState(() => _sendingPhoto = false);
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      return;
+    }
+    Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
+  }
+
+  Future<void> _openAppointmentSheet() async {
+    final chat = context.read<ChatService>();
+    final current = chat.currentAppointment(widget.roomId);
+    final result = await showModalBottomSheet<_AppointmentResult>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _AppointmentSheet(initial: current),
+    );
+    if (!mounted || result == null) return;
+    final err = result.cancel
+        ? await chat.sendAppointment(widget.roomId, current?.at ?? DateTime.now().add(const Duration(minutes: 5)),
+            place: current?.place ?? '', cancel: true)
+        : await chat.sendAppointment(widget.roomId, result.at!, place: result.place);
+    if (!mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      return;
+    }
+    Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
   }
 
   // ── Price offer flow ────────────────────────────────────────────────
@@ -694,7 +823,9 @@ class _MessageBubble extends StatelessWidget {
   /// When the peer last read THIS room. If non-null and >= message.sentAt,
   /// the bubble shows "읽음" instead of just the timestamp.
   final DateTime? peerLastReadAt;
-  const _MessageBubble({required this.message, this.peerLastReadAt});
+  /// 글자 대신 그릴 내용 (사진 등). 있으면 말풍선 배경 없이 그대로 그린다.
+  final Widget? child;
+  const _MessageBubble({required this.message, this.peerLastReadAt, this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -775,7 +906,7 @@ class _MessageBubble extends StatelessWidget {
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width * 0.72,
               ),
-              child: Container(
+              child: child ?? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: mine ? EggplantColors.primary : Colors.white,
@@ -813,12 +944,17 @@ class _InputBar extends StatelessWidget {
   final bool connected;
   /// 가격 제안 버튼 핸들러. null 이면 버튼 숨김 (상품 첨부되지 않은 방).
   final VoidCallback? onOffer;
+  /// + 버튼 (사진 · 카메라 · 약속 잡기). null 이면 비활성.
+  final VoidCallback? onAttach;
+  final bool sendingPhoto;
 
   const _InputBar({
     required this.controller,
     required this.onSend,
     required this.connected,
     this.onOffer,
+    this.onAttach,
+    this.sendingPhoto = false,
   });
 
   @override
@@ -836,6 +972,21 @@ class _InputBar extends StatelessWidget {
       ),
       child: Row(
         children: [
+          if (sendingPhoto)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2, color: EggplantColors.primary),
+              ),
+            )
+          else
+            IconButton(
+              tooltip: context.l10n.chatAttachTooltip,
+              icon: const Icon(Icons.add_circle_outline, color: EggplantColors.primary),
+              onPressed: onAttach,
+            ),
           if (onOffer != null)
             IconButton(
               tooltip: context.l10n.chatOfferLabel,
@@ -1125,5 +1276,354 @@ class _PriceOfferCard extends StatelessWidget {
       default:
         return Colors.white;
     }
+  }
+}
+
+
+/// 채팅 사진 — 암호문을 받아 폰에서 연다. 누르면 크게 보기.
+class _ChatPhoto extends StatefulWidget {
+  final ChatMessage message;
+  const _ChatPhoto({required this.message});
+
+  @override
+  State<_ChatPhoto> createState() => _ChatPhotoState();
+}
+
+class _ChatPhotoState extends State<_ChatPhoto> {
+  late Future<Uint8List?> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _load() {
+    _future = context
+        .read<ChatService>()
+        .loadImage(widget.message.image!, mine: widget.message.isMine);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final info = widget.message.image!;
+    final maxW = MediaQuery.of(context).size.width * 0.6;
+    final ratio = (info.width > 0 && info.height > 0) ? info.width / info.height : 1.0;
+    final w = maxW;
+    final h = (w / ratio).clamp(120.0, maxW * 1.4);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: SizedBox(
+        width: w,
+        height: h,
+        child: FutureBuilder<Uint8List?>(
+          future: _future,
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) {
+              return Container(
+                color: Colors.white,
+                alignment: Alignment.center,
+                child: const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: EggplantColors.primary),
+                ),
+              );
+            }
+            final bytes = snap.data;
+            if (bytes == null) {
+              return InkWell(
+                onTap: () => setState(_load),
+                child: Container(
+                  color: Colors.white,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.image_not_supported_outlined, color: EggplantColors.textTertiary),
+                      const SizedBox(height: 6),
+                      Text(context.l10n.chatPhotoUnavailable,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 12, color: EggplantColors.textSecondary)),
+                    ],
+                  ),
+                ),
+              );
+            }
+            return GestureDetector(
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => _ChatPhotoViewer(bytes: bytes),
+              )),
+              child: Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatPhotoViewer extends StatelessWidget {
+  final Uint8List bytes;
+  const _ChatPhotoViewer({required this.bytes});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          maxScale: 4,
+          child: Image.memory(bytes),
+        ),
+      ),
+    );
+  }
+}
+
+String _appointmentLabel(BuildContext context, DateTime at) {
+  final locale = Localizations.localeOf(context).toString();
+  return DateFormat.MMMEd(locale).add_jm().format(at);
+}
+
+/// 방 맨 위 약속 띠 — 누르면 약속 바꾸기/취소.
+class _AppointmentBanner extends StatelessWidget {
+  final AppointmentInfo appointment;
+  final VoidCallback onTap;
+  const _AppointmentBanner({required this.appointment, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final place = appointment.place;
+    return Material(
+      color: EggplantColors.primary.withOpacity(0.08),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              const Icon(Icons.event_available, size: 18, color: EggplantColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  place.isEmpty
+                      ? _appointmentLabel(context, appointment.at)
+                      : '${_appointmentLabel(context, appointment.at)} · ${place}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: EggplantColors.primary,
+                  ),
+                ),
+              ),
+              Text(context.l10n.chatAppointmentChange,
+                  style: const TextStyle(fontSize: 12, color: EggplantColors.textSecondary)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 약속 메시지 카드 (가운데).
+class _AppointmentCard extends StatelessWidget {
+  final ChatMessage message;
+  const _AppointmentCard({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = message.appointment!;
+    final mine = message.isMine;
+    final who = message.senderNickname;
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(14),
+        constraints: const BoxConstraints(maxWidth: 300),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: a.cancelled ? EggplantColors.border : EggplantColors.primary),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(a.cancelled ? Icons.event_busy : Icons.event_available,
+                color: a.cancelled ? EggplantColors.textTertiary : EggplantColors.primary),
+            const SizedBox(height: 6),
+            Text(
+              a.cancelled
+                  ? (mine ? context.l10n.chatAppointmentCancelledByMe : context.l10n.chatAppointmentCancelledBy(who))
+                  : (mine ? context.l10n.chatAppointmentSetByMe : context.l10n.chatAppointmentSetBy(who)),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, color: EggplantColors.textSecondary),
+            ),
+            if (!a.cancelled) ...[
+              const SizedBox(height: 6),
+              Text(_appointmentLabel(context, a.at),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              if (a.place.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(a.place,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 14, color: EggplantColors.textPrimary)),
+              ],
+              const SizedBox(height: 6),
+              Text(context.l10n.chatAppointmentReminderNote,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 11.5, color: EggplantColors.textTertiary)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AppointmentResult {
+  final DateTime? at;
+  final String place;
+  final bool cancel;
+  const _AppointmentResult({this.at, this.place = '', this.cancel = false});
+}
+
+/// 약속 잡기 시트 — 날짜 · 시간 · 장소.
+class _AppointmentSheet extends StatefulWidget {
+  final AppointmentInfo? initial;
+  const _AppointmentSheet({this.initial});
+
+  @override
+  State<_AppointmentSheet> createState() => _AppointmentSheetState();
+}
+
+class _AppointmentSheetState extends State<_AppointmentSheet> {
+  late DateTime _date;
+  late TimeOfDay _time;
+  late final TextEditingController _placeCtl =
+      TextEditingController(text: widget.initial?.place ?? '');
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final base = widget.initial?.at ??
+        DateTime.now().add(const Duration(hours: 1));
+    _date = DateTime(base.year, base.month, base.day);
+    _time = TimeOfDay(hour: base.hour, minute: widget.initial == null ? 0 : base.minute);
+  }
+
+  @override
+  void dispose() {
+    _placeCtl.dispose();
+    super.dispose();
+  }
+
+  DateTime get _at => DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final d = await showDatePicker(
+      context: context,
+      initialDate: _date.isBefore(now) ? now : _date,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 90)),
+    );
+    if (d != null) setState(() { _date = d; _error = null; });
+  }
+
+  Future<void> _pickTime() async {
+    final t = await showTimePicker(context: context, initialTime: _time);
+    if (t != null) setState(() { _time = t; _error = null; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final locale = Localizations.localeOf(context).toString();
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(widget.initial == null ? l10n.chatAppointmentTitle : l10n.chatAppointmentEditTitle,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickDate,
+                    icon: const Icon(Icons.calendar_today_outlined, size: 18),
+                    label: Text(DateFormat.MMMEd(locale).format(_date)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickTime,
+                    icon: const Icon(Icons.schedule, size: 18),
+                    label: Text(_time.format(context)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _placeCtl,
+              maxLength: 60,
+              decoration: InputDecoration(
+                labelText: l10n.chatAppointmentPlace,
+                hintText: l10n.productFieldMeetPlaceHint,
+                prefixIcon: const Icon(Icons.place_outlined, size: 20),
+              ),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(_error!, style: const TextStyle(fontSize: 12.5, color: Colors.redAccent)),
+              ),
+            Row(
+              children: [
+                if (widget.initial != null) ...[
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, const _AppointmentResult(cancel: true)),
+                      child: Text(l10n.chatAppointmentCancel),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  flex: 2,
+                  child: FilledButton(
+                    onPressed: () {
+                      if (!_at.isAfter(DateTime.now())) {
+                        setState(() => _error = l10n.chatAppointmentPast);
+                        return;
+                      }
+                      Navigator.pop(context, _AppointmentResult(at: _at, place: _placeCtl.text.trim()));
+                    },
+                    child: Text(l10n.chatAppointmentSend),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

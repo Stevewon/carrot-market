@@ -211,6 +211,8 @@ export interface ProductRow {
   qta_price: number;
   category: string;
   region: string;
+  /** 거래 희망 장소 (0038). */
+  meet_place?: string | null;
   images: string; // comma-separated
   video_url: string | null; // YouTube URL OR /uploads/<key>.mp4 path
   status: 'sale' | 'reserved' | 'sold';

@@ -228,5 +228,17 @@
   "productBlockFailed": "Block failed",
   "productUnblockFailed": "Unblock failed",
   "productReportFailed": "Couldn't submit report",
-  "productFieldPriceHintPhp": "0 (enter ₱0 to give it away free)"
+  "productFieldPriceHintPhp": "0 (enter ₱0 to give it away free)",
+  "productShare": "Share",
+  "productLinkCopied": "Item link copied",
+  "productSellerOthers": "More from {name}",
+  "productSimilar": "You might also like",
+  "productSeeAll": "See all",
+  "productMeetPlaceTitle": "Preferred meeting place",
+  "productFieldMeetPlace": "Preferred meeting place (optional)",
+  "productFieldMeetPlaceHint": "e.g. SM Megamall main entrance",
+  "productDraftTitle": "You have an unfinished post",
+  "productDraftBody": "Do you want to continue where you left off?",
+  "productDraftDiscard": "Start over",
+  "productDraftResume": "Continue"
 }

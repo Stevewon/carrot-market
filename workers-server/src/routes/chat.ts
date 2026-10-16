@@ -198,3 +198,93 @@ app.delete('/rooms/:roomId/messages', async (c) => {
 });
 
 export default app;
+
+// ---------- 채팅 사진 (암호화본, 잠시 보관 후 삭제) ----------
+//
+// 사진은 보내는 폰에서 AES-256-GCM 으로 암호화한 뒤 올린다. 열쇠는 메시지(WebSocket)
+// 로만 상대에게 가고 서버는 열쇠를 저장하지 않는다 → 서버에 남는 것은 읽을 수 없는 암호문뿐.
+// 받는 사람이 내려받으면 바로 지우고, 못 받아도 24시간 뒤 cron 이 지운다.
+//
+//   POST   /api/chat/media?room_id=...   body: 암호문 바이트 → { id }
+//   GET    /api/chat/media/:id           → 암호문 바이트 (같은 방 참여자만)
+//   DELETE /api/chat/media/:id           → 삭제 (같은 방 참여자만)
+
+const CHAT_MEDIA_PREFIX = 'chat-media/';
+const CHAT_MEDIA_MAX = 3 * 1024 * 1024; // 압축한 사진 1장 — 3MB 면 넉넉하다
+export const CHAT_MEDIA_TTL_MS = 24 * 60 * 60 * 1000;
+
+function isRoomMember(roomId: string, userId: string): boolean {
+  const parts = roomId.split('_');
+  return parts.length >= 2 && (parts[0] === userId || parts[1] === userId);
+}
+
+app.post('/media', async (c) => {
+  const me = c.get('user')!;
+  const roomId = c.req.query('room_id') || '';
+  if (!roomId || !isRoomMember(roomId, me.id)) {
+    return c.json({ error: tr(c, '이 채팅방에 참여할 수 없어요', 'このチャットルームには参加できません', "You can't join this chat room") }, 403);
+  }
+  const len = parseInt(c.req.header('content-length') || '0', 10);
+  if (len > CHAT_MEDIA_MAX) {
+    return c.json({ error: tr(c, '사진이 너무 커요', '写真のサイズが大きすぎます', 'This photo is too large') }, 413);
+  }
+  const body = await c.req.arrayBuffer();
+  if (body.byteLength === 0 || body.byteLength > CHAT_MEDIA_MAX) {
+    return c.json({ error: tr(c, '사진이 너무 커요', '写真のサイズが大きすぎます', 'This photo is too large') }, 413);
+  }
+  const id = crypto.randomUUID();
+  await c.env.UPLOADS.put(`${CHAT_MEDIA_PREFIX}${id}`, body, {
+    httpMetadata: { contentType: 'application/octet-stream' },
+    customMetadata: { room: roomId, sender: me.id },
+  });
+  return c.json({ id });
+});
+
+async function mediaForMember(c: { env: Env }, id: string, userId: string) {
+  if (!/^[0-9a-f-]{36}$/.test(id)) return null;
+  const head = await c.env.UPLOADS.head(`${CHAT_MEDIA_PREFIX}${id}`);
+  if (!head) return null;
+  const room = head.customMetadata?.room || '';
+  if (!isRoomMember(room, userId)) return null;
+  // 24시간이 지난 것은 cron 이 지우기 전이라도 내주지 않는다.
+  if (Date.now() - head.uploaded.getTime() > CHAT_MEDIA_TTL_MS) return null;
+  return head;
+}
+
+app.get('/media/:id', async (c) => {
+  const me = c.get('user')!;
+  const id = c.req.param('id');
+  const head = await mediaForMember(c, id, me.id);
+  if (!head) return c.json({ error: tr(c, '사진을 찾을 수 없어요', '写真が見つかりません', 'Photo not found') }, 404);
+  const obj = await c.env.UPLOADS.get(`${CHAT_MEDIA_PREFIX}${id}`);
+  if (!obj) return c.json({ error: tr(c, '사진을 찾을 수 없어요', '写真が見つかりません', 'Photo not found') }, 404);
+  return new Response(obj.body, {
+    headers: { 'content-type': 'application/octet-stream', 'cache-control': 'no-store' },
+  });
+});
+
+app.delete('/media/:id', async (c) => {
+  const me = c.get('user')!;
+  const id = c.req.param('id');
+  const head = await mediaForMember(c, id, me.id);
+  if (head) await c.env.UPLOADS.delete(`${CHAT_MEDIA_PREFIX}${id}`);
+  return c.json({ ok: true });
+});
+
+/** cron: 24시간 넘은 채팅 사진 암호문 삭제. */
+export async function purgeExpiredChatMedia(env: Env): Promise<number> {
+  let cursor: string | undefined;
+  let removed = 0;
+  const cutoff = Date.now() - CHAT_MEDIA_TTL_MS;
+  for (let page = 0; page < 10; page++) {
+    const list = await env.UPLOADS.list({ prefix: CHAT_MEDIA_PREFIX, cursor, limit: 1000 });
+    const old = list.objects.filter((o) => o.uploaded.getTime() < cutoff).map((o) => o.key);
+    if (old.length) {
+      await env.UPLOADS.delete(old);
+      removed += old.length;
+    }
+    if (!list.truncated) break;
+    cursor = list.cursor;
+  }
+  return removed;
+}

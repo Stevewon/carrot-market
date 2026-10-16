@@ -444,6 +444,12 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
           senderId: data['sender_id']?.toString(),
           senderNickname: data['sender_nickname']?.toString(),
           text: data['text']?.toString(),
+
+          msgType: data['msg_type']?.toString(),
+
+          image: data['image'],
+
+          appointment: data['appointment'],
           sentAt: ChatService.parsePushSentAt(data['sent_at']),
         );
       } catch (e) {
@@ -492,6 +498,12 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
           senderId: data['sender_id']?.toString(),
           senderNickname: data['sender_nickname']?.toString(),
           text: data['text']?.toString(),
+
+          msgType: data['msg_type']?.toString(),
+
+          image: data['image'],
+
+          appointment: data['appointment'],
           sentAt: ChatService.parsePushSentAt(data['sent_at']),
         );
       } catch (e) {

@@ -392,5 +392,24 @@
   "productBlockFailed": "차단 실패",
   "productUnblockFailed": "차단 해제 실패",
   "productReportFailed": "신고 접수 실패",
-  "productFieldPriceHintPhp": "0 (나눔하려면 0페소)"
+  "productFieldPriceHintPhp": "0 (나눔하려면 0페소)",
+  "productShare": "공유하기",
+  "productLinkCopied": "상품 링크를 복사했어요",
+  "productSellerOthers": "{name}님의 판매 상품",
+  "@productSellerOthers": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "productSimilar": "이런 상품은 어때요?",
+  "productSeeAll": "모두 보기",
+  "productMeetPlaceTitle": "거래 희망 장소",
+  "productFieldMeetPlace": "거래 희망 장소 (선택)",
+  "productFieldMeetPlaceHint": "예) 강남역 2번 출구 앞",
+  "productDraftTitle": "작성 중인 글이 있어요",
+  "productDraftBody": "이어서 쓸까요?",
+  "productDraftDiscard": "새로 쓰기",
+  "productDraftResume": "이어 쓰기"
 }

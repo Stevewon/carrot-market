@@ -223,6 +223,26 @@ class MainActivity: FlutterActivity() {
                 }
             }
 
+        // 상품 공유 — 안드로이드 기본 공유창 (카톡·라인·문자 등).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "eggplant.market/share")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "shareText") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                try {
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, call.argument<String>("text") ?: "")
+                        putExtra(Intent.EXTRA_SUBJECT, call.argument<String>("title") ?: "")
+                    }
+                    startActivity(Intent.createChooser(send, null))
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("share_failed", e.message, null)
+                }
+            }
+
         // ★ 7차 푸시(이슈 2): 런처 뱃지 native 핸들러.
         //  setBadge(count: int) — 0 이면 제거, 그 이상이면 OEM 별 intent broadcast 전송.
         //  isSupported() — 지원 단말 판별 (try/catch 로 결과 반환).

@@ -210,5 +210,39 @@
       }
     }
   },
-  "chatCurrencyUnitPhp": "페소"
+  "chatCurrencyUnitPhp": "페소",
+  "chatAttachTooltip": "사진 · 약속",
+  "chatAttachGallery": "앨범에서 사진 보내기",
+  "chatAttachCamera": "카메라로 찍어 보내기",
+  "chatAttachAppointment": "거래 약속 잡기",
+  "chatPhotoSendFailed": "사진을 보내지 못했어요. 다시 시도해주세요",
+  "chatPhotoUnavailable": "사진을 열 수 없어요\n(받은 지 24시간이 지났거나 이미 지워졌어요)",
+  "chatAppointmentChange": "변경",
+  "chatAppointmentSetBy": "{name}님이 거래 약속을 잡았어요",
+  "@chatAppointmentSetBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatAppointmentCancelledBy": "{name}님이 거래 약속을 취소했어요",
+  "@chatAppointmentCancelledBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatAppointmentReminderNote": "약속 30분 전에 알려드려요",
+  "chatAppointmentTitle": "거래 약속 잡기",
+  "chatAppointmentEditTitle": "거래 약속 변경",
+  "chatAppointmentPlace": "만날 장소 (선택)",
+  "chatAppointmentCancel": "약속 취소",
+  "chatAppointmentSend": "약속 보내기",
+  "chatAppointmentPast": "지금보다 나중 시각을 골라주세요",
+  "chatAppointmentReminderTitle": "30분 뒤 거래 약속이 있어요",
+  "chatAppointmentReminderBody": "약속 시간을 지켜주세요",
+  "chatAppointmentSetByMe": "거래 약속을 잡았어요",
+  "chatAppointmentCancelledByMe": "거래 약속을 취소했어요"
 }

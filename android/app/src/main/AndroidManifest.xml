@@ -100,6 +100,21 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- 거래 약속 미리 알림 (flutter_local_notifications 예약 알림 · 재부팅 후 복원). -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
         <!-- ★ flutter_callkit_incoming 시스템 통화 UI 컴포넌트 (자동 등록되지만
              명시적으로 권한/스타일을 잡아주기 위해 적음). -->
 

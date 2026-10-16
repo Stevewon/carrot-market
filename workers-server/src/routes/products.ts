@@ -170,6 +170,32 @@ app.get('/', optionalAuth, async (c) => {
     conditions.push('(title LIKE ? OR description LIKE ?)');
     params.push(`%${search}%`, `%${search}%`);
   }
+  // 거래 가능만 보기 (판매완료 빼기)
+  if (c.req.query('available') === '1') {
+    conditions.push("status != 'sold'");
+  }
+  // 가격 범위 (시장 통화 기준)
+  const minPrice = parseInt(c.req.query('min_price') || '', 10);
+  const maxPrice = parseInt(c.req.query('max_price') || '', 10);
+  if (Number.isFinite(minPrice) && minPrice > 0) {
+    conditions.push('price >= ?');
+    params.push(minPrice);
+  }
+  if (Number.isFinite(maxPrice) && maxPrice >= 0) {
+    conditions.push('price <= ?');
+    params.push(maxPrice);
+  }
+  // 상품 화면 아래 '판매자의 다른 상품' · '비슷한 상품'
+  const sellerId = c.req.query('seller_id');
+  if (sellerId) {
+    conditions.push('seller_id = ?');
+    params.push(sellerId);
+  }
+  const excludeId = c.req.query('exclude_id');
+  if (excludeId) {
+    conditions.push('id != ?');
+    params.push(excludeId);
+  }
 
   // 인증·동네인증된 사용자만 거리 필터 사용. 우리는 본인 좌표를 DB 에서 직접 조회.
   const user = c.get('user');
@@ -211,9 +237,16 @@ app.get('/', optionalAuth, async (c) => {
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   // 거리 필터가 켜져 있으면 후보를 더 많이 뽑은 뒤 정확히 거리 컷.
   const fetchLimit = rangeKm > 0 && myLat != null ? Math.min(limit * 4, 400) : limit;
+  // 정렬: 최신순(끌어올리기 포함) · 낮은 가격순 · 높은 가격순
+  const sort = c.req.query('sort');
+  const orderBy = sort === 'price_asc'
+    ? 'price ASC, COALESCE(bumped_at, created_at) DESC'
+    : sort === 'price_desc'
+      ? 'price DESC, COALESCE(bumped_at, created_at) DESC'
+      : 'COALESCE(bumped_at, created_at) DESC';
   const sql = `
     SELECT * FROM products ${where}
-     ORDER BY COALESCE(bumped_at, created_at) DESC
+     ORDER BY ${orderBy}
      LIMIT ? OFFSET ?
   `;
   const rs = await c.env.DB
@@ -377,7 +410,7 @@ app.post('/', authMiddleware, async (c) => {
   const user = c.get('user')!;
   const contentType = c.req.header('content-type') || '';
 
-  let title = '', description = '', price = '0', category = '', region = '';
+  let title = '', description = '', price = '0', category = '', region = '', meetPlace = '';
   let qtaPriceRaw = '0'; // 선택적 QTA 결제 금액 (정수)
   let videoUrl = ''; // final stored value — either https://youtu.be/<id> or /uploads/<key>.mp4
   const imageKeys: string[] = [];
@@ -424,6 +457,7 @@ app.post('/', authMiddleware, async (c) => {
     }
 
     // Optional YouTube link (priority if both are present)
+    meetPlace = String(form.get('meet_place') || '').trim().slice(0, 60);
     const ytRaw = String(form.get('youtube_url') || '').trim();
     if (ytRaw) {
       const normalized = normalizeYouTubeUrl(ytRaw);
@@ -461,6 +495,7 @@ app.post('/', authMiddleware, async (c) => {
       qtaPriceRaw = String(body.qta_price ?? '0');
       category = String(body.category || '').trim();
       region = String(body.region || '').trim();
+      meetPlace = String(body.meet_place || '').trim().slice(0, 60);
       const ytRaw = String(body.youtube_url || '').trim();
       if (ytRaw) {
         const normalized = normalizeYouTubeUrl(ytRaw);
@@ -479,7 +514,9 @@ app.post('/', authMiddleware, async (c) => {
   }
 
   // 거래 금지 품목 · 금지어 · 외부 연락처 (서버가 최종 판단). REVIEW 는 등록 후 검토 큐 적재.
-  const moderation = checkProductText({ title, description, category });
+  // 거래 희망 장소에 연락처를 적는 것도 같은 검사로 막는다.
+  const moderation = checkProductText({ title, description: meetPlace ? `${description}
+${meetPlace}` : description, category });
   if (moderation.action === 'block') {
     c.executionCtx.waitUntil(recordContentFlags(c.env.DB, { userId: user.id, targetType: 'product', targetId: null, result: moderation }));
     return c.json({ error: tr(c, moderation.message ?? '', moderation.messageJa ?? moderation.message ?? '', moderation.messageEn ?? moderation.message ?? ''), code: 'prohibited', category: moderation.blocked ? tr(c, moderation.blocked.label, moderation.blocked.labelJa, moderation.blocked.labelEn) : undefined }, 400);
@@ -522,12 +559,12 @@ app.post('/', authMiddleware, async (c) => {
 
     await c.env.DB
       .prepare(`
-        INSERT INTO products (id, seller_id, title, description, price, qta_price, category, region, images, video_url, lat, lng, market)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO products (id, seller_id, title, description, price, qta_price, category, region, images, video_url, lat, lng, market, meet_place)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .bind(
         id, user.id, title, description, priceInt, qtaPriceInt, category, region, images, videoUrl,
-        sellerLat, sellerLng, sellerMarket
+        sellerLat, sellerLng, sellerMarket, meetPlace || null
       )
       .run();
 
@@ -721,7 +758,7 @@ app.post('/:id/like', authMiddleware, async (c) => {
 /**
  * PATCH /api/products/:id
  * Body (JSON, all fields optional):
- *   { title?, description?, price?, category?, youtube_url? }
+ *   { title?, description?, price?, category?, youtube_url?, meet_place? }
  *
  * Only the owner can edit. Images / uploaded videos are kept (edit ≠ re-upload);
  * to change images the user can delete the product and upload again.
@@ -807,6 +844,11 @@ app.patch('/:id', authMiddleware, async (c) => {
       console.error('[products.patch] users.lat/lng 조회 실패 (무시):', e);
     }
   }
+  if (typeof body.meet_place === 'string') {
+    const mp = (body.meet_place as string).trim().slice(0, 60);
+    updates.push('meet_place = ?');
+    params.push((mp || null) as unknown as string);
+  }
   if (typeof body.youtube_url === 'string') {
     const raw = (body.youtube_url as string).trim();
     if (raw === '') {
@@ -833,9 +875,11 @@ app.patch('/:id', authMiddleware, async (c) => {
   const nextCategory = typeof body.category === 'string' && (body.category as string).trim()
     ? (body.category as string).trim()
     : row.category;
-  const textChanged = typeof body.title === 'string' || typeof body.description === 'string' || nextCategory !== row.category;
+  const nextMeet = typeof body.meet_place === 'string' ? (body.meet_place as string).trim() : (row.meet_place || '');
+  const textChanged = typeof body.title === 'string' || typeof body.description === 'string' || typeof body.meet_place === 'string' || nextCategory !== row.category;
   if (textChanged) {
-    const moderation = checkProductText({ title: nextTitle, description: nextDesc, category: nextCategory });
+    const moderation = checkProductText({ title: nextTitle, description: nextMeet ? `${nextDesc}
+${nextMeet}` : nextDesc, category: nextCategory });
     if (moderation.action === 'block') {
       c.executionCtx.waitUntil(recordContentFlags(c.env.DB, { userId: user.id, targetType: 'product', targetId: id, result: moderation }));
       return c.json({ error: tr(c, moderation.message ?? '', moderation.messageJa ?? moderation.message ?? '', moderation.messageEn ?? moderation.message ?? ''), code: 'prohibited', category: moderation.blocked ? tr(c, moderation.blocked.label, moderation.blocked.labelJa, moderation.blocked.labelEn) : undefined }, 400);
@@ -867,6 +911,40 @@ app.patch('/:id', authMiddleware, async (c) => {
     } catch (e) {
       console.error('[products.patch] listing reward adjust failed', e);
     }
+  }
+
+  // 당근처럼: 가격을 내리면 이 상품을 찜한 사람에게 알림. 판매완료 상품·나를 차단한 사람 제외.
+  const newPrice = body.price !== undefined ? parseInt(String(body.price), 10) : NaN;
+  if (Number.isFinite(newPrice) && newPrice < row.price && row.status !== 'sold') {
+    c.executionCtx.waitUntil(
+      (async () => {
+        const rs = await c.env.DB
+          .prepare(
+            `SELECT u.fcm_token, u.market FROM product_likes l
+               JOIN users u ON u.id = l.user_id
+              WHERE l.product_id = ? AND l.user_id != ?
+                AND u.fcm_token IS NOT NULL AND u.fcm_token != ''
+                AND l.user_id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = ?)
+              LIMIT 500`,
+          )
+          .bind(id, user.id, user.id)
+          .all<{ fcm_token: string; market: string | null }>();
+        const pm: Market = normalizeMarket(row.market) ?? 'kr';
+        const money = (n: number) => {
+          const s = n.toLocaleString('en-US');
+          return pm === 'jp' ? `¥${s}` : pm === 'ph' ? `₱${s}` : `${s}원`;
+        };
+        for (const r of rs.results || []) {
+          const pl: Lang = marketLang(normalizeMarket(r.market));
+          await sendFcm(c.env, {
+            fcmToken: r.fcm_token,
+            title: trl(pl, '찜한 상품의 가격이 내려갔어요', 'お気に入りの商品が値下げされました', 'A saved item dropped in price'),
+            body: `${nextTitle} · ${money(row.price)} → ${money(newPrice)}`,
+            data: { type: 'price_drop', product_id: id },
+          }).catch((e) => console.error('[products.patch] price drop push failed', e));
+        }
+      })().catch((e) => console.error('[products.patch] price drop push failed', e)),
+    );
   }
 
   const updated = await c.env.DB

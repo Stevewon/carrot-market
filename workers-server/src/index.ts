@@ -22,9 +22,10 @@ import type { Env, Variables } from './types';
 import { ipCountry, ipMarket } from './market';
 import authRoutes from './routes/auth';
 import callsRoutes from './routes/calls';
+import shareRoutes from './routes/share';
 import usersRoutes from './routes/users';
 import productsRoutes from './routes/products';
-import chatRoutes from './routes/chat';
+import chatRoutes, { purgeExpiredChatMedia } from './routes/chat';
 import moderationRoutes from './routes/moderation';
 import alertsRoutes from './routes/alerts';
 import hiddenRoutes from './routes/hidden';
@@ -84,12 +85,16 @@ app.route('/api/withdrawals', withdrawalsRoutes);
 app.route('/api/referrals', referralsRoutes);
 app.route('/api/admin', adminRoutes);
 app.route('/api/calls', callsRoutes);
+// 공유 링크 웹 미리보기 (https://api.eggplant.life/p/<상품id>)
+app.route('/p', shareRoutes);
 
 // ---------- R2 uploads passthrough ----------
 // Serves /uploads/<key> from the R2 bucket with basic caching.
 app.get('/uploads/:key{.+}', async (c) => {
   const key = c.req.param('key');
   if (!key) return c.json({ error: 'Not found' }, 404);
+  // 채팅 사진(암호화본)은 공개 경로로 내주지 않는다 — /api/chat/media 로만 (방 참여자 확인).
+  if (key.startsWith('chat-media/')) return c.json({ error: 'Not found' }, 404);
 
   // If a public R2 URL is configured, redirect there (CDN cheaper + faster).
   if (c.env.PUBLIC_UPLOAD_URL) {
@@ -172,7 +177,15 @@ app.onError((err, c) => {
 // 1분 cron — 1단계 지갑 인증 송금 대기열 처리 (요청 직후 처리가 실패했을 때의 재시도).
 export default {
   fetch: app.fetch,
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    // 30분마다: 24시간 지난 채팅 사진 암호문 삭제.
+    if (new Date(event.scheduledTime).getUTCMinutes() % 30 === 0) {
+      ctx.waitUntil(
+        purgeExpiredChatMedia(env)
+          .then((n) => { if (n) console.log('[cron] chat-media purged', n); })
+          .catch((e) => console.error('[cron] chat-media purge failed', e)),
+      );
+    }
     ctx.waitUntil(
       processReceiveSends(env)
         .then((r) => { if (r.picked) console.log('[cron] wallet-receive', JSON.stringify(r)); })
