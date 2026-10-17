@@ -24,6 +24,8 @@ import 'services/push_service.dart';
 import 'services/search_history_service.dart';
 import 'services/keyword_alert_service.dart';
 import 'services/hidden_products_service.dart';
+import 'services/inbox_service.dart';
+import 'services/recent_viewed_service.dart';
 import 'services/qta_service.dart';
 
 void main() async {
@@ -128,6 +130,8 @@ class EggplantApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => KeywordAlertService(authService)),
         ChangeNotifierProvider(create: (_) => HiddenProductsService(authService)),
+        ChangeNotifierProvider(create: (_) => InboxService(authService)),
+        ChangeNotifierProvider(create: (_) => RecentViewedService(authService)),
         // QtaService 생성 후 ProductService 의 mining 콜백을 연결.
         // 상품 상세 응답에 들어온 mining 진행도가 자동으로 QtaService 로 흘러간다.
         ChangeNotifierProxyProvider<ProductService, QtaService>(
@@ -580,6 +584,8 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
     //  v1.0.107 정책: 미읽음 방 1+개면 무조건 가장 최근 방 직진.
     //  부팅 후 1회 제한(_autoEnterUnreadDone)이 false 일 때만 실행.
     if (state == AppLifecycleState.resumed) {
+      // 앱에 돌아오면 알림함 안 읽은 수 다시 확인.
+      InboxService.ping();
       // ★ v1.0.107: warm resume 에도 SharedPreferences pending 큐 복원.
       //  앱이 백그라운드 상태일 때 firebaseBackgroundHandler 가 받아 큐에 쌓은
       //  푸시들을 _rooms 에 합성 방으로 추가 → 사용자가 앱 복귀 직후

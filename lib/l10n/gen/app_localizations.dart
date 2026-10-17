@@ -2926,6 +2926,60 @@ abstract class AppLocalizations {
   /// **'내 동네 {count}곳'**
   String homeAllMyRegionsCount(int count);
 
+  /// No description provided for @homeFilterFree.
+  ///
+  /// In ko, this message translates to:
+  /// **'나눔'**
+  String get homeFilterFree;
+
+  /// No description provided for @homePopularSearches.
+  ///
+  /// In ko, this message translates to:
+  /// **'인기 검색어'**
+  String get homePopularSearches;
+
+  /// No description provided for @inboxTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림'**
+  String get inboxTitle;
+
+  /// No description provided for @inboxEmpty.
+  ///
+  /// In ko, this message translates to:
+  /// **'아직 알림이 없어요'**
+  String get inboxEmpty;
+
+  /// No description provided for @inboxEmptyHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'찜한 상품 가격 내림, 거래 확인, 거래 후기, 키워드 알림이 여기에 모여요. 30일 동안 보관돼요.'**
+  String get inboxEmptyHint;
+
+  /// No description provided for @inboxLoadFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림을 불러오지 못했어요. 아래로 당겨 다시 시도해 주세요.'**
+  String get inboxLoadFailed;
+
+  /// No description provided for @inboxClearConfirm.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림을 모두 지울까요?'**
+  String get inboxClearConfirm;
+
+  /// No description provided for @recentTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'최근 본 상품'**
+  String get recentTitle;
+
+  /// No description provided for @recentEmpty.
+  ///
+  /// In ko, this message translates to:
+  /// **'최근 본 상품이 없어요'**
+  String get recentEmpty;
+
   /// No description provided for @myTabTitle.
   ///
   /// In ko, this message translates to:

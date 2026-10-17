@@ -56,10 +56,13 @@ class ProductService extends ChangeNotifier {
   /// 피드 필터 (당근식): 거래 가능만 · 가격 범위 · 정렬.
   /// 정렬 값: 'recent'(최신순) | 'price_asc'(낮은 가격순) | 'price_desc'(높은 가격순).
   bool _availableOnly = false;
+  bool _freeOnly = false;
   int? _minPrice;
   int? _maxPrice;
   String _sort = 'recent';
   bool get availableOnly => _availableOnly;
+  /// 나눔(0원)만.
+  bool get freeOnly => _freeOnly;
   int? get minPrice => _minPrice;
   int? get maxPrice => _maxPrice;
   String get sort => _sort;
@@ -67,18 +70,38 @@ class ProductService extends ChangeNotifier {
 
   void setFilters({
     bool? availableOnly,
+    bool? freeOnly,
     String? sort,
     bool setPrice = false,
     int? minPrice,
     int? maxPrice,
   }) {
     if (availableOnly != null) _availableOnly = availableOnly;
+    if (freeOnly != null) _freeOnly = freeOnly;
     if (sort != null) _sort = sort;
     if (setPrice) {
       _minPrice = minPrice;
       _maxPrice = maxPrice;
     }
     notifyListeners();
+  }
+
+  /// 인기 검색어 (최근 7일, 내 시장) — 검색 화면 위쪽. 10분 동안은 다시 묻지 않는다.
+  List<String> _popularTerms = const [];
+  DateTime? _popularAt;
+  List<String> get popularTerms => _popularTerms;
+
+  Future<void> loadPopularTerms() async {
+    if (_popularAt != null && DateTime.now().difference(_popularAt!) < const Duration(minutes: 10)) return;
+    try {
+      final res = await auth.api.get('/api/products/popular-terms');
+      final list = (res.data is Map ? res.data['terms'] as List? : null) ?? const [];
+      _popularTerms = [for (final t in list) t.toString()];
+      _popularAt = DateTime.now();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('popular terms error: $e');
+    }
   }
 
   /// 피드 상태를 건드리지 않는 목록 조회 — 상품 화면 아래
@@ -145,6 +168,7 @@ class ProductService extends ChangeNotifier {
         if (search != null && search.isNotEmpty) 'search': search,
         if (_rangeKm > 0) 'range_km': '$_rangeKm',
         if (_availableOnly) 'available': '1',
+        if (_freeOnly) 'free': '1',
         if (_minPrice != null) 'min_price': '$_minPrice',
         if (_maxPrice != null) 'max_price': '$_maxPrice',
         if (_sort != 'recent') 'sort': _sort,

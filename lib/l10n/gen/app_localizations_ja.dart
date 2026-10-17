@@ -1542,6 +1542,34 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get homeFilterFree => '無料';
+
+  @override
+  String get homePopularSearches => '人気キーワード';
+
+  @override
+  String get inboxTitle => 'お知らせ';
+
+  @override
+  String get inboxEmpty => 'まだお知らせはありません';
+
+  @override
+  String get inboxEmptyHint =>
+      'お気に入りの値下げ、取引確認、取引の評価、キーワード通知がここに届きます。30日間保存されます。';
+
+  @override
+  String get inboxLoadFailed => 'お知らせを読み込めませんでした。下に引っ張ってもう一度お試しください。';
+
+  @override
+  String get inboxClearConfirm => 'お知らせをすべて削除しますか？';
+
+  @override
+  String get recentTitle => '最近見た商品';
+
+  @override
+  String get recentEmpty => '最近見た商品はありません';
+
+  @override
   String get myTabTitle => 'マイページ';
 
   @override

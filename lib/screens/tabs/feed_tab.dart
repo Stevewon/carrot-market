@@ -9,6 +9,7 @@ import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../models/product.dart';
 import '../../services/auth_service.dart';
+import '../../services/inbox_service.dart';
 import '../../services/product_service.dart';
 import '../../services/search_history_service.dart';
 import '../../widgets/product_card.dart';
@@ -70,6 +71,8 @@ class _FeedTabState extends State<FeedTab> {
 
   void _load() {
     final auth = context.read<AuthService>();
+    // ignore: discarded_futures
+    context.read<InboxService>().refreshUnread();
     final productSvc = context.read<ProductService>();
     final mine = auth.user?.regions ?? const <String>[];
     final all = _allRegions && mine.length > 1;
@@ -84,7 +87,7 @@ class _FeedTabState extends State<FeedTab> {
   }
 
   bool _hasFilters(ProductService s) =>
-      s.availableOnly || s.hasPriceFilter || s.sort != 'recent';
+      s.availableOnly || s.freeOnly || s.hasPriceFilter || s.sort != 'recent';
 
   Future<void> _submitSearch(String raw) async {
     final term = raw.trim();
@@ -157,12 +160,30 @@ class _FeedTabState extends State<FeedTab> {
                 ),
               ),
         actions: [
+          if (!_searchMode)
+            Builder(builder: (context) {
+              final unread = context.watch<InboxService>().unread;
+              return IconButton(
+                tooltip: context.l10n.inboxTitle,
+                icon: Badge(
+                  isLabelVisible: unread > 0,
+                  label: Text(unread > 99 ? '99+' : '$unread'),
+                  backgroundColor: EggplantColors.primary,
+                  child: const Icon(Icons.notifications_none_rounded),
+                ),
+                onPressed: () => context.push('/notifications'),
+              );
+            }),
           IconButton(
             icon: Icon(_searchMode ? Icons.close_rounded : Icons.search_rounded),
             tooltip: _searchMode ? context.l10n.homeSearchClose : context.l10n.homeSearch,
             onPressed: () {
               setState(() {
                 _searchMode = !_searchMode;
+                if (_searchMode) {
+                  // ignore: discarded_futures
+                  context.read<ProductService>().loadPopularTerms();
+                }
                 if (!_searchMode) {
                   _searchCtl.clear();
                   _showHistory = false;
@@ -226,6 +247,7 @@ class _FeedTabState extends State<FeedTab> {
                                     ? () {
                                         productSvc.setFilters(
                                           availableOnly: false,
+                                          freeOnly: false,
                                           sort: 'recent',
                                           setPrice: true,
                                         );
@@ -286,6 +308,7 @@ class _SearchHistoryPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final history = context.watch<SearchHistoryService>();
     final terms = history.terms;
+    final popular = context.watch<ProductService>().popularTerms;
 
     return GestureDetector(
       // 패널 바깥 탭 시 키보드 닫고 패널 닫기 효과 (포커스 해제로 자동 처리)
@@ -297,6 +320,46 @@ class _SearchHistoryPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (popular.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Text(
+                  context.l10n.homePopularSearches,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: EggplantColors.textSecondary,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (var i = 0; i < popular.length; i++)
+                      ActionChip(
+                        avatar: Text(
+                          '${i + 1}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: i < 3 ? EggplantColors.primary : EggplantColors.textSecondary,
+                          ),
+                        ),
+                        label: Text(popular[i], style: const TextStyle(fontSize: 13)),
+                        onPressed: () => onPick(popular[i]),
+                        visualDensity: VisualDensity.compact,
+                        side: const BorderSide(color: EggplantColors.border),
+                        backgroundColor: Colors.white,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Divider(height: 1, color: EggplantColors.border),
+            ],
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Row(
@@ -535,7 +598,9 @@ class _FilterBar extends StatelessWidget {
       ),
     );
     if (result == null) return;
-    s.setFilters(setPrice: true, minPrice: result.$1, maxPrice: result.$2);
+    final ranged = result.$1 != null || result.$2 != null;
+    // 가격 범위를 걸면 나눔만 보기는 푼다 (0원만 보면서 범위를 거는 건 말이 안 된다).
+    s.setFilters(setPrice: true, minPrice: result.$1, maxPrice: result.$2, freeOnly: ranged ? false : null);
     onChanged();
   }
 
@@ -554,6 +619,17 @@ class _FilterBar extends StatelessWidget {
             icon: s.availableOnly ? Icons.check_rounded : null,
             onTap: () {
               s.setFilters(availableOnly: !s.availableOnly);
+              onChanged();
+            },
+          ),
+          const SizedBox(width: 6),
+          _FilterChip(
+            label: context.l10n.homeFilterFree,
+            selected: s.freeOnly,
+            icon: s.freeOnly ? Icons.check_rounded : null,
+            onTap: () {
+              // 나눔은 0원이라 가격 범위와 같이 걸면 아무것도 안 나온다 → 가격 범위는 푼다.
+              s.setFilters(freeOnly: !s.freeOnly, setPrice: !s.freeOnly);
               onChanged();
             },
           ),

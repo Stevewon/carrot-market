@@ -15,6 +15,7 @@ import '../app/l10n.dart';
 import '../models/chat_message.dart';
 import '../models/chat_room.dart';
 import 'auth_service.dart';
+import 'inbox_service.dart';
 import 'launcher_badge.dart';
 import 'notification_service.dart';
 import 'push_service.dart' show kPendingPushQueueKey;
@@ -901,11 +902,20 @@ class ChatService extends ChangeNotifier {
 
       case 'keyword_alert': {
         // 새 상품이 등록 키워드와 매칭됨. NotificationService 로 로컬 푸시.
-        // 사생활 보호: 알림 이력은 어디에도 저장하지 않는다.
+        // 사생활 보호: 알림 이력은 서버에 남기지 않고, 이 폰의 알림함에만 둔다.
         final productId = msg['product_id']?.toString() ?? '';
         final title = msg['title']?.toString() ?? '';
         final region = msg['region']?.toString() ?? '';
         if (productId.isNotEmpty) {
+          // ignore: discarded_futures
+          InboxService.recordLocal(
+            auth,
+            type: 'keyword_alert',
+            title: L10n.current.chatKeywordAlertTitle,
+            body: region.isEmpty ? title : '$region · $title',
+            productId: productId,
+            thumb: msg['thumb']?.toString(),
+          );
           // ignore: discarded_futures
           NotificationService.instance.showKeywordAlert(
             productId: productId,

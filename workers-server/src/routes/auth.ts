@@ -1094,6 +1094,7 @@ app.delete('/me', authMiddleware, async (c) => {
       // sso_links 는 ON DELETE CASCADE 가 없어 남아 있으면 users DELETE 가 FK 로 실패한다
       // (큐알쳇 로그인으로 만든 계정 등).
       c.env.DB.prepare('DELETE FROM sso_links WHERE user_id = ?').bind(user.id),
+      c.env.DB.prepare('DELETE FROM notifications WHERE user_id = ?').bind(user.id),
     ]);
   } catch (e) {
     console.error('[auth/delete] cleanup non-cascade tables failed', e);

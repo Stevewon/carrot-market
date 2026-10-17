@@ -29,6 +29,8 @@ import '../screens/referrals_screen.dart';
 import '../screens/account_delete_screen.dart';
 import '../screens/profile_verify_screen.dart';
 import '../screens/profile_edit_screen.dart';
+import '../screens/notifications_screen.dart';
+import '../screens/recent_viewed_screen.dart';
 
 GoRouter createRouter(AuthService auth) {
   return GoRouter(
@@ -133,6 +135,14 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(
         path: '/alerts/keywords',
         builder: (_, __) => const KeywordAlertsScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (_, __) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/recent',
+        builder: (_, __) => const RecentViewedScreen(),
       ),
       GoRoute(
         path: '/hidden',

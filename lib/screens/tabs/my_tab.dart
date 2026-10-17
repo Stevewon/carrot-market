@@ -210,6 +210,16 @@ class _MyTabState extends State<MyTab> {
               onTap: () => context.go('/?tab=1'),
             ),
             _MenuTile(
+              icon: Icons.history_rounded,
+              title: context.l10n.recentTitle,
+              onTap: () => context.push('/recent'),
+            ),
+            _MenuTile(
+              icon: Icons.notifications_none_rounded,
+              title: context.l10n.inboxTitle,
+              onTap: () => context.push('/notifications'),
+            ),
+            _MenuTile(
               icon: Icons.chat_bubble_outline,
               title: context.l10n.myMenuChat,
               onTap: () => context.go('/?tab=2'),

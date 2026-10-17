@@ -1541,6 +1541,34 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String get homeFilterFree => '나눔';
+
+  @override
+  String get homePopularSearches => '인기 검색어';
+
+  @override
+  String get inboxTitle => '알림';
+
+  @override
+  String get inboxEmpty => '아직 알림이 없어요';
+
+  @override
+  String get inboxEmptyHint =>
+      '찜한 상품 가격 내림, 거래 확인, 거래 후기, 키워드 알림이 여기에 모여요. 30일 동안 보관돼요.';
+
+  @override
+  String get inboxLoadFailed => '알림을 불러오지 못했어요. 아래로 당겨 다시 시도해 주세요.';
+
+  @override
+  String get inboxClearConfirm => '알림을 모두 지울까요?';
+
+  @override
+  String get recentTitle => '최근 본 상품';
+
+  @override
+  String get recentEmpty => '최근 본 상품이 없어요';
+
+  @override
   String get myTabTitle => '나의 Eggplant';
 
   @override

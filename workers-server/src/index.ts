@@ -28,6 +28,8 @@ import productsRoutes from './routes/products';
 import chatRoutes, { purgeExpiredChatMedia } from './routes/chat';
 import moderationRoutes from './routes/moderation';
 import alertsRoutes from './routes/alerts';
+import notificationsRoutes from './routes/notifications';
+import { purgeOldInbox } from './utils/inbox';
 import hiddenRoutes from './routes/hidden';
 import withdrawalsRoutes from './routes/withdrawals';
 import referralsRoutes from './routes/referrals';
@@ -80,6 +82,7 @@ app.route('/api/products', productsRoutes);
 app.route('/api/chat', chatRoutes);
 app.route('/api/moderation', moderationRoutes);
 app.route('/api/alerts', alertsRoutes);
+app.route('/api/notifications', notificationsRoutes);
 app.route('/api/hidden', hiddenRoutes);
 app.route('/api/withdrawals', withdrawalsRoutes);
 app.route('/api/referrals', referralsRoutes);
@@ -185,6 +188,11 @@ export default {
           .then((n) => { if (n) console.log('[cron] chat-media purged', n); })
           .catch((e) => console.error('[cron] chat-media purge failed', e)),
       );
+    }
+    // 하루 한 번(UTC 18:00 = 한국 새벽 3시): 30일 지난 알림·검색어 집계 삭제.
+    const at = new Date(event.scheduledTime);
+    if (at.getUTCHours() === 18 && at.getUTCMinutes() === 0) {
+      ctx.waitUntil(purgeOldInbox(env).catch((e) => console.error('[cron] inbox purge failed', e)));
     }
     ctx.waitUntil(
       processReceiveSends(env)

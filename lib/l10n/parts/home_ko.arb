@@ -177,5 +177,14 @@
   "homeFilterClear": "필터 지우기",
   "homeAllMyRegions": "내 동네 전체",
   "homeAllMyRegionsCount": "내 동네 {count}곳",
-  "@homeAllMyRegionsCount": {"placeholders":{"count":{"type":"int"}}}
+  "@homeAllMyRegionsCount": {"placeholders":{"count":{"type":"int"}}},
+  "homeFilterFree": "나눔",
+  "homePopularSearches": "인기 검색어",
+  "inboxTitle": "알림",
+  "inboxEmpty": "아직 알림이 없어요",
+  "inboxEmptyHint": "찜한 상품 가격 내림, 거래 확인, 거래 후기, 키워드 알림이 여기에 모여요. 30일 동안 보관돼요.",
+  "inboxLoadFailed": "알림을 불러오지 못했어요. 아래로 당겨 다시 시도해 주세요.",
+  "inboxClearConfirm": "알림을 모두 지울까요?",
+  "recentTitle": "최근 본 상품",
+  "recentEmpty": "최근 본 상품이 없어요"
 }

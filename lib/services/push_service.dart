@@ -35,6 +35,7 @@ import '../app/l10n.dart';
 import 'api_client.dart';
 import 'auth_service.dart';
 import 'launcher_badge.dart';
+import 'inbox_service.dart';
 
 /// ★ 7차 푸시(이슈 1/2/3 통합): background isolate 와 main isolate 가 공유하는
 /// pending push 큐 SharedPreferences 키. JSON 배열 (최대 50개).
@@ -448,6 +449,10 @@ class PushService extends ChangeNotifier {
   Future<void> _handleForeground(RemoteMessage message) async {
     final data = message.data;
     final type = data['type']?.toString();
+    // 알림함에 들어가는 알림이면 종 아이콘 숫자를 다시 센다.
+    if (const {'price_drop', 'purchase_confirm', 'review_request', 'review_received'}.contains(type)) {
+      InboxService.ping();
+    }
     // ★ v1.0.142 (Eggplant native call port):
     //   포그라운드에서 type='incoming_call' 푸시가 들어오면 native FCM
     //   서비스가 Route 1 (foreground) 분기로 처리 — 알림만 띄우고 ChatService

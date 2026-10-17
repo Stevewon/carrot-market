@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Env, ProductResponse, ProductRow, UserRow, Variables } from '../types';
 import { authMiddleware, optionalAuth } from '../jwt';
 import { sendFcm } from '../utils/fcm';
+import { addNotifications } from '../utils/inbox';
 import {
   grantTradeBonus,
   payTrade,
@@ -172,8 +173,17 @@ app.get('/', optionalAuth, async (c) => {
     params.push(...regions);
   }
   if (search) {
+    // 인기 검색어 집계 — 첫 페이지 검색만, 누가 검색했는지는 남기지 않는다.
+    if (offset === 0) {
+      const term = popularTerm(search);
+      if (term) c.executionCtx.waitUntil(countSearchTerm(c.env, market, term).catch((e) => console.error('[search] count failed', e)));
+    }
     conditions.push('(title LIKE ? OR description LIKE ?)');
     params.push(`%${search}%`, `%${search}%`);
+  }
+  // 나눔만 보기 (0원)
+  if (c.req.query('free') === '1') {
+    conditions.push('price = 0');
   }
   // 거래 가능만 보기 (판매완료 빼기)
   if (c.req.query('available') === '1') {
@@ -280,6 +290,49 @@ app.get('/', optionalAuth, async (c) => {
 });
 
 /** GET /api/products/my/likes */
+/** 인기 검색어로 셀 수 있는 검색어로 다듬는다. 연락처·링크·금지어·너무 짧거나 긴 말은 null. */
+function popularTerm(raw: string): string | null {
+  const t = raw.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (t.length < 2 || t.length > 20) return null;
+  if (/\d{5,}|@|https?:|www\.|\.com|[<>]/.test(t)) return null;
+  if (checkProductText({ title: t }).action !== 'allow') return null;
+  return t;
+}
+
+async function countSearchTerm(env: Env, market: string, term: string): Promise<void> {
+  await env.DB
+    .prepare(
+      `INSERT INTO search_terms (market, term, day, count) VALUES (?, ?, date('now'), 1)
+       ON CONFLICT(market, term, day) DO UPDATE SET count = count + 1`,
+    )
+    .bind(market, term)
+    .run();
+}
+
+/**
+ * GET /api/products/popular-terms — 최근 7일 인기 검색어 10개 (내 시장).
+ * 두 번 이상 검색된 말만, 금지어는 보여줄 때도 한 번 더 거른다.
+ */
+app.get('/popular-terms', optionalAuth, async (c) => {
+  const viewer = c.get('user');
+  let market: Market = requestMarket(c);
+  if (viewer) {
+    const m = await c.env.DB.prepare('SELECT market FROM users WHERE id = ?').bind(viewer.id).first<{ market: string | null }>();
+    market = normalizeMarket(m?.market) ?? market;
+  }
+  const rs = await c.env.DB
+    .prepare(
+      `SELECT term, SUM(count) AS n FROM search_terms
+        WHERE market = ? AND day >= date('now', '-7 days')
+        GROUP BY term HAVING n >= 2
+        ORDER BY n DESC, term ASC LIMIT 30`,
+    )
+    .bind(market)
+    .all<{ term: string; n: number }>();
+  const terms = (rs.results || []).map((r) => r.term).filter((t) => popularTerm(t) === t).slice(0, 10);
+  return c.json({ terms });
+});
+
 app.get('/my/likes', authMiddleware, async (c) => {
   const user = c.get('user')!;
   const rs = await c.env.DB
@@ -925,26 +978,37 @@ ${nextMeet}` : nextDesc, category: nextCategory });
       (async () => {
         const rs = await c.env.DB
           .prepare(
-            `SELECT u.fcm_token, u.market FROM product_likes l
+            `SELECT u.id, u.fcm_token, u.market FROM product_likes l
                JOIN users u ON u.id = l.user_id
               WHERE l.product_id = ? AND l.user_id != ?
-                AND u.fcm_token IS NOT NULL AND u.fcm_token != ''
                 AND l.user_id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = ?)
               LIMIT 500`,
           )
           .bind(id, user.id, user.id)
-          .all<{ fcm_token: string; market: string | null }>();
+          .all<{ id: string; fcm_token: string | null; market: string | null }>();
         const pm: Market = normalizeMarket(row.market) ?? 'kr';
         const money = (n: number) => {
           const s = n.toLocaleString('en-US');
           return pm === 'jp' ? `¥${s}` : pm === 'ph' ? `₱${s}` : `${s}원`;
         };
+        const priceThumb = (() => { try { const k = JSON.parse(row.images || '[]')[0]; return k ? `/uploads/${k}` : null; } catch { return null; } })();
+        const tl = (pl: Lang) => trl(pl, '찜한 상품의 가격이 내려갔어요', 'お気に入りの商品が値下げされました', 'A saved item dropped in price');
+        const body = `${nextTitle} · ${money(row.price)} → ${money(newPrice)}`;
+        await addNotifications(c.env, (rs.results || []).map((r) => ({
+          userId: r.id,
+          type: 'price_drop',
+          title: tl(marketLang(normalizeMarket(r.market))),
+          body,
+          productId: id,
+          thumb: priceThumb,
+        }))).catch((e) => console.error('[products.patch] price drop inbox failed', e));
         for (const r of rs.results || []) {
+          if (!r.fcm_token) continue;
           const pl: Lang = marketLang(normalizeMarket(r.market));
           await sendFcm(c.env, {
             fcmToken: r.fcm_token,
-            title: trl(pl, '찜한 상품의 가격이 내려갔어요', 'お気に入りの商品が値下げされました', 'A saved item dropped in price'),
-            body: `${nextTitle} · ${money(row.price)} → ${money(newPrice)}`,
+            title: tl(pl),
+            body,
             data: { type: 'price_drop', product_id: id },
           }).catch((e) => console.error('[products.patch] price drop push failed', e));
         }
@@ -1061,13 +1125,19 @@ app.put('/:id/status', authMiddleware, async (c) => {
       .prepare('SELECT fcm_token, market FROM users WHERE id = ?')
       .bind(buyerId)
       .first<{ fcm_token: string | null; market: string | null }>();
+    const pl: Lang = marketLang(normalizeMarket(buyerToken?.market));
+    const title = trl(pl, '거래 확인 요청', '取引確認のお願い', 'Please confirm your deal');
+    const msg = trl(pl, '판매자가 거래완료로 표시했어요. 거래를 확인하고 거래 후기를 남겨주세요', '出品者が取引完了にしました。取引を確認して、評価をお願いします', 'The seller marked the deal as complete. Please confirm it and leave a review');
+    c.executionCtx.waitUntil(
+      addNotifications(c.env, [{ userId: buyerId, type: 'purchase_confirm', title, body: msg, productId: id }])
+        .catch((e) => console.error('[products/status] buyer inbox failed', e)),
+    );
     if (buyerToken?.fcm_token) {
-      const pl: Lang = marketLang(normalizeMarket(buyerToken.market));
       c.executionCtx.waitUntil(
         sendFcm(c.env, {
           fcmToken: buyerToken.fcm_token,
-          title: trl(pl, '거래 확인 요청', '取引確認のお願い', 'Please confirm your deal'),
-          body: trl(pl, '판매자가 거래완료로 표시했어요. 거래를 확인하고 거래 후기를 남겨주세요', '出品者が取引完了にしました。取引を確認して、評価をお願いします', 'The seller marked the deal as complete. Please confirm it and leave a review'),
+          title,
+          body: msg,
           data: { type: 'purchase_confirm', product_id: id },
         }).catch((e) => console.error('[products/status] buyer push failed', e)),
       );
@@ -1343,7 +1413,7 @@ app.post('/:id/review', authMiddleware, async (c) => {
   // 받은 사람에게 알림 — "OO님이 거래 후기를 보냈어요". 'bad' 는 공개되지 않는 평가라 알리지 않는다.
   // 받은 사람이 아직 후기를 안 썼으면 상품 상세(후기 보내기 버튼)로, 썼으면 내 프로필(받은 후기)로.
   // 받은 사람이 나를 차단했으면 보내지 않는다.
-  if (rating !== 'bad' && reviewee.fcm_token) {
+  if (rating !== 'bad') {
     c.executionCtx.waitUntil(
       (async () => {
         const [me, blocked, theirs] = await Promise.all([
@@ -1354,12 +1424,18 @@ app.post('/:id/review', authMiddleware, async (c) => {
         if (blocked) return;
         const pl: Lang = marketLang(normalizeMarket(reviewee.market));
         const nick = me?.nickname || trl(pl, '거래 상대', '取引相手', 'Your trade partner');
+        const title = trl(pl, `${nick}님이 거래 후기를 보냈어요`, `${nick}さんから取引の評価が届きました`, `${nick} sent you a review`);
+        const body = theirs
+          ? trl(pl, '내 프로필에서 받은 후기를 확인해보세요', 'プロフィールで受け取った評価を確認しましょう', 'Check the review on your profile')
+          : trl(pl, '나도 거래 후기를 남겨주세요', 'あなたも取引の評価をしましょう', 'Leave a review for them too');
+        await addNotifications(c.env, [theirs
+          ? { userId: revieweeId!, type: 'review_received', title, body, targetUserId: revieweeId! }
+          : { userId: revieweeId!, type: 'review_request', title, body, productId: id }]);
+        if (!reviewee.fcm_token) return;
         await sendFcm(c.env, {
-          fcmToken: reviewee.fcm_token!,
-          title: trl(pl, `${nick}님이 거래 후기를 보냈어요`, `${nick}さんから取引の評価が届きました`, `${nick} sent you a review`),
-          body: theirs
-            ? trl(pl, '내 프로필에서 받은 후기를 확인해보세요', 'プロフィールで受け取った評価を確認しましょう', 'Check the review on your profile')
-            : trl(pl, '나도 거래 후기를 남겨주세요', 'あなたも取引の評価をしましょう', 'Leave a review for them too'),
+          fcmToken: reviewee.fcm_token,
+          title,
+          body,
           data: theirs
             ? { type: 'review_received', user_id: revieweeId! }
             : { type: 'review_request', product_id: id },

@@ -94,5 +94,14 @@
   "homeFilterClear": "フィルターを解除",
   "homeAllMyRegions": "マイエリアすべて",
   "homeAllMyRegionsCount": "マイエリア {count}か所",
-  "@homeAllMyRegionsCount": {"placeholders":{"count":{"type":"int"}}}
+  "@homeAllMyRegionsCount": {"placeholders":{"count":{"type":"int"}}},
+  "homeFilterFree": "無料",
+  "homePopularSearches": "人気キーワード",
+  "inboxTitle": "お知らせ",
+  "inboxEmpty": "まだお知らせはありません",
+  "inboxEmptyHint": "お気に入りの値下げ、取引確認、取引の評価、キーワード通知がここに届きます。30日間保存されます。",
+  "inboxLoadFailed": "お知らせを読み込めませんでした。下に引っ張ってもう一度お試しください。",
+  "inboxClearConfirm": "お知らせをすべて削除しますか？",
+  "recentTitle": "最近見た商品",
+  "recentEmpty": "最近見た商品はありません"
 }

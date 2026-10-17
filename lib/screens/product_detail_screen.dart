@@ -23,6 +23,7 @@ import '../services/product_service.dart';
 import '../services/qta_service.dart';
 import '../services/moderation_service.dart';
 import '../services/hidden_products_service.dart';
+import '../services/recent_viewed_service.dart';
 import '../widgets/review_sheet.dart';
 import 'profile_verify_screen.dart';
 
@@ -150,6 +151,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       _loadMyReview();
       // ignore: discarded_futures
       _loadRelated(p);
+      // 최근 본 상품 (이 폰에만). 내 상품은 넣지 않는다.
+      if (p.sellerId != context.read<AuthService>().user?.id) {
+        // ignore: discarded_futures
+        context.read<RecentViewedService>().add(p);
+      }
 
       debugPrint('[GAJI_DETAIL] body widget rendered=true');
     } on TimeoutException {

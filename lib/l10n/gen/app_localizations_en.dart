@@ -1615,6 +1615,35 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get homeFilterFree => 'Free';
+
+  @override
+  String get homePopularSearches => 'Popular searches';
+
+  @override
+  String get inboxTitle => 'Notifications';
+
+  @override
+  String get inboxEmpty => 'No notifications yet';
+
+  @override
+  String get inboxEmptyHint =>
+      'Price drops on saved items, deal confirmations, reviews and keyword alerts show up here. Kept for 30 days.';
+
+  @override
+  String get inboxLoadFailed =>
+      'Couldn\'t load notifications. Pull down to try again.';
+
+  @override
+  String get inboxClearConfirm => 'Delete all notifications?';
+
+  @override
+  String get recentTitle => 'Recently viewed';
+
+  @override
+  String get recentEmpty => 'No recently viewed items';
+
+  @override
   String get myTabTitle => 'My Eggplant';
 
   @override

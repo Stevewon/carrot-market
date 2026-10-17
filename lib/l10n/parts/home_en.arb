@@ -94,5 +94,14 @@
   "homeFilterClear": "Clear filters",
   "homeAllMyRegions": "All my areas",
   "homeAllMyRegionsCount": "My {count} areas",
-  "@homeAllMyRegionsCount": {"placeholders":{"count":{"type":"int"}}}
+  "@homeAllMyRegionsCount": {"placeholders":{"count":{"type":"int"}}},
+  "homeFilterFree": "Free",
+  "homePopularSearches": "Popular searches",
+  "inboxTitle": "Notifications",
+  "inboxEmpty": "No notifications yet",
+  "inboxEmptyHint": "Price drops on saved items, deal confirmations, reviews and keyword alerts show up here. Kept for 30 days.",
+  "inboxLoadFailed": "Couldn't load notifications. Pull down to try again.",
+  "inboxClearConfirm": "Delete all notifications?",
+  "recentTitle": "Recently viewed",
+  "recentEmpty": "No recently viewed items"
 }
