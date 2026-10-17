@@ -162,9 +162,14 @@ app.get('/', optionalAuth, async (c) => {
     conditions.push('category = ?');
     params.push(category);
   }
+  // 내 동네 여러 곳(최대 10) 한꺼번에 — regions=강남구|강동구 ('|' 로 구분, 지역 이름엔 '|' 가 없다).
+  const regions = [...new Set((c.req.query('regions') || '').split('|').map((r) => r.trim()).filter(Boolean))].slice(0, 10);
   if (region) {
     conditions.push('region = ?');
     params.push(region);
+  } else if (regions.length) {
+    conditions.push(`region IN (${regions.map(() => '?').join(',')})`);
+    params.push(...regions);
   }
   if (search) {
     conditions.push('(title LIKE ? OR description LIKE ?)');

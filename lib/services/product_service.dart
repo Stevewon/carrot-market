@@ -106,9 +106,23 @@ class ProductService extends ChangeNotifier {
     }
   }
 
+  // 마지막으로 불러온 동네 조건 — 글 올린 뒤 같은 조건으로 다시 불러올 때 쓴다.
+  String? _lastRegion;
+  List<String> _lastRegions = const [];
+
+  /// 홈 피드를 마지막 조건 그대로 다시 불러온다.
+  Future<void> refresh() => fetchProducts(
+        category: _currentCategory,
+        region: _lastRegion,
+        regions: _lastRegions,
+        search: _searchQuery.isEmpty ? null : _searchQuery,
+      );
+
+  /// [region] 이 있으면 그 동네만, 없으면 [regions] (내 동네 여러 곳) 상품을 함께 보여준다.
   Future<void> fetchProducts({
     String category = 'all',
     String? region,
+    List<String> regions = const [],
     String? search,
     int? rangeKm,
   }) async {
@@ -116,6 +130,8 @@ class ProductService extends ChangeNotifier {
     _currentCategory = category;
     _searchQuery = search ?? '';
     if (rangeKm != null) _rangeKm = rangeKm;
+    _lastRegion = region;
+    _lastRegions = regions;
     notifyListeners();
 
     try {
@@ -123,7 +139,9 @@ class ProductService extends ChangeNotifier {
         if (category != 'all') 'category': category,
         // 거리 필터가 켜져 있으면 region 단순 필터는 끈다 (반경이 더 정확함).
         if (_rangeKm == 0 && region != null && region.isNotEmpty)
-          'region': region,
+          'region': region
+        else if (_rangeKm == 0 && regions.isNotEmpty)
+          'regions': regions.join('|'),
         if (search != null && search.isNotEmpty) 'search': search,
         if (_rangeKm > 0) 'range_km': '$_rangeKm',
         if (_availableOnly) 'available': '1',
@@ -239,11 +257,7 @@ class ProductService extends ChangeNotifier {
         // Refresh caches so new product shows up on the feed and on
         // "내가 판매중인 상품" immediately.
         // Fire-and-forget; UI has already navigated away.
-        fetchProducts(
-          category: _currentCategory,
-          region: region,
-          search: _searchQuery.isEmpty ? null : _searchQuery,
-        );
+        refresh();
         fetchMyProducts(silent: true);
         return null; // success
       }

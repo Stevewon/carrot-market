@@ -6,6 +6,8 @@
   "regionNoResults": "No matching areas",
   "regionAdded": "Added {region} ({count}/{max})",
   "regionRemoved": "Removed {region} ({count}/{max})",
-  "regionMultiHint": "Tap areas below to add up to {max} · tap again to remove. Tap an area above to switch to it.",
-  "regionKeepOne": "You need at least one neighborhood"
+  "regionMultiHint": "Pick up to {max} areas, then tap Confirm below. Tap again to remove.",
+  "regionKeepOne": "You need at least one neighborhood",
+  "regionConfirm": "Confirm ({count}/{max})",
+  "@regionConfirm": {"placeholders":{"count":{"type":"int"},"max":{"type":"int"}}}
 }

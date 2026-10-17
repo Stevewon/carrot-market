@@ -43,7 +43,10 @@ class _FeedTabState extends State<FeedTab> {
     super.dispose();
   }
 
-  /// 내 동네 목록 (최대 10곳) — 바꾸기 · 추가 · 삭제.
+  /// true 면 내 동네 여러 곳 상품을 함께, false 면 지금 동네(user.region) 상품만.
+  bool _allRegions = true;
+
+  /// 내 동네 목록 (최대 10곳) — 전체 · 바꾸기 · 추가 · 삭제.
   Future<void> _openMyRegions() async {
     final picked = await showModalBottomSheet<String>(
       context: context,
@@ -51,12 +54,16 @@ class _FeedTabState extends State<FeedTab> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => const _MyRegionsSheet(),
+      builder: (_) => _MyRegionsSheet(allSelected: _allRegions),
     );
     if (!mounted) return;
     if (picked == '+') {
       await context.push('/region');
       if (!mounted) return;
+      // 동네를 새로 골랐으면 고른 동네 상품이 모두 보이게.
+      setState(() => _allRegions = true);
+    } else if (picked != null) {
+      setState(() => _allRegions = picked == '*');
     }
     _load();
   }
@@ -64,9 +71,12 @@ class _FeedTabState extends State<FeedTab> {
   void _load() {
     final auth = context.read<AuthService>();
     final productSvc = context.read<ProductService>();
+    final mine = auth.user?.regions ?? const <String>[];
+    final all = _allRegions && mine.length > 1;
     productSvc.fetchProducts(
       category: _category,
-      region: auth.user?.region,
+      region: all ? null : auth.user?.region,
+      regions: all ? mine : const [],
       search: _searchCtl.text.isEmpty ? null : _searchCtl.text,
       // 동네 인증된 사용자에 한해 현재 슬라이더 값 유지.
       rangeKm: (auth.user?.isRegionVerified ?? false) ? productSvc.rangeKm : 0,
@@ -122,12 +132,18 @@ class _FeedTabState extends State<FeedTab> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        auth.user?.region ?? context.l10n.homeSetRegion,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: EggplantColors.textPrimary,
+                      Flexible(
+                        child: Text(
+                          _allRegions && (auth.user?.regions.length ?? 0) > 1
+                              ? context.l10n.homeAllMyRegionsCount(auth.user!.regions.length)
+                              : auth.user?.region ?? context.l10n.homeSetRegion,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: EggplantColors.textPrimary,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 2),
@@ -969,7 +985,8 @@ class _EmptyView extends StatelessWidget {
 /// 내 동네 목록 시트. 누르면 그 동네로 바꾸고, ✕ 로 빼고, 아래 버튼으로 추가.
 /// 닫힐 때 '+' 를 돌려주면 동네 추가 화면으로 간다.
 class _MyRegionsSheet extends StatelessWidget {
-  const _MyRegionsSheet();
+  final bool allSelected;
+  const _MyRegionsSheet({required this.allSelected});
 
   static const int maxRegions = 10;
 
@@ -979,6 +996,8 @@ class _MyRegionsSheet extends StatelessWidget {
     final user = auth.user;
     final regions = user?.regions ?? const <String>[];
     final active = user?.region;
+    // 전체 보기 중이면 동네 한 곳에 표시하지 않는다.
+    final oneSelected = !(allSelected && regions.length > 1);
 
     Future<void> show(String? err) async {
       if (err != null && context.mounted) {
@@ -1003,17 +1022,31 @@ class _MyRegionsSheet extends StatelessWidget {
               child: ListView(
                 shrinkWrap: true,
                 children: [
+                  if (regions.length > 1)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        allSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                        color: allSelected ? EggplantColors.primary : EggplantColors.textTertiary,
+                      ),
+                      title: Text('${context.l10n.homeAllMyRegions} (${regions.length})',
+                          style: TextStyle(
+                            fontWeight: allSelected ? FontWeight.w800 : FontWeight.w500,
+                            color: allSelected ? EggplantColors.primary : EggplantColors.textPrimary,
+                          )),
+                      onTap: () => Navigator.pop(context, '*'),
+                    ),
                   for (final r in regions)
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(
-                        r == active ? Icons.radio_button_checked : Icons.radio_button_off,
-                        color: r == active ? EggplantColors.primary : EggplantColors.textTertiary,
+                        (oneSelected && r == active) ? Icons.radio_button_checked : Icons.radio_button_off,
+                        color: (oneSelected && r == active) ? EggplantColors.primary : EggplantColors.textTertiary,
                       ),
                       title: Text(r,
                           style: TextStyle(
-                            fontWeight: r == active ? FontWeight.w800 : FontWeight.w500,
-                            color: r == active ? EggplantColors.primary : EggplantColors.textPrimary,
+                            fontWeight: (oneSelected && r == active) ? FontWeight.w800 : FontWeight.w500,
+                            color: (oneSelected && r == active) ? EggplantColors.primary : EggplantColors.textPrimary,
                           )),
                       trailing: regions.length > 1
                           ? IconButton(

@@ -24,7 +24,7 @@
       }
     }
   },
-  "homeMyRegionsHint": "보고 싶은 동네를 누르면 바로 바뀌어요.",
+  "homeMyRegionsHint": "전체를 누르면 내 동네 상품이 모두 보이고, 동네를 누르면 그 동네 상품만 보여요.",
   "homeRemoveRegion": "이 동네 빼기",
   "homeMaxRegions": "최대 {max}곳까지 설정할 수 있어요",
   "@homeMaxRegions": {
@@ -174,5 +174,8 @@
   "homePriceApply": "적용하기",
   "homePriceInvalid": "최소 가격이 최대 가격보다 커요",
   "homeFilterNoResult": "조건에 맞는 상품이 없어요",
-  "homeFilterClear": "필터 지우기"
+  "homeFilterClear": "필터 지우기",
+  "homeAllMyRegions": "내 동네 전체",
+  "homeAllMyRegionsCount": "내 동네 {count}곳",
+  "@homeAllMyRegionsCount": {"placeholders":{"count":{"type":"int"}}}
 }

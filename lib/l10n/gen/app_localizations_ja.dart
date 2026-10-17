@@ -1280,7 +1280,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get homeMyRegionsHint => '見たい地域をタップするとすぐに切り替わります。';
+  String get homeMyRegionsHint => '「すべて」でマイエリアの商品をまとめて、地域をタップするとその地域だけ表示します。';
 
   @override
   String get homeRemoveRegion => 'この地域を外す';
@@ -1532,6 +1532,14 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get homeFilterClear => 'フィルターを解除';
+
+  @override
+  String get homeAllMyRegions => 'マイエリアすべて';
+
+  @override
+  String homeAllMyRegionsCount(int count) {
+    return 'マイエリア $countか所';
+  }
 
   @override
   String get myTabTitle => 'マイページ';
@@ -3093,11 +3101,16 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String regionMultiHint(int max) {
-    return '下のリストをタップして最大$maxか所まで追加・もう一度タップで外れます。上の地域をタップするとその地域に切り替わります。';
+    return '見たい地域を最大$maxか所まですべて選んでから、下の確認を押してください。もう一度タップで外れます。';
   }
 
   @override
   String get regionKeepOne => '地域は1か所以上必要です';
+
+  @override
+  String regionConfirm(int count, int max) {
+    return '確認（$count/$max）';
+  }
 
   @override
   String reviewQuestion(String nickname) {

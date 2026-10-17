@@ -58,19 +58,19 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('내 동네 1/10'), findsOneWidget);
 
-    // 목록에서 두 곳 더 누르면 추가 (화면은 그대로).
+    // 목록에서 두 곳 더 누르면 고른 목록에만 들어가고, 화면도 그대로 · 저장은 아직 안 된다.
     await t.tap(find.widgetWithText(ListTile, '서울 강동구'));
     await t.pumpAndSettle();
     await t.tap(find.widgetWithText(ListTile, '서울 강북구'));
     await t.pumpAndSettle();
-    expect(auth.user!.regions, ['서울 강남구', '서울 강동구', '서울 강북구']);
     expect(find.text('내 동네 3/10'), findsOneWidget);
     expect(find.byType(RegionSelectScreen), findsOneWidget);
+    expect(auth.user!.regions, ['서울 강남구']);
 
     // 다시 누르면 빠진다.
     await t.tap(find.widgetWithText(ListTile, '서울 강동구'));
     await t.pumpAndSettle();
-    expect(auth.user!.regions, ['서울 강남구', '서울 강북구']);
+    expect(find.text('내 동네 2/10'), findsOneWidget);
 
     // 10곳까지 채우고, 11번째는 막힌다.
     for (final r in ['서울 강서구', '서울 관악구', '서울 광진구', '서울 구로구', '서울 금천구', '서울 노원구', '서울 도봉구', '서울 동대문구']) {
@@ -78,12 +78,19 @@ void main() {
       await t.tap(find.widgetWithText(ListTile, r));
       await t.pumpAndSettle();
     }
-    expect(auth.user!.regions.length, 10);
     expect(find.text('내 동네 10/10'), findsOneWidget);
     await t.ensureVisible(find.widgetWithText(ListTile, '서울 동작구'));
     await t.tap(find.widgetWithText(ListTile, '서울 동작구'));
     await t.pumpAndSettle();
+    expect(find.text('내 동네 10/10'), findsOneWidget);
+    expect(auth.user!.regions, ['서울 강남구']);
+
+    // 확인을 눌러야 한 번에 저장된다.
+    await t.tap(find.text('확인 (10/10)'));
+    await t.pumpAndSettle();
     expect(auth.user!.regions.length, 10);
+    expect(auth.user!.regions.contains('서울 강북구'), true);
     expect(auth.user!.regions.contains('서울 동작구'), false);
+    expect(auth.user!.region, '서울 강남구');
   });
 }

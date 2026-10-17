@@ -139,7 +139,11 @@ void main() {
         scrollable: find.byType(Scrollable).last);
     await t.tap(find.widgetWithText(ListTile, 'Cebu City'));
     await t.pumpAndSettle();
+    // 확인을 눌러야 저장된다. 기본 동네는 원래 동네 그대로.
+    expect(auth.user!.regions, ['Metro Manila · Makati City']);
+    await t.tap(find.text('확인 (2/10)'));
+    await t.pumpAndSettle();
     expect(auth.user!.regions, ['Metro Manila · Makati City', 'Cebu · Cebu City']);
-    expect(auth.user!.region, 'Cebu · Cebu City');
+    expect(auth.user!.region, 'Metro Manila · Makati City');
   });
 }

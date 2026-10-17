@@ -449,7 +449,7 @@ class _ProductCreateScreenState extends State<ProductCreateScreen> {
         ),
       );
       if (reward > 0) context.read<QtaService>().load(force: true);
-      context.read<ProductService>().fetchProducts(region: auth.user!.region);
+      context.read<ProductService>().refresh();
       context.pop();
     }
   }

@@ -14,7 +14,7 @@
   "homeFirstProduct": "Be the first to post a listing!",
   "homeRefresh": "Refresh",
   "homeMyRegionsTitle": "My neighborhoods {count}/{max}",
-  "homeMyRegionsHint": "Tap a neighborhood to switch to it right away.",
+  "homeMyRegionsHint": "Tap All to see every area you picked, or one area to see only that one.",
   "homeRemoveRegion": "Remove this neighborhood",
   "homeMaxRegions": "You can add up to {max} neighborhoods",
   "homeAddRegion": "Add a neighborhood",
@@ -91,5 +91,8 @@
   "homePriceApply": "Apply",
   "homePriceInvalid": "Min price is higher than max price",
   "homeFilterNoResult": "No items match your filters",
-  "homeFilterClear": "Clear filters"
+  "homeFilterClear": "Clear filters",
+  "homeAllMyRegions": "All my areas",
+  "homeAllMyRegionsCount": "My {count} areas",
+  "@homeAllMyRegionsCount": {"placeholders":{"count":{"type":"int"}}}
 }

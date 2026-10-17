@@ -1349,7 +1349,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeMyRegionsHint =>
-      'Tap a neighborhood to switch to it right away.';
+      'Tap All to see every area you picked, or one area to see only that one.';
 
   @override
   String get homeRemoveRegion => 'Remove this neighborhood';
@@ -1605,6 +1605,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeFilterClear => 'Clear filters';
+
+  @override
+  String get homeAllMyRegions => 'All my areas';
+
+  @override
+  String homeAllMyRegionsCount(int count) {
+    return 'My $count areas';
+  }
 
   @override
   String get myTabTitle => 'My Eggplant';
@@ -3238,11 +3246,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String regionMultiHint(int max) {
-    return 'Tap areas below to add up to $max · tap again to remove. Tap an area above to switch to it.';
+    return 'Pick up to $max areas, then tap Confirm below. Tap again to remove.';
   }
 
   @override
   String get regionKeepOne => 'You need at least one neighborhood';
+
+  @override
+  String regionConfirm(int count, int max) {
+    return 'Confirm ($count/$max)';
+  }
 
   @override
   String reviewQuestion(String nickname) {

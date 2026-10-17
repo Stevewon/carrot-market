@@ -1278,7 +1278,8 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get homeMyRegionsHint => '보고 싶은 동네를 누르면 바로 바뀌어요.';
+  String get homeMyRegionsHint =>
+      '전체를 누르면 내 동네 상품이 모두 보이고, 동네를 누르면 그 동네 상품만 보여요.';
 
   @override
   String get homeRemoveRegion => '이 동네 빼기';
@@ -1530,6 +1531,14 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get homeFilterClear => '필터 지우기';
+
+  @override
+  String get homeAllMyRegions => '내 동네 전체';
+
+  @override
+  String homeAllMyRegionsCount(int count) {
+    return '내 동네 $count곳';
+  }
 
   @override
   String get myTabTitle => '나의 Eggplant';
@@ -3093,11 +3102,16 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String regionMultiHint(int max) {
-    return '아래 목록에서 눌러 최대 $max곳까지 추가 · 다시 누르면 빠져요. 위 동네를 누르면 그 동네로 바뀌어요.';
+    return '보고 싶은 동네를 최대 $max곳까지 모두 고른 뒤 아래 확인을 누르세요. 다시 누르면 빠져요.';
   }
 
   @override
   String get regionKeepOne => '동네는 한 곳 이상 있어야 해요';
+
+  @override
+  String regionConfirm(int count, int max) {
+    return '확인 ($count/$max)';
+  }
 
   @override
   String reviewQuestion(String nickname) {

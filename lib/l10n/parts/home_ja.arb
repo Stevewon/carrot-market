@@ -14,7 +14,7 @@
   "homeFirstProduct": "最初の商品を出品してみましょう!",
   "homeRefresh": "更新",
   "homeMyRegionsTitle": "マイエリア {count}/{max}",
-  "homeMyRegionsHint": "見たい地域をタップするとすぐに切り替わります。",
+  "homeMyRegionsHint": "「すべて」でマイエリアの商品をまとめて、地域をタップするとその地域だけ表示します。",
   "homeRemoveRegion": "この地域を外す",
   "homeMaxRegions": "最大{max}か所まで設定できます",
   "homeAddRegion": "地域を追加する",
@@ -91,5 +91,8 @@
   "homePriceApply": "適用する",
   "homePriceInvalid": "最低価格が最高価格より高くなっています",
   "homeFilterNoResult": "条件に合う商品がありません",
-  "homeFilterClear": "フィルターを解除"
+  "homeFilterClear": "フィルターを解除",
+  "homeAllMyRegions": "マイエリアすべて",
+  "homeAllMyRegionsCount": "マイエリア {count}か所",
+  "@homeAllMyRegionsCount": {"placeholders":{"count":{"type":"int"}}}
 }

@@ -18,7 +18,9 @@
   "@regionAdded": {"placeholders":{"region":{"type":"String"},"count":{"type":"int"},"max":{"type":"int"}}},
   "regionRemoved": "{region} 뺐어요 ({count}/{max})",
   "@regionRemoved": {"placeholders":{"region":{"type":"String"},"count":{"type":"int"},"max":{"type":"int"}}},
-  "regionMultiHint": "아래 목록에서 눌러 최대 {max}곳까지 추가 · 다시 누르면 빠져요. 위 동네를 누르면 그 동네로 바뀌어요.",
+  "regionMultiHint": "보고 싶은 동네를 최대 {max}곳까지 모두 고른 뒤 아래 확인을 누르세요. 다시 누르면 빠져요.",
   "@regionMultiHint": {"placeholders":{"max":{"type":"int"}}},
-  "regionKeepOne": "동네는 한 곳 이상 있어야 해요"
+  "regionKeepOne": "동네는 한 곳 이상 있어야 해요",
+  "regionConfirm": "확인 ({count}/{max})",
+  "@regionConfirm": {"placeholders":{"count":{"type":"int"},"max":{"type":"int"}}}
 }

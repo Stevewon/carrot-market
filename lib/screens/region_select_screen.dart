@@ -26,6 +26,24 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
   /// 2단계 선택(일본 都道府県 / 필리핀 Province)에서 고른 상위 지역. null 이면 상위 지역 목록 단계.
   String? _pref;
 
+  /// 고르는 중인 내 동네 — 확인을 눌러야 서버에 저장된다 (한 곳 누를 때마다 저장·이동하지 않게).
+  List<String> _sel = const [];
+  String? _active;
+  bool _loaded = false;
+  bool _saving = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_loaded) return;
+    final user = context.read<AuthService>().user;
+    if (user == null) return;
+    _loaded = true;
+    _sel = [...user.regions];
+    if (_sel.isEmpty && user.region != null) _sel = [user.region!];
+    _active = user.region;
+  }
+
   @override
   void dispose() {
     _searchCtl.dispose();
@@ -228,35 +246,67 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
       ..showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
   }
 
-  /// 동네 누르기 — 내 동네 목록에 있으면 빼고, 없으면 추가하고 그 동네로 바꾼다 (최대 10곳).
-  /// 화면은 닫지 않는다 — 여러 곳을 연달아 고를 수 있게.
-  Future<void> _pick(AuthService auth, String r) async {
-    final user = auth.user;
-    final mine = user?.regions ?? const <String>[];
-    if (mine.contains(r)) {
-      if (mine.length <= 1) {
+  /// 동네 누르기 — 고른 목록에 있으면 빼고, 없으면 넣는다 (최대 10곳). 저장은 아래 확인 버튼에서 한 번에.
+  void _pick(String r) {
+    if (_sel.contains(r)) {
+      if (_sel.length <= 1) {
         _toast(context.l10n.regionKeepOne);
         return;
       }
-      final next = [...mine]..remove(r);
-      final err = await auth.setRegions(next, active: r == user?.region ? next.first : user?.region);
-      if (!mounted) return;
-      _toast(err ?? context.l10n.regionRemoved(r, next.length, _maxRegions));
+      setState(() {
+        _sel = [..._sel]..remove(r);
+        if (_active == r) _active = _sel.first;
+      });
       return;
     }
-    if (mine.length >= _maxRegions) {
+    if (_sel.length >= _maxRegions) {
       _toast(context.l10n.homeMaxRegions(_maxRegions));
       return;
     }
-    final err = await auth.updateRegion(r);
-    if (!mounted) return;
-    _toast(err ?? context.l10n.regionAdded(r, (auth.user?.regions.length ?? mine.length + 1), _maxRegions));
+    setState(() {
+      _sel = [..._sel, r];
+      _active ??= r;
+    });
   }
 
-  /// 위쪽 "내 동네 n/10" — 누르면 그 동네로 바꾸고, ✕ 로 뺀다.
-  Widget _myRegions(AuthService auth) {
-    final user = auth.user;
-    final mine = user?.regions ?? const <String>[];
+  /// 확인 — 고른 동네를 한 번에 저장하고 화면을 닫는다.
+  Future<void> _confirm(AuthService auth) async {
+    if (_saving || _sel.isEmpty) return;
+    setState(() => _saving = true);
+    final active = _sel.contains(_active) ? _active : _sel.first;
+    final err = await auth.setRegions(_sel, active: active);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (err != null) {
+      _toast(err);
+      return;
+    }
+    if (Navigator.canPop(context)) context.pop();
+  }
+
+  Widget _confirmBar(AuthService auth) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: FilledButton(
+              onPressed: _saving || _sel.isEmpty ? null : () => _confirm(auth),
+              child: _saving
+                  ? const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(context.l10n.regionConfirm(_sel.length, _maxRegions),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            ),
+          ),
+        ),
+      );
+
+  /// 위쪽 "내 동네 n/10" — 누르면 그 동네를 기본으로, ✕ 로 뺀다.
+  Widget _myRegions() {
+    final mine = _sel;
     if (mine.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -276,20 +326,15 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
               for (final r in mine)
                 InputChip(
                   label: Text(r),
-                  selected: r == user?.region,
+                  selected: r == _active,
                   showCheckmark: false,
                   selectedColor: EggplantColors.primary.withValues(alpha: 0.15),
                   labelStyle: TextStyle(
-                    fontWeight: r == user?.region ? FontWeight.w800 : FontWeight.w500,
-                    color: r == user?.region ? EggplantColors.primary : EggplantColors.textPrimary,
+                    fontWeight: r == _active ? FontWeight.w800 : FontWeight.w500,
+                    color: r == _active ? EggplantColors.primary : EggplantColors.textPrimary,
                   ),
-                  onPressed: r == user?.region
-                      ? null
-                      : () async {
-                          final err = await auth.updateRegion(r);
-                          if (mounted) _toast(err ?? context.l10n.homeRegionSet(r));
-                        },
-                  onDeleted: mine.length > 1 ? () => _pick(auth, r) : null,
+                  onPressed: r == _active ? null : () => setState(() => _active = r),
+                  onDeleted: mine.length > 1 ? () => _pick(r) : null,
                   deleteButtonTooltipMessage: context.l10n.homeRemoveRegion,
                 ),
             ],
@@ -301,8 +346,8 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
 
   /// 동네 한 줄. [region] 은 서버에 보내는 전체 이름, [label] 은 화면에 보이는 이름.
   Widget _regionTile(AuthService auth, String region, String label) {
-    final isCurrent = region == auth.user?.region;
-    final isMine = auth.user?.regions.contains(region) ?? false;
+    final isCurrent = region == _active;
+    final isMine = _sel.contains(region);
     return ListTile(
       title: Text(label,
           style: TextStyle(
@@ -313,7 +358,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
         isMine ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
         color: isMine ? EggplantColors.primary : EggplantColors.textTertiary,
       ),
-      onTap: () => _pick(auth, region),
+      onTap: () => _pick(region),
     );
   }
 
@@ -463,6 +508,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
       },
       child: Scaffold(
         appBar: AppBar(title: Text(context.l10n.homeRegionSettingsTitle)),
+        bottomNavigationBar: _confirmBar(auth),
         body: SafeArea(
           top: false,
           child: Center(
@@ -471,7 +517,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
               child: Column(
                 children: [
                   _buildVerifiedBanner(auth),
-                  _myRegions(auth),
+                  _myRegions(),
                   if (!twoStep) ..._krList(auth),
                   if (twoStep && _pref == null) ..._groupStep(auth),
                   if (twoStep && _pref != null) ..._cityStep(auth, _pref!),

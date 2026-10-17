@@ -2449,7 +2449,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeMyRegionsHint.
   ///
   /// In ko, this message translates to:
-  /// **'보고 싶은 동네를 누르면 바로 바뀌어요.'**
+  /// **'전체를 누르면 내 동네 상품이 모두 보이고, 동네를 누르면 그 동네 상품만 보여요.'**
   String get homeMyRegionsHint;
 
   /// No description provided for @homeRemoveRegion.
@@ -2913,6 +2913,18 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'필터 지우기'**
   String get homeFilterClear;
+
+  /// No description provided for @homeAllMyRegions.
+  ///
+  /// In ko, this message translates to:
+  /// **'내 동네 전체'**
+  String get homeAllMyRegions;
+
+  /// No description provided for @homeAllMyRegionsCount.
+  ///
+  /// In ko, this message translates to:
+  /// **'내 동네 {count}곳'**
+  String homeAllMyRegionsCount(int count);
 
   /// No description provided for @myTabTitle.
   ///
@@ -5774,7 +5786,7 @@ abstract class AppLocalizations {
   /// No description provided for @regionMultiHint.
   ///
   /// In ko, this message translates to:
-  /// **'아래 목록에서 눌러 최대 {max}곳까지 추가 · 다시 누르면 빠져요. 위 동네를 누르면 그 동네로 바뀌어요.'**
+  /// **'보고 싶은 동네를 최대 {max}곳까지 모두 고른 뒤 아래 확인을 누르세요. 다시 누르면 빠져요.'**
   String regionMultiHint(int max);
 
   /// No description provided for @regionKeepOne.
@@ -5782,6 +5794,12 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'동네는 한 곳 이상 있어야 해요'**
   String get regionKeepOne;
+
+  /// No description provided for @regionConfirm.
+  ///
+  /// In ko, this message translates to:
+  /// **'확인 ({count}/{max})'**
+  String regionConfirm(int count, int max);
 
   /// No description provided for @reviewQuestion.
   ///
