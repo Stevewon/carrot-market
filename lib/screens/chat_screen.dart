@@ -44,6 +44,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _ctl = TextEditingController();
   final ScrollController _scrollCtl = ScrollController();
+  ChatService? _chat;
 
   @override
   void initState() {
@@ -75,8 +76,15 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // dispose 에서는 context 로 조상을 찾으면 안 된다 → 미리 잡아 둔다.
+    _chat = context.read<ChatService>();
+  }
+
+  @override
   void dispose() {
-    context.read<ChatService>().leaveRoom(widget.roomId);
+    _chat?.leaveRoom(widget.roomId);
     _ctl.dispose();
     _scrollCtl.dispose();
     super.dispose();

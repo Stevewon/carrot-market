@@ -3189,7 +3189,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get productMeetPlaceTitle => 'Preferred meeting place';
 
   @override
-  String get productFieldMeetPlace => 'Preferred meeting place (optional)';
+  String get productFieldMeetPlace => 'Meeting place (optional)';
 
   @override
   String get productFieldMeetPlaceHint => 'e.g. SM Megamall main entrance';

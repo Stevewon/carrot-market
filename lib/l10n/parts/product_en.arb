@@ -235,7 +235,7 @@
   "productSimilar": "You might also like",
   "productSeeAll": "See all",
   "productMeetPlaceTitle": "Preferred meeting place",
-  "productFieldMeetPlace": "Preferred meeting place (optional)",
+  "productFieldMeetPlace": "Meeting place (optional)",
   "productFieldMeetPlaceHint": "e.g. SM Megamall main entrance",
   "productDraftTitle": "You have an unfinished post",
   "productDraftBody": "Do you want to continue where you left off?",
