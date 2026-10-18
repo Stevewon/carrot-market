@@ -1398,6 +1398,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'You won\'t know which coin or how much until you pick it up';
 
   @override
+  String get ctRevealTitle => 'Watch an ad to open';
+
+  @override
+  String get ctRevealBody =>
+      'Watch an ad to the end to see which coin and how many are inside — and get them.';
+
+  @override
+  String get ctRevealDeadline =>
+      'If you don\'t watch, you don\'t get it and the coin goes back on the map (decide within 10 minutes)';
+
+  @override
+  String get ctRevealWatch => 'Watch ad and open';
+
+  @override
+  String get ctRevealGiveUp => 'Give up (coin goes back on the map)';
+
+  @override
   String get ctEmptyTitle => 'Empty!';
 
   @override

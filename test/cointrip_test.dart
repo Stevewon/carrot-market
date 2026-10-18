@@ -33,6 +33,10 @@ class _Fake implements HttpClientAdapter {
           {'id': 'd2', 'precise': false, 'lat': 37.5025, 'lng': 127.0025, 'distance_m': 900, 'is_black': true, 'coin': null, 'amount': null},
         ],
       };
+    } else if (p.endsWith('/d3/pick')) {
+      body = {'ok': true, 'ad_reveal': true, 'reveal': {'id': 'rv1', 'status': 'pending', 'expires_at': '2026-10-18 12:10:00', 'ad_unit': 'x', 'ad_verify': 'client'}};
+    } else if (p == '/api/cointrip/reveals/rv1/ad-watched') {
+      body = {'ok': true, 'was_black': true, 'coin': {'id': 'k1', 'symbol': 'QKEY', 'name': 'Q', 'color': '#7C3AED'}, 'total': '7', 'mine': '7', 'shared': []};
     } else if (p.endsWith('/d2/pick')) {
       body = {'ok': true, 'dud': true, 'penalty': {'id': 'pen1', 'qta': 10, 'status': 'pending', 'expires_at': '2026-10-18 12:10:00', 'ad_unit': 'ca-app-pub-3940256099942544/5224354917', 'ad_verify': 'client'}};
     } else if (p.endsWith('/pick')) {
@@ -193,5 +197,17 @@ void main() {
     expect(svc.penalty?.id, 'pen1');
     expect(await svc.penaltyPay(r.dud!), 7);
     expect(svc.penalty, isNull);
+  });
+
+  test('블랙코인 광고 보고 열기: 광고를 보면 그제야 코인이 보이고 받는다', () async {
+    final svc = await setup();
+    const d = CtDrop(id: 'd3', lat: 37.5, lng: 127.0, precise: true, distanceM: 5, isBlack: true);
+    final r = await svc.pick(d, lat: 37.5, lng: 127.0, accuracy: 5, mocked: false);
+    expect(r.reveal?.id, 'rv1');
+    expect(svc.reveal, isNotNull);
+    final got = await svc.revealAdWatched(r.reveal!);
+    expect(got!.coin.symbol, 'QKEY');
+    expect(got.mine, '7');
+    expect(svc.reveal, isNull);
   });
 }

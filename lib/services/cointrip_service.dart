@@ -169,16 +169,32 @@ class CtPenalty {
   }
 }
 
-/// 줍기 결과 — 코인을 주웠거나, 블랙코인 꽝 ([empty], 아무것도 없음), 블랙코인 벌칙 ([dud] != null).
+/// 블랙코인 "광고 보고 열기" — 광고를 끝까지 봐야 어떤 코인이 몇 개인지 보이고 받는다.
+/// 안 보면(그만두기 · 10분 지남) 못 받고 그 코인은 지도에 다시 놓인다. [penaltyId] 자리에 [id] 를 그대로 쓴다.
+class CtReveal {
+  final String id;
+  final String adUnit;
+  final bool serverVerify;
+  const CtReveal({required this.id, required this.adUnit, required this.serverVerify});
+
+  static CtReveal? fromJson(Object? v) {
+    if (v is! Map) return null;
+    return CtReveal(id: v['id'].toString(), adUnit: (v['ad_unit'] ?? '').toString(), serverVerify: v['ad_verify'] == 'ssv');
+  }
+}
+
+/// 줍기 결과 — 코인을 주웠거나, 블랙코인 꽝 ([empty], 아무것도 없음), 블랙코인 벌칙 ([dud] != null),
+/// 블랙코인 광고 보고 열기 ([reveal] != null).
 class CtPickResult {
   final CtPenalty? dud;
+  final CtReveal? reveal;
   final bool empty;
   final bool wasBlack;
   final CtCoin coin;
   final String total;
   final String mine;
   final List<(String nickname, String amount)> shared;
-  const CtPickResult({this.dud, this.empty = false, required this.wasBlack, required this.coin, required this.total, required this.mine, required this.shared});
+  const CtPickResult({this.dud, this.reveal, this.empty = false, required this.wasBlack, required this.coin, required this.total, required this.mine, required this.shared});
 }
 
 /// 서버 datetime('now') 는 'YYYY-MM-DD HH:MM:SS' (UTC, 시간대 표시 없음).
@@ -194,9 +210,12 @@ class CtError implements Exception {
   final String? code;
   final int? distanceM;
 
-  /// code == 'dud_pending' 이면 먼저 정리해야 할 꽝.
+  /// code == 'dud_pending' 이면 먼저 정리해야 할 벌칙.
   final CtPenalty? penalty;
-  const CtError(this.message, {this.code, this.distanceM, this.penalty});
+
+  /// code == 'reveal_pending' 이면 먼저 열어야 할 블랙코인.
+  final CtReveal? reveal;
+  const CtError(this.message, {this.code, this.distanceM, this.penalty, this.reveal});
   @override
   String toString() => message;
 
@@ -205,7 +224,7 @@ class CtError implements Exception {
       final d = e.response?.data;
       if (d is Map && d['error'] != null) {
         return CtError(d['error'].toString(),
-            code: d['code']?.toString(), distanceM: (d['distance_m'] as num?)?.toInt(), penalty: CtPenalty.fromJson(d['penalty']));
+            code: d['code']?.toString(), distanceM: (d['distance_m'] as num?)?.toInt(), penalty: CtPenalty.fromJson(d['penalty']), reveal: CtReveal.fromJson(d['reveal']));
       }
     }
     return CtError(L10n.current.ctNetworkError);
@@ -233,8 +252,11 @@ class CointripService extends ChangeNotifier {
   bool introAcked = false;
   int dudPenaltyQta = 10;
 
-  /// 아직 정리 안 한 꽝 (있으면 다른 코인을 못 줍는다).
+  /// 아직 정리 안 한 벌칙 (있으면 다른 코인을 못 줍는다).
   CtPenalty? penalty;
+
+  /// 아직 안 연 "광고 보고 열기" 블랙코인 (있으면 다른 코인을 못 줍는다).
+  CtReveal? reveal;
   CtUnion? union;
 
   bool get open => _open;
@@ -260,6 +282,7 @@ class CointripService extends ChangeNotifier {
         introAcked = j['intro_acked'] == true;
         dudPenaltyQta = (j['dud_penalty_qta'] as num?)?.toInt() ?? 10;
         penalty = CtPenalty.fromJson(j['penalty']);
+        reveal = CtReveal.fromJson(j['reveal']);
         union = CtUnion.fromJson(j['union']);
       }
       _statusLoaded = true;
@@ -300,6 +323,11 @@ class CointripService extends ChangeNotifier {
       final res = await auth.api.post('/api/cointrip/drops/${d.id}/pick',
           data: {'lat': lat, 'lng': lng, 'accuracy': accuracy, 'mocked': mocked});
       final j = Map<String, dynamic>.from(res.data as Map);
+      if (j['ad_reveal'] == true) {
+        reveal = CtReveal.fromJson(j['reveal']);
+        notifyListeners();
+        return CtPickResult(reveal: reveal, wasBlack: true, coin: const CtCoin(id: '', symbol: '', name: '', color: '#111111'), total: '', mine: '', shared: const []);
+      }
       if (j['empty'] == true) {
         return const CtPickResult(empty: true, wasBlack: true, coin: CtCoin(id: '', symbol: '', name: '', color: '#111111'), total: '', mine: '', shared: []);
       }
@@ -308,7 +336,13 @@ class CointripService extends ChangeNotifier {
         notifyListeners();
         return CtPickResult(dud: penalty, wasBlack: true, coin: const CtCoin(id: '', symbol: '', name: '', color: '#111111'), total: '', mine: '', shared: const []);
       }
-      return CtPickResult(
+      return _coinResult(j);
+    } catch (e) {
+      throw CtError.from(e);
+    }
+  }
+
+  static CtPickResult _coinResult(Map<String, dynamic> j) => CtPickResult(
         wasBlack: j['was_black'] == true,
         coin: CtCoin.fromJson(Map<String, dynamic>.from(j['coin'] as Map)),
         total: (j['total'] ?? '').toString(),
@@ -318,9 +352,39 @@ class CointripService extends ChangeNotifier {
             if (s is Map) ((s['nickname'] ?? '').toString(), (s['amount'] ?? '').toString()),
         ],
       );
-    } catch (e) {
-      throw CtError.from(e);
+
+  /// 광고 보고 열기: 광고를 끝까지 봤다 → 코인을 받는다. 서버 확인(SSV) 방식이면 구글 콜백을 잠깐 기다린다.
+  /// 아직 확인이 안 되면 null.
+  Future<CtPickResult?> revealAdWatched(CtReveal rv) async {
+    for (var i = 0; i < (rv.serverVerify ? 8 : 1); i++) {
+      try {
+        final res = await auth.api.post('/api/cointrip/reveals/${rv.id}/ad-watched');
+        final j = Map<String, dynamic>.from(res.data as Map);
+        if (j['coin'] is Map) {
+          reveal = null;
+          notifyListeners();
+          return _coinResult(j);
+        }
+      } catch (e) {
+        final err = CtError.from(e);
+        if (err.code == 'settled' || err.code == 'gone') {
+          reveal = null;
+          notifyListeners();
+        }
+        throw err;
+      }
+      if (rv.serverVerify) await Future<void>.delayed(const Duration(seconds: 2));
     }
+    return null;
+  }
+
+  /// 광고 보고 열기를 그만둔다 — 코인은 지도에 다시 놓인다.
+  Future<void> revealGiveUp(CtReveal rv) async {
+    try {
+      await auth.api.post('/api/cointrip/reveals/${rv.id}/give-up');
+    } catch (_) {}
+    reveal = null;
+    notifyListeners();
   }
 
   /// 꽝: 광고를 끝까지 봤다. 서버 확인(SSV) 방식이면 구글 콜백이 올 때까지 잠깐 기다린다. 인정되면 true.

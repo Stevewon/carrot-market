@@ -1318,6 +1318,21 @@ class AppLocalizationsKo extends AppLocalizations {
   String get ctGoldCoinHint => '주워 봐야 어떤 코인이 몇 개인지 알 수 있어요';
 
   @override
+  String get ctRevealTitle => '광고를 보면 열려요';
+
+  @override
+  String get ctRevealBody => '이 블랙코인은 광고를 끝까지 봐야 어떤 코인이 몇 개 들었는지 보이고 받을 수 있어요.';
+
+  @override
+  String get ctRevealDeadline => '안 보면 못 받고, 코인은 지도에 다시 놓여요 (10분 안에 정해 주세요)';
+
+  @override
+  String get ctRevealWatch => '광고 보고 열기';
+
+  @override
+  String get ctRevealGiveUp => '그만두기 (코인은 지도로)';
+
+  @override
   String get ctEmptyTitle => '꽝!';
 
   @override

@@ -8,7 +8,7 @@
  */
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types';
-import { markAdWatched } from './cointrip';
+import { markAdWatched, markRevealVerified } from './cointrip';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -73,7 +73,8 @@ app.get('/', async (c) => {
   if (!ok) return c.text('bad signature', 400);
   const penaltyId = url.searchParams.get('custom_data') || '';
   const userId = url.searchParams.get('user_id') || '';
-  if (penaltyId && userId) await markAdWatched(c.env, userId, penaltyId);
+  // custom_data = 벌칙 id 또는 광고 보고 열기 id
+  if (penaltyId && userId && !(await markAdWatched(c.env, userId, penaltyId))) await markRevealVerified(c.env, userId, penaltyId);
   return c.text('ok');
 });
 

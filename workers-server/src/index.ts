@@ -34,7 +34,7 @@ import hiddenRoutes from './routes/hidden';
 import withdrawalsRoutes from './routes/withdrawals';
 import referralsRoutes from './routes/referrals';
 import adminRoutes from './routes/admin';
-import cointripRoutes from './routes/cointrip';
+import cointripRoutes, { sweepCointrip } from './routes/cointrip';
 import cointripSsvRoutes from './routes/cointripSsv';
 import { processReceiveSends } from './walletReceive';
 
@@ -199,6 +199,8 @@ export default {
     if (at.getUTCHours() === 18 && at.getUTCMinutes() === 0) {
       ctx.waitUntil(purgeOldInbox(env).catch((e) => console.error('[cron] inbox purge failed', e)));
     }
+    // 코인트립: 10분 지난 블랙코인 열기(지도에 되돌림)·벌칙(QTA 차감) 정리.
+    ctx.waitUntil(sweepCointrip(env).catch((e) => console.error('[cron] cointrip sweep failed', e)));
     ctx.waitUntil(
       processReceiveSends(env)
         .then((r) => { if (r.picked) console.log('[cron] wallet-receive', JSON.stringify(r)); })

@@ -84,6 +84,8 @@ class _CointripTabState extends State<CointripTab> {
     // 지난번에 정리하지 않은 꽝이 있으면 먼저 (앱을 껐다 켜도 이어서).
     final pending = svc.penalty;
     if (pending != null) await _settleDud(pending);
+    final rv = svc.reveal;
+    if (rv != null && mounted) await _openReveal(rv);
     if (!mounted || !widget.active) return;
     await _ensureLocation();
   }
@@ -327,6 +329,8 @@ class _CointripTabState extends State<CointripTab> {
       });
       if (r.dud != null) {
         await _settleDud(r.dud!);
+      } else if (r.reveal != null) {
+        await _openReveal(r.reveal!);
       } else if (r.empty) {
         await showDialog<void>(context: context, builder: (_) => const _EmptyDialog());
       } else {
@@ -336,6 +340,10 @@ class _CointripTabState extends State<CointripTab> {
     } on CtError catch (e) {
       if (e.code == 'dud_pending' && e.penalty != null) {
         await _settleDud(e.penalty!);
+        return;
+      }
+      if (e.code == 'reveal_pending' && e.reveal != null) {
+        await _openReveal(e.reveal!);
         return;
       }
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
@@ -367,6 +375,21 @@ class _CointripTabState extends State<CointripTab> {
     // ignore: discarded_futures
     context.read<QtaService>().load(force: true);
     if (msg != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// 블랙코인 광고 보고 열기 — 광고를 끝까지 보면 코인이 보이고 받는다. 그만두면 지도에 다시 놓인다.
+  Future<void> _openReveal(CtReveal rv) async {
+    if (_dudOpen || !mounted) return;
+    _dudOpen = true;
+    final got = await showDialog<CtPickResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(canPop: false, child: _RevealDialog(reveal: rv)),
+    );
+    _dudOpen = false;
+    if (!mounted) return;
+    if (got != null) await showDialog<void>(context: context, builder: (_) => _PickedDialog(result: got));
+    _fetch(force: true);
   }
 
   Future<void> _ackIntro() async {
@@ -908,6 +931,101 @@ class _EmptyDialog extends StatelessWidget {
         ],
       ),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonConfirm))],
+    );
+  }
+}
+
+/// 광고 보고 열기 — [광고 보고 열기] 끝까지 보면 코인 결과로 닫히고, [그만두기] 면 null (코인은 지도로).
+class _RevealDialog extends StatefulWidget {
+  final CtReveal reveal;
+  const _RevealDialog({required this.reveal});
+
+  @override
+  State<_RevealDialog> createState() => _RevealDialogState();
+}
+
+class _RevealDialogState extends State<_RevealDialog> {
+  bool _busy = false;
+  String? _error;
+
+  Future<void> _watch() async {
+    final l10n = context.l10n;
+    final svc = context.read<CointripService>();
+    final uid = context.read<AuthService>().user?.id ?? '';
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final earned = await RewardedAds.show(widget.reveal.adUnit, userId: uid, customData: widget.reveal.id);
+      if (!mounted) return;
+      if (!earned) {
+        setState(() => _error = l10n.ctDudAdNotFinished);
+        return;
+      }
+      final got = await svc.revealAdWatched(widget.reveal);
+      if (!mounted) return;
+      if (got != null) {
+        Navigator.pop(context, got);
+      } else {
+        setState(() => _error = l10n.ctDudAdChecking);
+      }
+    } on CtError catch (e) {
+      if (mounted) {
+        if (e.code == 'settled' || e.code == 'gone') {
+          Navigator.pop(context);
+        } else {
+          setState(() => _error = e.message);
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _error = l10n.ctDudAdFailed);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _giveUp() async {
+    setState(() => _busy = true);
+    await context.read<CointripService>().revealGiveUp(widget.reveal);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.ctRevealTitle, textAlign: TextAlign.center),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CoinBadge(black: true, size: 64),
+          const SizedBox(height: 14),
+          Text(l10n.ctRevealBody, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, height: 1.45)),
+          const SizedBox(height: 6),
+          Text(l10n.ctRevealDeadline, textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12.5, color: EggplantColors.textSecondary)),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(_error!, textAlign: TextAlign.center,
+                style: const TextStyle(color: EggplantColors.error, fontWeight: FontWeight.w700)),
+          ],
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _busy ? null : _watch,
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            icon: _busy
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.play_circle_outline),
+            label: Text(l10n.ctRevealWatch, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: _busy ? null : _giveUp,
+            child: Text(l10n.ctRevealGiveUp, textAlign: TextAlign.center),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1320,6 +1320,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get ctGoldCoinHint => '拾ってみるまで何のコインが何枚か分かりません';
 
   @override
+  String get ctRevealTitle => '広告を見ると開きます';
+
+  @override
+  String get ctRevealBody => 'このブラックコインは、広告を最後まで見ると何のコインが何枚入っているか分かり、受け取れます。';
+
+  @override
+  String get ctRevealDeadline => '見ないと受け取れず、コインは地図に戻ります（10分以内に選んでください）';
+
+  @override
+  String get ctRevealWatch => '広告を見て開ける';
+
+  @override
+  String get ctRevealGiveUp => 'やめる（コインは地図に戻る）';
+
+  @override
   String get ctEmptyTitle => 'ハズレ！';
 
   @override

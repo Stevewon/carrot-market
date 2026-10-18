@@ -217,6 +217,8 @@ app.post('/drops', async (c) => {
   // 블랙코인 안의 결과: 꽝(아무것도 없음) % · 벌칙(광고 또는 QTA 내기) % · 나머지는 좋은 코인.
   const dudPct = Math.max(0, Math.min(100, Number(b.dud_percent) || 0));
   const penaltyPct = Math.max(0, Math.min(100 - dudPct, Number(b.penalty_percent) || 0));
+  // 광고 보고 열기 % — 광고를 끝까지 봐야 받는 좋은 코인 (예산에 들어간다).
+  const revealPct = Math.max(0, Math.min(100 - dudPct - penaltyPct, Number(b.reveal_percent) || 0));
   const hours = Number(b.expires_hours) || 0;
 
   const rand = () => crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff;
@@ -224,16 +226,18 @@ app.post('/drops', async (c) => {
   for (let i = 0; i < count; i++) {
     const black = rand() * 100 < blackPct ? 1 : 0;
     const roll = rand() * 100;
-    const dud = !black ? 0 : roll < dudPct ? 1 : roll < dudPct + penaltyPct ? 2 : 0;
+    const dud = !black ? 0 : roll < dudPct ? 1 : roll < dudPct + penaltyPct ? 2 : roll < dudPct + penaltyPct + revealPct ? 3 : 0;
     items.push({ amt: (minC + Math.min(maxC - minC, Math.floor(rand() * (maxC - minC + 1)))) * MICRO, black, dud });
   }
   const duds = items.filter((x) => x.dud === 1).length;
   const penalties = items.filter((x) => x.dud === 2).length;
+  const reveals = items.filter((x) => x.dud === 3).length;
   // 꽝은 지급이 없으니 예산에 넣지 않는다.
-  const total = items.reduce((a, x) => a + (x.dud ? 0 : x.amt), 0);
+  // 꽝·벌칙은 지급이 없어 예산에 넣지 않는다 (광고 보고 열기는 지급되니 넣는다).
+  const total = items.reduce((a, x) => a + (x.dud === 1 || x.dud === 2 ? 0 : x.amt), 0);
   if (coin.budget_micro != null) {
     const used = await c.env.DB
-      .prepare("SELECT COALESCE(SUM(amount_micro), 0) AS n FROM ct_drops WHERE coin_id = ? AND is_dud = 0 AND status IN ('active','picked')")
+      .prepare("SELECT COALESCE(SUM(amount_micro), 0) AS n FROM ct_drops WHERE coin_id = ? AND is_dud IN (0, 3) AND status IN ('active','picked')")
       .bind(coin.id)
       .first<{ n: number }>();
     if ((used?.n ?? 0) + total > coin.budget_micro) {
@@ -261,7 +265,7 @@ app.post('/drops', async (c) => {
   }
   for (let i = 0; i < stmts.length; i += 100) await c.env.DB.batch(stmts.slice(i, i + 100));
   await audit(c, 'cointrip_drop', batchId, `${coin.symbol} x${count} total ${fromMicro(total)} @${lat.toFixed(5)},${lng.toFixed(5)} r${radius} black ${items.filter((x) => x.black).length} dud ${duds} penalty ${penalties}`);
-  return c.json({ ok: true, batch_id: batchId, count, black: items.filter((x) => x.black).length, duds, penalties, total: fromMicro(total) });
+  return c.json({ ok: true, batch_id: batchId, count, black: items.filter((x) => x.black).length, duds, penalties, reveals, total: fromMicro(total) });
 });
 
 app.post('/drops/:id/cancel', async (c) => {
@@ -291,8 +295,8 @@ app.get('/stats', async (c) => {
                  AND (d.expires_at IS NULL OR d.expires_at > datetime('now'))) AS active_count,
               (SELECT COALESCE(SUM(amount_micro),0) FROM ct_drops d WHERE d.coin_id = k.id AND d.status = 'active'
                  AND (d.expires_at IS NULL OR d.expires_at > datetime('now'))) AS active_micro,
-              (SELECT COUNT(*) FROM ct_drops d WHERE d.coin_id = k.id AND d.status = 'picked' AND d.is_dud = 0) AS picked_count,
-              (SELECT COALESCE(SUM(amount_micro),0) FROM ct_drops d WHERE d.coin_id = k.id AND d.status = 'picked' AND d.is_dud = 0) AS picked_micro,
+              (SELECT COUNT(*) FROM ct_drops d WHERE d.coin_id = k.id AND d.status = 'picked' AND d.is_dud IN (0, 3)) AS picked_count,
+              (SELECT COALESCE(SUM(amount_micro),0) FROM ct_drops d WHERE d.coin_id = k.id AND d.status = 'picked' AND d.is_dud IN (0, 3)) AS picked_micro,
               (SELECT COALESCE(SUM(amount_micro),0) FROM ct_balances b WHERE b.coin_id = k.id) AS balance_micro,
               (SELECT COALESCE(SUM(amount_micro),0) FROM ct_withdrawals w WHERE w.coin_id = k.id AND w.status IN ('requested','processing')) AS pending_micro,
               (SELECT COALESCE(SUM(amount_micro),0) FROM ct_withdrawals w WHERE w.coin_id = k.id AND w.status = 'completed') AS paid_micro

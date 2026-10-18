@@ -98,6 +98,7 @@
             <div class="form-row"><label>블랙코인 비율 (%)</label><input id="d-black" type="number" min="0" max="100" value="0" /></div>
             <div class="form-row"><label>블랙코인 중 꽝 (%) · 아무것도 없음</label><input id="d-dud" type="number" min="0" max="100" value="0" /></div>
             <div class="form-row"><label>블랙코인 중 벌칙 (%) · 광고 또는 QTA 내기</label><input id="d-pen" type="number" min="0" max="100" value="0" /></div>
+            <div class="form-row"><label>블랙코인 중 광고 보고 열기 (%) · 광고를 봐야 코인 받음</label><input id="d-rev" type="number" min="0" max="100" value="0" /></div>
             <div class="form-row"><label>사라지는 시간 (시간, 0 = 계속)</label><input id="d-exp" type="number" min="0" value="0" /></div>
             <div class="form-row" style="flex:0 0 auto"><button class="btn-success" id="d-go" type="button">뿌리기</button></div>
           </div>
@@ -326,9 +327,9 @@
         try {
           const r = await api(P + '/drops', { method: 'POST', body: {
             coin_id: coin.id, lat: Number($('d-lat').value), lng: Number($('d-lng').value), radius_m: radius, count,
-            amount_min: min, amount_max: max, black_percent: Number($('d-black').value) || 0, dud_percent: Number($('d-dud').value) || 0, penalty_percent: Number($('d-pen').value) || 0, expires_hours: Number($('d-exp').value) || 0,
+            amount_min: min, amount_max: max, black_percent: Number($('d-black').value) || 0, dud_percent: Number($('d-dud').value) || 0, penalty_percent: Number($('d-pen').value) || 0, reveal_percent: Number($('d-rev').value) || 0, expires_hours: Number($('d-exp').value) || 0,
           } });
-          $('d-result').textContent = `뿌렸습니다: ${r.count}개 (블랙 ${r.black}개, 그중 꽝 ${r.duds}개 · 벌칙 ${r.penalties}개), 지급될 합계 ${r.total} ${coin.symbol}`;
+          $('d-result').textContent = `뿌렸습니다: ${r.count}개 (블랙 ${r.black}개, 그중 꽝 ${r.duds}개 · 벌칙 ${r.penalties}개 · 광고 보고 열기 ${r.reveals}개), 지급될 합계 ${r.total} ${coin.symbol}`;
           loadDrops();
         } catch (e) { alert('실패: ' + e.message); }
       });
@@ -350,13 +351,13 @@
                 html: `<div class="spin-coin${d.is_black ? ' black' : ''}" style="animation-delay:-${((i * 7) % 30) * 0.08}s"></div>`,
                 iconSize: [30, 30], iconAnchor: [15, 15],
               }),
-            }).bindTooltip(`${d.is_black ? (d.is_dud === 1 ? '블랙·꽝 ' : d.is_dud === 2 ? '블랙·벌칙 ' : '블랙 ') : ''}${d.symbol} ${d.amount}`).addTo(layer));
+            }).bindTooltip(`${d.is_black ? (d.is_dud === 1 ? '블랙·꽝 ' : d.is_dud === 2 ? '블랙·벌칙 ' : d.is_dud === 3 ? '블랙·광고열기 ' : '블랙 ') : ''}${d.symbol} ${d.amount}`).addTo(layer));
           }
           if (!rows.length) { AdminApp.showEmpty(area, '없어요'); return; }
           area.innerHTML = `<table><thead><tr><th>시각</th><th>코인</th><th>수량</th><th>위치</th><th>주운 회원</th><th>관리</th></tr></thead><tbody>
             ${rows.map((d) => `<tr>
               <td>${AdminApp.fmtDate(d.picked_at || d.created_at)}${d.expires_at ? '<br/><small>~' + AdminApp.fmtDate(d.expires_at) + '</small>' : ''}</td>
-              <td><span class="dot" style="background:${esc(d.color)}"></span>${esc(d.symbol)}${d.is_black ? (d.is_dud === 1 ? ' <b>(블랙·꽝)</b>' : d.is_dud === 2 ? ' <b>(블랙·벌칙)</b>' : ' <b>(블랙)</b>') : ''}</td>
+              <td><span class="dot" style="background:${esc(d.color)}"></span>${esc(d.symbol)}${d.is_black ? (d.is_dud === 1 ? ' <b>(블랙·꽝)</b>' : d.is_dud === 2 ? ' <b>(블랙·벌칙)</b>' : d.is_dud === 3 ? ' <b>(블랙·광고 보고 열기)</b>' : ' <b>(블랙)</b>') : ''}</td>
               <td>${esc(d.amount)}</td>
               <td><code>${Number(d.lat).toFixed(5)}, ${Number(d.lng).toFixed(5)}</code></td>
               <td>${esc(d.picked_by_nickname || '')}</td>

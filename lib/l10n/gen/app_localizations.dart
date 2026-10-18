@@ -2500,6 +2500,36 @@ abstract class AppLocalizations {
   /// **'주워 봐야 어떤 코인이 몇 개인지 알 수 있어요'**
   String get ctGoldCoinHint;
 
+  /// No description provided for @ctRevealTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'광고를 보면 열려요'**
+  String get ctRevealTitle;
+
+  /// No description provided for @ctRevealBody.
+  ///
+  /// In ko, this message translates to:
+  /// **'이 블랙코인은 광고를 끝까지 봐야 어떤 코인이 몇 개 들었는지 보이고 받을 수 있어요.'**
+  String get ctRevealBody;
+
+  /// No description provided for @ctRevealDeadline.
+  ///
+  /// In ko, this message translates to:
+  /// **'안 보면 못 받고, 코인은 지도에 다시 놓여요 (10분 안에 정해 주세요)'**
+  String get ctRevealDeadline;
+
+  /// No description provided for @ctRevealWatch.
+  ///
+  /// In ko, this message translates to:
+  /// **'광고 보고 열기'**
+  String get ctRevealWatch;
+
+  /// No description provided for @ctRevealGiveUp.
+  ///
+  /// In ko, this message translates to:
+  /// **'그만두기 (코인은 지도로)'**
+  String get ctRevealGiveUp;
+
   /// No description provided for @ctEmptyTitle.
   ///
   /// In ko, this message translates to:

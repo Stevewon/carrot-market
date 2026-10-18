@@ -169,6 +169,7 @@ app.get('/status', async (c) => {
     intro_acked: !!intro,
     dud_penalty_qta: s.dudPenaltyQta,
     penalty: await pendingPenalty(c.env, me.id, s),
+    reveal: await pendingReveal(c.env, me.id, s),
     union: await unionOf(c.env, me.id),
   });
 });
@@ -311,6 +312,10 @@ app.post('/drops/:id/pick', async (c) => {
     return c.json({ error: tr(c, '휴대폰 인증을 마쳐야 주울 수 있어요', '携帯電話認証を完了すると拾えます', 'Verify your phone number to pick up coins'), code: 'phone_required' }, 403);
   }
   await settleExpired(c.env, me.id);
+  const pendingRev = await pendingReveal(c.env, me.id, s);
+  if (pendingRev) {
+    return c.json({ error: tr(c, '먼저 블랙코인을 열어 주세요 (광고 보기 또는 그만두기)', '先にブラックコインを開けてください（広告を見るかやめる）', 'Open your black coin first (watch the ad or give up)'), code: 'reveal_pending', reveal: pendingRev }, 409);
+  }
   const pendingPen = await pendingPenalty(c.env, me.id, s);
   if (pendingPen) {
     return c.json({ error: tr(c, '먼저 꽝을 정리해 주세요 (광고 보기 또는 QTA 내기)', '先にハズレを精算してください（広告を見るかQTAを払う）', 'Settle your dud first (watch an ad or pay QTA)'), code: 'dud_pending', penalty: pendingPen }, 409);
@@ -380,13 +385,38 @@ app.post('/drops/:id/pick', async (c) => {
     const pen = await openPenalty(c.env, me.id, d.id, s);
     return c.json({ ok: true, dud: true, penalty: pen });
   }
+  // 3 = 광고 보고 열기 — 광고를 끝까지 봐야 어떤 코인이 몇 개인지 보이고 받는다.
+  if (d.is_black === 1 && d.is_dud === 3) {
+    return c.json({ ok: true, ad_reveal: true, reveal: await openReveal(c.env, me.id, d.id, s) });
+  }
 
+  const result = await creditDrop(c.env, (p) => c.executionCtx.waitUntil(p), me, d, key, s);
+  if (!result) return c.json({ error: tr(c, '잠시 뒤에 다시 해 주세요', '少し待ってから再度お試しください', 'Please try again in a moment') }, 500);
+  return c.json(result);
+});
+
+interface PickedDrop {
+  id: string; amount_micro: number; is_black: number; coin_id: string; symbol: string; name: string; color: string;
+}
+
+/**
+ * 주운 코인을 앱 지갑에 넣는다 (연합 나눔 포함). 실패하면 코인을 지도에 되돌리고 null.
+ * 바로 줍기와 블랙코인 "광고 보고 열기" 둘 다 이것을 쓴다.
+ */
+async function creditDrop(
+  env: Env,
+  waitUntil: (p: Promise<unknown>) => void,
+  me: Me,
+  d: PickedDrop,
+  key: WalletKey,
+  s: CtSettings,
+) {
   // 연합 나눔 — 이 코인을 받을 지갑이 있는 연합원에게만.
-  const union = await unionOf(c.env, me.id);
+  const union = await unionOf(env, me.id);
   let others: { id: string; nickname: string; market: string | null }[] = [];
   if (union && union.members.length > 1) {
     const col = walletColumn(key);
-    const rs = await c.env.DB
+    const rs = await env.DB
       .prepare(
         `SELECT u.id, u.nickname, u.market FROM ct_union_members m JOIN users u ON u.id = m.user_id
           WHERE m.union_id = ? AND u.id != ? AND u.${col} IS NOT NULL AND u.${col} != ''`,
@@ -401,10 +431,10 @@ app.post('/drops/:id/pick', async (c) => {
   for (const [uid, micro] of shares) {
     const reason = uid === me.id ? 'pick' : 'share';
     stmts.push(
-      c.env.DB
+      env.DB
         .prepare('INSERT INTO ct_ledger (id, user_id, coin_id, amount_micro, reason, drop_id) VALUES (?, ?, ?, ?, ?, ?)')
         .bind(crypto.randomUUID(), uid, d.coin_id, micro, reason, d.id),
-      c.env.DB
+      env.DB
         .prepare(
           `INSERT INTO ct_balances (user_id, coin_id, amount_micro) VALUES (?, ?, ?)
            ON CONFLICT(user_id, coin_id) DO UPDATE SET amount_micro = amount_micro + excluded.amount_micro, updated_at = datetime('now')`,
@@ -413,22 +443,22 @@ app.post('/drops/:id/pick', async (c) => {
     );
   }
   try {
-    await c.env.DB.batch(stmts);
+    await env.DB.batch(stmts);
   } catch (e) {
     console.error('[cointrip] credit failed', e);
-    await c.env.DB
+    await env.DB
       .prepare("UPDATE ct_drops SET status = 'active', picked_by = NULL, picked_at = NULL, pick_lat = NULL, pick_lng = NULL WHERE id = ? AND picked_by = ?")
       .bind(d.id, me.id)
       .run();
-    return c.json({ error: tr(c, '잠시 뒤에 다시 해 주세요', '少し待ってから再度お試しください', 'Please try again in a moment') }, 500);
+    return null;
   }
 
   // 연합원 알림함에 남긴다 (실패해도 줍기는 끝남).
   if (others.length) {
     const byId = new Map(shares);
-    c.executionCtx.waitUntil(
+    waitUntil(
       addNotifications(
-        c.env,
+        env,
         others
           .filter((o) => (byId.get(o.id) ?? 0) > 0)
           .map((o) => {
@@ -450,15 +480,15 @@ app.post('/drops/:id/pick', async (c) => {
   }
 
   const nick = new Map(others.map((o) => [o.id, o.nickname]));
-  return c.json({
+  return {
     ok: true,
     was_black: d.is_black === 1,
     coin: { id: d.coin_id, symbol: d.symbol, name: d.name, color: d.color },
     total: fromMicro(d.amount_micro),
     mine: fromMicro(shares[0][1]),
     shared: shares.slice(1).map(([uid, micro]) => ({ nickname: nick.get(uid) ?? '', amount: fromMicro(micro) })),
-  });
-});
+  };
+}
 
 // ── 앱 지갑 ──────────────────────────────────────────────────────────
 // ── 블랙코인 꽝: 광고 보기 또는 QTA 내기 ───────────────────────────────
@@ -522,6 +552,11 @@ async function settleExpired(env: Env, userId: string): Promise<void> {
     .bind(userId)
     .all<{ id: string }>();
   for (const p of rs.results || []) await payPenalty(env, userId, p.id);
+  const rv = await env.DB
+    .prepare("SELECT id FROM ct_reveals WHERE user_id = ? AND status IN ('pending','verified') AND expires_at <= datetime('now')")
+    .bind(userId)
+    .all<{ id: string }>();
+  for (const x of rv.results || []) await loseReveal(env, x.id);
 }
 
 /** 광고를 끝까지 봤다 → 아무것도 안 낸다. */
@@ -560,6 +595,107 @@ app.post('/penalties/:id/ad-watched', async (c) => {
   }
   const p = await c.env.DB.prepare('SELECT status FROM ct_dud_penalties WHERE id = ? AND user_id = ?').bind(id, me.id).first<{ status: string }>();
   return c.json({ ok: p?.status === 'ad', status: p?.status ?? 'unknown' });
+});
+
+// ── 블랙코인 광고 보고 열기 ────────────────────────────────────────
+interface RevealRow { id: string; status: string; expires_at: string }
+
+function revealOut(p: RevealRow, s: CtSettings) {
+  return { id: p.id, status: p.status, expires_at: p.expires_at, ad_unit: s.rewardedAdUnit, ad_verify: s.adVerify };
+}
+
+async function openReveal(env: Env, userId: string, dropId: string, s: CtSettings) {
+  const id = crypto.randomUUID();
+  await env.DB
+    .prepare(`INSERT INTO ct_reveals (id, user_id, drop_id, expires_at) VALUES (?, ?, ?, datetime('now', '+${PENALTY_MINUTES} minutes'))`)
+    .bind(id, userId, dropId)
+    .run();
+  const p = await env.DB.prepare('SELECT id, status, expires_at FROM ct_reveals WHERE id = ?').bind(id).first<RevealRow>();
+  return revealOut(p!, s);
+}
+
+async function pendingReveal(env: Env, userId: string, s: CtSettings) {
+  const p = await env.DB
+    .prepare("SELECT id, status, expires_at FROM ct_reveals WHERE user_id = ? AND status IN ('pending','verified') ORDER BY created_at LIMIT 1")
+    .bind(userId)
+    .first<RevealRow>();
+  return p ? revealOut(p, s) : null;
+}
+
+/** 안 보고 끝난 열기 — 그 코인을 지도에 다시 놓는다. */
+async function loseReveal(env: Env, revealId: string): Promise<boolean> {
+  const r = await env.DB
+    .prepare("UPDATE ct_reveals SET status = 'lost', resolved_at = datetime('now') WHERE id = ? AND status IN ('pending','verified')")
+    .bind(revealId)
+    .run();
+  if (!r.meta.changes) return false;
+  await env.DB
+    .prepare(
+      `UPDATE ct_drops SET status = 'active', picked_by = NULL, picked_at = NULL, pick_lat = NULL, pick_lng = NULL
+        WHERE id = (SELECT drop_id FROM ct_reveals WHERE id = ?) AND status = 'picked'`,
+    )
+    .bind(revealId)
+    .run();
+  return true;
+}
+
+/** 10분 지난 열기(지도에 되돌림)·벌칙(QTA 차감) 정리 — cron 이 1분마다 부른다. */
+export async function sweepCointrip(env: Env): Promise<void> {
+  const rs = await env.DB
+    .prepare("SELECT id FROM ct_reveals WHERE status IN ('pending','verified') AND expires_at <= datetime('now') LIMIT 200")
+    .all<{ id: string }>();
+  for (const x of rs.results || []) await loseReveal(env, x.id);
+  const ps = await env.DB
+    .prepare("SELECT id, user_id FROM ct_dud_penalties WHERE status = 'pending' AND expires_at <= datetime('now') LIMIT 200")
+    .all<{ id: string; user_id: string }>();
+  for (const x of ps.results || []) await payPenalty(env, x.user_id, x.id);
+}
+
+/** SSV(구글 서버 확인)가 왔다 — ssv 모드에서는 이것이 있어야 열 수 있다. */
+export async function markRevealVerified(env: Env, userId: string, revealId: string): Promise<boolean> {
+  const r = await env.DB
+    .prepare("UPDATE ct_reveals SET status = 'verified' WHERE id = ? AND user_id = ? AND status = 'pending'")
+    .bind(revealId, userId)
+    .run();
+  return !!r.meta.changes;
+}
+
+app.post('/reveals/:id/ad-watched', async (c) => {
+  const s = await loadSettings(c.env);
+  const me = await loadMe(c);
+  const id = c.req.param('id');
+  const rv = await c.env.DB
+    .prepare('SELECT id, drop_id, status FROM ct_reveals WHERE id = ? AND user_id = ?')
+    .bind(id, me.id)
+    .first<{ id: string; drop_id: string; status: string }>();
+  if (!rv || (rv.status !== 'pending' && rv.status !== 'verified')) {
+    return c.json({ error: tr(c, '이미 끝난 블랙코인이에요', 'すでに終わったブラックコインです', 'This black coin is already settled'), code: 'settled' }, 409);
+  }
+  if (s.adVerify === 'ssv' && rv.status !== 'verified') return c.json({ ok: false, status: rv.status });
+  const done = await c.env.DB
+    .prepare("UPDATE ct_reveals SET status = 'opened', resolved_at = datetime('now') WHERE id = ? AND status IN ('pending','verified')")
+    .bind(id)
+    .run();
+  if (!done.meta.changes) return c.json({ error: 'settled', code: 'settled' }, 409);
+  const d = await c.env.DB
+    .prepare(
+      `SELECT d.id, d.amount_micro, d.is_black, k.id AS coin_id, k.symbol, k.name, k.color, k.wallet_kind, k.network
+         FROM ct_drops d JOIN ct_coins k ON k.id = d.coin_id WHERE d.id = ?`,
+    )
+    .bind(rv.drop_id)
+    .first<PickedDrop & { wallet_kind: string; network: string }>();
+  if (!d) return c.json({ error: 'gone', code: 'gone' }, 409);
+  const result = await creditDrop(c.env, (x) => c.executionCtx.waitUntil(x), me, d, walletKeyOf(d), s);
+  if (!result) return c.json({ error: tr(c, '잠시 뒤에 다시 해 주세요', '少し待ってから再度お試しください', 'Please try again in a moment') }, 500);
+  return c.json(result);
+});
+
+app.post('/reveals/:id/give-up', async (c) => {
+  const me = c.get('user')!;
+  const own = await c.env.DB.prepare('SELECT 1 FROM ct_reveals WHERE id = ? AND user_id = ?').bind(c.req.param('id'), me.id).first();
+  if (!own) return c.json({ error: 'not found' }, 404);
+  await loseReveal(c.env, c.req.param('id'));
+  return c.json({ ok: true });
 });
 
 app.get('/wallet', async (c) => {
