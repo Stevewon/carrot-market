@@ -21,6 +21,8 @@
   "ctLocationServiceOff": "Turn on your phone's location (GPS)",
   "ctLocationNeeded": "Please allow location access",
   "ctLocationWhy": "CoinTrip uses your location only to show nearby coins and to check that you're close enough. Your location isn't stored.",
+  "ctRefresh": "Refresh",
+  "ctMyCoinWalletMenu": "CoinTrip coin wallet (coins you picked up)",
   "ctRetry": "Try again",
   "ctOpenSettings": "Open settings",
   "ctNoCoinsShort": "No coins nearby",

@@ -2410,6 +2410,18 @@ abstract class AppLocalizations {
   /// **'코인트립은 내 주변 코인을 보여 줄 때와 가까이 갔는지 확인할 때만 위치를 써요. 위치는 저장하지 않아요.'**
   String get ctLocationWhy;
 
+  /// No description provided for @ctRefresh.
+  ///
+  /// In ko, this message translates to:
+  /// **'새로고침'**
+  String get ctRefresh;
+
+  /// No description provided for @ctMyCoinWalletMenu.
+  ///
+  /// In ko, this message translates to:
+  /// **'코인트립 코인 지갑 (주운 코인)'**
+  String get ctMyCoinWalletMenu;
+
   /// No description provided for @ctRetry.
   ///
   /// In ko, this message translates to:

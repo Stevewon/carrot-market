@@ -1334,6 +1334,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'CoinTrip uses your location only to show nearby coins and to check that you\'re close enough. Your location isn\'t stored.';
 
   @override
+  String get ctRefresh => 'Refresh';
+
+  @override
+  String get ctMyCoinWalletMenu => 'CoinTrip coin wallet (coins you picked up)';
+
+  @override
   String get ctRetry => 'Try again';
 
   @override

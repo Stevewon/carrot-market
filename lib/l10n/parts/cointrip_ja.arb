@@ -21,6 +21,8 @@
   "ctLocationServiceOff": "スマートフォンの位置情報（GPS）をオンにしてください",
   "ctLocationNeeded": "位置情報の許可をお願いします",
   "ctLocationWhy": "コイントリップは、周辺のコインを表示するときと、近づいたかを確認するときだけ位置情報を使います。位置は保存しません。",
+  "ctRefresh": "更新",
+  "ctMyCoinWalletMenu": "コイントリップのコインウォレット（拾ったコイン）",
   "ctRetry": "再試行",
   "ctOpenSettings": "設定を開く",
   "ctNoCoinsShort": "周辺にコインなし",

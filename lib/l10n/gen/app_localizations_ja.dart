@@ -1265,6 +1265,12 @@ class AppLocalizationsJa extends AppLocalizations {
       'コイントリップは、周辺のコインを表示するときと、近づいたかを確認するときだけ位置情報を使います。位置は保存しません。';
 
   @override
+  String get ctRefresh => '更新';
+
+  @override
+  String get ctMyCoinWalletMenu => 'コイントリップのコインウォレット（拾ったコイン）';
+
+  @override
   String get ctRetry => '再試行';
 
   @override

@@ -19,6 +19,7 @@ import '../../services/search_history_service.dart';
 import '../../services/keyword_alert_service.dart';
 import '../../services/hidden_products_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/cointrip_service.dart';
 import '../../services/qta_service.dart';
 import '../../models/user.dart';
 import '../../widgets/privacy_dialog.dart';
@@ -209,6 +210,13 @@ class _MyTabState extends State<MyTab> {
                   : '$likeCount',
               onTap: () => context.go('/?tab=1'),
             ),
+            // 코인트립에서 주운 코인 (코인트립이 열린 회원에게만).
+            if (context.watch<CointripService>().open)
+              _MenuTile(
+                icon: Icons.toll_outlined,
+                title: context.l10n.ctMyCoinWalletMenu,
+                onTap: () => context.push('/cointrip/wallet'),
+              ),
             _MenuTile(
               icon: Icons.history_rounded,
               title: context.l10n.recentTitle,

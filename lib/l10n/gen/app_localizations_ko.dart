@@ -1263,6 +1263,12 @@ class AppLocalizationsKo extends AppLocalizations {
       '코인트립은 내 주변 코인을 보여 줄 때와 가까이 갔는지 확인할 때만 위치를 써요. 위치는 저장하지 않아요.';
 
   @override
+  String get ctRefresh => '새로고침';
+
+  @override
+  String get ctMyCoinWalletMenu => '코인트립 코인 지갑 (주운 코인)';
+
+  @override
   String get ctRetry => '다시 시도';
 
   @override

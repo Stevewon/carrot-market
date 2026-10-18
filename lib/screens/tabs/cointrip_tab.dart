@@ -37,7 +37,8 @@ class CointripTab extends StatefulWidget {
 
 enum _Loc { unknown, serviceOff, denied, ok }
 
-class _CointripTabState extends State<CointripTab> {
+class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
+  static const Duration _pollEvery = Duration(seconds: 10);
   _Loc _loc = _Loc.unknown;
   Position? _me;
   StreamSubscription<Position>? _sub;
@@ -55,12 +56,25 @@ class _CointripTabState extends State<CointripTab> {
   bool _introSending = false;
 
   GoogleMapController? _map;
-  int _radiusM = 5000;
+  /// 처음부터 넓게 (서버 최대 20km) — 몇 km 떨어진 동네 코인도 지도에 보이게.
+  int _radiusM = 20000;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.active) WidgetsBinding.instance.addPostFrameCallback((_) => _start());
+  }
+
+  /// 앱을 다시 열면 바로 새로 받는다 (백그라운드에서는 위치·받기를 멈춘다).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!widget.active) return;
+    if (state == AppLifecycleState.resumed) {
+      _start();
+    } else if (state == AppLifecycleState.paused) {
+      _stop();
+    }
   }
 
   @override
@@ -72,6 +86,7 @@ class _CointripTabState extends State<CointripTab> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _stop();
     super.dispose();
   }
@@ -124,9 +139,9 @@ class _CointripTabState extends State<CointripTab> {
       _sub = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 5),
       ).listen(_onMove, onError: (_) {});
-      // 다른 사람이 주워 간 코인을 지우려고 1분마다 다시 받는다.
+      // 실시간에 가깝게 — 탭을 보는 동안 10초마다 다시 받는다 (어드민이 뿌린 코인·남이 주운 코인이 바로 반영).
       _timer?.cancel();
-      _timer = Timer.periodic(const Duration(minutes: 1), (_) => _fetch());
+      _timer = Timer.periodic(_pollEvery, (_) => _fetch(force: true));
     } catch (e) {
       debugPrint('[cointrip] location failed: $e');
       if (mounted) setState(() => _error = context.l10n.ctLocationFailed);
@@ -220,7 +235,7 @@ class _CointripTabState extends State<CointripTab> {
   }
 
   void _syncSpin() {
-    final want = widget.active && _drops.any((d) => d.precise) && CointripTab.mapOverride == null;
+    final want = widget.active && _drops.isNotEmpty && CointripTab.mapOverride == null;
     if (want && _spin == null) {
       _spin = Timer.periodic(_spinStep, (_) {
         if (mounted) setState(() => _frame = (_frame + 1) % _spinFrames);
@@ -233,6 +248,12 @@ class _CointripTabState extends State<CointripTab> {
 
   Set<Marker> _markers() {
     final precise = _drops.where((d) => d.precise).toList();
+    // 멀리 있는 코인도 도는 동전으로 보인다 — 다만 대략적인 칸 가운데에 칸마다 하나, 조금 흐리게.
+    final far = <String, CtDrop>{};
+    for (final d in _drops.where((d) => !d.precise)) {
+      far.putIfAbsent('${d.lat.toStringAsFixed(5)},${d.lng.toStringAsFixed(5)},${d.isBlack}', () => d);
+    }
+    final farList = far.entries.toList();
     return {
       for (var i = 0; i < precise.length; i++)
         Marker(
@@ -240,7 +261,18 @@ class _CointripTabState extends State<CointripTab> {
           position: LatLng(precise[i].lat, precise[i].lng),
           icon: _iconFor(precise[i], i),
           anchor: const Offset(0.5, 0.5),
+          zIndexInt: 2,
           onTap: () => setState(() => _selected = precise[i]),
+        ),
+      for (var j = 0; j < farList.length; j++)
+        Marker(
+          markerId: MarkerId('far:${farList[j].key}'),
+          position: LatLng(farList[j].value.lat, farList[j].value.lng),
+          icon: _iconFor(farList[j].value, precise.length + j),
+          anchor: const Offset(0.5, 0.5),
+          alpha: 0.7,
+          zIndexInt: 1,
+          onTap: () => setState(() => _selected = farList[j].value),
         ),
     };
   }
@@ -416,6 +448,11 @@ class _CointripTabState extends State<CointripTab> {
         title: Text(l10n.ctTitle),
         actions: [
           if (svc.introAcked) ...[
+            IconButton(
+              tooltip: l10n.ctRefresh,
+              icon: const Icon(Icons.refresh_rounded),
+              onPressed: () => _fetch(force: true),
+            ),
             IconButton(
               tooltip: l10n.ctUnion,
               icon: const Icon(Icons.groups_outlined),
