@@ -16,6 +16,7 @@ import '../screens/product_detail_screen.dart';
 import '../screens/product_create_screen.dart';
 import '../screens/qr_screen.dart';
 import '../screens/qr_scan_screen.dart';
+import '../screens/peer_link_screen.dart';
 import '../screens/chat_screen.dart';
 import '../screens/call_screen.dart';
 import '../screens/region_select_screen.dart';
@@ -95,6 +96,14 @@ GoRouter createRouter(AuthService auth) {
       ),
       GoRoute(path: '/qr', builder: (_, __) => const QrScreen()),
       GoRoute(path: '/qr/scan', builder: (_, __) => const QrScanScreen()),
+      // 내 QR 링크 (eggplant://app/u/<id>?n=<닉네임>) → 그 회원과 익명 채팅
+      GoRoute(
+        path: '/u/:id',
+        builder: (_, state) => PeerLinkScreen(
+          userId: state.pathParameters['id']!,
+          nickname: state.uri.queryParameters['n'] ?? '',
+        ),
+      ),
       GoRoute(
         path: '/chat/:roomId',
         builder: (_, state) => ChatScreen(
@@ -197,8 +206,23 @@ GoRouter createRouter(AuthService auth) {
         builder: (_, __) => const ProfileEditScreen(),
       ),
     ],
+    // 모르는 링크 (예: 예전 QR 링크 eggplant://<id>/<닉네임>) — 오류 문장 대신 안내 + 홈으로.
     errorBuilder: (context, state) => Scaffold(
-      body: Center(child: Text(context.l10n.homePageNotFound('${state.error}'))),
+      appBar: AppBar(),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(context.l10n.homeLinkBroken,
+                  textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, height: 1.45)),
+              const SizedBox(height: 16),
+              FilledButton(onPressed: () => context.go('/'), child: Text(context.l10n.homeGoHome)),
+            ],
+          ),
+        ),
+      ),
     ),
   );
 }

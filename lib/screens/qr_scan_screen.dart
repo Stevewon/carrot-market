@@ -8,6 +8,7 @@ import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
+import 'peer_link_screen.dart';
 
 class QrScanScreen extends StatefulWidget {
   const QrScanScreen({super.key});
@@ -37,20 +38,14 @@ class _QrScanScreenState extends State<QrScanScreen> {
     final l10n = context.l10n;
     await _controller.stop();
 
-    final uri = Uri.tryParse(code);
-    if (uri == null || uri.scheme != 'eggplant') {
+    // 새 QR (https://…/u/<id>?n=…) · 예전 QR (eggplant://<id>/<닉네임>) 둘 다 읽는다.
+    final peer = parsePeerLink(code);
+    if (peer == null) {
       _showError(l10n.homeQrNotEggplant);
       return;
     }
-
-    final parts = uri.pathSegments;
-    if (parts.length < 2) {
-      _showError(l10n.homeQrInvalid);
-      return;
-    }
-
-    final peerUserId = uri.host; // eggplant://{userId}/{nickname}
-    final peerNickname = Uri.decodeComponent(parts[0]);
+    final peerUserId = peer.$1;
+    final peerNickname = peer.$2.isEmpty ? l10n.homeAnonymous : peer.$2;
 
     final auth = context.read<AuthService>();
     if (auth.user == null) {

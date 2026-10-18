@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../app/constants.dart';
 import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
+import 'peer_link_screen.dart';
 
 class QrScreen extends StatelessWidget {
   const QrScreen({super.key});
@@ -21,8 +23,8 @@ class QrScreen extends StatelessWidget {
       );
     }
 
-    final payload =
-        'eggplant://${user.id}/${Uri.encodeComponent(user.nickname)}';
+    // https 링크 — 폰 카메라로 찍어도, 카톡에 붙여도 눌러서 앱으로 들어온다.
+    final payload = peerLink(AppConfig.apiBase, user.id, user.nickname);
 
     return Scaffold(
       backgroundColor: EggplantColors.background,
