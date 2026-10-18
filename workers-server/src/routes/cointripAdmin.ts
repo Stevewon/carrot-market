@@ -173,6 +173,13 @@ app.put('/coins/:id', async (c) => {
 // ── 뿌리기 ───────────────────────────────────────────────────────────
 app.get('/drops', async (c) => {
   const status = c.req.query('status') || 'active';
+  // 사라지는 시간이 지난 코인은 회원 지도에 안 나온다 — '깔려 있음'에서 빼고 '시간 지나 사라짐'으로 따로 본다.
+  const timeCond =
+    status === 'active'
+      ? "AND (d.expires_at IS NULL OR d.expires_at > datetime('now'))"
+      : status === 'expired'
+        ? "AND d.expires_at IS NOT NULL AND d.expires_at <= datetime('now')"
+        : '';
   const coin = c.req.query('coin_id') || '';
   const limit = Math.min(Number(c.req.query('limit')) || 200, 1000);
   const rs = await c.env.DB
@@ -180,10 +187,10 @@ app.get('/drops', async (c) => {
       `SELECT d.id, d.coin_id, k.symbol, k.color, d.amount_micro, d.lat, d.lng, d.is_black, d.is_dud, d.status,
               d.batch_id, d.created_at, d.expires_at, d.picked_at, u.nickname AS picked_by_nickname
          FROM ct_drops d JOIN ct_coins k ON k.id = d.coin_id LEFT JOIN users u ON u.id = d.picked_by
-        WHERE d.status = ? AND (? = '' OR d.coin_id = ?)
+        WHERE d.status = ? AND (? = '' OR d.coin_id = ?) ${timeCond}
         ORDER BY COALESCE(d.picked_at, d.created_at) DESC LIMIT ?`,
     )
-    .bind(status, coin, coin, limit)
+    .bind(status === 'expired' ? 'active' : status, coin, coin, limit)
     .all<Record<string, unknown>>();
   return c.json({ drops: (rs.results || []).map((d) => ({ ...d, amount: fromMicro(Number(d.amount_micro)) })) });
 });

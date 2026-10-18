@@ -108,6 +108,7 @@
           <div class="toolbar">
             <select id="dl-status">
               <option value="active">깔려 있음</option>
+              <option value="expired">시간 지나 사라짐 (회원에게 안 보임)</option>
               <option value="picked">주워짐</option>
               <option value="cancelled">거둬들임</option>
             </select>
@@ -220,7 +221,7 @@
     </div>
   </div>
 
-  <script src="admin.js?v=v4"></script>
+  <script src="admin.js?v=v5"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     (function () {
@@ -356,12 +357,12 @@
           if (!rows.length) { AdminApp.showEmpty(area, '없어요'); return; }
           area.innerHTML = `<table><thead><tr><th>시각</th><th>코인</th><th>수량</th><th>위치</th><th>주운 회원</th><th>관리</th></tr></thead><tbody>
             ${rows.map((d) => `<tr>
-              <td>${AdminApp.fmtDate(d.picked_at || d.created_at)}${d.expires_at ? '<br/><small>~' + AdminApp.fmtDate(d.expires_at) + '</small>' : ''}</td>
+              <td>${AdminApp.fmtDate(d.picked_at || d.created_at)}${d.expires_at ? '<br/><small>' + AdminApp.fmtDate(d.expires_at) + ' 에 사라짐</small>' : ''}</td>
               <td><span class="dot" style="background:${esc(d.color)}"></span>${esc(d.symbol)}${d.is_black ? (d.is_dud === 1 ? ' <b>(블랙·꽝)</b>' : d.is_dud === 2 ? ' <b>(블랙·벌칙)</b>' : d.is_dud === 3 ? ' <b>(블랙·광고 보고 열기)</b>' : ' <b>(블랙)</b>') : ''}</td>
               <td>${esc(d.amount)}</td>
               <td><code>${Number(d.lat).toFixed(5)}, ${Number(d.lng).toFixed(5)}</code></td>
               <td>${esc(d.picked_by_nickname || '')}</td>
-              <td>${d.status === 'active' ? `<button class="btn-sm btn-danger" data-cancel="${esc(d.id)}">거두기</button>
+              <td>${d.status === 'active' && $('dl-status').value === 'active' ? `<button class="btn-sm btn-danger" data-cancel="${esc(d.id)}">거두기</button>
                   <button class="btn-sm" data-batch="${esc(d.batch_id || '')}">같이 뿌린 것 모두 거두기</button>` : ''}</td></tr>`).join('')}
             </tbody></table>`;
         } catch (e) { AdminApp.showError(area, e.message); }

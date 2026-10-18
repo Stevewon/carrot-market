@@ -132,11 +132,14 @@
       .replaceAll("'", '&#39;');
   }
 
-  /** 날짜 포맷 (YYYY-MM-DD HH:mm) */
+  /** 날짜 포맷 (YYYY-MM-DD HH:mm) — 서버는 UTC 로 저장하므로 이 컴퓨터 시간(한국이면 KST)으로 바꿔 보여준다. */
   function fmtDate(s) {
     if (!s) return '';
-    // SQLite datetime is 'YYYY-MM-DD HH:MM:SS' in UTC
-    return String(s).replace('T', ' ').slice(0, 16);
+    const raw = String(s);
+    const d = new Date(raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z');
+    if (isNaN(d.getTime())) return raw.replace('T', ' ').slice(0, 16);
+    const z = (n) => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes());
   }
 
   /** 숫자 포맷 (천단위 콤마) */
