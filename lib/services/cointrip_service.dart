@@ -91,7 +91,7 @@ class CtUnion {
 /// 앱 지갑의 코인 하나.
 class CtBalance {
   final CtCoin coin;
-  final String walletKind; // quantarium | general
+  final String walletKind; // quantarium | evm (이더리움·BNB·폴리곤) | solana
   final String network;
   final String amount;
   final String withdrawMin;
@@ -201,6 +201,7 @@ class CointripService extends ChangeNotifier {
   List<String> walletKinds = const [];
   String? quantariumWallet;
   String? extWallet;
+  String? solWallet;
   bool phoneVerified = false;
   bool introAcked = false;
   CtUnion? union;
@@ -223,6 +224,7 @@ class CointripService extends ChangeNotifier {
         walletKinds = [for (final k in (j['wallet_kinds'] as List? ?? const [])) k.toString()];
         quantariumWallet = j['quantarium_wallet']?.toString();
         extWallet = j['ext_wallet_address']?.toString();
+        solWallet = j['sol_wallet_address']?.toString();
         phoneVerified = j['phone_verified'] == true;
         introAcked = j['intro_acked'] == true;
         union = CtUnion.fromJson(j['union']);
@@ -280,22 +282,33 @@ class CointripService extends ChangeNotifier {
     }
   }
 
-  Future<void> setExtWallet(String address) async {
+  /// 기존 지갑 주소 등록 — [solana] 면 솔라나 주소, 아니면 이더리움·BNB·폴리곤 공용 0x 주소.
+  Future<void> setWallet(String address, {bool solana = false}) async {
+    final key = solana ? 'solana' : 'evm';
     try {
-      await auth.api.put('/api/cointrip/ext-wallet', data: {'address': address, 'ack': true});
-      extWallet = address;
-      if (!walletKinds.contains('general')) walletKinds = [...walletKinds, 'general'];
+      await auth.api.put(solana ? '/api/cointrip/sol-wallet' : '/api/cointrip/ext-wallet', data: {'address': address, 'ack': true});
+      if (solana) {
+        solWallet = address;
+      } else {
+        extWallet = address;
+      }
+      if (!walletKinds.contains(key)) walletKinds = [...walletKinds, key];
       notifyListeners();
     } catch (e) {
       throw CtError.from(e);
     }
   }
 
-  Future<void> removeExtWallet() async {
+  Future<void> removeWallet({bool solana = false}) async {
+    final key = solana ? 'solana' : 'evm';
     try {
-      await auth.api.delete('/api/cointrip/ext-wallet');
-      extWallet = null;
-      walletKinds = walletKinds.where((k) => k != 'general').toList();
+      await auth.api.delete(solana ? '/api/cointrip/sol-wallet' : '/api/cointrip/ext-wallet');
+      if (solana) {
+        solWallet = null;
+      } else {
+        extWallet = null;
+      }
+      walletKinds = walletKinds.where((k) => k != key).toList();
       notifyListeners();
     } catch (e) {
       throw CtError.from(e);

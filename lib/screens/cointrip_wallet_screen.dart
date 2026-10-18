@@ -101,6 +101,19 @@ class _CointripWalletScreenState extends State<CointripWalletScreen> {
                 child: Text(svc.extWallet == null ? l10n.ctRegister : l10n.ctChange),
               ),
             ),
+            const SizedBox(height: 10),
+            _WalletRow(
+              title: l10n.ctSolWallet,
+              sub: l10n.ctSolWalletSub,
+              address: svc.solWallet,
+              action: TextButton(
+                onPressed: () async {
+                  await context.push('/cointrip/sol-wallet');
+                  if (mounted) _load();
+                },
+                child: Text(svc.solWallet == null ? l10n.ctRegister : l10n.ctChange),
+              ),
+            ),
             const SizedBox(height: 12),
             const WalletResponsibilityNotice(),
             const SizedBox(height: 24),
@@ -355,7 +368,11 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
               ),
               Text(
                 [
-                  b.walletKind == 'quantarium' ? l10n.ctQuantariumWallet : l10n.ctExtWallet,
+                  switch (b.walletKind) {
+                    'quantarium' => l10n.ctQuantariumWallet,
+                    'solana' => l10n.ctSolWallet,
+                    _ => l10n.ctExtWallet,
+                  },
                   if (b.network.isNotEmpty) b.network,
                 ].join(' · '),
                 style: const TextStyle(fontSize: 12.5, color: EggplantColors.textSecondary),

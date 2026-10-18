@@ -2347,7 +2347,7 @@ abstract class AppLocalizations {
   /// No description provided for @ctIntroWallet.
   ///
   /// In ko, this message translates to:
-  /// **'퀀타리움 소속 코인은 퀀타리움 월렛, 일반 코인은 기존 지갑 주소를 등록해야 지도에 보여요.'**
+  /// **'받을 지갑을 등록해야 그 코인이 지도에 보여요. 퀀타리움 코인은 퀀타리움 월렛, 이더리움·BNB·폴리곤 코인은 0x 지갑 주소, 솔라나 코인은 솔라나 지갑 주소예요.'**
   String get ctIntroWallet;
 
   /// No description provided for @ctIntroSafety.
@@ -2383,7 +2383,7 @@ abstract class AppLocalizations {
   /// No description provided for @ctNeedWalletBody.
   ///
   /// In ko, this message translates to:
-  /// **'퀀타리움 소속 코인은 퀀타리움 월렛으로, 일반 코인은 기존 지갑 주소(BNB 등)로 받아요. 받을 지갑이 없는 코인은 지도에 나오지 않아요.'**
+  /// **'퀀타리움 코인은 퀀타리움 월렛, 이더리움·BNB·폴리곤 코인은 0x 지갑 주소, 솔라나 코인은 솔라나 지갑 주소로 받아요. 받을 지갑이 없는 코인은 지도에 나오지 않아요.'**
   String get ctNeedWalletBody;
 
   /// No description provided for @ctRegisterWallet.
@@ -2575,7 +2575,7 @@ abstract class AppLocalizations {
   /// No description provided for @ctExtWalletSub.
   ///
   /// In ko, this message translates to:
-  /// **'일반 코인(BNB 등)을 받아요'**
+  /// **'이더리움·BNB·폴리곤 코인을 받아요'**
   String get ctExtWalletSub;
 
   /// No description provided for @ctNotRegistered.
@@ -2695,8 +2695,38 @@ abstract class AppLocalizations {
   /// No description provided for @ctExtWalletDesc.
   ///
   /// In ko, this message translates to:
-  /// **'일반 코인(BNB 등)을 받을 지갑 주소예요. 0x로 시작하는 42자리 주소를 넣어 주세요. 거래소 입금 주소라면 네트워크(BNB Smart Chain 등)가 맞는지 꼭 확인하세요.'**
+  /// **'이더리움·BNB·폴리곤 코인을 받을 지갑 주소예요. 0x로 시작하는 42자리 주소 하나로 세 체인을 모두 받아요. 거래소 입금 주소라면 코인의 체인과 맞는지 꼭 확인하세요.'**
   String get ctExtWalletDesc;
+
+  /// No description provided for @ctSolWallet.
+  ///
+  /// In ko, this message translates to:
+  /// **'솔라나 지갑 주소'**
+  String get ctSolWallet;
+
+  /// No description provided for @ctSolWalletSub.
+  ///
+  /// In ko, this message translates to:
+  /// **'솔라나 코인을 받아요'**
+  String get ctSolWalletSub;
+
+  /// No description provided for @ctSolWalletDesc.
+  ///
+  /// In ko, this message translates to:
+  /// **'솔라나 코인을 받을 지갑 주소예요. 0x가 아닌 솔라나 주소(32~44자리)를 넣어 주세요. 거래소 입금 주소라면 솔라나 체인이 맞는지 꼭 확인하세요.'**
+  String get ctSolWalletDesc;
+
+  /// No description provided for @ctSolWalletInvalid.
+  ///
+  /// In ko, this message translates to:
+  /// **'솔라나 지갑 주소가 아니에요'**
+  String get ctSolWalletInvalid;
+
+  /// No description provided for @ctSolRemoveConfirm.
+  ///
+  /// In ko, this message translates to:
+  /// **'솔라나 지갑 주소를 지울까요? 솔라나 코인이 지도에 안 보이게 돼요.'**
+  String get ctSolRemoveConfirm;
 
   /// No description provided for @ctExtWalletLabel.
   ///

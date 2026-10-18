@@ -36,7 +36,7 @@ class _Fake implements HttpClientAdapter {
     } else if (p.endsWith('/pick')) {
       code = 400;
       body = {'error': '30m 안으로 가까이 가야 주울 수 있어요', 'code': 'too_far', 'distance_m': 81};
-    } else if (p == '/api/cointrip/ext-wallet') {
+    } else if (p == '/api/cointrip/ext-wallet' || p == '/api/cointrip/sol-wallet') {
       body = {'ok': true};
     }
     return ResponseBody.fromString(jsonEncode(body), code, headers: {Headers.contentTypeHeader: ['application/json']});
@@ -145,5 +145,37 @@ void main() {
     expect(put.method, 'PUT');
     expect(put.data, {'address': '0x${'a' * 40}', 'ack': true});
     expect(svc.extWallet, '0x${'a' * 40}');
+  });
+
+  testWidgets('솔라나 지갑 주소: 0x 주소는 안 되고 솔라나 주소만 저장된다', (t) async {
+    final svc = await setup();
+    await t.pumpWidget(MultiProvider(
+      providers: [ChangeNotifierProvider<CointripService>.value(value: svc)],
+      child: MaterialApp(
+        locale: L10n.locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const CointripExtWalletScreen(solana: true),
+      ),
+    ));
+    await t.pump();
+    expect(find.text('솔라나 지갑 주소'), findsOneWidget);
+    await t.enterText(find.byType(TextField), '0xNaN');
+    await t.pump();
+    expect(find.text('솔라나 지갑 주소가 아니에요'), findsOneWidget);
+
+    const sol = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU';
+    await t.enterText(find.byType(TextField), sol);
+    await t.tap(find.byType(Checkbox));
+    await t.pump();
+    await t.runAsync(() async {
+      await t.tap(find.widgetWithText(FilledButton, '저장'));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await t.pump();
+    final put = fake.sent.lastWhere((o) => o.method == 'PUT');
+    expect(put.path, '/api/cointrip/sol-wallet');
+    expect(svc.solWallet, sol);
+    expect(svc.walletKinds, contains('solana'));
   });
 }

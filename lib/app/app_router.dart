@@ -156,6 +156,10 @@ GoRouter createRouter(AuthService auth) {
         builder: (_, __) => const CointripExtWalletScreen(),
       ),
       GoRoute(
+        path: '/cointrip/sol-wallet',
+        builder: (_, __) => const CointripExtWalletScreen(solana: true),
+      ),
+      GoRoute(
         path: '/cointrip/union',
         builder: (_, __) => const CointripUnionScreen(),
       ),

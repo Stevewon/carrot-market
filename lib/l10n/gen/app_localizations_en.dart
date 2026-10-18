@@ -1296,7 +1296,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ctIntroWallet =>
-      'Quantarium coins appear once you register a Quantarium wallet; other coins appear once you register an existing wallet address.';
+      'A coin shows on the map once you register a wallet for it: a Quantarium wallet for Quantarium coins, a 0x address for Ethereum, BNB and Polygon coins, and a Solana address for Solana coins.';
 
   @override
   String get ctIntroSafety =>
@@ -1317,7 +1317,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ctNeedWalletBody =>
-      'Quantarium coins go to your Quantarium wallet and other coins go to an existing wallet address (BNB, etc.). Coins you have no wallet for don\'t appear on the map.';
+      'Quantarium coins go to your Quantarium wallet, Ethereum, BNB and Polygon coins to a 0x address, and Solana coins to a Solana address. Coins you have no wallet for don\'t appear on the map.';
 
   @override
   String get ctRegisterWallet => 'Register a wallet';
@@ -1438,7 +1438,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ctExtWallet => 'Existing wallet address';
 
   @override
-  String get ctExtWalletSub => 'Receives other coins (BNB, etc.)';
+  String get ctExtWalletSub => 'Receives Ethereum, BNB and Polygon coins';
 
   @override
   String get ctNotRegistered => 'Not registered';
@@ -1506,7 +1506,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ctExtWalletDesc =>
-      'This is where you receive other coins (BNB, etc.). Enter a 42-character address starting with 0x. If it\'s an exchange deposit address, make sure the network (BNB Smart Chain, etc.) matches.';
+      'This address receives Ethereum, BNB and Polygon coins. One 42-character address starting with 0x works for all three chains. If it\'s an exchange deposit address, make sure it matches the coin\'s chain.';
+
+  @override
+  String get ctSolWallet => 'Solana wallet address';
+
+  @override
+  String get ctSolWalletSub => 'Receives Solana coins';
+
+  @override
+  String get ctSolWalletDesc =>
+      'This address receives Solana coins. Enter a Solana address (32–44 characters, not 0x). If it\'s an exchange deposit address, make sure it\'s on the Solana chain.';
+
+  @override
+  String get ctSolWalletInvalid => 'Not a Solana wallet address';
+
+  @override
+  String get ctSolRemoveConfirm =>
+      'Remove your Solana address? Solana coins will no longer appear on the map.';
 
   @override
   String get ctExtWalletLabel => 'Wallet address';

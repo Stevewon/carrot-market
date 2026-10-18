@@ -1226,7 +1226,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get ctIntroWallet =>
-      'Quantarium系のコインはQuantariumウォレット、一般コインは既存のウォレットアドレスを登録すると地図に表示されます。';
+      '受け取るウォレットを登録すると、そのコインが地図に表示されます。QuantariumコインはQuantariumウォレット、Ethereum・BNB・Polygonのコインは0xウォレットアドレス、SolanaのコインはSolanaウォレットアドレスです。';
 
   @override
   String get ctIntroSafety =>
@@ -1247,7 +1247,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get ctNeedWalletBody =>
-      'Quantarium系のコインはQuantariumウォレットへ、一般コインは既存のウォレットアドレス（BNBなど）へ受け取ります。受け取るウォレットがないコインは地図に表示されません。';
+      'QuantariumコインはQuantariumウォレット、Ethereum・BNB・Polygonのコインは0xウォレットアドレス、SolanaのコインはSolanaウォレットアドレスで受け取ります。受け取るウォレットがないコインは地図に表示されません。';
 
   @override
   String get ctRegisterWallet => 'ウォレットを登録する';
@@ -1358,7 +1358,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get ctExtWallet => '既存のウォレットアドレス';
 
   @override
-  String get ctExtWalletSub => '一般コイン（BNBなど）を受け取ります';
+  String get ctExtWalletSub => 'Ethereum・BNB・Polygonのコインを受け取ります';
 
   @override
   String get ctNotRegistered => '未登録';
@@ -1425,7 +1425,24 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get ctExtWalletDesc =>
-      '一般コイン（BNBなど）を受け取るウォレットアドレスです。0xで始まる42桁のアドレスを入力してください。取引所の入金アドレスの場合は、ネットワーク（BNB Smart Chainなど）が合っているか必ず確認してください。';
+      'Ethereum・BNB・Polygonのコインを受け取るウォレットアドレスです。0xで始まる42桁のアドレス1つで3つのチェーンすべてを受け取れます。取引所の入金アドレスの場合は、コインのチェーンと合っているか必ず確認してください。';
+
+  @override
+  String get ctSolWallet => 'Solanaウォレットアドレス';
+
+  @override
+  String get ctSolWalletSub => 'Solanaのコインを受け取ります';
+
+  @override
+  String get ctSolWalletDesc =>
+      'Solanaのコインを受け取るウォレットアドレスです。0xではないSolanaアドレス（32〜44桁）を入力してください。取引所の入金アドレスの場合は、Solanaチェーンで合っているか必ず確認してください。';
+
+  @override
+  String get ctSolWalletInvalid => 'Solanaウォレットアドレスではありません';
+
+  @override
+  String get ctSolRemoveConfirm =>
+      'Solanaウォレットアドレスを削除しますか？Solanaのコインが地図に表示されなくなります。';
 
   @override
   String get ctExtWalletLabel => 'ウォレットアドレス';
