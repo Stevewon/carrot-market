@@ -49,6 +49,9 @@
         <div class="card">
           <h2>운영 상태</h2>
           <p id="open-state" class="hint">불러오는 중</p>
+          <div class="row" style="margin-bottom:14px">
+            <button type="button" id="toggle-open" class="btn-success" style="font-size:17px;padding:14px 26px">불러오는 중</button>
+          </div>
           <div class="stats-grid" id="stat-top"></div>
         </div>
         <div class="card">
@@ -219,6 +222,10 @@
         try {
           const [s, st] = await Promise.all([api(P + '/settings'), api(P + '/stats')]);
           const e = s.effective;
+          const tb = $('toggle-open');
+          tb.textContent = e.enabled ? '⏸ 코인트립 끄기 (테스터만 보이게)' : '▶ 코인트립 켜기 (모든 회원에게 공개)';
+          tb.className = e.enabled ? 'btn-danger' : 'btn-success';
+          tb.dataset.on = e.enabled ? '1' : '0';
           $('open-state').innerHTML = e.enabled
             ? '<span class="switch-on">● 전체 공개 중</span> — 모든 회원에게 코인트립 탭이 보입니다.'
             : `<span class="switch-off">● 꺼짐</span> — 테스터 ${e.testerIds.length}명만 볼 수 있습니다. (설정 탭에서 변경)`;
@@ -239,6 +246,18 @@
             : '<div class="empty">아직 코인 종류가 없어요. "코인 종류" 탭에서 추가하세요.</div>';
         } catch (e) { AdminApp.showError($('stat-table'), e.message); }
       }
+
+      $('toggle-open').addEventListener('click', async () => {
+        const on = $('toggle-open').dataset.on === '1';
+        const msg = on
+          ? '코인트립을 끌까요? 테스터 외 회원에게서 탭이 사라집니다.'
+          : '모든 회원에게 코인트립을 공개합니다. 법률 검토가 끝났나요?';
+        if (!AdminApp.confirmDanger(msg)) return;
+        try {
+          await api(P + '/settings', { method: 'PUT', body: { enabled: on ? '0' : '1' } });
+          loadStats();
+        } catch (e) { alert('실패: ' + e.message); }
+      });
 
       // ── 지도 ──
       let map = null, centerMark = null, layer = null;
