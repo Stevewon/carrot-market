@@ -113,7 +113,7 @@
             </div>
           </div>
           <div class="row" style="margin-top:10px">
-            <div class="form-row"><label>네트워크 (회원 안내용)</label><input id="c-network" type="text" placeholder="Quantarium / BNB Smart Chain" /></div>
+            <div class="form-row"><label>네트워크</label><select id="c-network"></select></div>
             <div class="form-row"><label>색</label><input id="c-color" type="color" value="#7c3aed" /></div>
             <div class="form-row"><label>출금 최소 수량</label><input id="c-min" type="text" value="0" /></div>
             <div class="form-row"><label>총 예산 (비우면 한도 없음)</label><input id="c-budget" type="text" /></div>
@@ -359,13 +359,27 @@
               <td><button class="btn-sm" data-edit="${esc(c.id)}">수정</button></td></tr>`).join('')}</tbody></table>`;
         } catch (e) { AdminApp.showError(area, e.message); }
       }
+      // 받는 지갑 종류에 맞는 네트워크만 고르게 한다. 일반 코인은 회원이 0x 주소를 넣으므로 0x 주소를 쓰는 네트워크만.
+      const NETWORKS = {
+        quantarium: ['Quantarium'],
+        general: ['BNB Smart Chain (BEP-20)', 'Ethereum (ERC-20)', 'Polygon', 'Arbitrum One', 'Base', 'Optimism', 'Avalanche C-Chain'],
+      };
+      function fillNetworks(current) {
+        const list = NETWORKS[$('c-kind').value] || [];
+        const opts = current && !list.includes(current) ? [current, ...list] : list;
+        $('c-network').innerHTML = opts.map((n) => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
+        $('c-network').value = current && opts.includes(current) ? current : opts[0];
+      }
+      $('c-kind').addEventListener('change', () => fillNetworks(''));
+      fillNetworks('');
+
       function fillCoin(c) {
         $('c-id').value = c ? c.id : '';
         $('c-title').textContent = c ? `코인 수정 — ${c.symbol}` : '코인 종류 추가';
         $('c-symbol').value = c ? c.symbol : '';
         $('c-name').value = c ? c.name : '';
         $('c-kind').value = c ? c.wallet_kind : 'quantarium';
-        $('c-network').value = c ? c.network : '';
+        fillNetworks(c ? c.network : '');
         $('c-color').value = c ? c.color : '#7c3aed';
         $('c-min').value = c ? c.withdraw_min : '0';
         $('c-budget').value = c && c.budget != null ? c.budget : '';
