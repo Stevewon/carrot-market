@@ -24,6 +24,7 @@ import authRoutes from './routes/auth';
 import callsRoutes from './routes/calls';
 import shareRoutes from './routes/share';
 import userLinkRoutes from './routes/userLink';
+import inviteRoutes from './routes/invite';
 import usersRoutes from './routes/users';
 import productsRoutes from './routes/products';
 import chatRoutes, { purgeExpiredChatMedia } from './routes/chat';
@@ -98,6 +99,8 @@ app.route('/api/calls', callsRoutes);
 app.route('/p', shareRoutes);
 // 내 QR 링크 웹 페이지 (https://api.eggplant.life/u/<회원id>)
 app.route('/u', userLinkRoutes);
+// 친구 초대 링크 웹 페이지 (https://api.eggplant.life/i/<닉네임>)
+app.route('/i', inviteRoutes);
 
 // ---------- R2 uploads passthrough ----------
 // Serves /uploads/<key> from the R2 bucket with basic caching.

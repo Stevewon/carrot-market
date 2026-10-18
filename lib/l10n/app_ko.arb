@@ -1462,6 +1462,16 @@
   "myRefTitle": "친구 초대",
   "myRefHeadline": "친구가 가입할 때\n내 닉네임을 입력하면 +200 QTA",
   "myRefCopyNick": "닉네임 복사",
+  "myRefShareLink": "친구에게 초대 링크 보내기",
+  "myRefShareText": "가지에서 익명으로 안전하게 사고팔아요! 가입할 때 추천인에 '{nickname}' 을 넣어 주세요.",
+  "@myRefShareText": {
+    "placeholders": {
+      "nickname": {
+        "type": "String"
+      }
+    }
+  },
+  "myRefLinkCopied": "초대 링크를 복사했어요. 친구에게 보내 주세요.",
   "myRefNickCopied": "닉네임을 복사했어요",
   "myRefOncePerPerson": "한 사람당 1번만 처리되지만, 내가 초대할 수 있는 친구 수에는 제한이 없어요.",
   "myRefStatValid": "유효한 초대",

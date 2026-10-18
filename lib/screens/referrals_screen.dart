@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
+import '../app/constants.dart';
 import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
@@ -61,6 +62,22 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
       setState(() => _error = context.l10n.myRefNetworkError);
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// 초대 링크 보내기 — 카톡·문자 등 공유 창. 받은 친구는 웹 페이지에서 앱을 받고 추천인에 내 닉네임을 넣는다.
+  Future<void> _shareInvite(String myNick) async {
+    if (myNick.isEmpty) return;
+    final l10n = context.l10n;
+    final url = '${AppConfig.apiBase}/i/${Uri.encodeComponent(myNick)}';
+    final text = '${l10n.myRefShareText(myNick)}\n$url';
+    try {
+      await const MethodChannel('eggplant.market/share')
+          .invokeMethod('shareText', {'text': text, 'title': l10n.myRefTitle});
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.myRefLinkCopied)));
     }
   }
 
@@ -158,6 +175,21 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                           },
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    onPressed: () => _shareInvite(myNick),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: EggplantColors.primary,
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    icon: const Icon(Icons.share_rounded, size: 20),
+                    label: Text(
+                      context.l10n.myRefShareLink,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                     ),
                   ),
                   const SizedBox(height: 10),

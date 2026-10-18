@@ -4733,6 +4733,24 @@ abstract class AppLocalizations {
   /// **'닉네임 복사'**
   String get myRefCopyNick;
 
+  /// No description provided for @myRefShareLink.
+  ///
+  /// In ko, this message translates to:
+  /// **'친구에게 초대 링크 보내기'**
+  String get myRefShareLink;
+
+  /// No description provided for @myRefShareText.
+  ///
+  /// In ko, this message translates to:
+  /// **'가지에서 익명으로 안전하게 사고팔아요! 가입할 때 추천인에 \'{nickname}\' 을 넣어 주세요.'**
+  String myRefShareText(String nickname);
+
+  /// No description provided for @myRefLinkCopied.
+  ///
+  /// In ko, this message translates to:
+  /// **'초대 링크를 복사했어요. 친구에게 보내 주세요.'**
+  String get myRefLinkCopied;
+
   /// No description provided for @myRefNickCopied.
   ///
   /// In ko, this message translates to:

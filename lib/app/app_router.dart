@@ -62,7 +62,11 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      // 친구 초대 링크 (eggplant://app/register?ref=<닉네임>) → 추천인 칸이 채워진다.
+      GoRoute(
+        path: '/register',
+        builder: (_, state) => RegisterScreen(referrer: state.uri.queryParameters['ref']),
+      ),
       GoRoute(path: '/find', builder: (_, __) => const FindAccountScreen()),
       GoRoute(
         path: '/',

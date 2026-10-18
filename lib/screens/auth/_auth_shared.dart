@@ -60,11 +60,14 @@ class FieldLabel extends StatelessWidget {
           ),
           if (hint != null) ...[
             const SizedBox(width: 6),
-            Text(
-              hint!,
-              style: const TextStyle(
-                fontSize: 11,
-                color: EggplantColors.textTertiary,
+            // 긴 안내(일본어·영어·큰 글씨)는 화면 밖으로 나가지 않고 줄바꿈.
+            Flexible(
+              child: Text(
+                hint!,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: EggplantColors.textTertiary,
+                ),
               ),
             ),
           ],

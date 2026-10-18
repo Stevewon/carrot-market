@@ -2550,6 +2550,17 @@ class AppLocalizationsKo extends AppLocalizations {
   String get myRefCopyNick => '닉네임 복사';
 
   @override
+  String get myRefShareLink => '친구에게 초대 링크 보내기';
+
+  @override
+  String myRefShareText(String nickname) {
+    return '가지에서 익명으로 안전하게 사고팔아요! 가입할 때 추천인에 \'$nickname\' 을 넣어 주세요.';
+  }
+
+  @override
+  String get myRefLinkCopied => '초대 링크를 복사했어요. 친구에게 보내 주세요.';
+
+  @override
   String get myRefNickCopied => '닉네임을 복사했어요';
 
   @override

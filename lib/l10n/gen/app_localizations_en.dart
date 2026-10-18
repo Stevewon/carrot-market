@@ -2675,6 +2675,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get myRefCopyNick => 'Copy nickname';
 
   @override
+  String get myRefShareLink => 'Send an invite link';
+
+  @override
+  String myRefShareText(String nickname) {
+    return 'Buy and sell anonymously on Eggplant! Enter \'$nickname\' as the referrer when you sign up.';
+  }
+
+  @override
+  String get myRefLinkCopied => 'Invite link copied. Send it to your friend.';
+
+  @override
   String get myRefNickCopied => 'Nickname copied';
 
   @override

@@ -14,7 +14,9 @@ import '_auth_shared.dart';
 ///   닉네임 + 비번 + 비번확인 (+ 추천인)
 ///   지갑은 가입 후 '내 정보 → 인증 관리 → 지갑 등록' 에서 연결한다.
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  /// 친구 초대 링크로 들어오면 초대한 사람 닉네임 — 추천인 칸에 미리 채운다.
+  final String? referrer;
+  const RegisterScreen({super.key, this.referrer});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -24,7 +26,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nicknameCtl = TextEditingController();
   final _pwCtl = TextEditingController();
   final _pwConfirmCtl = TextEditingController();
-  final _referrerCtl = TextEditingController();
+  late final _referrerCtl = TextEditingController(text: widget.referrer?.trim() ?? '');
   final _formKey = GlobalKey<FormState>();
 
   bool _loading = false;

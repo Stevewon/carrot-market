@@ -2552,6 +2552,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get myRefCopyNick => 'ニックネームをコピー';
 
   @override
+  String get myRefShareLink => '友だちに招待リンクを送る';
+
+  @override
+  String myRefShareText(String nickname) {
+    return 'ナスで匿名で安心して売り買いしよう！登録時の紹介者に「$nickname」を入力してね。';
+  }
+
+  @override
+  String get myRefLinkCopied => '招待リンクをコピーしました。友だちに送ってください。';
+
+  @override
   String get myRefNickCopied => 'ニックネームをコピーしました';
 
   @override
