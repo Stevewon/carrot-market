@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
+  <!-- 어드민 공통 헤더는 no-referrer 인데, 지도 타일 서버는 Referer 없는 요청을 막는다 → 이 화면만 사이트 주소를 보낸다. -->
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
   <title>코인트립 · Eggplant Admin</title>
   <link rel="stylesheet" href="admin.css?v=v3" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -29,6 +31,8 @@
     .kind-pick button small { color: var(--text-soft); font-size: 12.5px; font-weight: 400; }
     .kind-pick button.on { border-color: var(--primary); background: #f3e8ff; }
     .kind-pick button.on b { color: var(--primary-dark); }
+    .form-row input[type=number] { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; background: #fff; min-height: 44px; }
+    .form-row input[type=color] { width: 100%; min-height: 44px; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
     .section { display: none; }
     .section.on { display: block; }
     td code { font-size: 12px; }
@@ -277,10 +281,9 @@
       function initMap() {
         if (map) { setTimeout(() => map.invalidateSize(), 50); return; }
         map = L.map('map').setView([37.4979, 127.0276], 14);
-        // OSM 공용 타일은 Referer 없는 요청을 막는다 (어드민은 no-referrer) → CARTO 타일 사용.
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          maxZoom: 19, subdomains: 'abcd', referrerPolicy: 'strict-origin-when-cross-origin',
-          attribution: '© OpenStreetMap contributors © CARTO',
+        // 지도 타일: OpenStreetMap (Referer 를 보내야 막히지 않는다 — 위 meta referrer).
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19, referrerPolicy: 'strict-origin-when-cross-origin', attribution: '© OpenStreetMap contributors',
         }).addTo(map);
         layer = L.layerGroup().addTo(map);
         map.on('click', (e) => {
