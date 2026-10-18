@@ -592,7 +592,14 @@
       }
     }
   },
-  "ctIntroBlack": "검은 블랙코인은 주워서 열어 봐야 무슨 코인인지 알 수 있어요.",
+  "ctIntroBlack": "검은 블랙코인은 모험이에요. 대부분 좋은 코인이 들어 있지만 꽝(빈 코인)이나 벌칙이 나올 수도 있어요. 벌칙이면 광고를 끝까지 보거나 갖고 있는 QTA 중 {qta}개를 내놓아야 해요. 무조건 덥석 줍지 마세요!",
+  "@ctIntroBlack": {
+    "placeholders": {
+      "qta": {
+        "type": "int"
+      }
+    }
+  },
   "ctIntroUnion": "친구 연합을 만들면 연합원 누가 주워도 함께 나눠 받아요. 주운 사람은 {times}배를 받아요.",
   "@ctIntroUnion": {
     "placeholders": {
@@ -644,11 +651,53 @@
     }
   },
   "ctBlackCoin": "블랙코인",
-  "ctBlackCoinHint": "주워서 열어 봐야 무슨 코인인지 알 수 있어요",
+  "ctBlackCoinHint": "모험 코인 — 대부분 좋은 코인, 가끔 꽝이나 벌칙(광고 또는 QTA {qta}개)",
+  "@ctBlackCoinHint": {
+    "placeholders": {
+      "qta": {
+        "type": "int"
+      }
+    }
+  },
   "ctApprox": "대략적인 위치예요. {meters}m 안으로 가까이 가면 정확한 위치가 보여요.",
   "@ctApprox": {
     "placeholders": {
       "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "ctGoldCoin": "황금 코인",
+  "ctGoldCoinHint": "주워 봐야 어떤 코인이 몇 개인지 알 수 있어요",
+  "ctEmptyTitle": "꽝!",
+  "ctEmptyBody": "블랙코인이 비어 있었어요. 내는 것은 없어요. 다음 블랙코인을 노려 보세요!",
+  "ctDudTitle": "벌칙!",
+  "ctDudBody": "블랙코인에서 벌칙이 나왔어요. 광고를 끝까지 보면 그냥 넘어가고, 안 보면 갖고 있는 QTA 중 {qta}개를 내놓아야 해요.",
+  "@ctDudBody": {
+    "placeholders": {
+      "qta": {
+        "type": "int"
+      }
+    }
+  },
+  "ctDudDeadline": "10분 안에 정하지 않으면 QTA를 내는 것으로 처리돼요",
+  "ctDudWatchAd": "광고 보기",
+  "ctDudPay": "QTA {qta}개 내기",
+  "@ctDudPay": {
+    "placeholders": {
+      "qta": {
+        "type": "int"
+      }
+    }
+  },
+  "ctDudAdNotFinished": "광고를 끝까지 봐야 넘어갈 수 있어요",
+  "ctDudAdFailed": "광고를 불러오지 못했어요. 잠시 뒤 다시 해 주세요",
+  "ctDudAdChecking": "광고 확인이 늦어지고 있어요. 잠시 뒤 다시 눌러 주세요",
+  "ctDudAdOk": "광고를 봐서 그냥 넘어가요",
+  "ctDudPaid": "QTA {qta}개를 냈어요",
+  "@ctDudPaid": {
+    "placeholders": {
+      "qta": {
         "type": "int"
       }
     }

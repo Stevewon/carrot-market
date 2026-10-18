@@ -262,6 +262,18 @@ export async function grantLoginDailyBonus(
 }
 
 /**
+ * 코인트립 블랙코인 꽝에서 광고를 안 봤을 때 QTA 를 내놓는다 (멱등 — 꽝 한 번에 한 번).
+ * 잔액이 모자라면 있는 만큼만 뺀다 (잔액이 음수가 되지 않게). 실제로 뺀 수량을 돌려준다.
+ */
+export async function deductCointripDud(env: Env, userId: string, penaltyId: string, qta: number): Promise<number> {
+  const u = await env.DB.prepare('SELECT qta_balance FROM users WHERE id = ?').bind(userId).first<{ qta_balance: number }>();
+  const take = Math.max(0, Math.min(qta, u?.qta_balance ?? 0));
+  if (take <= 0) return 0;
+  const ok = await creditOnce(env, userId, -take, 'cointrip_dud', `cointrip_dud:${penaltyId}`, { penalty_id: penaltyId });
+  return ok ? take : 0;
+}
+
+/**
  * 거래완료 보너스 — 판매자·구매자 각각 +10 QTA (멱등).
  * 같은 product_id 로 두 번 호출되어도 중복 지급되지 않는다.
  */

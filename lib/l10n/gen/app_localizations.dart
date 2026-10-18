@@ -2335,8 +2335,8 @@ abstract class AppLocalizations {
   /// No description provided for @ctIntroBlack.
   ///
   /// In ko, this message translates to:
-  /// **'검은 블랙코인은 주워서 열어 봐야 무슨 코인인지 알 수 있어요.'**
-  String get ctIntroBlack;
+  /// **'검은 블랙코인은 모험이에요. 대부분 좋은 코인이 들어 있지만 꽝(빈 코인)이나 벌칙이 나올 수도 있어요. 벌칙이면 광고를 끝까지 보거나 갖고 있는 QTA 중 {qta}개를 내놓아야 해요. 무조건 덥석 줍지 마세요!'**
+  String ctIntroBlack(int qta);
 
   /// No description provided for @ctIntroUnion.
   ///
@@ -2479,14 +2479,98 @@ abstract class AppLocalizations {
   /// No description provided for @ctBlackCoinHint.
   ///
   /// In ko, this message translates to:
-  /// **'주워서 열어 봐야 무슨 코인인지 알 수 있어요'**
-  String get ctBlackCoinHint;
+  /// **'모험 코인 — 대부분 좋은 코인, 가끔 꽝이나 벌칙(광고 또는 QTA {qta}개)'**
+  String ctBlackCoinHint(int qta);
 
   /// No description provided for @ctApprox.
   ///
   /// In ko, this message translates to:
   /// **'대략적인 위치예요. {meters}m 안으로 가까이 가면 정확한 위치가 보여요.'**
   String ctApprox(int meters);
+
+  /// No description provided for @ctGoldCoin.
+  ///
+  /// In ko, this message translates to:
+  /// **'황금 코인'**
+  String get ctGoldCoin;
+
+  /// No description provided for @ctGoldCoinHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'주워 봐야 어떤 코인이 몇 개인지 알 수 있어요'**
+  String get ctGoldCoinHint;
+
+  /// No description provided for @ctEmptyTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'꽝!'**
+  String get ctEmptyTitle;
+
+  /// No description provided for @ctEmptyBody.
+  ///
+  /// In ko, this message translates to:
+  /// **'블랙코인이 비어 있었어요. 내는 것은 없어요. 다음 블랙코인을 노려 보세요!'**
+  String get ctEmptyBody;
+
+  /// No description provided for @ctDudTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'벌칙!'**
+  String get ctDudTitle;
+
+  /// No description provided for @ctDudBody.
+  ///
+  /// In ko, this message translates to:
+  /// **'블랙코인에서 벌칙이 나왔어요. 광고를 끝까지 보면 그냥 넘어가고, 안 보면 갖고 있는 QTA 중 {qta}개를 내놓아야 해요.'**
+  String ctDudBody(int qta);
+
+  /// No description provided for @ctDudDeadline.
+  ///
+  /// In ko, this message translates to:
+  /// **'10분 안에 정하지 않으면 QTA를 내는 것으로 처리돼요'**
+  String get ctDudDeadline;
+
+  /// No description provided for @ctDudWatchAd.
+  ///
+  /// In ko, this message translates to:
+  /// **'광고 보기'**
+  String get ctDudWatchAd;
+
+  /// No description provided for @ctDudPay.
+  ///
+  /// In ko, this message translates to:
+  /// **'QTA {qta}개 내기'**
+  String ctDudPay(int qta);
+
+  /// No description provided for @ctDudAdNotFinished.
+  ///
+  /// In ko, this message translates to:
+  /// **'광고를 끝까지 봐야 넘어갈 수 있어요'**
+  String get ctDudAdNotFinished;
+
+  /// No description provided for @ctDudAdFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'광고를 불러오지 못했어요. 잠시 뒤 다시 해 주세요'**
+  String get ctDudAdFailed;
+
+  /// No description provided for @ctDudAdChecking.
+  ///
+  /// In ko, this message translates to:
+  /// **'광고 확인이 늦어지고 있어요. 잠시 뒤 다시 눌러 주세요'**
+  String get ctDudAdChecking;
+
+  /// No description provided for @ctDudAdOk.
+  ///
+  /// In ko, this message translates to:
+  /// **'광고를 봐서 그냥 넘어가요'**
+  String get ctDudAdOk;
+
+  /// No description provided for @ctDudPaid.
+  ///
+  /// In ko, this message translates to:
+  /// **'QTA {qta}개를 냈어요'**
+  String ctDudPaid(int qta);
 
   /// No description provided for @ctPick.
   ///

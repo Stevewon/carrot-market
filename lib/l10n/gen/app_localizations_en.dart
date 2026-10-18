@@ -1286,8 +1286,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get ctIntroBlack =>
-      'A black coin doesn\'t show what it is until you pick it up and open it.';
+  String ctIntroBlack(int qta) {
+    return 'Black coins are an adventure. Most hold good coins, but some are empty (a dud) or a penalty. On a penalty you must watch an ad to the end or give up $qta of your QTA. Think before you grab!';
+  }
 
   @override
   String ctIntroUnion(String times) {
@@ -1380,12 +1381,65 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ctBlackCoin => 'Black coin';
 
   @override
-  String get ctBlackCoinHint =>
-      'You won\'t know what it is until you pick it up';
+  String ctBlackCoinHint(int qta) {
+    return 'Adventure coin — mostly good coins, sometimes empty or a penalty (an ad or $qta QTA)';
+  }
 
   @override
   String ctApprox(int meters) {
     return 'This is a rough area. Get within ${meters}m to see the exact spot.';
+  }
+
+  @override
+  String get ctGoldCoin => 'Gold coin';
+
+  @override
+  String get ctGoldCoinHint =>
+      'You won\'t know which coin or how much until you pick it up';
+
+  @override
+  String get ctEmptyTitle => 'Empty!';
+
+  @override
+  String get ctEmptyBody =>
+      'This black coin was empty. You lose nothing. Try the next one!';
+
+  @override
+  String get ctDudTitle => 'Penalty!';
+
+  @override
+  String ctDudBody(int qta) {
+    return 'The black coin held a penalty. Watch an ad to the end and you\'re off the hook; otherwise you give up $qta of your QTA.';
+  }
+
+  @override
+  String get ctDudDeadline =>
+      'If you don\'t choose within 10 minutes, the QTA is taken';
+
+  @override
+  String get ctDudWatchAd => 'Watch an ad';
+
+  @override
+  String ctDudPay(int qta) {
+    return 'Pay $qta QTA';
+  }
+
+  @override
+  String get ctDudAdNotFinished => 'You need to watch the ad to the end';
+
+  @override
+  String get ctDudAdFailed => 'Couldn\'t load the ad. Please try again shortly';
+
+  @override
+  String get ctDudAdChecking =>
+      'Ad confirmation is taking a while. Please tap again shortly';
+
+  @override
+  String get ctDudAdOk => 'You watched the ad — you\'re off the hook';
+
+  @override
+  String ctDudPaid(int qta) {
+    return 'You paid $qta QTA';
   }
 
   @override

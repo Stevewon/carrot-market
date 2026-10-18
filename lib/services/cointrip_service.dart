@@ -148,13 +148,37 @@ class CtWithdrawal {
 }
 
 /// 줍기 결과.
+/// 블랙코인 꽝 — 광고를 끝까지 보면 그냥 넘어가고, 안 보면 [qta] 를 내놓는다 (10분 안에 안 정하면 내는 것으로).
+class CtPenalty {
+  final String id;
+  final int qta;
+  final String adUnit;
+  final bool serverVerify; // true = AdMob 서버 확인(SSV)이 와야 인정
+  final DateTime expiresAt;
+  const CtPenalty({required this.id, required this.qta, required this.adUnit, required this.serverVerify, required this.expiresAt});
+
+  static CtPenalty? fromJson(Object? v) {
+    if (v is! Map) return null;
+    return CtPenalty(
+      id: v['id'].toString(),
+      qta: (v['qta'] as num?)?.toInt() ?? 0,
+      adUnit: (v['ad_unit'] ?? '').toString(),
+      serverVerify: v['ad_verify'] == 'ssv',
+      expiresAt: parseServerTime(v['expires_at']),
+    );
+  }
+}
+
+/// 줍기 결과 — 코인을 주웠거나, 블랙코인 꽝 ([empty], 아무것도 없음), 블랙코인 벌칙 ([dud] != null).
 class CtPickResult {
+  final CtPenalty? dud;
+  final bool empty;
   final bool wasBlack;
   final CtCoin coin;
   final String total;
   final String mine;
   final List<(String nickname, String amount)> shared;
-  const CtPickResult({required this.wasBlack, required this.coin, required this.total, required this.mine, required this.shared});
+  const CtPickResult({this.dud, this.empty = false, required this.wasBlack, required this.coin, required this.total, required this.mine, required this.shared});
 }
 
 /// 서버 datetime('now') 는 'YYYY-MM-DD HH:MM:SS' (UTC, 시간대 표시 없음).
@@ -169,7 +193,10 @@ class CtError implements Exception {
   final String message;
   final String? code;
   final int? distanceM;
-  const CtError(this.message, {this.code, this.distanceM});
+
+  /// code == 'dud_pending' 이면 먼저 정리해야 할 꽝.
+  final CtPenalty? penalty;
+  const CtError(this.message, {this.code, this.distanceM, this.penalty});
   @override
   String toString() => message;
 
@@ -178,7 +205,7 @@ class CtError implements Exception {
       final d = e.response?.data;
       if (d is Map && d['error'] != null) {
         return CtError(d['error'].toString(),
-            code: d['code']?.toString(), distanceM: (d['distance_m'] as num?)?.toInt());
+            code: d['code']?.toString(), distanceM: (d['distance_m'] as num?)?.toInt(), penalty: CtPenalty.fromJson(d['penalty']));
       }
     }
     return CtError(L10n.current.ctNetworkError);
@@ -204,6 +231,10 @@ class CointripService extends ChangeNotifier {
   String? solWallet;
   bool phoneVerified = false;
   bool introAcked = false;
+  int dudPenaltyQta = 10;
+
+  /// 아직 정리 안 한 꽝 (있으면 다른 코인을 못 줍는다).
+  CtPenalty? penalty;
   CtUnion? union;
 
   bool get open => _open;
@@ -227,6 +258,8 @@ class CointripService extends ChangeNotifier {
         solWallet = j['sol_wallet_address']?.toString();
         phoneVerified = j['phone_verified'] == true;
         introAcked = j['intro_acked'] == true;
+        dudPenaltyQta = (j['dud_penalty_qta'] as num?)?.toInt() ?? 10;
+        penalty = CtPenalty.fromJson(j['penalty']);
         union = CtUnion.fromJson(j['union']);
       }
       _statusLoaded = true;
@@ -267,6 +300,14 @@ class CointripService extends ChangeNotifier {
       final res = await auth.api.post('/api/cointrip/drops/${d.id}/pick',
           data: {'lat': lat, 'lng': lng, 'accuracy': accuracy, 'mocked': mocked});
       final j = Map<String, dynamic>.from(res.data as Map);
+      if (j['empty'] == true) {
+        return const CtPickResult(empty: true, wasBlack: true, coin: CtCoin(id: '', symbol: '', name: '', color: '#111111'), total: '', mine: '', shared: []);
+      }
+      if (j['dud'] == true) {
+        penalty = CtPenalty.fromJson(j['penalty']);
+        notifyListeners();
+        return CtPickResult(dud: penalty, wasBlack: true, coin: const CtCoin(id: '', symbol: '', name: '', color: '#111111'), total: '', mine: '', shared: const []);
+      }
       return CtPickResult(
         wasBlack: j['was_black'] == true,
         coin: CtCoin.fromJson(Map<String, dynamic>.from(j['coin'] as Map)),
@@ -279,6 +320,47 @@ class CointripService extends ChangeNotifier {
       );
     } catch (e) {
       throw CtError.from(e);
+    }
+  }
+
+  /// 꽝: 광고를 끝까지 봤다. 서버 확인(SSV) 방식이면 구글 콜백이 올 때까지 잠깐 기다린다. 인정되면 true.
+  Future<bool> penaltyAdWatched(CtPenalty p) async {
+    for (var i = 0; i < (p.serverVerify ? 8 : 1); i++) {
+      try {
+        final res = await auth.api.post('/api/cointrip/penalties/${p.id}/ad-watched');
+        if (res.data is Map && res.data['ok'] == true) {
+          penalty = null;
+          notifyListeners();
+          return true;
+        }
+      } catch (e) {
+        final err = CtError.from(e);
+        if (err.code == 'settled') {
+          penalty = null;
+          notifyListeners();
+          return true;
+        }
+      }
+      if (p.serverVerify) await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    return false;
+  }
+
+  /// 꽝: 광고 대신 QTA 를 낸다. 실제로 낸 수량을 돌려준다 (잔액이 모자라면 있는 만큼).
+  Future<int> penaltyPay(CtPenalty p) async {
+    try {
+      final res = await auth.api.post('/api/cointrip/penalties/${p.id}/pay');
+      penalty = null;
+      notifyListeners();
+      return (res.data['deducted'] as num?)?.toInt() ?? 0;
+    } catch (e) {
+      final err = CtError.from(e);
+      if (err.code == 'settled') {
+        penalty = null;
+        notifyListeners();
+        return 0;
+      }
+      throw err;
     }
   }
 

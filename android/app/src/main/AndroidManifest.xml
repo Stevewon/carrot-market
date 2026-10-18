@@ -102,6 +102,12 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyCmgMgg1q5A0703f-1IEapEUu3LVzO0Dj4" />
 
+        <!-- 코인트립 블랙코인 꽝 보상형 광고 (Google AdMob). 지금은 구글 테스트 앱 ID —
+             AdMob 에서 가지 앱을 등록하고 받은 앱 ID(ca-app-pub-…~…)로 바꿔야 실제 광고·수익이 나온다. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

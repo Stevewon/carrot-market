@@ -344,8 +344,9 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
               const SizedBox(height: 14),
               TextField(
                 controller: _amount,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,6}'))],
+                // 코인은 정수 개만 (사장님 지시 — 소수점 없이).
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
                   labelText: l10n.ctWithdrawAmount,
                   suffixText: b.coin.symbol,

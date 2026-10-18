@@ -13,6 +13,11 @@ export interface CtSettings {
   preciseRadiusM: number;
   finderMultiplier: number;
   unionMax: number;
+  /** 블랙코인 꽝에서 광고를 안 보면 내는 QTA. */
+  dudPenaltyQta: number;
+  /** client = 앱이 알려 주면 인정, ssv = AdMob 서버 확인 콜백이 와야 인정. */
+  adVerify: 'client' | 'ssv';
+  rewardedAdUnit: string;
 }
 
 export const SETTING_KEYS = [
@@ -22,6 +27,9 @@ export const SETTING_KEYS = [
   'precise_radius_m',
   'finder_multiplier',
   'union_max',
+  'dud_penalty_qta',
+  'ad_verify',
+  'rewarded_ad_unit',
 ] as const;
 
 function num(v: string | undefined, def: number, min: number, max: number): number {
@@ -41,6 +49,9 @@ export async function loadSettings(env: Env): Promise<CtSettings> {
     preciseRadiusM: num(m.precise_radius_m, 300, 30, 5000),
     finderMultiplier: num(m.finder_multiplier, 2, 1, 100),
     unionMax: Math.round(num(m.union_max, 50, 2, 500)),
+    dudPenaltyQta: Math.round(num(m.dud_penalty_qta, 10, 0, 100000)),
+    adVerify: m.ad_verify === 'ssv' ? 'ssv' : 'client',
+    rewardedAdUnit: m.rewarded_ad_unit || 'ca-app-pub-3940256099942544/5224354917',
   };
 }
 
@@ -115,12 +126,13 @@ export function walletColumn(key: WalletKey): 'wallet_address' | 'ext_wallet_add
 }
 
 /**
- * 연합 나눔 — 주운 사람은 multiplier 몫, 나머지는 1 몫씩. 나눠 떨어지지 않는 자투리는 주운 사람에게.
- * 반환: [userId, micro][] (주운 사람이 첫 번째).
+ * 연합 나눔 — 주운 사람은 multiplier 몫, 나머지는 1 몫씩. 코인은 정수 개로만 나눈다 (사장님 지시):
+ * 한 사람 몫을 코인 단위로 내림하고, 남는 자투리는 모두 주운 사람에게.
+ * total 은 micro 단위, 반환: [userId, micro][] (주운 사람이 첫 번째).
  */
 export function splitShares(total: number, finderId: string, others: string[], multiplier: number): [string, number][] {
   const w = multiplier + others.length;
-  const each = Math.floor(total / w);
+  const each = Math.floor(total / MICRO / w) * MICRO;
   const out: [string, number][] = others.map((id) => [id, each]);
   const finder = total - each * others.length;
   return [[finderId, finder], ...out.filter(([, n]) => n > 0)];

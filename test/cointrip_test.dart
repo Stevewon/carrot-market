@@ -33,9 +33,13 @@ class _Fake implements HttpClientAdapter {
           {'id': 'd2', 'precise': false, 'lat': 37.5025, 'lng': 127.0025, 'distance_m': 900, 'is_black': true, 'coin': null, 'amount': null},
         ],
       };
+    } else if (p.endsWith('/d2/pick')) {
+      body = {'ok': true, 'dud': true, 'penalty': {'id': 'pen1', 'qta': 10, 'status': 'pending', 'expires_at': '2026-10-18 12:10:00', 'ad_unit': 'ca-app-pub-3940256099942544/5224354917', 'ad_verify': 'client'}};
     } else if (p.endsWith('/pick')) {
       code = 400;
       body = {'error': '30m 안으로 가까이 가야 주울 수 있어요', 'code': 'too_far', 'distance_m': 81};
+    } else if (p == '/api/cointrip/penalties/pen1/pay') {
+      body = {'ok': true, 'deducted': 7};
     } else if (p == '/api/cointrip/ext-wallet' || p == '/api/cointrip/sol-wallet') {
       body = {'ok': true};
     }
@@ -177,5 +181,17 @@ void main() {
     expect(put.path, '/api/cointrip/sol-wallet');
     expect(svc.solWallet, sol);
     expect(svc.walletKinds, contains('solana'));
+  });
+
+  test('블랙코인 꽝: 줍기 결과에 꽝이 오고, QTA 를 내면 정리된다 (모자라면 있는 만큼)', () async {
+    final svc = await setup();
+    final d = (await svc.drops(37.5, 127.0)).drops.last;
+    final r = await svc.pick(d, lat: 37.5, lng: 127.0, accuracy: 5, mocked: false);
+    expect(r.dud, isNotNull);
+    expect(r.dud!.qta, 10);
+    expect(r.dud!.serverVerify, false);
+    expect(svc.penalty?.id, 'pen1');
+    expect(await svc.penaltyPay(r.dud!), 7);
+    expect(svc.penalty, isNull);
   });
 }

@@ -248,8 +248,17 @@ class InboxService extends ChangeNotifier {
     }
   }
 
+  bool _disposed = false;
+
+  /// 화면이 닫힌 뒤 늦게 끝난 요청(안 읽은 수 새로고침 등)이 알리지 않게.
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   @override
   void dispose() {
+    _disposed = true;
     pings.removeListener(_onPing);
     super.dispose();
   }

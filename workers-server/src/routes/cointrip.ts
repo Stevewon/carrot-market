@@ -28,6 +28,7 @@ import type { Env, Variables } from '../types';
 import { authMiddleware } from '../jwt';
 import { tr, trl, marketLang } from '../market';
 import { addNotifications } from '../utils/inbox';
+import { deductCointripDud } from '../qta';
 import {
   distanceM,
   fromMicro,
@@ -149,6 +150,7 @@ app.get('/status', async (c) => {
   const me = await loadMe(c);
   const open = openFor(s, me.id);
   if (!open) return c.json({ open: false });
+  await settleExpired(c.env, me.id);
   const intro = await c.env.DB
     .prepare("SELECT 1 AS ok FROM wallet_notice_acks WHERE user_id = ? AND context = 'cointrip_intro' LIMIT 1")
     .bind(me.id)
@@ -165,6 +167,8 @@ app.get('/status', async (c) => {
     sol_wallet_address: me.sol_wallet_address,
     phone_verified: phoneVerified(me),
     intro_acked: !!intro,
+    dud_penalty_qta: s.dudPenaltyQta,
+    penalty: await pendingPenalty(c.env, me.id, s),
     union: await unionOf(c.env, me.id),
   });
 });
@@ -281,8 +285,9 @@ app.get('/drops', async (c) => {
       // 멀리 있으면 거리도 대략 (100m 단위)
       distance_m: precise ? Math.round(dist) : Math.round(dist / 100) * 100,
       is_black: black,
-      coin: black ? null : { id: d.coin_id, symbol: d.symbol, name: d.name, color: d.color },
-      amount: black ? null : fromMicro(d.amount_micro),
+      // 지도에서는 모든 코인이 같은 황금 동전 — 종류·수량은 주워야 안다 (비싼 것만 골라 줍지 않게, 사장님 지시).
+      coin: null,
+      amount: null,
     });
   }
   drops.sort((a, b) => a.distance_m - b.distance_m);
@@ -305,19 +310,24 @@ app.post('/drops/:id/pick', async (c) => {
   if (!phoneVerified(me)) {
     return c.json({ error: tr(c, '휴대폰 인증을 마쳐야 주울 수 있어요', '携帯電話認証を完了すると拾えます', 'Verify your phone number to pick up coins'), code: 'phone_required' }, 403);
   }
+  await settleExpired(c.env, me.id);
+  const pendingPen = await pendingPenalty(c.env, me.id, s);
+  if (pendingPen) {
+    return c.json({ error: tr(c, '먼저 꽝을 정리해 주세요 (광고 보기 또는 QTA 내기)', '先にハズレを精算してください（広告を見るかQTAを払う）', 'Settle your dud first (watch an ad or pay QTA)'), code: 'dud_pending', penalty: pendingPen }, 409);
+  }
   if (Number.isFinite(accuracy) && accuracy > 100) {
     return c.json({ error: tr(c, '위치가 정확하지 않아요. 밖으로 나가 잠시 뒤 다시 해 주세요', '位置が正確ではありません。屋外で少し待ってから再度お試しください', 'Your location is not accurate. Go outside and try again shortly'), code: 'low_accuracy' }, 400);
   }
 
   const d = await c.env.DB
     .prepare(
-      `SELECT d.id, d.lat, d.lng, d.amount_micro, d.is_black, d.status, d.expires_at,
+      `SELECT d.id, d.lat, d.lng, d.amount_micro, d.is_black, d.is_dud, d.status, d.expires_at,
               k.id AS coin_id, k.symbol, k.name, k.color, k.wallet_kind, k.network, k.active
          FROM ct_drops d JOIN ct_coins k ON k.id = d.coin_id WHERE d.id = ?`,
     )
     .bind(c.req.param('id'))
     .first<{
-      id: string; lat: number; lng: number; amount_micro: number; is_black: number; status: string;
+      id: string; lat: number; lng: number; amount_micro: number; is_black: number; is_dud: number; status: string;
       expires_at: string | null; coin_id: string; symbol: string; name: string; color: string;
       wallet_kind: string; network: string; active: number;
     }>();
@@ -361,6 +371,15 @@ app.post('/drops/:id/pick', async (c) => {
     .bind(me.id, lat, lng, d.id)
     .run();
   if (!claim.meta.changes) return gone();
+
+  // 블랙코인 — is_dud 1 = 꽝 (아무것도 없음), 2 = 벌칙 (광고를 보거나 QTA 를 내놓는다).
+  if (d.is_black === 1 && d.is_dud === 1) {
+    return c.json({ ok: true, empty: true });
+  }
+  if (d.is_black === 1 && d.is_dud === 2) {
+    const pen = await openPenalty(c.env, me.id, d.id, s);
+    return c.json({ ok: true, dud: true, penalty: pen });
+  }
 
   // 연합 나눔 — 이 코인을 받을 지갑이 있는 연합원에게만.
   const union = await unionOf(c.env, me.id);
@@ -442,6 +461,107 @@ app.post('/drops/:id/pick', async (c) => {
 });
 
 // ── 앱 지갑 ──────────────────────────────────────────────────────────
+// ── 블랙코인 꽝: 광고 보기 또는 QTA 내기 ───────────────────────────────
+const PENALTY_MINUTES = 10;
+
+interface PenaltyRow { id: string; qta: number; status: string; expires_at: string }
+
+function penaltyOut(p: PenaltyRow, s: CtSettings) {
+  return {
+    id: p.id,
+    qta: p.qta,
+    status: p.status,
+    expires_at: p.expires_at,
+    ad_unit: s.rewardedAdUnit,
+    ad_verify: s.adVerify,
+  };
+}
+
+async function openPenalty(env: Env, userId: string, dropId: string, s: CtSettings) {
+  const id = crypto.randomUUID();
+  await env.DB
+    .prepare(
+      `INSERT INTO ct_dud_penalties (id, user_id, drop_id, qta, expires_at)
+       VALUES (?, ?, ?, ?, datetime('now', '+${PENALTY_MINUTES} minutes'))`,
+    )
+    .bind(id, userId, dropId, s.dudPenaltyQta)
+    .run();
+  const p = await env.DB.prepare('SELECT id, qta, status, expires_at FROM ct_dud_penalties WHERE id = ?').bind(id).first<PenaltyRow>();
+  return penaltyOut(p!, s);
+}
+
+async function pendingPenalty(env: Env, userId: string, s: CtSettings) {
+  const p = await env.DB
+    .prepare("SELECT id, qta, status, expires_at FROM ct_dud_penalties WHERE user_id = ? AND status = 'pending' ORDER BY created_at LIMIT 1")
+    .bind(userId)
+    .first<PenaltyRow>();
+  return p ? penaltyOut(p, s) : null;
+}
+
+/** QTA 내기로 확정 (한 번만). 실제로 뺀 수량을 돌려준다. */
+async function payPenalty(env: Env, userId: string, penaltyId: string): Promise<number | null> {
+  const p = await env.DB
+    .prepare("SELECT id, qta FROM ct_dud_penalties WHERE id = ? AND user_id = ? AND status = 'pending'")
+    .bind(penaltyId, userId)
+    .first<{ id: string; qta: number }>();
+  if (!p) return null;
+  const done = await env.DB
+    .prepare("UPDATE ct_dud_penalties SET status = 'paid', resolved_at = datetime('now') WHERE id = ? AND status = 'pending'")
+    .bind(p.id)
+    .run();
+  if (!done.meta.changes) return null;
+  const taken = await deductCointripDud(env, userId, p.id, p.qta);
+  await env.DB.prepare('UPDATE ct_dud_penalties SET deducted = ? WHERE id = ?').bind(taken, p.id).run();
+  return taken;
+}
+
+/** 10분 안에 광고를 안 본 꽝은 QTA 내기로 처리. */
+async function settleExpired(env: Env, userId: string): Promise<void> {
+  const rs = await env.DB
+    .prepare("SELECT id FROM ct_dud_penalties WHERE user_id = ? AND status = 'pending' AND expires_at <= datetime('now')")
+    .bind(userId)
+    .all<{ id: string }>();
+  for (const p of rs.results || []) await payPenalty(env, userId, p.id);
+}
+
+/** 광고를 끝까지 봤다 → 아무것도 안 낸다. */
+export async function markAdWatched(env: Env, userId: string, penaltyId: string): Promise<boolean> {
+  const r = await env.DB
+    .prepare("UPDATE ct_dud_penalties SET status = 'ad', resolved_at = datetime('now') WHERE id = ? AND user_id = ? AND status = 'pending'")
+    .bind(penaltyId, userId)
+    .run();
+  return !!r.meta.changes;
+}
+
+app.get('/penalty', async (c) => {
+  const me = c.get('user')!;
+  const s = await loadSettings(c.env);
+  await settleExpired(c.env, me.id);
+  return c.json({ penalty: await pendingPenalty(c.env, me.id, s) });
+});
+
+app.post('/penalties/:id/pay', async (c) => {
+  const me = c.get('user')!;
+  const taken = await payPenalty(c.env, me.id, c.req.param('id'));
+  if (taken === null) return c.json({ error: tr(c, '이미 정리된 꽝이에요', 'すでに精算済みです', 'Already settled'), code: 'settled' }, 409);
+  return c.json({ ok: true, deducted: taken });
+});
+
+/** 앱이 "광고 끝까지 봄"을 알린다 — 설정이 client 일 때만 인정 (ssv 면 AdMob 서버 확인을 기다린다). */
+app.post('/penalties/:id/ad-watched', async (c) => {
+  const me = c.get('user')!;
+  const s = await loadSettings(c.env);
+  const id = c.req.param('id');
+  if (s.adVerify === 'client') {
+    if (!(await markAdWatched(c.env, me.id, id))) {
+      return c.json({ error: tr(c, '이미 정리된 꽝이에요', 'すでに精算済みです', 'Already settled'), code: 'settled' }, 409);
+    }
+    return c.json({ ok: true, status: 'ad' });
+  }
+  const p = await c.env.DB.prepare('SELECT status FROM ct_dud_penalties WHERE id = ? AND user_id = ?').bind(id, me.id).first<{ status: string }>();
+  return c.json({ ok: p?.status === 'ad', status: p?.status ?? 'unknown' });
+});
+
 app.get('/wallet', async (c) => {
   const me = await loadMe(c);
   const rs = await c.env.DB

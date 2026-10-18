@@ -12,7 +12,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types';
-import { NETWORKS, SETTING_KEYS, fromMicro, loadSettings, toMicro, walletKeyOf } from '../cointrip';
+import { MICRO, NETWORKS, SETTING_KEYS, fromMicro, loadSettings, toMicro, walletKeyOf } from '../cointrip';
 
 type AdminVariables = Variables & { admin?: { id: string; username: string; role: string } };
 type C = Context<{ Bindings: Env; Variables: AdminVariables }>;
@@ -55,7 +55,12 @@ app.put('/settings', async (c) => {
     if (!(k in b)) continue;
     let v = String(b[k] ?? '').trim();
     if (k === 'enabled') v = v === '1' || v === 'true' ? '1' : '0';
-    else if (k === 'tester_ids') v = v.split(/[\s,]+/).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).join(',');
+    else if (k === 'ad_verify') v = v === 'ssv' ? 'ssv' : 'client';
+    else if (k === 'rewarded_ad_unit') {
+      if (!/^ca-app-pub-\d{16}\/\d{10}$/.test(v)) return c.json({ error: '광고 단위 ID 형식: ca-app-pub-0000000000000000/0000000000' }, 400);
+    } else if (k === 'dud_penalty_qta') {
+      if (!/^\d{1,6}$/.test(v)) return c.json({ error: '꽝 QTA: 0 이상 정수' }, 400);
+    } else if (k === 'tester_ids') v = v.split(/[\s,]+/).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).join(',');
     else if (!Number.isFinite(Number(v)) || Number(v) <= 0) return c.json({ error: `${k}: 숫자를 넣어 주세요` }, 400);
     stmts.push(c.env.DB.prepare('INSERT INTO ct_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind(k, v));
   }
@@ -172,7 +177,7 @@ app.get('/drops', async (c) => {
   const limit = Math.min(Number(c.req.query('limit')) || 200, 1000);
   const rs = await c.env.DB
     .prepare(
-      `SELECT d.id, d.coin_id, k.symbol, k.color, d.amount_micro, d.lat, d.lng, d.is_black, d.status,
+      `SELECT d.id, d.coin_id, k.symbol, k.color, d.amount_micro, d.lat, d.lng, d.is_black, d.is_dud, d.status,
               d.batch_id, d.created_at, d.expires_at, d.picked_at, u.nickname AS picked_by_nickname
          FROM ct_drops d JOIN ct_coins k ON k.id = d.coin_id LEFT JOIN users u ON u.id = d.picked_by
         WHERE d.status = ? AND (? = '' OR d.coin_id = ?)
@@ -201,21 +206,34 @@ app.post('/drops', async (c) => {
   }
   const radius = Math.max(0, Math.min(50_000, Number(b.radius_m) || 0));
   const count = radius === 0 ? 1 : Math.max(1, Math.min(500, Math.round(Number(b.count) || 1)));
-  const min = toMicro(b.amount_min);
-  const max = toMicro(b.amount_max ?? b.amount_min);
-  if (!min || !max || max < min) return c.json({ error: '수량을 확인하세요 (최소 ≤ 최대, 소수 6자리까지)' }, 400);
+  // 코인 수량은 정수 개만 (사장님 지시 — 소수점 없이).
+  const isInt = (v: unknown) => /^\d{1,12}$/.test(String(v ?? '').trim());
+  const maxIn = String(b.amount_max ?? '').trim() === '' ? b.amount_min : b.amount_max;
+  if (!isInt(b.amount_min) || !isInt(maxIn)) return c.json({ error: '수량은 1 이상 정수로 넣어 주세요 (소수점 없이)' }, 400);
+  const minC = Number(String(b.amount_min).trim());
+  const maxC = Number(String(maxIn).trim());
+  if (minC < 1 || maxC < minC) return c.json({ error: '수량을 확인하세요 (1 ≤ 최소 ≤ 최대)' }, 400);
   const blackPct = Math.max(0, Math.min(100, Number(b.black_percent) || 0));
+  // 블랙코인 안의 결과: 꽝(아무것도 없음) % · 벌칙(광고 또는 QTA 내기) % · 나머지는 좋은 코인.
+  const dudPct = Math.max(0, Math.min(100, Number(b.dud_percent) || 0));
+  const penaltyPct = Math.max(0, Math.min(100 - dudPct, Number(b.penalty_percent) || 0));
   const hours = Number(b.expires_hours) || 0;
 
-  const amounts: number[] = [];
+  const rand = () => crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff;
+  const items: { amt: number; black: number; dud: number }[] = [];
   for (let i = 0; i < count; i++) {
-    const r = crypto.getRandomValues(new Uint32Array(1))[0] / 0xffffffff;
-    amounts.push(min + Math.floor(r * (max - min + 1)));
+    const black = rand() * 100 < blackPct ? 1 : 0;
+    const roll = rand() * 100;
+    const dud = !black ? 0 : roll < dudPct ? 1 : roll < dudPct + penaltyPct ? 2 : 0;
+    items.push({ amt: (minC + Math.min(maxC - minC, Math.floor(rand() * (maxC - minC + 1)))) * MICRO, black, dud });
   }
-  const total = amounts.reduce((a, x) => a + x, 0);
+  const duds = items.filter((x) => x.dud === 1).length;
+  const penalties = items.filter((x) => x.dud === 2).length;
+  // 꽝은 지급이 없으니 예산에 넣지 않는다.
+  const total = items.reduce((a, x) => a + (x.dud ? 0 : x.amt), 0);
   if (coin.budget_micro != null) {
     const used = await c.env.DB
-      .prepare("SELECT COALESCE(SUM(amount_micro), 0) AS n FROM ct_drops WHERE coin_id = ? AND status IN ('active','picked')")
+      .prepare("SELECT COALESCE(SUM(amount_micro), 0) AS n FROM ct_drops WHERE coin_id = ? AND is_dud = 0 AND status IN ('active','picked')")
       .bind(coin.id)
       .first<{ n: number }>();
     if ((used?.n ?? 0) + total > coin.budget_micro) {
@@ -228,22 +246,22 @@ app.post('/drops', async (c) => {
   const batchId = crypto.randomUUID();
   const adminId = c.get('admin')?.id ?? null;
   const stmt = c.env.DB.prepare(
-    `INSERT INTO ct_drops (id, coin_id, amount_micro, lat, lng, is_black, batch_id, created_by, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${hours > 0 ? `datetime('now', '+${Math.round(hours)} hours')` : 'NULL'})`,
+    `INSERT INTO ct_drops (id, coin_id, amount_micro, lat, lng, is_black, is_dud, batch_id, created_by, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${hours > 0 ? `datetime('now', '+${Math.round(hours)} hours')` : 'NULL'})`,
   );
   const stmts = [];
-  for (const amt of amounts) {
+  for (const it of items) {
     // 원 안에 고르게: 반지름은 √u 배.
-    const [u1, u2, u3] = Array.from(crypto.getRandomValues(new Uint32Array(3)), (x) => x / 0xffffffff);
+    const [u1, u2] = [rand(), rand()];
     const r = radius * Math.sqrt(u1);
     const t = 2 * Math.PI * u2;
     const pLat = lat + (r * Math.cos(t)) / 111_320;
     const pLng = lng + (r * Math.sin(t)) / (111_320 * Math.max(0.1, Math.cos((lat * Math.PI) / 180)));
-    stmts.push(stmt.bind(crypto.randomUUID(), coin.id, amt, pLat, pLng, u3 * 100 < blackPct ? 1 : 0, batchId, adminId));
+    stmts.push(stmt.bind(crypto.randomUUID(), coin.id, it.amt, pLat, pLng, it.black, it.dud, batchId, adminId));
   }
   for (let i = 0; i < stmts.length; i += 100) await c.env.DB.batch(stmts.slice(i, i + 100));
-  await audit(c, 'cointrip_drop', batchId, `${coin.symbol} x${count} total ${fromMicro(total)} @${lat.toFixed(5)},${lng.toFixed(5)} r${radius}`);
-  return c.json({ ok: true, batch_id: batchId, count, total: fromMicro(total) });
+  await audit(c, 'cointrip_drop', batchId, `${coin.symbol} x${count} total ${fromMicro(total)} @${lat.toFixed(5)},${lng.toFixed(5)} r${radius} black ${items.filter((x) => x.black).length} dud ${duds} penalty ${penalties}`);
+  return c.json({ ok: true, batch_id: batchId, count, black: items.filter((x) => x.black).length, duds, penalties, total: fromMicro(total) });
 });
 
 app.post('/drops/:id/cancel', async (c) => {
@@ -273,8 +291,8 @@ app.get('/stats', async (c) => {
                  AND (d.expires_at IS NULL OR d.expires_at > datetime('now'))) AS active_count,
               (SELECT COALESCE(SUM(amount_micro),0) FROM ct_drops d WHERE d.coin_id = k.id AND d.status = 'active'
                  AND (d.expires_at IS NULL OR d.expires_at > datetime('now'))) AS active_micro,
-              (SELECT COUNT(*) FROM ct_drops d WHERE d.coin_id = k.id AND d.status = 'picked') AS picked_count,
-              (SELECT COALESCE(SUM(amount_micro),0) FROM ct_drops d WHERE d.coin_id = k.id AND d.status = 'picked') AS picked_micro,
+              (SELECT COUNT(*) FROM ct_drops d WHERE d.coin_id = k.id AND d.status = 'picked' AND d.is_dud = 0) AS picked_count,
+              (SELECT COALESCE(SUM(amount_micro),0) FROM ct_drops d WHERE d.coin_id = k.id AND d.status = 'picked' AND d.is_dud = 0) AS picked_micro,
               (SELECT COALESCE(SUM(amount_micro),0) FROM ct_balances b WHERE b.coin_id = k.id) AS balance_micro,
               (SELECT COALESCE(SUM(amount_micro),0) FROM ct_withdrawals w WHERE w.coin_id = k.id AND w.status IN ('requested','processing')) AS pending_micro,
               (SELECT COALESCE(SUM(amount_micro),0) FROM ct_withdrawals w WHERE w.coin_id = k.id AND w.status = 'completed') AS paid_micro
@@ -286,6 +304,9 @@ app.get('/stats', async (c) => {
     .prepare("SELECT COUNT(*) AS n, COUNT(DISTINCT picked_by) AS u FROM ct_drops WHERE status = 'picked' AND picked_at >= datetime('now', '-1 day')")
     .first<{ n: number; u: number }>();
   const unions = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM ct_unions').first<{ n: number }>();
+  const duds = await c.env.DB
+    .prepare("SELECT SUM(status = 'ad') AS ad, SUM(status = 'paid') AS paid, SUM(status = 'pending') AS pending, COALESCE(SUM(deducted), 0) AS qta FROM ct_dud_penalties")
+    .first<{ ad: number | null; paid: number | null; pending: number | null; qta: number }>();
   return c.json({
     coins: (rs.results || []).map((r) => ({
       id: r.id, symbol: r.symbol, name: r.name, color: r.color, wallet_kind: r.wallet_kind, active: r.active,
@@ -297,6 +318,7 @@ app.get('/stats', async (c) => {
     picks_24h: today?.n ?? 0,
     pickers_24h: today?.u ?? 0,
     unions: unions?.n ?? 0,
+    duds: { ad: duds?.ad ?? 0, paid: duds?.paid ?? 0, pending: duds?.pending ?? 0, qta: duds?.qta ?? 0 },
   });
 });
 

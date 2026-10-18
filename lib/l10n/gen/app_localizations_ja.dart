@@ -1217,7 +1217,9 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get ctIntroBlack => '黒いブラックコインは、拾って開けるまで何のコインか分かりません。';
+  String ctIntroBlack(int qta) {
+    return '黒いブラックコインは冒険です。ほとんどは良いコインですが、ハズレ（空のコイン）や罰ゲームが出ることもあります。罰ゲームなら広告を最後まで見るか、持っているQTAから$qta枚を出す必要があります。むやみに拾わないで！';
+  }
 
   @override
   String ctIntroUnion(String times) {
@@ -1302,11 +1304,61 @@ class AppLocalizationsJa extends AppLocalizations {
   String get ctBlackCoin => 'ブラックコイン';
 
   @override
-  String get ctBlackCoinHint => '拾って開けるまで何のコインか分かりません';
+  String ctBlackCoinHint(int qta) {
+    return '冒険コイン — ほとんど良いコイン、たまにハズレや罰ゲーム（広告かQTA $qta枚）';
+  }
 
   @override
   String ctApprox(int meters) {
     return 'おおよその位置です。${meters}m以内に近づくと正確な位置が表示されます。';
+  }
+
+  @override
+  String get ctGoldCoin => 'ゴールドコイン';
+
+  @override
+  String get ctGoldCoinHint => '拾ってみるまで何のコインが何枚か分かりません';
+
+  @override
+  String get ctEmptyTitle => 'ハズレ！';
+
+  @override
+  String get ctEmptyBody => 'ブラックコインは空っぽでした。支払うものはありません。次のブラックコインを狙ってみましょう！';
+
+  @override
+  String get ctDudTitle => '罰ゲーム！';
+
+  @override
+  String ctDudBody(int qta) {
+    return 'ブラックコインから罰ゲームが出ました。広告を最後まで見ればそのまま終わりますが、見ない場合は持っているQTAから$qta枚を出す必要があります。';
+  }
+
+  @override
+  String get ctDudDeadline => '10分以内に選ばないとQTAを出したものとして処理されます';
+
+  @override
+  String get ctDudWatchAd => '広告を見る';
+
+  @override
+  String ctDudPay(int qta) {
+    return 'QTA $qta枚を出す';
+  }
+
+  @override
+  String get ctDudAdNotFinished => '広告を最後まで見る必要があります';
+
+  @override
+  String get ctDudAdFailed => '広告を読み込めませんでした。少し待ってから再度お試しください';
+
+  @override
+  String get ctDudAdChecking => '広告の確認に時間がかかっています。少し待ってからもう一度押してください';
+
+  @override
+  String get ctDudAdOk => '広告を見たのでそのまま終わります';
+
+  @override
+  String ctDudPaid(int qta) {
+    return 'QTA $qta枚を出しました';
   }
 
   @override

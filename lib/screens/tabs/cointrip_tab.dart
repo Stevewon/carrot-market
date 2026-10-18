@@ -11,7 +11,10 @@ import 'package:provider/provider.dart';
 
 import '../../app/l10n.dart';
 import '../../app/theme.dart';
+import '../../services/auth_service.dart';
 import '../../services/cointrip_service.dart';
+import '../../services/qta_service.dart';
+import '../../services/rewarded_ad.dart';
 import '../../widgets/cointrip_notice.dart';
 
 /// 코인트립 탭 (하단 가운데) — 내 주변에 뿌려진 코인을 지도에서 찾아 줍는다.
@@ -52,7 +55,6 @@ class _CointripTabState extends State<CointripTab> {
 
   GoogleMapController? _map;
   int _radiusM = 5000;
-  final Map<String, BitmapDescriptor> _icons = {};
 
   @override
   void initState() {
@@ -78,10 +80,16 @@ class _CointripTabState extends State<CointripTab> {
     if (!svc.statusLoaded) await svc.loadStatus();
     if (!mounted || !widget.active) return;
     if (!svc.introAcked) return; // 첫 안내를 먼저 확인
+    // 지난번에 정리하지 않은 꽝이 있으면 먼저 (앱을 껐다 켜도 이어서).
+    final pending = svc.penalty;
+    if (pending != null) await _settleDud(pending);
+    if (!mounted || !widget.active) return;
     await _ensureLocation();
   }
 
   void _stop() {
+    _spin?.cancel();
+    _spin = null;
     _sub?.cancel();
     _sub = null;
     _timer?.cancel();
@@ -142,7 +150,7 @@ class _CointripTabState extends State<CointripTab> {
       if (!mounted) return;
       _lastFetchAt = me;
       _lastFetchTime = DateTime.now();
-      await _prepareIcons(r.drops);
+      await _prepareIcons();
       if (!mounted) return;
       setState(() {
         _drops = r.drops;
@@ -152,6 +160,7 @@ class _CointripTabState extends State<CointripTab> {
           _selected = r.drops.where((d) => d.id == _selected!.id).firstOrNull;
         }
       });
+      _syncSpin();
     } on CtError catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
@@ -159,77 +168,158 @@ class _CointripTabState extends State<CointripTab> {
     }
   }
 
-  // ── 지도 표시 ──────────────────────────────────────────────────────
-  static String _iconKey(CtDrop d) => d.isBlack ? 'black' : '${d.coin!.color}|${d.coin!.symbol}';
+  // ── 지도 표시: 모든 코인은 빙글빙글 도는 황금 동전 (블랙코인만 검은 동전) ──────────
+  // 종류·수량은 주워야 안다 — 비싼 코인만 골라 줍지 않게 (사장님 지시). 서버도 지도에는 안 보낸다.
+  static const int _spinFrames = 12;
+  static const Duration _spinStep = Duration(milliseconds: 90);
+  /// 한 번에 도는 코인 수 상한 (지도 마커를 자주 바꾸면 무거워진다). 나머지는 서 있는 그림.
+  static const int _maxSpinning = 60;
+  List<BitmapDescriptor> _gold = const [];
+  List<BitmapDescriptor> _black = const [];
+  int _frame = 0;
+  Timer? _spin;
 
-  Future<void> _prepareIcons(List<CtDrop> drops) async {
-    if (CointripTab.mapOverride != null) return;
+  Future<void> _prepareIcons() async {
+    if (CointripTab.mapOverride != null || _gold.isNotEmpty) return;
     final ratio = MediaQuery.devicePixelRatioOf(context);
-    for (final d in drops.where((d) => d.precise)) {
-      final k = _iconKey(d);
-      if (_icons.containsKey(k)) continue;
-      _icons[k] = await _coinIcon(
-        d.isBlack ? const Color(0xFF111111) : Color(d.coin!.argb),
-        d.isBlack ? '?' : d.coin!.symbol,
-        ratio,
-      );
+    final gold = <BitmapDescriptor>[];
+    final black = <BitmapDescriptor>[];
+    for (var i = 0; i < _spinFrames; i++) {
+      final t = i / _spinFrames * 2 * math.pi;
+      gold.add(await _coinFrame(math.cos(t), false, ratio));
+      black.add(await _coinFrame(math.cos(t), true, ratio));
+    }
+    _gold = gold;
+    _black = black;
+  }
+
+  void _syncSpin() {
+    final want = widget.active && _drops.any((d) => d.precise) && CointripTab.mapOverride == null;
+    if (want && _spin == null) {
+      _spin = Timer.periodic(_spinStep, (_) {
+        if (mounted) setState(() => _frame = (_frame + 1) % _spinFrames);
+      });
+    } else if (!want) {
+      _spin?.cancel();
+      _spin = null;
     }
   }
 
-  /// 동그란 코인 그림 (색 + 심볼 글자).
-  static Future<BitmapDescriptor> _coinIcon(Color color, String label, double ratio) async {
-    const size = 44.0;
+  /// 동전 한 장면 — [turn] = cos(회전각): 1 이면 정면, 0 에 가까우면 옆면.
+  static Future<BitmapDescriptor> _coinFrame(double turn, bool black, double ratio) async {
+    const size = 46.0;
     final px = (size * ratio).round();
     final rec = ui.PictureRecorder();
     final c = Canvas(rec);
     final s = px.toDouble();
     final center = Offset(s / 2, s / 2);
-    c.drawCircle(center.translate(0, s * 0.03), s * 0.46, Paint()..color = const Color(0x33000000));
-    c.drawCircle(center, s * 0.44, Paint()..color = Colors.white);
-    c.drawCircle(center, s * 0.38, Paint()..color = color);
-    final text = label.length > 4 ? label.substring(0, 4) : label;
-    final tp = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: s * (text.length <= 2 ? 0.34 : text.length == 3 ? 0.26 : 0.21),
-          fontWeight: FontWeight.w900,
+    final r = s * 0.40;
+    final w = math.max(0.10, turn.abs()); // 옆으로 돌 때 가로로 좁아진다
+    final face = Rect.fromCenter(center: center, width: r * 2 * w, height: r * 2);
+
+    // 그림자
+    c.drawOval(Rect.fromCenter(center: center.translate(0, r * 1.08), width: r * 1.5 * math.max(0.4, w), height: r * 0.32),
+        Paint()..color = const Color(0x40000000));
+    // 테두리 (두께감)
+    final rim = black
+        ? const [Color(0xFF8A6D1A), Color(0xFF3A2C06)]
+        : const [Color(0xFFB8860B), Color(0xFF7A5200)];
+    c.drawOval(face.inflate(s * 0.02), Paint()..shader = ui.Gradient.linear(face.topLeft, face.bottomRight, rim));
+    // 앞면
+    final body = black
+        ? const [Color(0xFF6B6B6B), Color(0xFF232323), Color(0xFF050505)]
+        : const [Color(0xFFFFF6B0), Color(0xFFFFD43B), Color(0xFFC99700)];
+    c.drawOval(
+      face,
+      Paint()..shader = ui.Gradient.radial(face.center.translate(-r * 0.35 * w, -r * 0.35), r * 1.3, body, const [0.0, 0.45, 1.0]),
+    );
+    // 안쪽 고리
+    c.drawOval(
+      face.deflate(r * 0.18),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = s * 0.03
+        ..color = black ? const Color(0xAAE0B84A) : const Color(0x99A06E00),
+    );
+    // 가운데 표시 — 정면에 가까울 때만 (금화: ★, 블랙코인: ?)
+    if (w > 0.45) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: black ? '?' : '★',
+          style: TextStyle(
+            color: black ? const Color(0xFFFFD43B) : const Color(0xFF9A6A00),
+            fontSize: s * 0.30,
+            fontWeight: FontWeight.w900,
+          ),
         ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(c, center - Offset(tp.width / 2, tp.height / 2));
+        textDirection: TextDirection.ltr,
+      )..layout();
+      c.save();
+      c.translate(center.dx, center.dy);
+      c.scale(w, 1);
+      tp.paint(c, Offset(-tp.width / 2, -tp.height / 2));
+      c.restore();
+    }
+    // 반짝임 (위쪽 하이라이트 + 별빛)
+    c.drawOval(
+      Rect.fromCenter(center: face.center.translate(-r * 0.25 * w, -r * 0.45), width: r * 0.9 * w, height: r * 0.35),
+      Paint()..color = Colors.white.withValues(alpha: black ? 0.18 : 0.45),
+    );
+    if (turn > 0.85) {
+      final spark = Paint()..color = Colors.white.withValues(alpha: 0.9);
+      final sc = face.center.translate(r * 0.45, -r * 0.55);
+      final path = Path()
+        ..moveTo(sc.dx, sc.dy - s * 0.08)
+        ..lineTo(sc.dx + s * 0.018, sc.dy - s * 0.018)
+        ..lineTo(sc.dx + s * 0.08, sc.dy)
+        ..lineTo(sc.dx + s * 0.018, sc.dy + s * 0.018)
+        ..lineTo(sc.dx, sc.dy + s * 0.08)
+        ..lineTo(sc.dx - s * 0.018, sc.dy + s * 0.018)
+        ..lineTo(sc.dx - s * 0.08, sc.dy)
+        ..lineTo(sc.dx - s * 0.018, sc.dy - s * 0.018)
+        ..close();
+      c.drawPath(path, spark);
+    }
     final img = await rec.endRecording().toImage(px, px);
     final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
     return BitmapDescriptor.bytes(bytes!.buffer.asUint8List(), width: size, height: size);
   }
 
-  Set<Marker> _markers() => {
-        for (final d in _drops.where((d) => d.precise))
-          Marker(
-            markerId: MarkerId(d.id),
-            position: LatLng(d.lat, d.lng),
-            icon: _icons[_iconKey(d)] ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
-            anchor: const Offset(0.5, 0.5),
-            onTap: () => setState(() => _selected = d),
-          ),
-      };
+  Set<Marker> _markers() {
+    final precise = _drops.where((d) => d.precise).toList();
+    return {
+      for (var i = 0; i < precise.length; i++)
+        Marker(
+          markerId: MarkerId(precise[i].id),
+          position: LatLng(precise[i].lat, precise[i].lng),
+          icon: _iconFor(precise[i], i),
+          anchor: const Offset(0.5, 0.5),
+          onTap: () => setState(() => _selected = precise[i]),
+        ),
+    };
+  }
+
+  BitmapDescriptor _iconFor(CtDrop d, int i) {
+    final frames = d.isBlack ? _black : _gold;
+    if (frames.isEmpty) return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow);
+    // 코인마다 도는 시점을 조금씩 어긋나게 (한꺼번에 똑같이 돌지 않게).
+    return i < _maxSpinning ? frames[(_frame + i * 5) % frames.length] : frames[0];
+  }
 
   Set<Circle> _circles() {
-    // 멀리 있는 코인은 같은 칸끼리 하나의 동그라미로.
+    // 멀리 있는 코인은 같은 칸끼리 하나의 황금빛 동그라미로 (블랙코인은 검은빛).
     final seen = <String>{};
     final out = <Circle>{};
     for (final d in _drops.where((d) => !d.precise)) {
-      final color = d.isBlack ? const Color(0xFF111111) : Color(d.coin!.argb);
-      final k = '${d.lat.toStringAsFixed(5)},${d.lng.toStringAsFixed(5)},${color.toARGB32()}';
+      final color = d.isBlack ? const Color(0xFF222222) : const Color(0xFFF2B705);
+      final k = '${d.lat.toStringAsFixed(5)},${d.lng.toStringAsFixed(5)},${d.isBlack}';
       if (!seen.add(k)) continue;
       out.add(Circle(
         circleId: CircleId(k),
         center: LatLng(d.lat, d.lng),
         radius: 280,
-        fillColor: color.withValues(alpha: 0.18),
-        strokeColor: color.withValues(alpha: 0.6),
+        fillColor: color.withValues(alpha: 0.22),
+        strokeColor: color.withValues(alpha: 0.75),
         strokeWidth: 2,
         consumeTapEvents: true,
         onTap: () => setState(() => _selected = d),
@@ -291,9 +381,19 @@ class _CointripTabState extends State<CointripTab> {
         _drops = _drops.where((x) => x.id != d.id).toList();
         _selected = null;
       });
-      await showDialog<void>(context: context, builder: (_) => _PickedDialog(result: r));
+      if (r.dud != null) {
+        await _settleDud(r.dud!);
+      } else if (r.empty) {
+        await showDialog<void>(context: context, builder: (_) => const _EmptyDialog());
+      } else {
+        await showDialog<void>(context: context, builder: (_) => _PickedDialog(result: r));
+      }
       _fetch(force: true);
     } on CtError catch (e) {
+      if (e.code == 'dud_pending' && e.penalty != null) {
+        await _settleDud(e.penalty!);
+        return;
+      }
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
       if (e.code == 'gone') {
         setState(() {
@@ -306,6 +406,23 @@ class _CointripTabState extends State<CointripTab> {
     } finally {
       if (mounted) setState(() => _picking = false);
     }
+  }
+
+  /// 블랙코인 꽝 — 광고를 보거나 QTA 를 낼 때까지 닫히지 않는다.
+  bool _dudOpen = false;
+  Future<void> _settleDud(CtPenalty p) async {
+    if (_dudOpen || !mounted) return;
+    _dudOpen = true;
+    final msg = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(canPop: false, child: _DudDialog(penalty: p)),
+    );
+    _dudOpen = false;
+    if (!mounted) return;
+    // ignore: discarded_futures
+    context.read<QtaService>().load(force: true);
+    if (msg != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   Future<void> _ackIntro() async {
@@ -374,7 +491,7 @@ class _CointripTabState extends State<CointripTab> {
         const SizedBox(height: 18),
         line(Icons.map_outlined, l10n.ctIntroFind),
         line(Icons.near_me_outlined, l10n.ctIntroPick(svc.pickRadiusM)),
-        line(Icons.help_outline_rounded, l10n.ctIntroBlack),
+        line(Icons.help_outline_rounded, l10n.ctIntroBlack(svc.dudPenaltyQta)),
         line(Icons.groups_outlined, l10n.ctIntroUnion(mult)),
         line(Icons.account_balance_wallet_outlined, l10n.ctIntroWallet),
         line(Icons.directions_walk_rounded, l10n.ctIntroSafety),
@@ -495,6 +612,7 @@ class _CointripTabState extends State<CointripTab> {
                   distanceM: shown.precise ? _myDistance(shown) : shown.distanceM.toDouble(),
                   pickRadiusM: svc.pickRadiusM,
                   preciseRadiusM: svc.preciseRadiusM,
+                  dudQta: svc.dudPenaltyQta,
                   picking: _picking,
                   onPick: () => _pick(shown),
                   onClose: _selected == null ? null : () => setState(() => _selected = null),
@@ -565,6 +683,7 @@ class _DropCard extends StatelessWidget {
   final double distanceM;
   final int pickRadiusM;
   final int preciseRadiusM;
+  final int dudQta;
   final bool picking;
   final VoidCallback onPick;
   final VoidCallback? onClose;
@@ -573,6 +692,7 @@ class _DropCard extends StatelessWidget {
     required this.distanceM,
     required this.pickRadiusM,
     required this.preciseRadiusM,
+    required this.dudQta,
     required this.picking,
     required this.onPick,
     this.onClose,
@@ -581,10 +701,10 @@ class _DropCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final color = drop.isBlack ? const Color(0xFF111111) : Color(drop.coin!.argb);
     final canPick = drop.precise && distanceM <= pickRadiusM;
-    final title = drop.isBlack ? l10n.ctBlackCoin : '${drop.amount} ${drop.coin!.symbol}';
-    final sub = drop.isBlack ? l10n.ctBlackCoinHint : drop.coin!.name;
+    // 종류·수량은 주워야 안다 — 카드에도 보이지 않는다.
+    final title = drop.isBlack ? l10n.ctBlackCoin : l10n.ctGoldCoin;
+    final sub = drop.isBlack ? l10n.ctBlackCoinHint(dudQta) : l10n.ctGoldCoinHint;
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -592,16 +712,7 @@ class _DropCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                child: Text(
-                  drop.isBlack ? '?' : (drop.coin!.symbol.length > 4 ? drop.coin!.symbol.substring(0, 4) : drop.coin!.symbol),
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: !drop.isBlack && drop.coin!.symbol.length >= 4 ? 10.5 : 13),
-                ),
-              ),
+              CoinBadge(black: drop.isBlack, size: 40),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -613,7 +724,7 @@ class _DropCard extends StatelessWidget {
                       child: Text(title, maxLines: 1, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                     ),
                     const SizedBox(height: 2),
-                    Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis,
+                    Text(sub, maxLines: 5, overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 13, color: EggplantColors.textSecondary)),
                   ],
                 ),
@@ -709,6 +820,166 @@ class _PickedDialog extends StatelessWidget {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonConfirm)),
       ],
+    );
+  }
+}
+
+/// 황금 동전 (블랙코인은 검은 동전에 ?) — 카드·안내에 쓰는 작은 그림.
+class CoinBadge extends StatelessWidget {
+  final bool black;
+  final double size;
+  const CoinBadge({super.key, required this.black, this.size = 40});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          center: const Alignment(-0.35, -0.4),
+          radius: 0.95,
+          colors: black
+              ? const [Color(0xFF6B6B6B), Color(0xFF232323), Color(0xFF050505)]
+              : const [Color(0xFFFFF6B0), Color(0xFFFFD43B), Color(0xFFC99700)],
+          stops: const [0.0, 0.45, 1.0],
+        ),
+        border: Border.all(color: black ? const Color(0xFF8A6D1A) : const Color(0xFFB8860B), width: size * 0.06),
+        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      child: Text(
+        black ? '?' : '★',
+        style: TextStyle(
+          color: black ? const Color(0xFFFFD43B) : const Color(0xFF9A6A00),
+          fontWeight: FontWeight.w900,
+          fontSize: size * 0.42,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+/// 꽝 — [광고 보기] 끝까지 보면 그냥 넘어가고, [QTA 내기] 를 누르면 갖고 있는 QTA 에서 낸다.
+/// 정리되면 닫히며 알림 문구를 돌려준다.
+class _DudDialog extends StatefulWidget {
+  final CtPenalty penalty;
+  const _DudDialog({required this.penalty});
+
+  @override
+  State<_DudDialog> createState() => _DudDialogState();
+}
+
+class _DudDialogState extends State<_DudDialog> {
+  bool _busy = false;
+  String? _error;
+
+  Future<void> _watch() async {
+    final l10n = context.l10n;
+    final svc = context.read<CointripService>();
+    final uid = context.read<AuthService>().user?.id ?? '';
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final earned = await RewardedAds.show(widget.penalty.adUnit, userId: uid, customData: widget.penalty.id);
+      if (!mounted) return;
+      if (!earned) {
+        setState(() => _error = l10n.ctDudAdNotFinished);
+        return;
+      }
+      if (await svc.penaltyAdWatched(widget.penalty)) {
+        if (mounted) Navigator.pop(context, l10n.ctDudAdOk);
+      } else if (mounted) {
+        setState(() => _error = l10n.ctDudAdChecking);
+      }
+    } on RewardedAdUnavailable {
+      if (mounted) setState(() => _error = l10n.ctDudAdFailed);
+    } catch (_) {
+      if (mounted) setState(() => _error = l10n.ctDudAdFailed);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _pay() async {
+    final l10n = context.l10n;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final n = await context.read<CointripService>().penaltyPay(widget.penalty);
+      if (mounted) Navigator.pop(context, l10n.ctDudPaid(n));
+    } on CtError catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final qta = widget.penalty.qta;
+    return AlertDialog(
+      title: Text(l10n.ctDudTitle, textAlign: TextAlign.center),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CoinBadge(black: true, size: 64),
+          const SizedBox(height: 14),
+          Text(l10n.ctDudBody(qta), textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, height: 1.45)),
+          const SizedBox(height: 6),
+          Text(l10n.ctDudDeadline, textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12.5, color: EggplantColors.textSecondary)),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(_error!, textAlign: TextAlign.center,
+                style: const TextStyle(color: EggplantColors.error, fontWeight: FontWeight.w700)),
+          ],
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _busy ? null : _watch,
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            icon: _busy
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.play_circle_outline),
+            label: Text(l10n.ctDudWatchAd, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _busy ? null : _pay,
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46), foregroundColor: EggplantColors.error),
+            child: Text(l10n.ctDudPay(qta), textAlign: TextAlign.center),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 블랙코인 꽝 — 아무것도 없다 (내는 것도 없음).
+class _EmptyDialog extends StatelessWidget {
+  const _EmptyDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.ctEmptyTitle, textAlign: TextAlign.center),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CoinBadge(black: true, size: 64),
+          const SizedBox(height: 14),
+          Text(l10n.ctEmptyBody, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, height: 1.45)),
+        ],
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonConfirm))],
     );
   }
 }

@@ -35,6 +35,7 @@ import withdrawalsRoutes from './routes/withdrawals';
 import referralsRoutes from './routes/referrals';
 import adminRoutes from './routes/admin';
 import cointripRoutes from './routes/cointrip';
+import cointripSsvRoutes from './routes/cointripSsv';
 import { processReceiveSends } from './walletReceive';
 
 // Re-export the Durable Object class so Wrangler can bind it
@@ -89,6 +90,8 @@ app.route('/api/withdrawals', withdrawalsRoutes);
 app.route('/api/referrals', referralsRoutes);
 app.route('/api/admin', adminRoutes);
 app.route('/api/cointrip', cointripRoutes);
+// AdMob 보상형 광고 서버 확인 콜백 (로그인 없음 — 구글 서명으로 확인)
+app.route('/api/cointrip-ssv', cointripSsvRoutes);
 app.route('/api/calls', callsRoutes);
 // 공유 링크 웹 미리보기 (https://api.eggplant.life/p/<상품id>)
 app.route('/p', shareRoutes);
