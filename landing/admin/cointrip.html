@@ -133,6 +133,13 @@
             <button type="button" data-n="Solana"><b>솔라나</b><small>일반 코인 · 솔라나 지갑 주소</small></button>
             <button type="button" data-n="Polygon"><b>폴리곤</b><small>일반 코인 · 0x 지갑 주소</small></button>
           </div>
+          <label style="display:block;font-weight:700;margin-bottom:6px">테더 (USDT) 바로 넣기 — 누르면 체인·심볼·이름이 채워집니다</label>
+          <div class="kind-pick" id="usdt-pick">
+            <button type="button" data-n="Ethereum"><b>USDT · 이더리움</b><small>ERC-20 · 0x 지갑 주소</small></button>
+            <button type="button" data-n="BNB Smart Chain"><b>USDT · BNB</b><small>BEP-20 · 0x 지갑 주소</small></button>
+            <button type="button" data-n="Solana"><b>USDT · 솔라나</b><small>SPL · 솔라나 지갑 주소</small></button>
+            <button type="button" data-n="Polygon"><b>USDT · 폴리곤</b><small>Polygon · 0x 지갑 주소</small></button>
+          </div>
           <div class="row">
             <div class="form-row"><label>심볼</label><input id="c-symbol" type="text" placeholder="QKEY" /></div>
             <div class="form-row"><label>이름</label><input id="c-name" type="text" placeholder="큐키" /></div>
@@ -411,6 +418,14 @@
       $('kind-pick').addEventListener('click', (e) => {
         const b = e.target.closest('button[data-n]');
         if (b) setChain(b.dataset.n);
+      });
+      $('usdt-pick').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-n]');
+        if (!b) return;
+        setChain(b.dataset.n);
+        $('c-symbol').value = 'USDT';
+        $('c-name').value = '테더';
+        $('c-color').value = '#26a17b';
       });
       setChain('Quantarium');
 
