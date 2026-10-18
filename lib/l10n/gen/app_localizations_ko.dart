@@ -1186,6 +1186,322 @@ class AppLocalizationsKo extends AppLocalizations {
   String get chatAppointmentCancelledByMe => '거래 약속을 취소했어요';
 
   @override
+  String get ctTab => '코인트립';
+
+  @override
+  String get ctTitle => '코인트립';
+
+  @override
+  String get ctNetworkError => '네트워크를 확인하고 다시 시도해 주세요';
+
+  @override
+  String get ctLocationFailed => '내 위치를 찾지 못했어요. 잠시 뒤 다시 해 주세요';
+
+  @override
+  String get ctUnion => '친구 연합';
+
+  @override
+  String get ctMyWallet => '코인 지갑';
+
+  @override
+  String get ctIntroTitle => '코인트립에 오신 걸 환영해요';
+
+  @override
+  String get ctIntroFind => '지도에 뿌려진 코인을 찾아가서 먼저 줍는 사람이 가져가요.';
+
+  @override
+  String ctIntroPick(int meters) {
+    return '코인 가까이 ${meters}m 안으로 가면 [줍기] 버튼이 켜져요. 멀리 있는 코인은 대략적인 위치만 보여요.';
+  }
+
+  @override
+  String get ctIntroBlack => '검은 블랙코인은 주워서 열어 봐야 무슨 코인인지 알 수 있어요.';
+
+  @override
+  String ctIntroUnion(String times) {
+    return '친구 연합을 만들면 연합원 누가 주워도 함께 나눠 받아요. 주운 사람은 $times배를 받아요.';
+  }
+
+  @override
+  String get ctIntroWallet =>
+      '퀀타리움 소속 코인은 퀀타리움 월렛, 일반 코인은 기존 지갑 주소를 등록해야 지도에 보여요.';
+
+  @override
+  String get ctIntroSafety =>
+      '걸을 때는 화면 대신 주변을 보세요. 차도·공사장·남의 집처럼 들어가면 안 되는 곳에는 가지 마세요.';
+
+  @override
+  String get ctRedNotice =>
+      '지갑 주소를 잘못 넣어 잘못 지급된 코인은 반드시 회원 본인의 책임입니다. 되돌려 드릴 수 없으니 주소를 꼭 다시 확인하세요.';
+
+  @override
+  String get ctAckCheck => '위 내용을 확인했습니다';
+
+  @override
+  String get ctAckButton => '확인했습니다';
+
+  @override
+  String get ctNeedWalletTitle => '지갑을 등록해야 코인이 보여요';
+
+  @override
+  String get ctNeedWalletBody =>
+      '퀀타리움 소속 코인은 퀀타리움 월렛으로, 일반 코인은 기존 지갑 주소(BNB 등)로 받아요. 받을 지갑이 없는 코인은 지도에 나오지 않아요.';
+
+  @override
+  String get ctRegisterWallet => '지갑 등록하러 가기';
+
+  @override
+  String get ctLocationServiceOff => '휴대폰의 위치(GPS)를 켜 주세요';
+
+  @override
+  String get ctLocationNeeded => '위치 권한을 허용해 주세요';
+
+  @override
+  String get ctLocationWhy =>
+      '코인트립은 내 주변 코인을 보여 줄 때와 가까이 갔는지 확인할 때만 위치를 써요. 위치는 저장하지 않아요.';
+
+  @override
+  String get ctRetry => '다시 시도';
+
+  @override
+  String get ctOpenSettings => '설정 열기';
+
+  @override
+  String get ctNoCoinsShort => '주변에 코인 없음';
+
+  @override
+  String ctNearby(int count) {
+    return '코인 $count개';
+  }
+
+  @override
+  String get ctNoCoinsNearby => '주변에 코인이 없어요. 지도를 넓혀 보거나 나중에 다시 와 주세요.';
+
+  @override
+  String get ctPhoneRequired => '코인을 주우려면 휴대폰 인증이 필요해요';
+
+  @override
+  String get ctVerifyPhone => '인증하기';
+
+  @override
+  String get ctMockedLocation => '위치 조작 앱이 켜져 있으면 주울 수 없어요';
+
+  @override
+  String ctDistanceM(int meters) {
+    return '${meters}m';
+  }
+
+  @override
+  String ctDistanceKm(String km) {
+    return '${km}km';
+  }
+
+  @override
+  String get ctBlackCoin => '블랙코인';
+
+  @override
+  String get ctBlackCoinHint => '주워서 열어 봐야 무슨 코인인지 알 수 있어요';
+
+  @override
+  String ctApprox(int meters) {
+    return '대략적인 위치예요. ${meters}m 안으로 가까이 가면 정확한 위치가 보여요.';
+  }
+
+  @override
+  String get ctPick => '줍기';
+
+  @override
+  String ctGetCloser(int meters) {
+    return '${meters}m 안에서 주울 수 있어요';
+  }
+
+  @override
+  String get ctPickedTitle => '코인을 주웠어요!';
+
+  @override
+  String get ctBlackOpened => '블랙코인을 열어 보니…';
+
+  @override
+  String ctSharedWith(String total, String symbol) {
+    return '모두 $total $symbol — 연합원과 나눴어요';
+  }
+
+  @override
+  String ctSharedMore(int count) {
+    return '외 $count명';
+  }
+
+  @override
+  String get ctToWallet => '앱의 코인 지갑에 넣었어요';
+
+  @override
+  String get ctWithdrawDone => '출금을 신청했어요. 운영자가 확인한 뒤 보내 드려요.';
+
+  @override
+  String get ctReceiveWallets => '받는 지갑';
+
+  @override
+  String get ctQuantariumWallet => '퀀타리움 월렛';
+
+  @override
+  String get ctQuantariumWalletSub => '퀀타리움 소속 코인을 받아요';
+
+  @override
+  String get ctRegister => '등록';
+
+  @override
+  String get ctChange => '바꾸기';
+
+  @override
+  String get ctExtWallet => '기존 지갑 주소';
+
+  @override
+  String get ctExtWalletSub => '일반 코인(BNB 등)을 받아요';
+
+  @override
+  String get ctNotRegistered => '등록 안 됨';
+
+  @override
+  String get ctMyCoins => '주운 코인';
+
+  @override
+  String get ctNoBalances => '아직 주운 코인이 없어요';
+
+  @override
+  String get ctWithdrawals => '출금 신청 내역';
+
+  @override
+  String ctWithdrawMin(String amount, String symbol) {
+    return '최소 $amount $symbol부터 출금';
+  }
+
+  @override
+  String get ctWithdraw => '출금';
+
+  @override
+  String get ctWdRequested => '신청함';
+
+  @override
+  String get ctWdProcessing => '보내는 중';
+
+  @override
+  String get ctWdCompleted => '보냈어요';
+
+  @override
+  String get ctWdRejected => '거부됨 (되돌려 드림)';
+
+  @override
+  String ctWithdrawTitle(String symbol) {
+    return '$symbol 출금';
+  }
+
+  @override
+  String get ctWithdrawAmount => '출금할 수량';
+
+  @override
+  String ctWithdrawRange(String min, String max, String symbol) {
+    return '$min ~ $max $symbol';
+  }
+
+  @override
+  String get ctWithdrawTo => '받는 주소';
+
+  @override
+  String get ctWithdrawNoAddress => '받을 지갑을 먼저 등록해 주세요';
+
+  @override
+  String get ctWithdrawSubmit => '출금 신청';
+
+  @override
+  String get ctSaved => '저장했어요';
+
+  @override
+  String get ctRemove => '지우기';
+
+  @override
+  String get ctRemoveConfirm => '기존 지갑 주소를 지울까요? 일반 코인이 지도에 안 보이게 돼요.';
+
+  @override
+  String get ctExtWalletDesc =>
+      '일반 코인(BNB 등)을 받을 지갑 주소예요. 0x로 시작하는 42자리 주소를 넣어 주세요. 거래소 입금 주소라면 네트워크(BNB Smart Chain 등)가 맞는지 꼭 확인하세요.';
+
+  @override
+  String get ctExtWalletLabel => '지갑 주소';
+
+  @override
+  String get ctExtWalletInvalid => '0x로 시작하는 42자리 주소가 아니에요';
+
+  @override
+  String get ctPaste => '붙여넣기';
+
+  @override
+  String get ctSave => '저장';
+
+  @override
+  String ctUnionDesc(String times, int max) {
+    return '연합원 누가 코인을 주워도 함께 나눠 받아요. 주운 사람은 $times몫, 나머지는 1몫씩이에요. 최대 $max명.';
+  }
+
+  @override
+  String ctUnionExample(String total, String finder, String each) {
+    return '예) 3명 연합에서 $total개를 주우면 주운 사람 $finder개, 다른 두 사람 $each개씩';
+  }
+
+  @override
+  String get ctUnionWalletNote => '그 코인을 받을 지갑이 없는 연합원은 그 코인 나눔에서 빠져요.';
+
+  @override
+  String get ctUnionCreate => '연합 만들기';
+
+  @override
+  String get ctUnionName => '연합 이름';
+
+  @override
+  String get ctUnionJoin => '초대 코드로 들어가기';
+
+  @override
+  String get ctUnionCode => '초대 코드';
+
+  @override
+  String get ctUnionJoinButton => '들어가기';
+
+  @override
+  String get ctUnionCopy => '복사';
+
+  @override
+  String ctUnionShareText(String code) {
+    return '가지 코인트립 친구 연합에 들어와요! 앱의 코인트립 > 친구 연합에서 초대 코드 $code 를 넣어 주세요.';
+  }
+
+  @override
+  String get ctUnionCopied => '초대 문구를 복사했어요. 친구에게 보내 주세요.';
+
+  @override
+  String ctUnionMembers(int count, int max) {
+    return '연합원 $count/$max명';
+  }
+
+  @override
+  String get ctMe => '나';
+
+  @override
+  String get ctUnionOwner => '방장';
+
+  @override
+  String get ctUnionKick => '내보내기';
+
+  @override
+  String ctUnionKickConfirm(String nickname) {
+    return '$nickname님을 연합에서 내보낼까요?';
+  }
+
+  @override
+  String get ctUnionLeave => '연합 나가기';
+
+  @override
+  String get ctUnionLeaveConfirm => '연합에서 나갈까요? 나간 뒤에는 연합원이 주운 코인을 나눠 받지 못해요.';
+
+  @override
   String get commonCancel => '취소';
 
   @override

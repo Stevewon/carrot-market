@@ -1255,6 +1255,339 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatAppointmentCancelledByMe => 'You cancelled the meetup';
 
   @override
+  String get ctTab => 'CoinTrip';
+
+  @override
+  String get ctTitle => 'CoinTrip';
+
+  @override
+  String get ctNetworkError => 'Check your network and try again';
+
+  @override
+  String get ctLocationFailed =>
+      'We couldn\'t find your location. Please try again shortly';
+
+  @override
+  String get ctUnion => 'Friend union';
+
+  @override
+  String get ctMyWallet => 'Coin wallet';
+
+  @override
+  String get ctIntroTitle => 'Welcome to CoinTrip';
+
+  @override
+  String get ctIntroFind =>
+      'Find coins scattered on the map. Whoever picks one up first keeps it.';
+
+  @override
+  String ctIntroPick(int meters) {
+    return 'Get within ${meters}m of a coin and the [Pick up] button turns on. Coins far away show only a rough area.';
+  }
+
+  @override
+  String get ctIntroBlack =>
+      'A black coin doesn\'t show what it is until you pick it up and open it.';
+
+  @override
+  String ctIntroUnion(String times) {
+    return 'Form a friend union and everyone shares whatever any member picks up. The finder gets ${times}x.';
+  }
+
+  @override
+  String get ctIntroWallet =>
+      'Quantarium coins appear once you register a Quantarium wallet; other coins appear once you register an existing wallet address.';
+
+  @override
+  String get ctIntroSafety =>
+      'Watch your surroundings, not the screen, while walking. Never enter roads, construction sites, private property, or other places you shouldn\'t go.';
+
+  @override
+  String get ctRedNotice =>
+      'Coins sent to a wrong address because you entered it incorrectly are entirely your own responsibility. They cannot be returned, so always double-check the address.';
+
+  @override
+  String get ctAckCheck => 'I have read and understood the above';
+
+  @override
+  String get ctAckButton => 'I understand';
+
+  @override
+  String get ctNeedWalletTitle => 'Register a wallet to see coins';
+
+  @override
+  String get ctNeedWalletBody =>
+      'Quantarium coins go to your Quantarium wallet and other coins go to an existing wallet address (BNB, etc.). Coins you have no wallet for don\'t appear on the map.';
+
+  @override
+  String get ctRegisterWallet => 'Register a wallet';
+
+  @override
+  String get ctLocationServiceOff => 'Turn on your phone\'s location (GPS)';
+
+  @override
+  String get ctLocationNeeded => 'Please allow location access';
+
+  @override
+  String get ctLocationWhy =>
+      'CoinTrip uses your location only to show nearby coins and to check that you\'re close enough. Your location isn\'t stored.';
+
+  @override
+  String get ctRetry => 'Try again';
+
+  @override
+  String get ctOpenSettings => 'Open settings';
+
+  @override
+  String get ctNoCoinsShort => 'No coins nearby';
+
+  @override
+  String ctNearby(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count coins',
+      one: '1 coin',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ctNoCoinsNearby => 'No coins nearby. Zoom out or come back later.';
+
+  @override
+  String get ctPhoneRequired =>
+      'Phone verification is required to pick up coins';
+
+  @override
+  String get ctVerifyPhone => 'Verify';
+
+  @override
+  String get ctMockedLocation =>
+      'You can\'t pick up coins while a fake-location app is on';
+
+  @override
+  String ctDistanceM(int meters) {
+    return '${meters}m';
+  }
+
+  @override
+  String ctDistanceKm(String km) {
+    return '${km}km';
+  }
+
+  @override
+  String get ctBlackCoin => 'Black coin';
+
+  @override
+  String get ctBlackCoinHint =>
+      'You won\'t know what it is until you pick it up';
+
+  @override
+  String ctApprox(int meters) {
+    return 'This is a rough area. Get within ${meters}m to see the exact spot.';
+  }
+
+  @override
+  String get ctPick => 'Pick up';
+
+  @override
+  String ctGetCloser(int meters) {
+    return 'Pick up within ${meters}m';
+  }
+
+  @override
+  String get ctPickedTitle => 'You picked up a coin!';
+
+  @override
+  String get ctBlackOpened => 'You opened the black coin…';
+
+  @override
+  String ctSharedWith(String total, String symbol) {
+    return '$total $symbol in total — shared with your union';
+  }
+
+  @override
+  String ctSharedMore(int count) {
+    return 'and $count more';
+  }
+
+  @override
+  String get ctToWallet => 'Added to your in-app coin wallet';
+
+  @override
+  String get ctWithdrawDone =>
+      'Withdrawal requested. We\'ll send it after review.';
+
+  @override
+  String get ctReceiveWallets => 'Receiving wallets';
+
+  @override
+  String get ctQuantariumWallet => 'Quantarium wallet';
+
+  @override
+  String get ctQuantariumWalletSub => 'Receives Quantarium coins';
+
+  @override
+  String get ctRegister => 'Register';
+
+  @override
+  String get ctChange => 'Change';
+
+  @override
+  String get ctExtWallet => 'Existing wallet address';
+
+  @override
+  String get ctExtWalletSub => 'Receives other coins (BNB, etc.)';
+
+  @override
+  String get ctNotRegistered => 'Not registered';
+
+  @override
+  String get ctMyCoins => 'Coins collected';
+
+  @override
+  String get ctNoBalances => 'You haven\'t picked up any coins yet';
+
+  @override
+  String get ctWithdrawals => 'Withdrawal history';
+
+  @override
+  String ctWithdrawMin(String amount, String symbol) {
+    return 'Min. withdrawal $amount $symbol';
+  }
+
+  @override
+  String get ctWithdraw => 'Withdraw';
+
+  @override
+  String get ctWdRequested => 'Requested';
+
+  @override
+  String get ctWdProcessing => 'Sending';
+
+  @override
+  String get ctWdCompleted => 'Sent';
+
+  @override
+  String get ctWdRejected => 'Rejected (refunded)';
+
+  @override
+  String ctWithdrawTitle(String symbol) {
+    return 'Withdraw $symbol';
+  }
+
+  @override
+  String get ctWithdrawAmount => 'Amount to withdraw';
+
+  @override
+  String ctWithdrawRange(String min, String max, String symbol) {
+    return '$min – $max $symbol';
+  }
+
+  @override
+  String get ctWithdrawTo => 'Receiving address';
+
+  @override
+  String get ctWithdrawNoAddress => 'Please register a receiving wallet first';
+
+  @override
+  String get ctWithdrawSubmit => 'Request withdrawal';
+
+  @override
+  String get ctSaved => 'Saved';
+
+  @override
+  String get ctRemove => 'Remove';
+
+  @override
+  String get ctRemoveConfirm =>
+      'Remove this wallet address? Other coins will no longer appear on the map.';
+
+  @override
+  String get ctExtWalletDesc =>
+      'This is where you receive other coins (BNB, etc.). Enter a 42-character address starting with 0x. If it\'s an exchange deposit address, make sure the network (BNB Smart Chain, etc.) matches.';
+
+  @override
+  String get ctExtWalletLabel => 'Wallet address';
+
+  @override
+  String get ctExtWalletInvalid =>
+      'Not a 42-character address starting with 0x';
+
+  @override
+  String get ctPaste => 'Paste';
+
+  @override
+  String get ctSave => 'Save';
+
+  @override
+  String ctUnionDesc(String times, int max) {
+    return 'Whenever any member picks up a coin, everyone shares it. The finder gets $times shares, everyone else 1 share. Up to $max members.';
+  }
+
+  @override
+  String ctUnionExample(String total, String finder, String each) {
+    return 'e.g. In a union of 3, picking up $total gives the finder $finder and the other two $each each';
+  }
+
+  @override
+  String get ctUnionWalletNote =>
+      'Members who don\'t have a wallet for that coin are left out of that coin\'s share.';
+
+  @override
+  String get ctUnionCreate => 'Create a union';
+
+  @override
+  String get ctUnionName => 'Union name';
+
+  @override
+  String get ctUnionJoin => 'Join with an invite code';
+
+  @override
+  String get ctUnionCode => 'Invite code';
+
+  @override
+  String get ctUnionJoinButton => 'Join';
+
+  @override
+  String get ctUnionCopy => 'Copy';
+
+  @override
+  String ctUnionShareText(String code) {
+    return 'Join my Eggplant CoinTrip union! In the app, go to CoinTrip > Friend union and enter invite code $code.';
+  }
+
+  @override
+  String get ctUnionCopied => 'Invite message copied. Send it to your friends.';
+
+  @override
+  String ctUnionMembers(int count, int max) {
+    return 'Members $count/$max';
+  }
+
+  @override
+  String get ctMe => 'me';
+
+  @override
+  String get ctUnionOwner => 'Leader';
+
+  @override
+  String get ctUnionKick => 'Remove';
+
+  @override
+  String ctUnionKickConfirm(String nickname) {
+    return 'Remove $nickname from the union?';
+  }
+
+  @override
+  String get ctUnionLeave => 'Leave union';
+
+  @override
+  String get ctUnionLeaveConfirm =>
+      'Leave this union? After leaving you won\'t receive shares of coins members pick up.';
+
+  @override
   String get commonCancel => 'Cancel';
 
   @override

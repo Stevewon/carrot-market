@@ -71,6 +71,7 @@
     const items = [
       { href: 'index.html',       slug: 'index',       label: '대시보드',   icon: '📊' },
       { href: 'withdrawals.html', slug: 'withdrawals', label: '출금 신청',  icon: '💸' },
+      { href: 'cointrip.html',    slug: 'cointrip',    label: '코인트립',   icon: '🪙' },
       { href: 'reports.html',     slug: 'reports',     label: '신고 처리',  icon: '🚨' },
       { href: 'users.html',       slug: 'users',       label: '사용자',     icon: '👥' },
       { href: 'products.html',    slug: 'products',    label: '상품',       icon: '🛍️' },

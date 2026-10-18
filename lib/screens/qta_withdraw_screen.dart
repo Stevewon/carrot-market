@@ -9,6 +9,7 @@ import '../app/theme.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/qta_service.dart';
+import '../widgets/cointrip_notice.dart';
 import 'profile_verify_screen.dart';
 
 /// QTA 출금 신청 + 신청 내역 화면.
@@ -695,6 +696,8 @@ class _RequestSheetState extends State<_RequestSheet> {
               ],
             ),
           ),
+          const SizedBox(height: 10),
+          const WalletResponsibilityNotice(),
 
           const SizedBox(height: 16),
           SizedBox(

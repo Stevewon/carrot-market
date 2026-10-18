@@ -2278,6 +2278,558 @@ abstract class AppLocalizations {
   /// **'거래 약속을 취소했어요'**
   String get chatAppointmentCancelledByMe;
 
+  /// No description provided for @ctTab.
+  ///
+  /// In ko, this message translates to:
+  /// **'코인트립'**
+  String get ctTab;
+
+  /// No description provided for @ctTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'코인트립'**
+  String get ctTitle;
+
+  /// No description provided for @ctNetworkError.
+  ///
+  /// In ko, this message translates to:
+  /// **'네트워크를 확인하고 다시 시도해 주세요'**
+  String get ctNetworkError;
+
+  /// No description provided for @ctLocationFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'내 위치를 찾지 못했어요. 잠시 뒤 다시 해 주세요'**
+  String get ctLocationFailed;
+
+  /// No description provided for @ctUnion.
+  ///
+  /// In ko, this message translates to:
+  /// **'친구 연합'**
+  String get ctUnion;
+
+  /// No description provided for @ctMyWallet.
+  ///
+  /// In ko, this message translates to:
+  /// **'코인 지갑'**
+  String get ctMyWallet;
+
+  /// No description provided for @ctIntroTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'코인트립에 오신 걸 환영해요'**
+  String get ctIntroTitle;
+
+  /// No description provided for @ctIntroFind.
+  ///
+  /// In ko, this message translates to:
+  /// **'지도에 뿌려진 코인을 찾아가서 먼저 줍는 사람이 가져가요.'**
+  String get ctIntroFind;
+
+  /// No description provided for @ctIntroPick.
+  ///
+  /// In ko, this message translates to:
+  /// **'코인 가까이 {meters}m 안으로 가면 [줍기] 버튼이 켜져요. 멀리 있는 코인은 대략적인 위치만 보여요.'**
+  String ctIntroPick(int meters);
+
+  /// No description provided for @ctIntroBlack.
+  ///
+  /// In ko, this message translates to:
+  /// **'검은 블랙코인은 주워서 열어 봐야 무슨 코인인지 알 수 있어요.'**
+  String get ctIntroBlack;
+
+  /// No description provided for @ctIntroUnion.
+  ///
+  /// In ko, this message translates to:
+  /// **'친구 연합을 만들면 연합원 누가 주워도 함께 나눠 받아요. 주운 사람은 {times}배를 받아요.'**
+  String ctIntroUnion(String times);
+
+  /// No description provided for @ctIntroWallet.
+  ///
+  /// In ko, this message translates to:
+  /// **'퀀타리움 소속 코인은 퀀타리움 월렛, 일반 코인은 기존 지갑 주소를 등록해야 지도에 보여요.'**
+  String get ctIntroWallet;
+
+  /// No description provided for @ctIntroSafety.
+  ///
+  /// In ko, this message translates to:
+  /// **'걸을 때는 화면 대신 주변을 보세요. 차도·공사장·남의 집처럼 들어가면 안 되는 곳에는 가지 마세요.'**
+  String get ctIntroSafety;
+
+  /// No description provided for @ctRedNotice.
+  ///
+  /// In ko, this message translates to:
+  /// **'지갑 주소를 잘못 넣어 잘못 지급된 코인은 반드시 회원 본인의 책임입니다. 되돌려 드릴 수 없으니 주소를 꼭 다시 확인하세요.'**
+  String get ctRedNotice;
+
+  /// No description provided for @ctAckCheck.
+  ///
+  /// In ko, this message translates to:
+  /// **'위 내용을 확인했습니다'**
+  String get ctAckCheck;
+
+  /// No description provided for @ctAckButton.
+  ///
+  /// In ko, this message translates to:
+  /// **'확인했습니다'**
+  String get ctAckButton;
+
+  /// No description provided for @ctNeedWalletTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'지갑을 등록해야 코인이 보여요'**
+  String get ctNeedWalletTitle;
+
+  /// No description provided for @ctNeedWalletBody.
+  ///
+  /// In ko, this message translates to:
+  /// **'퀀타리움 소속 코인은 퀀타리움 월렛으로, 일반 코인은 기존 지갑 주소(BNB 등)로 받아요. 받을 지갑이 없는 코인은 지도에 나오지 않아요.'**
+  String get ctNeedWalletBody;
+
+  /// No description provided for @ctRegisterWallet.
+  ///
+  /// In ko, this message translates to:
+  /// **'지갑 등록하러 가기'**
+  String get ctRegisterWallet;
+
+  /// No description provided for @ctLocationServiceOff.
+  ///
+  /// In ko, this message translates to:
+  /// **'휴대폰의 위치(GPS)를 켜 주세요'**
+  String get ctLocationServiceOff;
+
+  /// No description provided for @ctLocationNeeded.
+  ///
+  /// In ko, this message translates to:
+  /// **'위치 권한을 허용해 주세요'**
+  String get ctLocationNeeded;
+
+  /// No description provided for @ctLocationWhy.
+  ///
+  /// In ko, this message translates to:
+  /// **'코인트립은 내 주변 코인을 보여 줄 때와 가까이 갔는지 확인할 때만 위치를 써요. 위치는 저장하지 않아요.'**
+  String get ctLocationWhy;
+
+  /// No description provided for @ctRetry.
+  ///
+  /// In ko, this message translates to:
+  /// **'다시 시도'**
+  String get ctRetry;
+
+  /// No description provided for @ctOpenSettings.
+  ///
+  /// In ko, this message translates to:
+  /// **'설정 열기'**
+  String get ctOpenSettings;
+
+  /// No description provided for @ctNoCoinsShort.
+  ///
+  /// In ko, this message translates to:
+  /// **'주변에 코인 없음'**
+  String get ctNoCoinsShort;
+
+  /// No description provided for @ctNearby.
+  ///
+  /// In ko, this message translates to:
+  /// **'코인 {count}개'**
+  String ctNearby(int count);
+
+  /// No description provided for @ctNoCoinsNearby.
+  ///
+  /// In ko, this message translates to:
+  /// **'주변에 코인이 없어요. 지도를 넓혀 보거나 나중에 다시 와 주세요.'**
+  String get ctNoCoinsNearby;
+
+  /// No description provided for @ctPhoneRequired.
+  ///
+  /// In ko, this message translates to:
+  /// **'코인을 주우려면 휴대폰 인증이 필요해요'**
+  String get ctPhoneRequired;
+
+  /// No description provided for @ctVerifyPhone.
+  ///
+  /// In ko, this message translates to:
+  /// **'인증하기'**
+  String get ctVerifyPhone;
+
+  /// No description provided for @ctMockedLocation.
+  ///
+  /// In ko, this message translates to:
+  /// **'위치 조작 앱이 켜져 있으면 주울 수 없어요'**
+  String get ctMockedLocation;
+
+  /// No description provided for @ctDistanceM.
+  ///
+  /// In ko, this message translates to:
+  /// **'{meters}m'**
+  String ctDistanceM(int meters);
+
+  /// No description provided for @ctDistanceKm.
+  ///
+  /// In ko, this message translates to:
+  /// **'{km}km'**
+  String ctDistanceKm(String km);
+
+  /// No description provided for @ctBlackCoin.
+  ///
+  /// In ko, this message translates to:
+  /// **'블랙코인'**
+  String get ctBlackCoin;
+
+  /// No description provided for @ctBlackCoinHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'주워서 열어 봐야 무슨 코인인지 알 수 있어요'**
+  String get ctBlackCoinHint;
+
+  /// No description provided for @ctApprox.
+  ///
+  /// In ko, this message translates to:
+  /// **'대략적인 위치예요. {meters}m 안으로 가까이 가면 정확한 위치가 보여요.'**
+  String ctApprox(int meters);
+
+  /// No description provided for @ctPick.
+  ///
+  /// In ko, this message translates to:
+  /// **'줍기'**
+  String get ctPick;
+
+  /// No description provided for @ctGetCloser.
+  ///
+  /// In ko, this message translates to:
+  /// **'{meters}m 안에서 주울 수 있어요'**
+  String ctGetCloser(int meters);
+
+  /// No description provided for @ctPickedTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'코인을 주웠어요!'**
+  String get ctPickedTitle;
+
+  /// No description provided for @ctBlackOpened.
+  ///
+  /// In ko, this message translates to:
+  /// **'블랙코인을 열어 보니…'**
+  String get ctBlackOpened;
+
+  /// No description provided for @ctSharedWith.
+  ///
+  /// In ko, this message translates to:
+  /// **'모두 {total} {symbol} — 연합원과 나눴어요'**
+  String ctSharedWith(String total, String symbol);
+
+  /// No description provided for @ctSharedMore.
+  ///
+  /// In ko, this message translates to:
+  /// **'외 {count}명'**
+  String ctSharedMore(int count);
+
+  /// No description provided for @ctToWallet.
+  ///
+  /// In ko, this message translates to:
+  /// **'앱의 코인 지갑에 넣었어요'**
+  String get ctToWallet;
+
+  /// No description provided for @ctWithdrawDone.
+  ///
+  /// In ko, this message translates to:
+  /// **'출금을 신청했어요. 운영자가 확인한 뒤 보내 드려요.'**
+  String get ctWithdrawDone;
+
+  /// No description provided for @ctReceiveWallets.
+  ///
+  /// In ko, this message translates to:
+  /// **'받는 지갑'**
+  String get ctReceiveWallets;
+
+  /// No description provided for @ctQuantariumWallet.
+  ///
+  /// In ko, this message translates to:
+  /// **'퀀타리움 월렛'**
+  String get ctQuantariumWallet;
+
+  /// No description provided for @ctQuantariumWalletSub.
+  ///
+  /// In ko, this message translates to:
+  /// **'퀀타리움 소속 코인을 받아요'**
+  String get ctQuantariumWalletSub;
+
+  /// No description provided for @ctRegister.
+  ///
+  /// In ko, this message translates to:
+  /// **'등록'**
+  String get ctRegister;
+
+  /// No description provided for @ctChange.
+  ///
+  /// In ko, this message translates to:
+  /// **'바꾸기'**
+  String get ctChange;
+
+  /// No description provided for @ctExtWallet.
+  ///
+  /// In ko, this message translates to:
+  /// **'기존 지갑 주소'**
+  String get ctExtWallet;
+
+  /// No description provided for @ctExtWalletSub.
+  ///
+  /// In ko, this message translates to:
+  /// **'일반 코인(BNB 등)을 받아요'**
+  String get ctExtWalletSub;
+
+  /// No description provided for @ctNotRegistered.
+  ///
+  /// In ko, this message translates to:
+  /// **'등록 안 됨'**
+  String get ctNotRegistered;
+
+  /// No description provided for @ctMyCoins.
+  ///
+  /// In ko, this message translates to:
+  /// **'주운 코인'**
+  String get ctMyCoins;
+
+  /// No description provided for @ctNoBalances.
+  ///
+  /// In ko, this message translates to:
+  /// **'아직 주운 코인이 없어요'**
+  String get ctNoBalances;
+
+  /// No description provided for @ctWithdrawals.
+  ///
+  /// In ko, this message translates to:
+  /// **'출금 신청 내역'**
+  String get ctWithdrawals;
+
+  /// No description provided for @ctWithdrawMin.
+  ///
+  /// In ko, this message translates to:
+  /// **'최소 {amount} {symbol}부터 출금'**
+  String ctWithdrawMin(String amount, String symbol);
+
+  /// No description provided for @ctWithdraw.
+  ///
+  /// In ko, this message translates to:
+  /// **'출금'**
+  String get ctWithdraw;
+
+  /// No description provided for @ctWdRequested.
+  ///
+  /// In ko, this message translates to:
+  /// **'신청함'**
+  String get ctWdRequested;
+
+  /// No description provided for @ctWdProcessing.
+  ///
+  /// In ko, this message translates to:
+  /// **'보내는 중'**
+  String get ctWdProcessing;
+
+  /// No description provided for @ctWdCompleted.
+  ///
+  /// In ko, this message translates to:
+  /// **'보냈어요'**
+  String get ctWdCompleted;
+
+  /// No description provided for @ctWdRejected.
+  ///
+  /// In ko, this message translates to:
+  /// **'거부됨 (되돌려 드림)'**
+  String get ctWdRejected;
+
+  /// No description provided for @ctWithdrawTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'{symbol} 출금'**
+  String ctWithdrawTitle(String symbol);
+
+  /// No description provided for @ctWithdrawAmount.
+  ///
+  /// In ko, this message translates to:
+  /// **'출금할 수량'**
+  String get ctWithdrawAmount;
+
+  /// No description provided for @ctWithdrawRange.
+  ///
+  /// In ko, this message translates to:
+  /// **'{min} ~ {max} {symbol}'**
+  String ctWithdrawRange(String min, String max, String symbol);
+
+  /// No description provided for @ctWithdrawTo.
+  ///
+  /// In ko, this message translates to:
+  /// **'받는 주소'**
+  String get ctWithdrawTo;
+
+  /// No description provided for @ctWithdrawNoAddress.
+  ///
+  /// In ko, this message translates to:
+  /// **'받을 지갑을 먼저 등록해 주세요'**
+  String get ctWithdrawNoAddress;
+
+  /// No description provided for @ctWithdrawSubmit.
+  ///
+  /// In ko, this message translates to:
+  /// **'출금 신청'**
+  String get ctWithdrawSubmit;
+
+  /// No description provided for @ctSaved.
+  ///
+  /// In ko, this message translates to:
+  /// **'저장했어요'**
+  String get ctSaved;
+
+  /// No description provided for @ctRemove.
+  ///
+  /// In ko, this message translates to:
+  /// **'지우기'**
+  String get ctRemove;
+
+  /// No description provided for @ctRemoveConfirm.
+  ///
+  /// In ko, this message translates to:
+  /// **'기존 지갑 주소를 지울까요? 일반 코인이 지도에 안 보이게 돼요.'**
+  String get ctRemoveConfirm;
+
+  /// No description provided for @ctExtWalletDesc.
+  ///
+  /// In ko, this message translates to:
+  /// **'일반 코인(BNB 등)을 받을 지갑 주소예요. 0x로 시작하는 42자리 주소를 넣어 주세요. 거래소 입금 주소라면 네트워크(BNB Smart Chain 등)가 맞는지 꼭 확인하세요.'**
+  String get ctExtWalletDesc;
+
+  /// No description provided for @ctExtWalletLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'지갑 주소'**
+  String get ctExtWalletLabel;
+
+  /// No description provided for @ctExtWalletInvalid.
+  ///
+  /// In ko, this message translates to:
+  /// **'0x로 시작하는 42자리 주소가 아니에요'**
+  String get ctExtWalletInvalid;
+
+  /// No description provided for @ctPaste.
+  ///
+  /// In ko, this message translates to:
+  /// **'붙여넣기'**
+  String get ctPaste;
+
+  /// No description provided for @ctSave.
+  ///
+  /// In ko, this message translates to:
+  /// **'저장'**
+  String get ctSave;
+
+  /// No description provided for @ctUnionDesc.
+  ///
+  /// In ko, this message translates to:
+  /// **'연합원 누가 코인을 주워도 함께 나눠 받아요. 주운 사람은 {times}몫, 나머지는 1몫씩이에요. 최대 {max}명.'**
+  String ctUnionDesc(String times, int max);
+
+  /// No description provided for @ctUnionExample.
+  ///
+  /// In ko, this message translates to:
+  /// **'예) 3명 연합에서 {total}개를 주우면 주운 사람 {finder}개, 다른 두 사람 {each}개씩'**
+  String ctUnionExample(String total, String finder, String each);
+
+  /// No description provided for @ctUnionWalletNote.
+  ///
+  /// In ko, this message translates to:
+  /// **'그 코인을 받을 지갑이 없는 연합원은 그 코인 나눔에서 빠져요.'**
+  String get ctUnionWalletNote;
+
+  /// No description provided for @ctUnionCreate.
+  ///
+  /// In ko, this message translates to:
+  /// **'연합 만들기'**
+  String get ctUnionCreate;
+
+  /// No description provided for @ctUnionName.
+  ///
+  /// In ko, this message translates to:
+  /// **'연합 이름'**
+  String get ctUnionName;
+
+  /// No description provided for @ctUnionJoin.
+  ///
+  /// In ko, this message translates to:
+  /// **'초대 코드로 들어가기'**
+  String get ctUnionJoin;
+
+  /// No description provided for @ctUnionCode.
+  ///
+  /// In ko, this message translates to:
+  /// **'초대 코드'**
+  String get ctUnionCode;
+
+  /// No description provided for @ctUnionJoinButton.
+  ///
+  /// In ko, this message translates to:
+  /// **'들어가기'**
+  String get ctUnionJoinButton;
+
+  /// No description provided for @ctUnionCopy.
+  ///
+  /// In ko, this message translates to:
+  /// **'복사'**
+  String get ctUnionCopy;
+
+  /// No description provided for @ctUnionShareText.
+  ///
+  /// In ko, this message translates to:
+  /// **'가지 코인트립 친구 연합에 들어와요! 앱의 코인트립 > 친구 연합에서 초대 코드 {code} 를 넣어 주세요.'**
+  String ctUnionShareText(String code);
+
+  /// No description provided for @ctUnionCopied.
+  ///
+  /// In ko, this message translates to:
+  /// **'초대 문구를 복사했어요. 친구에게 보내 주세요.'**
+  String get ctUnionCopied;
+
+  /// No description provided for @ctUnionMembers.
+  ///
+  /// In ko, this message translates to:
+  /// **'연합원 {count}/{max}명'**
+  String ctUnionMembers(int count, int max);
+
+  /// No description provided for @ctMe.
+  ///
+  /// In ko, this message translates to:
+  /// **'나'**
+  String get ctMe;
+
+  /// No description provided for @ctUnionOwner.
+  ///
+  /// In ko, this message translates to:
+  /// **'방장'**
+  String get ctUnionOwner;
+
+  /// No description provided for @ctUnionKick.
+  ///
+  /// In ko, this message translates to:
+  /// **'내보내기'**
+  String get ctUnionKick;
+
+  /// No description provided for @ctUnionKickConfirm.
+  ///
+  /// In ko, this message translates to:
+  /// **'{nickname}님을 연합에서 내보낼까요?'**
+  String ctUnionKickConfirm(String nickname);
+
+  /// No description provided for @ctUnionLeave.
+  ///
+  /// In ko, this message translates to:
+  /// **'연합 나가기'**
+  String get ctUnionLeave;
+
+  /// No description provided for @ctUnionLeaveConfirm.
+  ///
+  /// In ko, this message translates to:
+  /// **'연합에서 나갈까요? 나간 뒤에는 연합원이 주운 코인을 나눠 받지 못해요.'**
+  String get ctUnionLeaveConfirm;
+
   /// No description provided for @commonCancel.
   ///
   /// In ko, this message translates to:

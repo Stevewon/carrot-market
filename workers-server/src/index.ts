@@ -34,6 +34,7 @@ import hiddenRoutes from './routes/hidden';
 import withdrawalsRoutes from './routes/withdrawals';
 import referralsRoutes from './routes/referrals';
 import adminRoutes from './routes/admin';
+import cointripRoutes from './routes/cointrip';
 import { processReceiveSends } from './walletReceive';
 
 // Re-export the Durable Object class so Wrangler can bind it
@@ -87,6 +88,7 @@ app.route('/api/hidden', hiddenRoutes);
 app.route('/api/withdrawals', withdrawalsRoutes);
 app.route('/api/referrals', referralsRoutes);
 app.route('/api/admin', adminRoutes);
+app.route('/api/cointrip', cointripRoutes);
 app.route('/api/calls', callsRoutes);
 // 공유 링크 웹 미리보기 (https://api.eggplant.life/p/<상품id>)
 app.route('/p', shareRoutes);

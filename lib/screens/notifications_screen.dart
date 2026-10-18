@@ -151,6 +151,8 @@ class _InboxTile extends StatelessWidget {
         return (Icons.rate_review_outlined, const Color(0xFFF59E0B));
       case 'keyword_alert':
         return (Icons.sell_outlined, EggplantColors.primary);
+      case 'cointrip_share':
+        return (Icons.toll_outlined, const Color(0xFF7C3AED));
       default:
         return (Icons.notifications_none_rounded, EggplantColors.textSecondary);
     }

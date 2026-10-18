@@ -1188,6 +1188,322 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chatAppointmentCancelledByMe => '取引の約束をキャンセルしました';
 
   @override
+  String get ctTab => 'コイントリップ';
+
+  @override
+  String get ctTitle => 'コイントリップ';
+
+  @override
+  String get ctNetworkError => 'ネットワークを確認して、もう一度お試しください';
+
+  @override
+  String get ctLocationFailed => '現在地を取得できませんでした。少し待ってから再度お試しください';
+
+  @override
+  String get ctUnion => 'フレンド連合';
+
+  @override
+  String get ctMyWallet => 'コインウォレット';
+
+  @override
+  String get ctIntroTitle => 'コイントリップへようこそ';
+
+  @override
+  String get ctIntroFind => '地図にまかれたコインを探しに行き、先に拾った人がもらえます。';
+
+  @override
+  String ctIntroPick(int meters) {
+    return 'コインから${meters}m以内に近づくと［拾う］ボタンが押せます。遠いコインはおおよその位置だけ表示されます。';
+  }
+
+  @override
+  String get ctIntroBlack => '黒いブラックコインは、拾って開けるまで何のコインか分かりません。';
+
+  @override
+  String ctIntroUnion(String times) {
+    return 'フレンド連合を作ると、メンバーの誰が拾ってもみんなで分け合えます。拾った人は$times倍もらえます。';
+  }
+
+  @override
+  String get ctIntroWallet =>
+      'Quantarium系のコインはQuantariumウォレット、一般コインは既存のウォレットアドレスを登録すると地図に表示されます。';
+
+  @override
+  String get ctIntroSafety =>
+      '歩くときは画面ではなく周りを見てください。車道・工事現場・他人の敷地など、入ってはいけない場所には行かないでください。';
+
+  @override
+  String get ctRedNotice =>
+      'ウォレットアドレスの入力ミスにより誤って支払われたコインは、必ず会員ご本人の責任となります。返還できませんので、アドレスを必ず再確認してください。';
+
+  @override
+  String get ctAckCheck => '上記の内容を確認しました';
+
+  @override
+  String get ctAckButton => '確認しました';
+
+  @override
+  String get ctNeedWalletTitle => 'ウォレットを登録するとコインが表示されます';
+
+  @override
+  String get ctNeedWalletBody =>
+      'Quantarium系のコインはQuantariumウォレットへ、一般コインは既存のウォレットアドレス（BNBなど）へ受け取ります。受け取るウォレットがないコインは地図に表示されません。';
+
+  @override
+  String get ctRegisterWallet => 'ウォレットを登録する';
+
+  @override
+  String get ctLocationServiceOff => 'スマートフォンの位置情報（GPS）をオンにしてください';
+
+  @override
+  String get ctLocationNeeded => '位置情報の許可をお願いします';
+
+  @override
+  String get ctLocationWhy =>
+      'コイントリップは、周辺のコインを表示するときと、近づいたかを確認するときだけ位置情報を使います。位置は保存しません。';
+
+  @override
+  String get ctRetry => '再試行';
+
+  @override
+  String get ctOpenSettings => '設定を開く';
+
+  @override
+  String get ctNoCoinsShort => '周辺にコインなし';
+
+  @override
+  String ctNearby(int count) {
+    return 'コイン$count枚';
+  }
+
+  @override
+  String get ctNoCoinsNearby => '周辺にコインがありません。地図を広げるか、後でまた来てください。';
+
+  @override
+  String get ctPhoneRequired => 'コインを拾うには携帯電話認証が必要です';
+
+  @override
+  String get ctVerifyPhone => '認証する';
+
+  @override
+  String get ctMockedLocation => '位置偽装アプリがオンのときは拾えません';
+
+  @override
+  String ctDistanceM(int meters) {
+    return '${meters}m';
+  }
+
+  @override
+  String ctDistanceKm(String km) {
+    return '${km}km';
+  }
+
+  @override
+  String get ctBlackCoin => 'ブラックコイン';
+
+  @override
+  String get ctBlackCoinHint => '拾って開けるまで何のコインか分かりません';
+
+  @override
+  String ctApprox(int meters) {
+    return 'おおよその位置です。${meters}m以内に近づくと正確な位置が表示されます。';
+  }
+
+  @override
+  String get ctPick => '拾う';
+
+  @override
+  String ctGetCloser(int meters) {
+    return '${meters}m以内で拾えます';
+  }
+
+  @override
+  String get ctPickedTitle => 'コインを拾いました！';
+
+  @override
+  String get ctBlackOpened => 'ブラックコインを開けると…';
+
+  @override
+  String ctSharedWith(String total, String symbol) {
+    return '合計$total $symbolを連合メンバーと分けました';
+  }
+
+  @override
+  String ctSharedMore(int count) {
+    return 'ほか$count人';
+  }
+
+  @override
+  String get ctToWallet => 'アプリのコインウォレットに入れました';
+
+  @override
+  String get ctWithdrawDone => '出金を申請しました。運営が確認後に送金します。';
+
+  @override
+  String get ctReceiveWallets => '受け取りウォレット';
+
+  @override
+  String get ctQuantariumWallet => 'Quantariumウォレット';
+
+  @override
+  String get ctQuantariumWalletSub => 'Quantarium系のコインを受け取ります';
+
+  @override
+  String get ctRegister => '登録';
+
+  @override
+  String get ctChange => '変更';
+
+  @override
+  String get ctExtWallet => '既存のウォレットアドレス';
+
+  @override
+  String get ctExtWalletSub => '一般コイン（BNBなど）を受け取ります';
+
+  @override
+  String get ctNotRegistered => '未登録';
+
+  @override
+  String get ctMyCoins => '拾ったコイン';
+
+  @override
+  String get ctNoBalances => 'まだ拾ったコインはありません';
+
+  @override
+  String get ctWithdrawals => '出金申請の履歴';
+
+  @override
+  String ctWithdrawMin(String amount, String symbol) {
+    return '$amount $symbolから出金可';
+  }
+
+  @override
+  String get ctWithdraw => '出金';
+
+  @override
+  String get ctWdRequested => '申請済み';
+
+  @override
+  String get ctWdProcessing => '送金中';
+
+  @override
+  String get ctWdCompleted => '送金済み';
+
+  @override
+  String get ctWdRejected => '却下（返還済み）';
+
+  @override
+  String ctWithdrawTitle(String symbol) {
+    return '$symbolの出金';
+  }
+
+  @override
+  String get ctWithdrawAmount => '出金する数量';
+
+  @override
+  String ctWithdrawRange(String min, String max, String symbol) {
+    return '$min〜$max $symbol';
+  }
+
+  @override
+  String get ctWithdrawTo => '受け取りアドレス';
+
+  @override
+  String get ctWithdrawNoAddress => '先に受け取りウォレットを登録してください';
+
+  @override
+  String get ctWithdrawSubmit => '出金を申請';
+
+  @override
+  String get ctSaved => '保存しました';
+
+  @override
+  String get ctRemove => '削除';
+
+  @override
+  String get ctRemoveConfirm => '既存のウォレットアドレスを削除しますか？一般コインが地図に表示されなくなります。';
+
+  @override
+  String get ctExtWalletDesc =>
+      '一般コイン（BNBなど）を受け取るウォレットアドレスです。0xで始まる42桁のアドレスを入力してください。取引所の入金アドレスの場合は、ネットワーク（BNB Smart Chainなど）が合っているか必ず確認してください。';
+
+  @override
+  String get ctExtWalletLabel => 'ウォレットアドレス';
+
+  @override
+  String get ctExtWalletInvalid => '0xで始まる42桁のアドレスではありません';
+
+  @override
+  String get ctPaste => '貼り付け';
+
+  @override
+  String get ctSave => '保存';
+
+  @override
+  String ctUnionDesc(String times, int max) {
+    return 'メンバーの誰がコインを拾っても、みんなで分け合います。拾った人は$times口、ほかは1口ずつ。最大$max人。';
+  }
+
+  @override
+  String ctUnionExample(String total, String finder, String each) {
+    return '例）3人の連合で$total枚拾うと、拾った人$finder枚、ほかの2人に$each枚ずつ';
+  }
+
+  @override
+  String get ctUnionWalletNote => 'そのコインを受け取るウォレットがないメンバーは、そのコインの分配から外れます。';
+
+  @override
+  String get ctUnionCreate => '連合を作る';
+
+  @override
+  String get ctUnionName => '連合名';
+
+  @override
+  String get ctUnionJoin => '招待コードで参加';
+
+  @override
+  String get ctUnionCode => '招待コード';
+
+  @override
+  String get ctUnionJoinButton => '参加する';
+
+  @override
+  String get ctUnionCopy => 'コピー';
+
+  @override
+  String ctUnionShareText(String code) {
+    return 'ナスのコイントリップのフレンド連合に参加しよう！アプリのコイントリップ > フレンド連合で招待コード $code を入力してください。';
+  }
+
+  @override
+  String get ctUnionCopied => '招待メッセージをコピーしました。友だちに送ってください。';
+
+  @override
+  String ctUnionMembers(int count, int max) {
+    return 'メンバー $count/$max人';
+  }
+
+  @override
+  String get ctMe => '自分';
+
+  @override
+  String get ctUnionOwner => 'リーダー';
+
+  @override
+  String get ctUnionKick => '退出させる';
+
+  @override
+  String ctUnionKickConfirm(String nickname) {
+    return '$nicknameさんを連合から退出させますか？';
+  }
+
+  @override
+  String get ctUnionLeave => '連合を抜ける';
+
+  @override
+  String get ctUnionLeaveConfirm => '連合を抜けますか？抜けた後はメンバーが拾ったコインを受け取れません。';
+
+  @override
   String get commonCancel => 'キャンセル';
 
   @override

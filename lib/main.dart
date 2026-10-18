@@ -26,6 +26,7 @@ import 'services/keyword_alert_service.dart';
 import 'services/hidden_products_service.dart';
 import 'services/inbox_service.dart';
 import 'services/recent_viewed_service.dart';
+import 'services/cointrip_service.dart';
 import 'services/qta_service.dart';
 
 void main() async {
@@ -132,6 +133,7 @@ class EggplantApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => HiddenProductsService(authService)),
         ChangeNotifierProvider(create: (_) => InboxService(authService)),
         ChangeNotifierProvider(create: (_) => RecentViewedService(authService)),
+        ChangeNotifierProvider(create: (_) => CointripService(authService)),
         // QtaService 생성 후 ProductService 의 mining 콜백을 연결.
         // 상품 상세 응답에 들어온 mining 진행도가 자동으로 QtaService 로 흘러간다.
         ChangeNotifierProxyProvider<ProductService, QtaService>(

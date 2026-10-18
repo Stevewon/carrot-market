@@ -46,6 +46,7 @@ import type { Env, Variables } from '../types';
 import { decryptPhone } from '../phoneVault';
 import { clawbackListingReward } from '../qta';
 import { hashPassword, verifyPassword } from '../crypto';
+import cointripAdmin from './cointripAdmin';
 
 // ────────────────────────────────────────────────────────────────────
 // Admin Variables (추가 컨텍스트)
@@ -232,6 +233,9 @@ app.post('/login', async (c) => {
 
 // 이하 모든 라우트는 admin 인증 필요
 app.use('*', adminAuth);
+
+// 코인트립 (코인 종류·뿌리기·출금·설정) — routes/cointripAdmin.ts
+app.route('/cointrip', cointripAdmin);
 
 /** GET /api/admin/me */
 app.get('/me', async (c) => {

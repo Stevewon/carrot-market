@@ -576,6 +576,241 @@
   "chatAppointmentReminderBody": "약속 시간을 지켜주세요",
   "chatAppointmentSetByMe": "거래 약속을 잡았어요",
   "chatAppointmentCancelledByMe": "거래 약속을 취소했어요",
+  "ctTab": "코인트립",
+  "ctTitle": "코인트립",
+  "ctNetworkError": "네트워크를 확인하고 다시 시도해 주세요",
+  "ctLocationFailed": "내 위치를 찾지 못했어요. 잠시 뒤 다시 해 주세요",
+  "ctUnion": "친구 연합",
+  "ctMyWallet": "코인 지갑",
+  "ctIntroTitle": "코인트립에 오신 걸 환영해요",
+  "ctIntroFind": "지도에 뿌려진 코인을 찾아가서 먼저 줍는 사람이 가져가요.",
+  "ctIntroPick": "코인 가까이 {meters}m 안으로 가면 [줍기] 버튼이 켜져요. 멀리 있는 코인은 대략적인 위치만 보여요.",
+  "@ctIntroPick": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "ctIntroBlack": "검은 블랙코인은 주워서 열어 봐야 무슨 코인인지 알 수 있어요.",
+  "ctIntroUnion": "친구 연합을 만들면 연합원 누가 주워도 함께 나눠 받아요. 주운 사람은 {times}배를 받아요.",
+  "@ctIntroUnion": {
+    "placeholders": {
+      "times": {
+        "type": "String"
+      }
+    }
+  },
+  "ctIntroWallet": "퀀타리움 소속 코인은 퀀타리움 월렛, 일반 코인은 기존 지갑 주소를 등록해야 지도에 보여요.",
+  "ctIntroSafety": "걸을 때는 화면 대신 주변을 보세요. 차도·공사장·남의 집처럼 들어가면 안 되는 곳에는 가지 마세요.",
+  "ctRedNotice": "지갑 주소를 잘못 넣어 잘못 지급된 코인은 반드시 회원 본인의 책임입니다. 되돌려 드릴 수 없으니 주소를 꼭 다시 확인하세요.",
+  "ctAckCheck": "위 내용을 확인했습니다",
+  "ctAckButton": "확인했습니다",
+  "ctNeedWalletTitle": "지갑을 등록해야 코인이 보여요",
+  "ctNeedWalletBody": "퀀타리움 소속 코인은 퀀타리움 월렛으로, 일반 코인은 기존 지갑 주소(BNB 등)로 받아요. 받을 지갑이 없는 코인은 지도에 나오지 않아요.",
+  "ctRegisterWallet": "지갑 등록하러 가기",
+  "ctLocationServiceOff": "휴대폰의 위치(GPS)를 켜 주세요",
+  "ctLocationNeeded": "위치 권한을 허용해 주세요",
+  "ctLocationWhy": "코인트립은 내 주변 코인을 보여 줄 때와 가까이 갔는지 확인할 때만 위치를 써요. 위치는 저장하지 않아요.",
+  "ctRetry": "다시 시도",
+  "ctOpenSettings": "설정 열기",
+  "ctNoCoinsShort": "주변에 코인 없음",
+  "ctNearby": "코인 {count}개",
+  "@ctNearby": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ctNoCoinsNearby": "주변에 코인이 없어요. 지도를 넓혀 보거나 나중에 다시 와 주세요.",
+  "ctPhoneRequired": "코인을 주우려면 휴대폰 인증이 필요해요",
+  "ctVerifyPhone": "인증하기",
+  "ctMockedLocation": "위치 조작 앱이 켜져 있으면 주울 수 없어요",
+  "ctDistanceM": "{meters}m",
+  "@ctDistanceM": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "ctDistanceKm": "{km}km",
+  "@ctDistanceKm": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "ctBlackCoin": "블랙코인",
+  "ctBlackCoinHint": "주워서 열어 봐야 무슨 코인인지 알 수 있어요",
+  "ctApprox": "대략적인 위치예요. {meters}m 안으로 가까이 가면 정확한 위치가 보여요.",
+  "@ctApprox": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "ctPick": "줍기",
+  "ctGetCloser": "{meters}m 안에서 주울 수 있어요",
+  "@ctGetCloser": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "ctPickedTitle": "코인을 주웠어요!",
+  "ctBlackOpened": "블랙코인을 열어 보니…",
+  "ctSharedWith": "모두 {total} {symbol} — 연합원과 나눴어요",
+  "@ctSharedWith": {
+    "placeholders": {
+      "total": {
+        "type": "String"
+      },
+      "symbol": {
+        "type": "String"
+      }
+    }
+  },
+  "ctSharedMore": "외 {count}명",
+  "@ctSharedMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ctToWallet": "앱의 코인 지갑에 넣었어요",
+  "ctWithdrawDone": "출금을 신청했어요. 운영자가 확인한 뒤 보내 드려요.",
+  "ctReceiveWallets": "받는 지갑",
+  "ctQuantariumWallet": "퀀타리움 월렛",
+  "ctQuantariumWalletSub": "퀀타리움 소속 코인을 받아요",
+  "ctRegister": "등록",
+  "ctChange": "바꾸기",
+  "ctExtWallet": "기존 지갑 주소",
+  "ctExtWalletSub": "일반 코인(BNB 등)을 받아요",
+  "ctNotRegistered": "등록 안 됨",
+  "ctMyCoins": "주운 코인",
+  "ctNoBalances": "아직 주운 코인이 없어요",
+  "ctWithdrawals": "출금 신청 내역",
+  "ctWithdrawMin": "최소 {amount} {symbol}부터 출금",
+  "@ctWithdrawMin": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "symbol": {
+        "type": "String"
+      }
+    }
+  },
+  "ctWithdraw": "출금",
+  "ctWdRequested": "신청함",
+  "ctWdProcessing": "보내는 중",
+  "ctWdCompleted": "보냈어요",
+  "ctWdRejected": "거부됨 (되돌려 드림)",
+  "ctWithdrawTitle": "{symbol} 출금",
+  "@ctWithdrawTitle": {
+    "placeholders": {
+      "symbol": {
+        "type": "String"
+      }
+    }
+  },
+  "ctWithdrawAmount": "출금할 수량",
+  "ctWithdrawRange": "{min} ~ {max} {symbol}",
+  "@ctWithdrawRange": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      },
+      "symbol": {
+        "type": "String"
+      }
+    }
+  },
+  "ctWithdrawTo": "받는 주소",
+  "ctWithdrawNoAddress": "받을 지갑을 먼저 등록해 주세요",
+  "ctWithdrawSubmit": "출금 신청",
+  "ctSaved": "저장했어요",
+  "ctRemove": "지우기",
+  "ctRemoveConfirm": "기존 지갑 주소를 지울까요? 일반 코인이 지도에 안 보이게 돼요.",
+  "ctExtWalletDesc": "일반 코인(BNB 등)을 받을 지갑 주소예요. 0x로 시작하는 42자리 주소를 넣어 주세요. 거래소 입금 주소라면 네트워크(BNB Smart Chain 등)가 맞는지 꼭 확인하세요.",
+  "ctExtWalletLabel": "지갑 주소",
+  "ctExtWalletInvalid": "0x로 시작하는 42자리 주소가 아니에요",
+  "ctPaste": "붙여넣기",
+  "ctSave": "저장",
+  "ctUnionDesc": "연합원 누가 코인을 주워도 함께 나눠 받아요. 주운 사람은 {times}몫, 나머지는 1몫씩이에요. 최대 {max}명.",
+  "@ctUnionDesc": {
+    "placeholders": {
+      "times": {
+        "type": "String"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "ctUnionExample": "예) 3명 연합에서 {total}개를 주우면 주운 사람 {finder}개, 다른 두 사람 {each}개씩",
+  "@ctUnionExample": {
+    "placeholders": {
+      "total": {
+        "type": "String"
+      },
+      "finder": {
+        "type": "String"
+      },
+      "each": {
+        "type": "String"
+      }
+    }
+  },
+  "ctUnionWalletNote": "그 코인을 받을 지갑이 없는 연합원은 그 코인 나눔에서 빠져요.",
+  "ctUnionCreate": "연합 만들기",
+  "ctUnionName": "연합 이름",
+  "ctUnionJoin": "초대 코드로 들어가기",
+  "ctUnionCode": "초대 코드",
+  "ctUnionJoinButton": "들어가기",
+  "ctUnionCopy": "복사",
+  "ctUnionShareText": "가지 코인트립 친구 연합에 들어와요! 앱의 코인트립 > 친구 연합에서 초대 코드 {code} 를 넣어 주세요.",
+  "@ctUnionShareText": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "ctUnionCopied": "초대 문구를 복사했어요. 친구에게 보내 주세요.",
+  "ctUnionMembers": "연합원 {count}/{max}명",
+  "@ctUnionMembers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "ctMe": "나",
+  "ctUnionOwner": "방장",
+  "ctUnionKick": "내보내기",
+  "ctUnionKickConfirm": "{nickname}님을 연합에서 내보낼까요?",
+  "@ctUnionKickConfirm": {
+    "placeholders": {
+      "nickname": {
+        "type": "String"
+      }
+    }
+  },
+  "ctUnionLeave": "연합 나가기",
+  "ctUnionLeaveConfirm": "연합에서 나갈까요? 나간 뒤에는 연합원이 주운 코인을 나눠 받지 못해요.",
   "commonCancel": "취소",
   "commonConfirm": "확인",
   "commonDelete": "삭제",

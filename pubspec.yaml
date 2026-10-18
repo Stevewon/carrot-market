@@ -1,7 +1,7 @@
 name: eggplant
 description: "Eggplant - QR 기반 익명 중고거래 마켓 🍆"
 publish_to: 'none'
-version: 1.0.189+189
+version: 1.0.190+190
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -101,6 +101,7 @@ dependencies:
     sdk: flutter
   cryptography: 2.7.0
   timezone: ^0.9.4
+  google_maps_flutter: ^2.18.1
 
   # Note: Screen security (FLAG_SECURE) is implemented natively in
   # MainActivity.kt via MethodChannel (lib/services/secure_screen.dart).

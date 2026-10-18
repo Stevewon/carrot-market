@@ -37,6 +37,7 @@ import {
   type ReceiveRow,
 } from '../walletReceive';
 import { checkNickname } from '../prohibited';
+import { cointripOnUserDelete } from '../cointrip';
 
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -1054,7 +1055,10 @@ app.delete('/me', authMiddleware, async (c) => {
   // 0) 진행 중인 출금이 있으면 탈퇴 보류 — 운영자가 송금하는 중에 계정·출금 기록이
   //    지워지면 처리할 근거가 사라진다. 완료되거나 취소된 뒤 탈퇴하도록 안내.
   const pendingWithdrawal = await c.env.DB
-    .prepare(`SELECT id FROM qta_withdrawals WHERE user_id = ? AND status IN ('requested','processing') LIMIT 1`)
+    .prepare(
+      `SELECT id FROM qta_withdrawals WHERE user_id = ?1 AND status IN ('requested','processing')
+       UNION ALL SELECT id FROM ct_withdrawals WHERE user_id = ?1 AND status IN ('requested','processing') LIMIT 1`,
+    )
     .bind(user.id)
     .first<{ id: string }>();
   if (pendingWithdrawal) {
@@ -1098,6 +1102,13 @@ app.delete('/me', authMiddleware, async (c) => {
     ]);
   } catch (e) {
     console.error('[auth/delete] cleanup non-cascade tables failed', e);
+  }
+
+  // 2-1) 코인트립 — 연합에서 빠지고(방장이면 넘김) 앱 지갑 잔액·내역 정리.
+  try {
+    await cointripOnUserDelete(c.env, user.id);
+  } catch (e) {
+    console.error('[auth/delete] cointrip cleanup failed', e);
   }
 
   // 3) users 행 DELETE → ON DELETE CASCADE 가 ledger 등을 즉시 청소.

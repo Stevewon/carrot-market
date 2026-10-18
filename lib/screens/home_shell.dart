@@ -6,7 +6,9 @@ import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
+import '../services/cointrip_service.dart';
 import '../services/qta_service.dart';
+import 'tabs/cointrip_tab.dart';
 import 'tabs/feed_tab.dart';
 import 'tabs/likes_tab.dart';
 import 'tabs/chat_list_tab.dart';
@@ -41,6 +43,9 @@ class _HomeShellState extends State<HomeShell> {
       final qta = context.read<QtaService>();
       // ignore: discarded_futures
       qta.load();
+      // 코인트립이 열려 있는 회원에게만 하단 가운데 탭이 생긴다.
+      // ignore: discarded_futures
+      context.read<CointripService>().loadStatus();
       _showQtaBonusIfAny(auth);
     });
   }
@@ -143,19 +148,58 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   @override
+  /// 화면 탭 번호(0 홈 · 1 찜 · 2 채팅 · 3 나의 · 4 코인트립)는 그대로 두고 — /?tab=N 링크가 안 바뀌게 —
+  /// 코인트립이 열려 있으면 하단 메뉴에서만 가운데에 끼운다.
+  static const int cointripTab = 4;
+  List<int> _navOrder(bool cointrip) => cointrip ? const [0, 1, cointripTab, 2, 3] : const [0, 1, 2, 3];
+
+  @override
   Widget build(BuildContext context) {
     final unread = context.watch<ChatService>().totalUnread;
+    final cointrip = context.watch<CointripService>().open;
+    final order = _navOrder(cointrip);
+    // 코인트립이 닫혔는데 그 탭을 보고 있었다면 홈으로.
+    final current = order.contains(_currentIndex) ? _currentIndex : 0;
 
     final tabs = <Widget>[
       const FeedTab(),
       const LikesTab(),
       const ChatListTab(),
       const MyTab(),
+      if (cointrip) CointripTab(active: current == cointripTab) else const SizedBox.shrink(),
     ];
 
+    final items = <int, BottomNavigationBarItem>{
+      0: BottomNavigationBarItem(
+        icon: const Icon(Icons.storefront_outlined),
+        activeIcon: const Icon(Icons.storefront),
+        label: context.l10n.homeTabHome,
+      ),
+      1: BottomNavigationBarItem(
+        icon: const Icon(Icons.favorite_border),
+        activeIcon: const Icon(Icons.favorite),
+        label: context.l10n.homeTabLikes,
+      ),
+      2: BottomNavigationBarItem(
+        icon: _withBadge(const Icon(Icons.chat_bubble_outline), unread),
+        activeIcon: _withBadge(const Icon(Icons.chat_bubble), unread),
+        label: context.l10n.homeTabChat,
+      ),
+      3: BottomNavigationBarItem(
+        icon: const Icon(Icons.person_outline),
+        activeIcon: const Icon(Icons.person),
+        label: context.l10n.homeTabMy,
+      ),
+      cointripTab: BottomNavigationBarItem(
+        icon: const Icon(Icons.toll_outlined),
+        activeIcon: const Icon(Icons.toll),
+        label: context.l10n.ctTab,
+      ),
+    };
+
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: tabs),
-      floatingActionButton: _currentIndex == 0
+      body: IndexedStack(index: current, children: tabs),
+      floatingActionButton: current == 0
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/product/new'),
               backgroundColor: EggplantColors.primary,
@@ -172,8 +216,9 @@ class _HomeShellState extends State<HomeShell> {
             )
           : null,
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (i) {
+        currentIndex: order.indexOf(current),
+        onTap: (pos) {
+          final i = order[pos];
           // 탭을 옮기면 떠 있던 안내 알림은 닫는다 (페이지마다 따라다니지 않게).
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           setState(() => _currentIndex = i);
@@ -188,28 +233,7 @@ class _HomeShellState extends State<HomeShell> {
         type: BottomNavigationBarType.fixed,
         showSelectedLabels: true,
         showUnselectedLabels: true,
-        items: [
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.storefront_outlined),
-            activeIcon: const Icon(Icons.storefront),
-            label: context.l10n.homeTabHome,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.favorite_border),
-            activeIcon: const Icon(Icons.favorite),
-            label: context.l10n.homeTabLikes,
-          ),
-          BottomNavigationBarItem(
-            icon: _withBadge(const Icon(Icons.chat_bubble_outline), unread),
-            activeIcon: _withBadge(const Icon(Icons.chat_bubble), unread),
-            label: context.l10n.homeTabChat,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.person_outline),
-            activeIcon: const Icon(Icons.person),
-            label: context.l10n.homeTabMy,
-          ),
-        ],
+        items: [for (final i in order) items[i]!],
       ),
     );
   }

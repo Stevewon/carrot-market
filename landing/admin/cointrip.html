@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>코인트립 · Eggplant Admin</title>
+  <link rel="stylesheet" href="admin.css?v=v3" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    .grid2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 1024px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+    .row .form-row { flex: 1 1 140px; margin-bottom: 0; }
+    #map { height: 380px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 12px; }
+    .hint { color: var(--text-soft); font-size: 13px; margin: 6px 0 12px; line-height: 1.5; }
+    .warn { color: #b91c1c; font-weight: 700; }
+    .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: middle; margin-right: 6px; }
+    .switch-on { color: var(--success); font-weight: 700; }
+    .switch-off { color: var(--danger); font-weight: 700; }
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+    .tabs button { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: #fff; cursor: pointer; }
+    .tabs button.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .section { display: none; }
+    .section.on { display: block; }
+    td code { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar" id="sidebar"></aside>
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1>🪙 코인트립</h1>
+        <div id="header-me"></div>
+      </div>
+
+      <div class="tabs" id="tabs">
+        <button data-s="stats" class="on">현황</button>
+        <button data-s="drop">코인 뿌리기</button>
+        <button data-s="coins">코인 종류</button>
+        <button data-s="wd">출금 신청</button>
+        <button data-s="settings">설정</button>
+        <button data-s="acks">책임 공지 확인 기록</button>
+      </div>
+
+      <!-- 현황 -->
+      <section class="section on" id="s-stats">
+        <div class="card">
+          <h2>운영 상태</h2>
+          <p id="open-state" class="hint">불러오는 중</p>
+          <div class="stats-grid" id="stat-top"></div>
+        </div>
+        <div class="card">
+          <h2>코인별 현황</h2>
+          <div class="table-wrap" id="stat-table"><div class="loading">불러오는 중</div></div>
+        </div>
+      </section>
+
+      <!-- 뿌리기 -->
+      <section class="section" id="s-drop">
+        <div class="card">
+          <h2>코인 뿌리기</h2>
+          <p class="hint">지도를 누르면 그 자리가 가운데로 잡힙니다. 반경을 0으로 두면 그 자리에 1개, 반경을 넣으면 그 안에 개수만큼 고르게 흩어 뿌립니다. 지도의 점은 지금 깔려 있는 코인입니다.</p>
+          <div id="map"></div>
+          <div class="row">
+            <div class="form-row"><label>코인</label><select id="d-coin"></select></div>
+            <div class="form-row"><label>위도</label><input id="d-lat" type="text" placeholder="37.4979" /></div>
+            <div class="form-row"><label>경도</label><input id="d-lng" type="text" placeholder="127.0276" /></div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <div class="form-row"><label>반경 (m, 0 = 한 곳)</label><input id="d-radius" type="number" min="0" max="50000" value="0" /></div>
+            <div class="form-row"><label>개수 (최대 500)</label><input id="d-count" type="number" min="1" max="500" value="1" /></div>
+            <div class="form-row"><label>1개 수량 최소</label><input id="d-min" type="text" placeholder="10" /></div>
+            <div class="form-row"><label>1개 수량 최대</label><input id="d-max" type="text" placeholder="비우면 최소와 같음" /></div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <div class="form-row"><label>블랙코인 비율 (%)</label><input id="d-black" type="number" min="0" max="100" value="0" /></div>
+            <div class="form-row"><label>사라지는 시간 (시간, 0 = 계속)</label><input id="d-exp" type="number" min="0" value="0" /></div>
+            <div class="form-row" style="flex:0 0 auto"><button class="btn-success" id="d-go" type="button">뿌리기</button></div>
+          </div>
+          <p class="hint" id="d-result"></p>
+        </div>
+        <div class="card">
+          <div class="toolbar">
+            <select id="dl-status">
+              <option value="active">깔려 있음</option>
+              <option value="picked">주워짐</option>
+              <option value="cancelled">거둬들임</option>
+            </select>
+            <button class="btn-secondary" id="dl-refresh" style="margin-left:auto">↻ 새로고침</button>
+          </div>
+          <div class="table-wrap" id="drop-table"><div class="loading">불러오는 중</div></div>
+        </div>
+      </section>
+
+      <!-- 코인 종류 -->
+      <section class="section" id="s-coins">
+        <div class="card">
+          <h2 id="c-title">코인 종류 추가</h2>
+          <p class="hint"><b>받는 지갑</b>: 퀀타리움 소속 코인은 회원의 퀀타리움 월렛으로, 일반 코인은 회원이 따로 등록한 기존 지갑 주소(BNB 등)로 출금됩니다. 그 지갑을 등록하지 않은 회원에게는 이 코인이 지도에 보이지 않습니다.</p>
+          <input type="hidden" id="c-id" />
+          <div class="row">
+            <div class="form-row"><label>심볼</label><input id="c-symbol" type="text" placeholder="QKEY" /></div>
+            <div class="form-row"><label>이름</label><input id="c-name" type="text" placeholder="큐키" /></div>
+            <div class="form-row"><label>받는 지갑</label>
+              <select id="c-kind"><option value="quantarium">퀀타리움 소속 (퀀타리움 월렛)</option><option value="general">일반 코인 (기존 지갑 주소)</option></select>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <div class="form-row"><label>네트워크 (회원 안내용)</label><input id="c-network" type="text" placeholder="Quantarium / BNB Smart Chain" /></div>
+            <div class="form-row"><label>색</label><input id="c-color" type="color" value="#7c3aed" /></div>
+            <div class="form-row"><label>출금 최소 수량</label><input id="c-min" type="text" value="0" /></div>
+            <div class="form-row"><label>총 예산 (비우면 한도 없음)</label><input id="c-budget" type="text" /></div>
+            <div class="form-row"><label>사용</label><select id="c-active"><option value="1">사용</option><option value="0">멈춤 (지도에서 숨김)</option></select></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn-success" id="c-save" type="button">저장</button>
+            <button class="btn-secondary" id="c-new" type="button">새로 입력</button>
+          </div>
+        </div>
+        <div class="card"><div class="table-wrap" id="coin-table"><div class="loading">불러오는 중</div></div></div>
+      </section>
+
+      <!-- 출금 -->
+      <section class="section" id="s-wd">
+        <div class="card">
+          <div class="toolbar">
+            <select id="w-status">
+              <option value="open">대기·처리중</option>
+              <option value="completed">완료</option>
+              <option value="rejected">거부</option>
+            </select>
+            <span class="hint" style="margin:0">처리시작 → 직접 송금 → 완료처리(tx 해시). 거부하면 앱 지갑으로 되돌려 줍니다.</span>
+            <button class="btn-secondary" id="w-refresh" style="margin-left:auto">↻ 새로고침</button>
+          </div>
+          <div class="table-wrap" id="wd-table"><div class="loading">불러오는 중</div></div>
+        </div>
+      </section>
+
+      <!-- 설정 -->
+      <section class="section" id="s-settings">
+        <div class="card">
+          <h2>설정</h2>
+          <p class="hint warn">법률 검토가 끝나기 전에는 "전체 공개"를 켜지 마세요. 꺼져 있어도 아래 테스터 회원은 미리 써 볼 수 있습니다.</p>
+          <div class="row">
+            <div class="form-row"><label>전체 공개</label><select id="s-enabled"><option value="0">끔 (테스터만)</option><option value="1">켬 (모든 회원)</option></select></div>
+            <div class="form-row"><label>줍기 거리 (m)</label><input id="s-pick" type="number" min="5" max="500" /></div>
+            <div class="form-row"><label>정확한 위치 보이는 거리 (m)</label><input id="s-precise" type="number" min="30" max="5000" /></div>
+            <div class="form-row"><label>주운 사람 몫 배수</label><input id="s-mult" type="number" min="1" max="100" step="0.5" /></div>
+            <div class="form-row"><label>연합 최대 인원</label><input id="s-union" type="number" min="2" max="500" /></div>
+          </div>
+          <div class="form-row" style="margin-top:10px">
+            <label>테스터 회원 id (쉼표·줄바꿈으로 구분 — 사용자 화면에서 id 복사)</label>
+            <textarea id="s-testers" rows="3" style="width:100%"></textarea>
+          </div>
+          <button class="btn-success" id="s-save" type="button" style="margin-top:10px">저장</button>
+        </div>
+      </section>
+
+      <!-- 확인 기록 -->
+      <section class="section" id="s-acks">
+        <div class="card">
+          <div class="toolbar">
+            <input type="search" id="a-uid" placeholder="회원 id (비우면 전체)" />
+            <button class="btn-secondary" id="a-refresh">조회</button>
+          </div>
+          <p class="hint">회원이 "잘못 넣은 주소로 지급된 코인은 회원 본인 책임" 빨간 안내에 "확인했습니다"를 누른 기록입니다.</p>
+          <div class="table-wrap" id="ack-table"><div class="loading">불러오는 중</div></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 출금 완료 / 거부 모달 -->
+  <div class="modal-backdrop" id="wd-modal">
+    <div class="modal">
+      <h2 id="wm-title"></h2>
+      <p style="color:#6b7280; font-size:13px; margin-bottom:12px" id="wm-target"></p>
+      <div class="form-row"><label id="wm-label"></label><input type="text" id="wm-input" /></div>
+      <div class="actions">
+        <button type="button" class="btn-secondary" onclick="AdminApp.closeModal('wd-modal')">취소</button>
+        <button type="button" class="btn-success" id="wm-ok">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin.js?v=v4"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    (function () {
+      if (!AdminApp.requireAuth()) return;
+      AdminApp.renderSidebar(document.getElementById('sidebar'));
+      AdminApp.renderHeaderMe(document.getElementById('header-me'));
+      const api = AdminApp.api, esc = AdminApp.escapeHtml, $ = (id) => document.getElementById(id);
+      const P = '/api/admin/cointrip';
+      let coins = [];
+
+      // ── 탭 ──
+      const loaders = { stats: loadStats, drop: () => { initMap(); loadDrops(); }, coins: loadCoins, wd: loadWd, settings: loadSettings, acks: loadAcks };
+      $('tabs').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-s]');
+        if (!b) return;
+        document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
+        document.querySelectorAll('.section').forEach((x) => x.classList.toggle('on', x.id === 's-' + b.dataset.s));
+        loaders[b.dataset.s]();
+      });
+
+      async function loadCoinList() {
+        const r = await api(P + '/coins');
+        coins = r.coins || [];
+        $('d-coin').innerHTML = coins.filter((c) => c.active).map((c) =>
+          `<option value="${esc(c.id)}">${esc(c.symbol)} · ${esc(c.name)} (${c.wallet_kind === 'quantarium' ? '퀀타리움 월렛' : '기존 지갑'})</option>`).join('')
+          || '<option value="">먼저 "코인 종류"에서 코인을 추가하세요</option>';
+      }
+
+      // ── 현황 ──
+      async function loadStats() {
+        try {
+          const [s, st] = await Promise.all([api(P + '/settings'), api(P + '/stats')]);
+          const e = s.effective;
+          $('open-state').innerHTML = e.enabled
+            ? '<span class="switch-on">● 전체 공개 중</span> — 모든 회원에게 코인트립 탭이 보입니다.'
+            : `<span class="switch-off">● 꺼짐</span> — 테스터 ${e.testerIds.length}명만 볼 수 있습니다. (설정 탭에서 변경)`;
+          $('stat-top').innerHTML = `
+            <div class="stat"><div class="label">최근 24시간 줍기</div><div class="value">${AdminApp.fmtNum(st.picks_24h)}</div><div class="sub">${AdminApp.fmtNum(st.pickers_24h)}명</div></div>
+            <div class="stat"><div class="label">친구 연합</div><div class="value">${AdminApp.fmtNum(st.unions)}</div></div>
+            <div class="stat"><div class="label">줍기 거리</div><div class="value">${e.pickRadiusM}m</div><div class="sub">정확한 위치 ${e.preciseRadiusM}m · 주운 사람 ${e.finderMultiplier}배</div></div>`;
+          const rows = st.coins || [];
+          $('stat-table').innerHTML = rows.length ? `<table><thead><tr>
+              <th>코인</th><th>받는 지갑</th><th>깔려 있음</th><th>주워짐</th><th>회원 앱 지갑 합계</th><th>출금 대기</th><th>출금 완료</th><th>예산</th>
+            </tr></thead><tbody>${rows.map((c) => `<tr>
+              <td><span class="dot" style="background:${esc(c.color)}"></span><b>${esc(c.symbol)}</b> ${c.active ? '' : '(멈춤)'}</td>
+              <td>${c.wallet_kind === 'quantarium' ? '퀀타리움' : '일반'}</td>
+              <td>${AdminApp.fmtNum(c.active_count)}개 · ${esc(c.active_amount)}</td>
+              <td>${AdminApp.fmtNum(c.picked_count)}개 · ${esc(c.picked)}</td>
+              <td>${esc(c.balance)}</td><td>${esc(c.pending)}</td><td>${esc(c.paid)}</td>
+              <td>${c.budget == null ? '한도 없음' : esc(c.budget)}</td></tr>`).join('')}</tbody></table>`
+            : '<div class="empty">아직 코인 종류가 없어요. "코인 종류" 탭에서 추가하세요.</div>';
+        } catch (e) { AdminApp.showError($('stat-table'), e.message); }
+      }
+
+      // ── 지도 ──
+      let map = null, centerMark = null, layer = null;
+      function initMap() {
+        if (map) { setTimeout(() => map.invalidateSize(), 50); return; }
+        map = L.map('map').setView([37.4979, 127.0276], 14);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+        layer = L.layerGroup().addTo(map);
+        map.on('click', (e) => {
+          $('d-lat').value = e.latlng.lat.toFixed(6);
+          $('d-lng').value = e.latlng.lng.toFixed(6);
+          drawCenter();
+        });
+        ['d-lat', 'd-lng', 'd-radius'].forEach((id) => $(id).addEventListener('input', drawCenter));
+      }
+      function drawCenter() {
+        const lat = Number($('d-lat').value), lng = Number($('d-lng').value);
+        if (!map || !isFinite(lat) || !isFinite(lng) || !$('d-lat').value) return;
+        if (centerMark) centerMark.remove();
+        const r = Number($('d-radius').value) || 0;
+        centerMark = r > 0 ? L.circle([lat, lng], { radius: r, color: '#6b3fa0' }).addTo(map) : L.marker([lat, lng]).addTo(map);
+      }
+
+      $('d-go').addEventListener('click', async () => {
+        const coin = coins.find((c) => c.id === $('d-coin').value);
+        if (!coin) { alert('코인을 고르세요'); return; }
+        const radius = Number($('d-radius').value) || 0;
+        const count = radius === 0 ? 1 : Number($('d-count').value) || 1;
+        const min = $('d-min').value.trim(), max = $('d-max').value.trim() || min;
+        if (!AdminApp.confirmDanger(`${coin.symbol} ${count}개 (1개 ${min}${max !== min ? '~' + max : ''})를 뿌릴까요?`)) return;
+        try {
+          const r = await api(P + '/drops', { method: 'POST', body: {
+            coin_id: coin.id, lat: Number($('d-lat').value), lng: Number($('d-lng').value), radius_m: radius, count,
+            amount_min: min, amount_max: max, black_percent: Number($('d-black').value) || 0, expires_hours: Number($('d-exp').value) || 0,
+          } });
+          $('d-result').textContent = `뿌렸습니다: ${r.count}개, 합계 ${r.total} ${coin.symbol}`;
+          loadDrops();
+        } catch (e) { alert('실패: ' + e.message); }
+      });
+
+      async function loadDrops() {
+        const area = $('drop-table');
+        AdminApp.showLoading(area);
+        try {
+          await loadCoinList();
+          const status = $('dl-status').value;
+          const r = await api(P + '/drops?status=' + status + '&limit=500');
+          const rows = r.drops || [];
+          if (map && status === 'active') {
+            layer.clearLayers();
+            rows.forEach((d) => L.circleMarker([d.lat, d.lng], { radius: 6, color: d.is_black ? '#111' : d.color, fillOpacity: .9 })
+              .bindTooltip(`${d.is_black ? '블랙 ' : ''}${d.symbol} ${d.amount}`).addTo(layer));
+          }
+          if (!rows.length) { AdminApp.showEmpty(area, '없어요'); return; }
+          area.innerHTML = `<table><thead><tr><th>시각</th><th>코인</th><th>수량</th><th>위치</th><th>주운 회원</th><th>관리</th></tr></thead><tbody>
+            ${rows.map((d) => `<tr>
+              <td>${AdminApp.fmtDate(d.picked_at || d.created_at)}${d.expires_at ? '<br/><small>~' + AdminApp.fmtDate(d.expires_at) + '</small>' : ''}</td>
+              <td><span class="dot" style="background:${esc(d.color)}"></span>${esc(d.symbol)}${d.is_black ? ' <b>(블랙)</b>' : ''}</td>
+              <td>${esc(d.amount)}</td>
+              <td><code>${Number(d.lat).toFixed(5)}, ${Number(d.lng).toFixed(5)}</code></td>
+              <td>${esc(d.picked_by_nickname || '')}</td>
+              <td>${d.status === 'active' ? `<button class="btn-sm btn-danger" data-cancel="${esc(d.id)}">거두기</button>
+                  <button class="btn-sm" data-batch="${esc(d.batch_id || '')}">같이 뿌린 것 모두 거두기</button>` : ''}</td></tr>`).join('')}
+            </tbody></table>`;
+        } catch (e) { AdminApp.showError(area, e.message); }
+      }
+      $('dl-status').addEventListener('change', loadDrops);
+      $('dl-refresh').addEventListener('click', loadDrops);
+      $('drop-table').addEventListener('click', async (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        try {
+          if (b.dataset.cancel) {
+            if (!AdminApp.confirmDanger('이 코인을 지도에서 거둘까요?')) return;
+            await api(P + '/drops/' + encodeURIComponent(b.dataset.cancel) + '/cancel', { method: 'POST' });
+          } else if (b.dataset.batch) {
+            if (!AdminApp.confirmDanger('같이 뿌린 코인 중 아직 안 주운 것을 모두 거둘까요?')) return;
+            const r = await api(P + '/batches/' + encodeURIComponent(b.dataset.batch) + '/cancel', { method: 'POST' });
+            alert(r.cancelled + '개를 거뒀습니다');
+          }
+          loadDrops();
+        } catch (er) { alert('실패: ' + er.message); }
+      });
+
+      // ── 코인 종류 ──
+      async function loadCoins() {
+        const area = $('coin-table');
+        try {
+          await loadCoinList();
+          if (!coins.length) { AdminApp.showEmpty(area, '아직 없어요'); return; }
+          area.innerHTML = `<table><thead><tr><th>코인</th><th>받는 지갑</th><th>네트워크</th><th>출금 최소</th><th>예산</th><th>상태</th><th></th></tr></thead><tbody>
+            ${coins.map((c) => `<tr>
+              <td><span class="dot" style="background:${esc(c.color)}"></span><b>${esc(c.symbol)}</b> ${esc(c.name)}</td>
+              <td>${c.wallet_kind === 'quantarium' ? '퀀타리움 월렛' : '기존 지갑 주소'}</td>
+              <td>${esc(c.network)}</td><td>${esc(c.withdraw_min)}</td><td>${c.budget == null ? '한도 없음' : esc(c.budget)}</td>
+              <td>${c.active ? '<span class="pill pill-active">사용</span>' : '<span class="pill pill-dismissed">멈춤</span>'}</td>
+              <td><button class="btn-sm" data-edit="${esc(c.id)}">수정</button></td></tr>`).join('')}</tbody></table>`;
+        } catch (e) { AdminApp.showError(area, e.message); }
+      }
+      function fillCoin(c) {
+        $('c-id').value = c ? c.id : '';
+        $('c-title').textContent = c ? `코인 수정 — ${c.symbol}` : '코인 종류 추가';
+        $('c-symbol').value = c ? c.symbol : '';
+        $('c-name').value = c ? c.name : '';
+        $('c-kind').value = c ? c.wallet_kind : 'quantarium';
+        $('c-network').value = c ? c.network : '';
+        $('c-color').value = c ? c.color : '#7c3aed';
+        $('c-min').value = c ? c.withdraw_min : '0';
+        $('c-budget').value = c && c.budget != null ? c.budget : '';
+        $('c-active').value = c && !c.active ? '0' : '1';
+      }
+      $('coin-table').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-edit]');
+        if (b) { fillCoin(coins.find((c) => c.id === b.dataset.edit)); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+      });
+      $('c-new').addEventListener('click', () => fillCoin(null));
+      $('c-save').addEventListener('click', async () => {
+        const id = $('c-id').value;
+        const body = {
+          symbol: $('c-symbol').value, name: $('c-name').value, wallet_kind: $('c-kind').value, network: $('c-network').value,
+          color: $('c-color').value, withdraw_min: $('c-min').value.trim() || '0', budget: $('c-budget').value.trim(), active: $('c-active').value === '1',
+        };
+        try {
+          await api(P + '/coins' + (id ? '/' + encodeURIComponent(id) : ''), { method: id ? 'PUT' : 'POST', body });
+          fillCoin(null);
+          loadCoins();
+        } catch (e) { alert('실패: ' + e.message); }
+      });
+
+      // ── 출금 ──
+      let wdAction = null;
+      async function loadWd() {
+        const area = $('wd-table');
+        AdminApp.showLoading(area);
+        try {
+          const r = await api(P + '/withdrawals?status=' + $('w-status').value);
+          const rows = r.rows || [];
+          if (!rows.length) { AdminApp.showEmpty(area, '없어요'); return; }
+          area.innerHTML = `<table><thead><tr><th>신청 시각</th><th>회원</th><th>코인</th><th>수량</th><th>보낼 주소</th><th>상태</th><th>관리</th></tr></thead><tbody>
+            ${rows.map((w) => `<tr>
+              <td>${AdminApp.fmtDate(w.requested_at)}</td>
+              <td><b>${esc(w.nickname || '')}</b><br/><code>${AdminApp.shortId(w.user_id)}</code></td>
+              <td>${esc(w.symbol)}<br/><small>${esc(w.network || '')}</small></td>
+              <td><b>${esc(w.amount)}</b></td>
+              <td><code>${esc(w.wallet_address)}</code><br/><small>${w.wallet_kind === 'quantarium' ? '퀀타리움 월렛' : '기존 지갑'}</small></td>
+              <td><span class="pill pill-${esc(w.status)}">${esc(w.status)}</span>${w.tx_hash ? '<br/><code>' + esc(w.tx_hash) + '</code>' : ''}${w.reject_reason ? '<br/>' + esc(w.reject_reason) : ''}</td>
+              <td>${w.status === 'requested' ? `<button class="btn-sm" data-wa="processing" data-id="${esc(w.id)}">처리시작</button>` : ''}
+                ${w.status === 'requested' || w.status === 'processing' ? `
+                <button class="btn-sm btn-success" data-wa="complete" data-id="${esc(w.id)}" data-t="${esc(w.symbol + ' ' + w.amount + ' → ' + w.wallet_address)}">완료처리</button>
+                <button class="btn-sm btn-danger" data-wa="reject" data-id="${esc(w.id)}" data-t="${esc(w.symbol + ' ' + w.amount)}">거부+환불</button>` : ''}</td></tr>`).join('')}</tbody></table>`;
+        } catch (e) { AdminApp.showError(area, e.message); }
+      }
+      $('w-status').addEventListener('change', loadWd);
+      $('w-refresh').addEventListener('click', loadWd);
+      $('wd-table').addEventListener('click', async (e) => {
+        const b = e.target.closest('button[data-wa]');
+        if (!b) return;
+        if (b.dataset.wa === 'processing') {
+          try { await api(P + '/withdrawals/' + encodeURIComponent(b.dataset.id) + '/processing', { method: 'POST' }); loadWd(); }
+          catch (er) { alert('실패: ' + er.message); }
+          return;
+        }
+        wdAction = { kind: b.dataset.wa, id: b.dataset.id };
+        $('wm-title').textContent = b.dataset.wa === 'complete' ? '송금 완료 처리' : '출금 거부 + 환불';
+        $('wm-target').textContent = b.dataset.t;
+        $('wm-label').textContent = b.dataset.wa === 'complete' ? '트랜잭션 해시 (tx_hash)' : '거부 사유 (회원에게 보입니다)';
+        $('wm-input').value = '';
+        AdminApp.openModal('wd-modal');
+      });
+      $('wm-ok').addEventListener('click', async () => {
+        if (!wdAction) return;
+        const v = $('wm-input').value.trim();
+        if (!v) { alert('내용을 넣어 주세요'); return; }
+        try {
+          await api(P + '/withdrawals/' + encodeURIComponent(wdAction.id) + '/' + wdAction.kind, {
+            method: 'POST', body: wdAction.kind === 'complete' ? { tx_hash: v } : { reason: v },
+          });
+          AdminApp.closeModal('wd-modal');
+          loadWd();
+        } catch (e) { alert('실패: ' + e.message); }
+      });
+
+      // ── 설정 ──
+      async function loadSettings() {
+        try {
+          const r = await api(P + '/settings');
+          const e = r.effective;
+          $('s-enabled').value = e.enabled ? '1' : '0';
+          $('s-pick').value = e.pickRadiusM;
+          $('s-precise').value = e.preciseRadiusM;
+          $('s-mult').value = e.finderMultiplier;
+          $('s-union').value = e.unionMax;
+          $('s-testers').value = e.testerIds.join('\n');
+        } catch (er) { alert('실패: ' + er.message); }
+      }
+      $('s-save').addEventListener('click', async () => {
+        const enabling = $('s-enabled').value === '1';
+        if (enabling && !AdminApp.confirmDanger('모든 회원에게 코인트립을 공개합니다. 법률 검토가 끝났나요?')) return;
+        try {
+          await api(P + '/settings', { method: 'PUT', body: {
+            enabled: $('s-enabled').value, pick_radius_m: $('s-pick').value, precise_radius_m: $('s-precise').value,
+            finder_multiplier: $('s-mult').value, union_max: $('s-union').value, tester_ids: $('s-testers').value,
+          } });
+          alert('저장했습니다');
+          loadSettings();
+        } catch (e) { alert('실패: ' + e.message); }
+      });
+
+      // ── 확인 기록 ──
+      const ctxName = { ext_wallet: '기존 지갑 주소 입력', withdraw: '출금 신청', cointrip_intro: '코인트립 첫 안내' };
+      async function loadAcks() {
+        const area = $('ack-table');
+        AdminApp.showLoading(area);
+        try {
+          const r = await api(P + '/acks?user_id=' + encodeURIComponent($('a-uid').value.trim()));
+          const rows = r.rows || [];
+          if (!rows.length) { AdminApp.showEmpty(area, '없어요'); return; }
+          area.innerHTML = `<table><thead><tr><th>시각</th><th>회원</th><th>어디서</th><th>내용</th></tr></thead><tbody>
+            ${rows.map((a) => `<tr><td>${AdminApp.fmtDate(a.created_at)}</td>
+              <td><b>${esc(a.nickname || '(탈퇴)')}</b><br/><code>${esc(a.user_id)}</code></td>
+              <td>${esc(ctxName[a.context] || a.context)}</td><td><code>${esc(a.detail || '')}</code></td></tr>`).join('')}</tbody></table>`;
+        } catch (e) { AdminApp.showError(area, e.message); }
+      }
+      $('a-refresh').addEventListener('click', loadAcks);
+
+      loadStats();
+    })();
+  </script>
+</body>
+</html>

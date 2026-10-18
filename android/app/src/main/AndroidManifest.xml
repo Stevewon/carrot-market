@@ -96,6 +96,12 @@
             </intent-filter>
         </activity>
 
+        <!-- 코인트립 지도 (Google Maps SDK for Android). google-services.json 의 Android 키와 같은 키 —
+             Cloud Console 에서 이 키의 API 제한에 Maps SDK for Android 를 추가해 두었다 (2026-10-18). -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCmgMgg1q5A0703f-1IEapEUu3LVzO0Dj4" />
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

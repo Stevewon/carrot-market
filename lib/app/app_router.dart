@@ -31,6 +31,9 @@ import '../screens/profile_verify_screen.dart';
 import '../screens/profile_edit_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/recent_viewed_screen.dart';
+import '../screens/cointrip_wallet_screen.dart';
+import '../screens/cointrip_ext_wallet_screen.dart';
+import '../screens/cointrip_union_screen.dart';
 
 GoRouter createRouter(AuthService auth) {
   return GoRouter(
@@ -143,6 +146,18 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(
         path: '/recent',
         builder: (_, __) => const RecentViewedScreen(),
+      ),
+      GoRoute(
+        path: '/cointrip/wallet',
+        builder: (_, __) => const CointripWalletScreen(),
+      ),
+      GoRoute(
+        path: '/cointrip/ext-wallet',
+        builder: (_, __) => const CointripExtWalletScreen(),
+      ),
+      GoRoute(
+        path: '/cointrip/union',
+        builder: (_, __) => const CointripUnionScreen(),
       ),
       GoRoute(
         path: '/hidden',
