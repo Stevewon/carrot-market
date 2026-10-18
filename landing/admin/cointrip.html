@@ -19,8 +19,10 @@
     .switch-on { color: var(--success); font-weight: 700; }
     .switch-off { color: var(--danger); font-weight: 700; }
     .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
-    .tabs button { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: #fff; cursor: pointer; }
-    .tabs button.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+    /* 공통 button 은 흰 글씨 — 흰 바탕 탭에서는 글씨색을 꼭 따로 준다 */
+    .tabs button { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: #fff; color: var(--text); font-weight: 600; cursor: pointer; }
+    .tabs button:hover { background: #f3e8ff; color: var(--primary-dark); }
+    .tabs button.on, .tabs button.on:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
     .section { display: none; }
     .section.on { display: block; }
     td code { font-size: 12px; }
