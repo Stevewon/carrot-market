@@ -23,6 +23,12 @@
     .tabs button { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: #fff; color: var(--text); font-weight: 600; cursor: pointer; }
     .tabs button:hover { background: #f3e8ff; color: var(--primary-dark); }
     .tabs button.on, .tabs button.on:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .kind-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .kind-pick button { flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px; background: #fff; color: var(--text); border: 2px solid var(--border); border-radius: 12px; text-align: left; }
+    .kind-pick button:hover { background: #faf5ff; }
+    .kind-pick button small { color: var(--text-soft); font-size: 12.5px; font-weight: 400; }
+    .kind-pick button.on { border-color: var(--primary); background: #f3e8ff; }
+    .kind-pick button.on b { color: var(--primary-dark); }
     .section { display: none; }
     .section.on { display: block; }
     td code { font-size: 12px; }
@@ -103,17 +109,22 @@
       <section class="section" id="s-coins">
         <div class="card">
           <h2 id="c-title">코인 종류 추가</h2>
-          <p class="hint"><b>받는 지갑</b>: 퀀타리움 소속 코인은 회원의 퀀타리움 월렛으로, 일반 코인은 회원이 따로 등록한 기존 지갑 주소(BNB 등)로 출금됩니다. 그 지갑을 등록하지 않은 회원에게는 이 코인이 지도에 보이지 않습니다.</p>
+          <p class="hint">체인을 고르면 회원이 받는 주소가 정해집니다. 그 주소를 등록하지 않은 회원에게는 이 코인이 지도에 보이지 않습니다.</p>
           <input type="hidden" id="c-id" />
+          <input type="hidden" id="c-network" value="Quantarium" />
+          <label style="display:block;font-weight:700;margin-bottom:6px">체인 (먼저 고르세요)</label>
+          <div class="kind-pick" id="kind-pick">
+            <button type="button" data-n="Quantarium"><b>퀀타리움</b><small>퀀타리움 소속 코인 · 퀀타리움 월렛</small></button>
+            <button type="button" data-n="Ethereum"><b>이더리움</b><small>일반 코인 · 0x 지갑 주소</small></button>
+            <button type="button" data-n="BNB Smart Chain"><b>BNB</b><small>일반 코인 · 0x 지갑 주소</small></button>
+            <button type="button" data-n="Solana"><b>솔라나</b><small>일반 코인 · 솔라나 지갑 주소</small></button>
+            <button type="button" data-n="Polygon"><b>폴리곤</b><small>일반 코인 · 0x 지갑 주소</small></button>
+          </div>
           <div class="row">
             <div class="form-row"><label>심볼</label><input id="c-symbol" type="text" placeholder="QKEY" /></div>
             <div class="form-row"><label>이름</label><input id="c-name" type="text" placeholder="큐키" /></div>
-            <div class="form-row"><label>받는 지갑</label>
-              <select id="c-kind"><option value="quantarium">퀀타리움 소속 (퀀타리움 월렛)</option><option value="general">일반 코인 (기존 지갑 주소)</option></select>
-            </div>
           </div>
           <div class="row" style="margin-top:10px">
-            <div class="form-row"><label>네트워크</label><select id="c-network"></select></div>
             <div class="form-row"><label>색</label><input id="c-color" type="color" value="#7c3aed" /></div>
             <div class="form-row"><label>출금 최소 수량</label><input id="c-min" type="text" value="0" /></div>
             <div class="form-row"><label>총 예산 (비우면 한도 없음)</label><input id="c-budget" type="text" /></div>
@@ -215,7 +226,7 @@
         const r = await api(P + '/coins');
         coins = r.coins || [];
         $('d-coin').innerHTML = coins.filter((c) => c.active).map((c) =>
-          `<option value="${esc(c.id)}">${esc(c.symbol)} · ${esc(c.name)} (${c.wallet_kind === 'quantarium' ? '퀀타리움 월렛' : '기존 지갑'})</option>`).join('')
+          `<option value="${esc(c.id)}">${esc(c.symbol)} · ${esc(c.name)} (${esc(chainName(c.network))})</option>`).join('')
           || '<option value="">먼저 "코인 종류"에서 코인을 추가하세요</option>';
       }
 
@@ -240,7 +251,7 @@
               <th>코인</th><th>받는 지갑</th><th>깔려 있음</th><th>주워짐</th><th>회원 앱 지갑 합계</th><th>출금 대기</th><th>출금 완료</th><th>예산</th>
             </tr></thead><tbody>${rows.map((c) => `<tr>
               <td><span class="dot" style="background:${esc(c.color)}"></span><b>${esc(c.symbol)}</b> ${c.active ? '' : '(멈춤)'}</td>
-              <td>${c.wallet_kind === 'quantarium' ? '퀀타리움' : '일반'}</td>
+              <td>${esc(chainName(c.network))}</td>
               <td>${AdminApp.fmtNum(c.active_count)}개 · ${esc(c.active_amount)}</td>
               <td>${AdminApp.fmtNum(c.picked_count)}개 · ${esc(c.picked)}</td>
               <td>${esc(c.balance)}</td><td>${esc(c.pending)}</td><td>${esc(c.paid)}</td>
@@ -266,7 +277,11 @@
       function initMap() {
         if (map) { setTimeout(() => map.invalidateSize(), 50); return; }
         map = L.map('map').setView([37.4979, 127.0276], 14);
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+        // OSM 공용 타일은 Referer 없는 요청을 막는다 (어드민은 no-referrer) → CARTO 타일 사용.
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          maxZoom: 19, subdomains: 'abcd', referrerPolicy: 'strict-origin-when-cross-origin',
+          attribution: '© OpenStreetMap contributors © CARTO',
+        }).addTo(map);
         layer = L.layerGroup().addTo(map);
         map.on('click', (e) => {
           $('d-lat').value = e.latlng.lat.toFixed(6);
@@ -350,36 +365,35 @@
         try {
           await loadCoinList();
           if (!coins.length) { AdminApp.showEmpty(area, '아직 없어요'); return; }
-          area.innerHTML = `<table><thead><tr><th>코인</th><th>받는 지갑</th><th>네트워크</th><th>출금 최소</th><th>예산</th><th>상태</th><th></th></tr></thead><tbody>
+          area.innerHTML = `<table><thead><tr><th>코인</th><th>체인</th><th>받는 주소</th><th>출금 최소</th><th>예산</th><th>상태</th><th></th></tr></thead><tbody>
             ${coins.map((c) => `<tr>
               <td><span class="dot" style="background:${esc(c.color)}"></span><b>${esc(c.symbol)}</b> ${esc(c.name)}</td>
-              <td>${c.wallet_kind === 'quantarium' ? '퀀타리움 월렛' : '기존 지갑 주소'}</td>
-              <td>${esc(c.network)}</td><td>${esc(c.withdraw_min)}</td><td>${c.budget == null ? '한도 없음' : esc(c.budget)}</td>
+              <td>${esc(chainName(c.network))}</td>
+              <td>${addrName(c.network === 'Solana' ? 'solana' : c.wallet_kind === 'quantarium' ? 'quantarium' : 'evm')}</td><td>${esc(c.withdraw_min)}</td><td>${c.budget == null ? '한도 없음' : esc(c.budget)}</td>
               <td>${c.active ? '<span class="pill pill-active">사용</span>' : '<span class="pill pill-dismissed">멈춤</span>'}</td>
               <td><button class="btn-sm" data-edit="${esc(c.id)}">수정</button></td></tr>`).join('')}</tbody></table>`;
         } catch (e) { AdminApp.showError(area, e.message); }
       }
-      // 받는 지갑 종류에 맞는 네트워크만 고르게 한다. 일반 코인은 회원이 0x 주소를 넣으므로 0x 주소를 쓰는 네트워크만.
-      const NETWORKS = {
-        quantarium: ['Quantarium'],
-        general: ['BNB Smart Chain (BEP-20)', 'Ethereum (ERC-20)', 'Polygon', 'Arbitrum One', 'Base', 'Optimism', 'Avalanche C-Chain'],
-      };
-      function fillNetworks(current) {
-        const list = NETWORKS[$('c-kind').value] || [];
-        const opts = current && !list.includes(current) ? [current, ...list] : list;
-        $('c-network').innerHTML = opts.map((n) => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
-        $('c-network').value = current && opts.includes(current) ? current : opts[0];
+      // 체인 = 회원이 받는 주소: 퀀타리움 → 퀀타리움 월렛, 이더리움·BNB·폴리곤 → 0x 주소, 솔라나 → 솔라나 주소.
+      const CHAIN_LABEL = { 'Quantarium': '퀀타리움', 'Ethereum': '이더리움', 'BNB Smart Chain': 'BNB', 'Solana': '솔라나', 'Polygon': '폴리곤' };
+      const chainName = (n) => CHAIN_LABEL[n] || n || '';
+      const addrName = (k) => k === 'quantarium' ? '퀀타리움 월렛' : k === 'solana' ? '솔라나 지갑' : '0x 지갑';
+      function setChain(n) {
+        $('c-network').value = n;
+        document.querySelectorAll('#kind-pick button').forEach((b) => b.classList.toggle('on', b.dataset.n === n));
       }
-      $('c-kind').addEventListener('change', () => fillNetworks(''));
-      fillNetworks('');
+      $('kind-pick').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-n]');
+        if (b) setChain(b.dataset.n);
+      });
+      setChain('Quantarium');
 
       function fillCoin(c) {
         $('c-id').value = c ? c.id : '';
         $('c-title').textContent = c ? `코인 수정 — ${c.symbol}` : '코인 종류 추가';
         $('c-symbol').value = c ? c.symbol : '';
         $('c-name').value = c ? c.name : '';
-        $('c-kind').value = c ? c.wallet_kind : 'quantarium';
-        fillNetworks(c ? c.network : '');
+        setChain(c && CHAIN_LABEL[c.network] ? c.network : 'Quantarium');
         $('c-color').value = c ? c.color : '#7c3aed';
         $('c-min').value = c ? c.withdraw_min : '0';
         $('c-budget').value = c && c.budget != null ? c.budget : '';
@@ -393,7 +407,7 @@
       $('c-save').addEventListener('click', async () => {
         const id = $('c-id').value;
         const body = {
-          symbol: $('c-symbol').value, name: $('c-name').value, wallet_kind: $('c-kind').value, network: $('c-network').value,
+          symbol: $('c-symbol').value, name: $('c-name').value, network: $('c-network').value,
           color: $('c-color').value, withdraw_min: $('c-min').value.trim() || '0', budget: $('c-budget').value.trim(), active: $('c-active').value === '1',
         };
         try {
@@ -418,7 +432,7 @@
               <td><b>${esc(w.nickname || '')}</b><br/><code>${AdminApp.shortId(w.user_id)}</code></td>
               <td>${esc(w.symbol)}<br/><small>${esc(w.network || '')}</small></td>
               <td><b>${esc(w.amount)}</b></td>
-              <td><code>${esc(w.wallet_address)}</code><br/><small>${w.wallet_kind === 'quantarium' ? '퀀타리움 월렛' : '기존 지갑'}</small></td>
+              <td><code>${esc(w.wallet_address)}</code><br/><small>${addrName(w.wallet_kind)}</small></td>
               <td><span class="pill pill-${esc(w.status)}">${esc(w.status)}</span>${w.tx_hash ? '<br/><code>' + esc(w.tx_hash) + '</code>' : ''}${w.reject_reason ? '<br/>' + esc(w.reject_reason) : ''}</td>
               <td>${w.status === 'requested' ? `<button class="btn-sm" data-wa="processing" data-id="${esc(w.id)}">처리시작</button>` : ''}
                 ${w.status === 'requested' || w.status === 'processing' ? `

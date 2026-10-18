@@ -12,7 +12,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types';
-import { SETTING_KEYS, fromMicro, loadSettings, toMicro } from '../cointrip';
+import { NETWORKS, SETTING_KEYS, fromMicro, loadSettings, toMicro, walletKeyOf } from '../cointrip';
 
 type AdminVariables = Variables & { admin?: { id: string; username: string; role: string } };
 type C = Context<{ Bindings: Env; Variables: AdminVariables }>;
@@ -91,12 +91,13 @@ function readCoin(b: Record<string, unknown>, partial: boolean) {
     if (!v || v.length > 30) return err('이름은 1~30자');
     out.name = v;
   }
-  if (!partial || 'wallet_kind' in b) {
-    const v = String(b.wallet_kind ?? '');
-    if (v !== 'quantarium' && v !== 'general') return err('받는 지갑을 고르세요 (퀀타리움 소속 / 일반)');
-    out.wallet_kind = v;
+  // 체인을 고르면 받는 지갑 종류가 정해진다 (Quantarium → 퀀타리움 소속, 나머지 → 일반).
+  if (!partial || 'network' in b) {
+    const n = NETWORKS.find((x) => x.name === String(b.network ?? ''));
+    if (!n) return err(`체인을 고르세요 (${NETWORKS.map((x) => x.name).join(' · ')})`);
+    out.network = n.name;
+    out.wallet_kind = n.kind;
   }
-  if ('network' in b) out.network = String(b.network ?? '').trim().slice(0, 40);
   if ('color' in b) {
     const v = String(b.color ?? '').trim();
     if (!/^#[0-9a-fA-F]{6}$/.test(v)) return err('색은 #RRGGBB');
@@ -138,8 +139,8 @@ app.put('/coins/:id', async (c) => {
   if ('error' in r) return c.json(r, 400);
   const cols = Object.keys(r.values);
   if (!cols.length) return c.json({ ok: true });
-  // 받는 지갑 종류는 출금 대기·잔액이 있으면 바꾸지 않는다 (엉뚱한 주소로 나갈 수 있다).
-  if ('wallet_kind' in r.values) {
+  // 받는 주소 종류(체인)는 출금 대기·잔액이 있으면 바꾸지 않는다 (엉뚱한 주소로 나갈 수 있다).
+  if ('network' in r.values) {
     const used = await c.env.DB
       .prepare(
         `SELECT 1 FROM ct_balances WHERE coin_id = ?1 AND amount_micro > 0
@@ -147,9 +148,13 @@ app.put('/coins/:id', async (c) => {
       )
       .bind(c.req.param('id'))
       .first();
-    const cur = await c.env.DB.prepare('SELECT wallet_kind FROM ct_coins WHERE id = ?').bind(c.req.param('id')).first<{ wallet_kind: string }>();
-    if (used && cur && cur.wallet_kind !== r.values.wallet_kind) {
-      return c.json({ error: '이미 회원 잔액·출금이 있는 코인은 받는 지갑 종류를 바꿀 수 없어요' }, 409);
+    const cur = await c.env.DB
+      .prepare('SELECT wallet_kind, network FROM ct_coins WHERE id = ?')
+      .bind(c.req.param('id'))
+      .first<{ wallet_kind: string; network: string }>();
+    const next = { wallet_kind: String(r.values.wallet_kind), network: String(r.values.network) };
+    if (used && cur && walletKeyOf(cur) !== walletKeyOf(next)) {
+      return c.json({ error: '이미 회원 잔액·출금이 있는 코인은 받는 주소가 다른 체인으로 바꿀 수 없어요' }, 409);
     }
   }
   await c.env.DB

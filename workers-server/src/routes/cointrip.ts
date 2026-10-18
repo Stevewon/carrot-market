@@ -5,6 +5,8 @@
  *   POST   /api/cointrip/ack              - 빨간 글씨 책임 공지 "확인했습니다" 기록 { context }
  *   PUT    /api/cointrip/ext-wallet       - 일반 코인 받을 기존 지갑 주소 { address, ack: true }
  *   DELETE /api/cointrip/ext-wallet       - 지우기
+ *   PUT    /api/cointrip/sol-wallet       - 솔라나 코인 받을 지갑 주소 { address, ack: true }
+ *   DELETE /api/cointrip/sol-wallet       - 지우기
  *   GET    /api/cointrip/drops?lat&lng&radius_m - 내 주변 코인 (받을 지갑이 있는 코인만)
  *   POST   /api/cointrip/drops/:id/pick   - 줍기 { lat, lng, accuracy, mocked }
  *   GET    /api/cointrip/wallet           - 코인별 잔액 + 출금 신청
@@ -16,7 +18,8 @@
  *   POST   /api/cointrip/union/leave      - 나가기
  *   POST   /api/cointrip/union/kick       - 내보내기 (방장) { user_id }
  *
- * 받을 지갑: 퀀타리움 소속 코인 → users.wallet_address, 일반 코인 → users.ext_wallet_address.
+ * 받을 지갑은 코인의 체인이 정한다: Quantarium → users.wallet_address,
+ *   Ethereum·BNB·Polygon → users.ext_wallet_address (0x), Solana → users.sol_wallet_address.
  * 그 지갑이 없는 회원에게는 그 코인을 아예 보내지 않는다 (사장님 결정).
  */
 import { Hono } from 'hono';
@@ -29,6 +32,11 @@ import {
   distanceM,
   fromMicro,
   isEvmAddress,
+  isSolanaAddress,
+  walletColumn,
+  walletKeyOf,
+  WALLET_KEY_SQL,
+  type WalletKey,
   loadSettings,
   openFor,
   splitShares,
@@ -47,6 +55,7 @@ interface Me {
   market: string | null;
   wallet_address: string | null;
   ext_wallet_address: string | null;
+  sol_wallet_address: string | null;
   verified_at: string | null;
   verified_ci_hash: string | null;
 }
@@ -54,7 +63,7 @@ interface Me {
 async function loadMe(c: C): Promise<Me> {
   const u = await c.env.DB
     .prepare(
-      `SELECT id, nickname, market, wallet_address, ext_wallet_address, verified_at, verified_ci_hash
+      `SELECT id, nickname, market, wallet_address, ext_wallet_address, sol_wallet_address, verified_at, verified_ci_hash
          FROM users WHERE id = ?`,
     )
     .bind(c.get('user')!.id)
@@ -63,10 +72,14 @@ async function loadMe(c: C): Promise<Me> {
 }
 
 /** 이 회원이 받을 수 있는 지갑 종류. */
-function walletKinds(u: Pick<Me, 'wallet_address' | 'ext_wallet_address'>): string[] {
-  const k: string[] = [];
+type Wallets = Pick<Me, 'wallet_address' | 'ext_wallet_address' | 'sol_wallet_address'>;
+
+/** 이 회원이 받을 수 있는 주소 종류 (quantarium · evm · solana). */
+function walletKinds(u: Wallets): WalletKey[] {
+  const k: WalletKey[] = [];
   if (u.wallet_address) k.push('quantarium');
-  if (u.ext_wallet_address) k.push('general');
+  if (u.ext_wallet_address) k.push('evm');
+  if (u.sol_wallet_address) k.push('solana');
   return k;
 }
 
@@ -74,8 +87,8 @@ function phoneVerified(u: Pick<Me, 'verified_at' | 'verified_ci_hash'>): boolean
   return !!(u.verified_at && u.verified_ci_hash);
 }
 
-function addressFor(u: Pick<Me, 'wallet_address' | 'ext_wallet_address'>, kind: string): string | null {
-  return kind === 'quantarium' ? u.wallet_address : u.ext_wallet_address;
+function addressFor(u: Wallets, key: WalletKey): string | null {
+  return u[walletColumn(key)];
 }
 
 async function body(c: C): Promise<Record<string, unknown>> {
@@ -149,6 +162,7 @@ app.get('/status', async (c) => {
     wallet_kinds: walletKinds(me),
     quantarium_wallet: me.wallet_address,
     ext_wallet_address: me.ext_wallet_address,
+    sol_wallet_address: me.sol_wallet_address,
     phone_verified: phoneVerified(me),
     intro_acked: !!intro,
     union: await unionOf(c.env, me.id),
@@ -158,48 +172,64 @@ app.get('/status', async (c) => {
 app.post('/ack', async (c) => {
   const b = await body(c);
   const context = String(b.context ?? '');
-  if (!['cointrip_intro', 'ext_wallet', 'withdraw'].includes(context)) return c.json({ error: 'bad context' }, 400);
+  if (!['cointrip_intro', 'ext_wallet', 'sol_wallet', 'withdraw'].includes(context)) return c.json({ error: 'bad context' }, 400);
   await logAck(c.env, c.get('user')!.id, context, null);
   return c.json({ ok: true });
 });
 
-// ── 일반 코인 지갑 주소 ──────────────────────────────────────────────
-app.put('/ext-wallet', async (c) => {
-  const me = c.get('user')!;
-  const b = await body(c);
-  const address = String(b.address ?? '').trim();
-  if (!isEvmAddress(address)) {
-    return c.json({ error: tr(c, '지갑 주소가 올바르지 않아요 (0x 로 시작하는 42자리)', 'ウォレットアドレスが正しくありません（0xで始まる42桁）', 'Invalid wallet address (42 characters starting with 0x)') }, 400);
-  }
-  if (b.ack !== true) {
-    return c.json({ error: tr(c, '책임 안내를 확인해 주세요', '責任に関するご案内を確認してください', 'Please confirm the responsibility notice'), code: 'ack_required' }, 400);
-  }
-  await c.env.DB.batch([
-    c.env.DB
-      .prepare("UPDATE users SET ext_wallet_address = ?, ext_wallet_set_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
-      .bind(address, me.id),
-    c.env.DB
-      .prepare("INSERT INTO wallet_notice_acks (user_id, context, detail) VALUES (?, 'ext_wallet', ?)")
-      .bind(me.id, address),
-  ]);
-  return c.json({ ok: true, ext_wallet_address: address });
-});
+// ── 일반 코인 지갑 주소 (Ethereum·BNB·Polygon = 0x 하나, Solana = 따로) ──────────
+const EXTRA_WALLETS = {
+  evm: {
+    path: '/ext-wallet', col: 'ext_wallet_address', at: 'ext_wallet_set_at', ack: 'ext_wallet', kinds: ['general', 'evm'],
+    valid: isEvmAddress,
+    bad: (c: C) => tr(c, '지갑 주소가 올바르지 않아요 (0x 로 시작하는 42자리)', 'ウォレットアドレスが正しくありません（0xで始まる42桁）', 'Invalid wallet address (42 characters starting with 0x)'),
+  },
+  solana: {
+    path: '/sol-wallet', col: 'sol_wallet_address', at: 'sol_wallet_set_at', ack: 'sol_wallet', kinds: ['solana'],
+    valid: isSolanaAddress,
+    bad: (c: C) => tr(c, '솔라나 지갑 주소가 올바르지 않아요', 'Solanaウォレットアドレスが正しくありません', 'Invalid Solana wallet address'),
+  },
+} as const;
 
-app.delete('/ext-wallet', async (c) => {
-  const me = c.get('user')!;
-  const pending = await c.env.DB
-    .prepare("SELECT 1 FROM ct_withdrawals WHERE user_id = ? AND wallet_kind = 'general' AND status IN ('requested','processing') LIMIT 1")
-    .bind(me.id)
-    .first();
-  if (pending) {
-    return c.json({ error: tr(c, '진행 중인 출금이 있어 지금은 지울 수 없어요', '処理中の出金があるため削除できません', 'You cannot remove it while a withdrawal is in progress') }, 409);
-  }
-  await c.env.DB
-    .prepare("UPDATE users SET ext_wallet_address = NULL, ext_wallet_set_at = NULL, updated_at = datetime('now') WHERE id = ?")
-    .bind(me.id)
-    .run();
-  return c.json({ ok: true });
-});
+for (const w of Object.values(EXTRA_WALLETS)) {
+  app.put(w.path, async (c) => {
+    const me = c.get('user')!;
+    const b = await body(c);
+    const address = String(b.address ?? '').trim();
+    if (!w.valid(address)) return c.json({ error: w.bad(c) }, 400);
+    if (b.ack !== true) {
+      return c.json({ error: tr(c, '책임 안내를 확인해 주세요', '責任に関するご案内を確認してください', 'Please confirm the responsibility notice'), code: 'ack_required' }, 400);
+    }
+    await c.env.DB.batch([
+      c.env.DB
+        .prepare(`UPDATE users SET ${w.col} = ?, ${w.at} = datetime('now'), updated_at = datetime('now') WHERE id = ?`)
+        .bind(address, me.id),
+      c.env.DB
+        .prepare('INSERT INTO wallet_notice_acks (user_id, context, detail) VALUES (?, ?, ?)')
+        .bind(me.id, w.ack, address),
+    ]);
+    return c.json({ ok: true, [w.col]: address });
+  });
+
+  app.delete(w.path, async (c) => {
+    const me = c.get('user')!;
+    const pending = await c.env.DB
+      .prepare(
+        `SELECT 1 FROM ct_withdrawals WHERE user_id = ? AND wallet_kind IN (${w.kinds.map(() => '?').join(',')})
+            AND status IN ('requested','processing') LIMIT 1`,
+      )
+      .bind(me.id, ...w.kinds)
+      .first();
+    if (pending) {
+      return c.json({ error: tr(c, '진행 중인 출금이 있어 지금은 지울 수 없어요', '処理中の出金があるため削除できません', 'You cannot remove it while a withdrawal is in progress') }, 409);
+    }
+    await c.env.DB
+      .prepare(`UPDATE users SET ${w.col} = NULL, ${w.at} = NULL, updated_at = datetime('now') WHERE id = ?`)
+      .bind(me.id)
+      .run();
+    return c.json({ ok: true });
+  });
+}
 
 // ── 지도 ─────────────────────────────────────────────────────────────
 /** 멀리 있는 코인은 이 칸(약 550m)의 가운데로만 알려준다. */
@@ -227,7 +257,7 @@ app.get('/drops', async (c) => {
          FROM ct_drops d JOIN ct_coins k ON k.id = d.coin_id
         WHERE d.status = 'active' AND k.active = 1
           AND (d.expires_at IS NULL OR d.expires_at > datetime('now'))
-          AND k.wallet_kind IN (${kinds.map(() => '?').join(',')})
+          AND ${WALLET_KEY_SQL} IN (${kinds.map(() => '?').join(',')})
           AND d.lat BETWEEN ? AND ? AND d.lng BETWEEN ? AND ?
         LIMIT 2000`,
     )
@@ -282,19 +312,20 @@ app.post('/drops/:id/pick', async (c) => {
   const d = await c.env.DB
     .prepare(
       `SELECT d.id, d.lat, d.lng, d.amount_micro, d.is_black, d.status, d.expires_at,
-              k.id AS coin_id, k.symbol, k.name, k.color, k.wallet_kind, k.active
+              k.id AS coin_id, k.symbol, k.name, k.color, k.wallet_kind, k.network, k.active
          FROM ct_drops d JOIN ct_coins k ON k.id = d.coin_id WHERE d.id = ?`,
     )
     .bind(c.req.param('id'))
     .first<{
       id: string; lat: number; lng: number; amount_micro: number; is_black: number; status: string;
       expires_at: string | null; coin_id: string; symbol: string; name: string; color: string;
-      wallet_kind: string; active: number;
+      wallet_kind: string; network: string; active: number;
     }>();
   const gone = () => c.json({ error: tr(c, '이미 누군가 주웠거나 사라진 코인이에요', 'すでに誰かが拾ったか、消えたコインです', 'Someone already picked up this coin, or it is gone'), code: 'gone' }, 409);
   if (!d || d.status !== 'active' || !d.active) return gone();
   if (d.expires_at && new Date(d.expires_at.replace(' ', 'T') + 'Z').getTime() < Date.now()) return gone();
-  if (!addressFor(me, d.wallet_kind)) {
+  const key = walletKeyOf(d);
+  if (!addressFor(me, key)) {
     // 받을 지갑이 없는 회원에게는 지도에도 안 보내지만, 직접 요청해도 막는다.
     return gone();
   }
@@ -335,7 +366,7 @@ app.post('/drops/:id/pick', async (c) => {
   const union = await unionOf(c.env, me.id);
   let others: { id: string; nickname: string; market: string | null }[] = [];
   if (union && union.members.length > 1) {
-    const col = d.wallet_kind === 'quantarium' ? 'wallet_address' : 'ext_wallet_address';
+    const col = walletColumn(key);
     const rs = await c.env.DB
       .prepare(
         `SELECT u.id, u.nickname, u.market FROM ct_union_members m JOIN users u ON u.id = m.user_id
@@ -441,13 +472,14 @@ app.get('/wallet', async (c) => {
   return c.json({
     quantarium_wallet: me.wallet_address,
     ext_wallet_address: me.ext_wallet_address,
+    sol_wallet_address: me.sol_wallet_address,
     balances: (rs.results || []).map((r) => ({
       coin: { id: r.id, symbol: r.symbol, name: r.name, color: r.color },
-      wallet_kind: r.wallet_kind,
+      wallet_kind: walletKeyOf(r),
       network: r.network,
       amount: fromMicro(r.amount_micro),
       withdraw_min: fromMicro(r.withdraw_min_micro),
-      address: addressFor(me, r.wallet_kind),
+      address: addressFor(me, walletKeyOf(r)),
     })),
     withdrawals: (ws.results || []).map((w) => ({
       id: w.id,
@@ -487,18 +519,19 @@ app.post('/withdrawals', async (c) => {
   const amount = toMicro(b.amount);
   if (!amount || amount <= 0) return c.json({ error: tr(c, '수량을 확인해 주세요', '数量を確認してください', 'Please check the amount') }, 400);
   const k = await c.env.DB
-    .prepare('SELECT id, symbol, wallet_kind, withdraw_min_micro FROM ct_coins WHERE id = ?')
+    .prepare('SELECT id, symbol, wallet_kind, network, withdraw_min_micro FROM ct_coins WHERE id = ?')
     .bind(String(b.coin_id ?? ''))
-    .first<{ id: string; symbol: string; wallet_kind: string; withdraw_min_micro: number }>();
+    .first<{ id: string; symbol: string; wallet_kind: string; network: string; withdraw_min_micro: number }>();
   if (!k) return c.json({ error: 'coin not found' }, 404);
   if (amount < k.withdraw_min_micro) {
     const min = fromMicro(k.withdraw_min_micro);
     return c.json({ error: tr(c, `최소 ${min} ${k.symbol} 부터 출금할 수 있어요`, `${min} ${k.symbol} 以上から出金できます`, `The minimum withdrawal is ${min} ${k.symbol}`), code: 'below_min' }, 400);
   }
-  const address = addressFor(me, k.wallet_kind);
+  const wkey = walletKeyOf(k);
+  const address = addressFor(me, wkey);
   if (!address) {
     return c.json({
-      error: k.wallet_kind === 'quantarium'
+      error: wkey === 'quantarium'
         ? tr(c, '퀀타리움 월렛을 먼저 등록해 주세요', '先にQuantariumウォレットを登録してください', 'Please register your Quantarium wallet first')
         : tr(c, '받을 지갑 주소를 먼저 등록해 주세요', '先に受け取りウォレットアドレスを登録してください', 'Please register a receiving wallet address first'),
       code: 'wallet_required',
@@ -528,7 +561,7 @@ app.post('/withdrawals', async (c) => {
     await c.env.DB.batch([
       c.env.DB
         .prepare('INSERT INTO ct_withdrawals (id, user_id, coin_id, amount_micro, wallet_kind, wallet_address) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(id, me.id, k.id, amount, k.wallet_kind, address),
+        .bind(id, me.id, k.id, amount, wkey, address),
       c.env.DB
         .prepare("INSERT INTO ct_ledger (id, user_id, coin_id, amount_micro, reason, withdrawal_id) VALUES (?, ?, ?, ?, 'withdrawal', ?)")
         .bind(crypto.randomUUID(), me.id, k.id, -amount, id),

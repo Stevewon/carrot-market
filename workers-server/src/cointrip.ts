@@ -81,6 +81,39 @@ export function isEvmAddress(v: string): boolean {
   return /^0x[0-9a-fA-F]{40}$/.test(v);
 }
 
+/** 솔라나 지갑 주소 (base58, 32~44자). */
+export function isSolanaAddress(v: string): boolean {
+  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(v);
+}
+
+/**
+ * 코인 체인 (어드민이 고른다). 체인이 정하는 받는 주소:
+ *   quantarium → 퀀타리움 월렛 · evm → 기존 0x 지갑 주소 · solana → 솔라나 지갑 주소
+ */
+export const NETWORKS = [
+  { name: 'Quantarium', key: 'quantarium', kind: 'quantarium' },
+  { name: 'Ethereum', key: 'evm', kind: 'general' },
+  { name: 'BNB Smart Chain', key: 'evm', kind: 'general' },
+  { name: 'Polygon', key: 'evm', kind: 'general' },
+  { name: 'Solana', key: 'solana', kind: 'general' },
+] as const;
+
+export type WalletKey = 'quantarium' | 'evm' | 'solana';
+
+export function walletKeyOf(coin: { wallet_kind: string; network?: string | null }): WalletKey {
+  if (coin.wallet_kind === 'quantarium') return 'quantarium';
+  return coin.network === 'Solana' ? 'solana' : 'evm';
+}
+
+/** SQL 안에서 같은 판정 (ct_coins 별칭 k). */
+export const WALLET_KEY_SQL =
+  "(CASE WHEN k.wallet_kind = 'quantarium' THEN 'quantarium' WHEN k.network = 'Solana' THEN 'solana' ELSE 'evm' END)";
+
+/** 받는 주소가 담긴 users 컬럼. */
+export function walletColumn(key: WalletKey): 'wallet_address' | 'ext_wallet_address' | 'sol_wallet_address' {
+  return key === 'quantarium' ? 'wallet_address' : key === 'solana' ? 'sol_wallet_address' : 'ext_wallet_address';
+}
+
 /**
  * 연합 나눔 — 주운 사람은 multiplier 몫, 나머지는 1 몫씩. 나눠 떨어지지 않는 자투리는 주운 사람에게.
  * 반환: [userId, micro][] (주운 사람이 첫 번째).
