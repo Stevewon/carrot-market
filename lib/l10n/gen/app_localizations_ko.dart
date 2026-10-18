@@ -1896,6 +1896,12 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String get homeGoHome => '홈으로';
+
+  @override
+  String get homeLinkBroken => '열 수 없는 링크예요. 예전 QR 링크라면 상대에게 새 QR을 받아 주세요.';
+
+  @override
   String get homeFilterAvailable => '거래 가능만';
 
   @override

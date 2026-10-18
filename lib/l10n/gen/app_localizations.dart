@@ -3538,6 +3538,18 @@ abstract class AppLocalizations {
   /// **'페이지를 찾을 수 없어요: {error}'**
   String homePageNotFound(String error);
 
+  /// No description provided for @homeGoHome.
+  ///
+  /// In ko, this message translates to:
+  /// **'홈으로'**
+  String get homeGoHome;
+
+  /// No description provided for @homeLinkBroken.
+  ///
+  /// In ko, this message translates to:
+  /// **'열 수 없는 링크예요. 예전 QR 링크라면 상대에게 새 QR을 받아 주세요.'**
+  String get homeLinkBroken;
+
   /// No description provided for @homeFilterAvailable.
   ///
   /// In ko, this message translates to:

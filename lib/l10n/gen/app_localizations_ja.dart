@@ -1898,6 +1898,12 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get homeGoHome => 'ホームへ';
+
+  @override
+  String get homeLinkBroken => '開けないリンクです。古いQRリンクの場合は、相手から新しいQRをもらってください。';
+
+  @override
   String get homeFilterAvailable => '取引可能のみ';
 
   @override

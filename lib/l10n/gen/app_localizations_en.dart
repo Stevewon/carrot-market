@@ -1992,6 +1992,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get homeGoHome => 'Go home';
+
+  @override
+  String get homeLinkBroken =>
+      'This link can\'t be opened. If it\'s an old QR link, ask the other person for a new QR.';
+
+  @override
   String get homeFilterAvailable => 'Available only';
 
   @override

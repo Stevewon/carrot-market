@@ -23,6 +23,7 @@ import { ipCountry, ipMarket } from './market';
 import authRoutes from './routes/auth';
 import callsRoutes from './routes/calls';
 import shareRoutes from './routes/share';
+import userLinkRoutes from './routes/userLink';
 import usersRoutes from './routes/users';
 import productsRoutes from './routes/products';
 import chatRoutes, { purgeExpiredChatMedia } from './routes/chat';
@@ -95,6 +96,8 @@ app.route('/api/cointrip-ssv', cointripSsvRoutes);
 app.route('/api/calls', callsRoutes);
 // 공유 링크 웹 미리보기 (https://api.eggplant.life/p/<상품id>)
 app.route('/p', shareRoutes);
+// 내 QR 링크 웹 페이지 (https://api.eggplant.life/u/<회원id>)
+app.route('/u', userLinkRoutes);
 
 // ---------- R2 uploads passthrough ----------
 // Serves /uploads/<key> from the R2 bucket with basic caching.

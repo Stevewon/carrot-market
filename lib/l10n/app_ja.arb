@@ -573,6 +573,8 @@
   "homeQrScanDesc": "スキャンするとすぐに匿名チャットが始まります",
   "homeAnonymous": "匿名",
   "homePageNotFound": "ページが見つかりません: {error}",
+  "homeGoHome": "ホームへ",
+  "homeLinkBroken": "開けないリンクです。古いQRリンクの場合は、相手から新しいQRをもらってください。",
   "homeFilterAvailable": "取引可能のみ",
   "homeFilterPrice": "価格",
   "homeSortRecent": "新着順",

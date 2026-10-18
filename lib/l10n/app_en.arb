@@ -573,6 +573,8 @@
   "homeQrScanDesc": "An anonymous chat starts as soon as you scan",
   "homeAnonymous": "Anonymous",
   "homePageNotFound": "Page not found: {error}",
+  "homeGoHome": "Go home",
+  "homeLinkBroken": "This link can't be opened. If it's an old QR link, ask the other person for a new QR.",
   "homeFilterAvailable": "Available only",
   "homeFilterPrice": "Price",
   "homeSortRecent": "Newest",
