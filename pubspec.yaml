@@ -1,7 +1,7 @@
 name: eggplant
 description: "Eggplant - QR 기반 익명 중고거래 마켓 🍆"
 publish_to: 'none'
-version: 1.0.192+192
+version: 1.0.193+193
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -141,6 +141,8 @@ flutter:
   assets:
     - assets/images/
     - assets/sounds/
+    # 코인트립 지도 동전 (사장님이 준 Q 황금 동전 GIF 를 96px 30장으로 — 2.4초에 한 바퀴)
+    - assets/cointrip/
 
 flutter_launcher_icons:
   android: true

@@ -33,12 +33,11 @@
     .kind-pick button.on b { color: var(--primary-dark); }
     .form-row input[type=number] { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; background: #fff; min-height: 44px; }
     .form-row input[type=color] { width: 100%; min-height: 44px; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
-    .spin-coin { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      font-weight: 900; font-size: 13px; color: #9a6a00; border: 2px solid #b8860b; box-sizing: border-box;
-      background: radial-gradient(circle at 32% 30%, #fff6b0 0%, #ffd43b 45%, #c99700 100%);
-      box-shadow: 0 2px 4px rgba(0,0,0,.3), inset 0 0 0 2px rgba(255,255,255,.25); animation: coin-spin 1.1s linear infinite; }
-    .spin-coin.black { color: #ffd43b; border-color: #8a6d1a; background: radial-gradient(circle at 32% 30%, #6b6b6b 0%, #232323 45%, #050505 100%); }
-    @keyframes coin-spin { 0% { transform: scaleX(1); } 25% { transform: scaleX(.1); } 50% { transform: scaleX(-1); } 75% { transform: scaleX(-.1); } 100% { transform: scaleX(1); } }
+    /* 지도 코인: 사장님이 준 Q 황금 동전 (coin_spin.png = 30장면 가로 띠, 2.4초에 한 바퀴). 블랙코인은 같은 동전을 검게. */
+    .spin-coin { width: 30px; height: 30px; background: url(coin_spin.png?v=1) 0 0 / 900px 30px no-repeat;
+      animation: coin-spin 2.4s steps(30) infinite; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
+    .spin-coin.black { filter: grayscale(1) brightness(.3) drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
+    @keyframes coin-spin { from { background-position: 0 0; } to { background-position: -900px 0; } }
     .section { display: none; }
     .section.on { display: block; }
     td code { font-size: 12px; }
@@ -348,8 +347,8 @@
             rows.forEach((d, i) => L.marker([d.lat, d.lng], {
               icon: L.divIcon({
                 className: '',
-                html: `<div class="spin-coin${d.is_black ? ' black' : ''}" style="animation-delay:-${(i % 12) * 0.1}s">${d.is_black ? '?' : '★'}</div>`,
-                iconSize: [26, 26], iconAnchor: [13, 13],
+                html: `<div class="spin-coin${d.is_black ? ' black' : ''}" style="animation-delay:-${((i * 7) % 30) * 0.08}s"></div>`,
+                iconSize: [30, 30], iconAnchor: [15, 15],
               }),
             }).bindTooltip(`${d.is_black ? (d.is_dud === 1 ? '블랙·꽝 ' : d.is_dud === 2 ? '블랙·벌칙 ' : '블랙 ') : ''}${d.symbol} ${d.amount}`).addTo(layer));
           }

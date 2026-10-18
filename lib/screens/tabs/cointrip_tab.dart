@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -168,12 +169,13 @@ class _CointripTabState extends State<CointripTab> {
     }
   }
 
-  // ── 지도 표시: 모든 코인은 빙글빙글 도는 황금 동전 (블랙코인만 검은 동전) ──────────
+  // ── 지도 표시: 모든 코인은 사장님이 준 Q 황금 동전이 위아래로 빙글빙글 (블랙코인은 같은 동전을 검게) ──
   // 종류·수량은 주워야 안다 — 비싼 코인만 골라 줍지 않게 (사장님 지시). 서버도 지도에는 안 보낸다.
-  static const int _spinFrames = 12;
-  static const Duration _spinStep = Duration(milliseconds: 90);
+  static const int _spinFrames = 30; // assets/cointrip/coin_00..29.png (96px)
+  static const Duration _spinStep = Duration(milliseconds: 80); // 30장 × 80ms = 2.4초에 한 바퀴 (원본 GIF 와 같게)
   /// 한 번에 도는 코인 수 상한 (지도 마커를 자주 바꾸면 무거워진다). 나머지는 서 있는 그림.
   static const int _maxSpinning = 60;
+  static const double _coinSize = 46;
   List<BitmapDescriptor> _gold = const [];
   List<BitmapDescriptor> _black = const [];
   int _frame = 0;
@@ -181,16 +183,38 @@ class _CointripTabState extends State<CointripTab> {
 
   Future<void> _prepareIcons() async {
     if (CointripTab.mapOverride != null || _gold.isNotEmpty) return;
-    final ratio = MediaQuery.devicePixelRatioOf(context);
     final gold = <BitmapDescriptor>[];
     final black = <BitmapDescriptor>[];
     for (var i = 0; i < _spinFrames; i++) {
-      final t = i / _spinFrames * 2 * math.pi;
-      gold.add(await _coinFrame(math.cos(t), false, ratio));
-      black.add(await _coinFrame(math.cos(t), true, ratio));
+      final data = await rootBundle.load('assets/cointrip/coin_${i.toString().padLeft(2, '0')}.png');
+      final bytes = data.buffer.asUint8List();
+      gold.add(BitmapDescriptor.bytes(bytes, width: _coinSize, height: _coinSize));
+      black.add(BitmapDescriptor.bytes(await _darken(bytes), width: _coinSize, height: _coinSize));
     }
     _gold = gold;
     _black = black;
+  }
+
+  /// 블랙코인 — 같은 Q 동전을 검게 (반짝임은 조금 남긴다).
+  static Future<Uint8List> _darken(Uint8List png) async {
+    final codec = await ui.instantiateImageCodec(png);
+    final img = (await codec.getNextFrame()).image;
+    final rec = ui.PictureRecorder();
+    final c = Canvas(rec);
+    c.drawImage(
+      img,
+      Offset.zero,
+      Paint()
+        ..colorFilter = const ColorFilter.matrix(<double>[
+          0.12, 0.12, 0.12, 0, 0, //
+          0.12, 0.12, 0.12, 0, 0, //
+          0.12, 0.12, 0.12, 0, 0, //
+          0, 0, 0, 1, 0,
+        ]),
+    );
+    final out = await rec.endRecording().toImage(img.width, img.height);
+    final bytes = await out.toByteData(format: ui.ImageByteFormat.png);
+    return bytes!.buffer.asUint8List();
   }
 
   void _syncSpin() {
@@ -203,86 +227,6 @@ class _CointripTabState extends State<CointripTab> {
       _spin?.cancel();
       _spin = null;
     }
-  }
-
-  /// 동전 한 장면 — [turn] = cos(회전각): 1 이면 정면, 0 에 가까우면 옆면.
-  static Future<BitmapDescriptor> _coinFrame(double turn, bool black, double ratio) async {
-    const size = 46.0;
-    final px = (size * ratio).round();
-    final rec = ui.PictureRecorder();
-    final c = Canvas(rec);
-    final s = px.toDouble();
-    final center = Offset(s / 2, s / 2);
-    final r = s * 0.40;
-    final w = math.max(0.10, turn.abs()); // 옆으로 돌 때 가로로 좁아진다
-    final face = Rect.fromCenter(center: center, width: r * 2 * w, height: r * 2);
-
-    // 그림자
-    c.drawOval(Rect.fromCenter(center: center.translate(0, r * 1.08), width: r * 1.5 * math.max(0.4, w), height: r * 0.32),
-        Paint()..color = const Color(0x40000000));
-    // 테두리 (두께감)
-    final rim = black
-        ? const [Color(0xFF8A6D1A), Color(0xFF3A2C06)]
-        : const [Color(0xFFB8860B), Color(0xFF7A5200)];
-    c.drawOval(face.inflate(s * 0.02), Paint()..shader = ui.Gradient.linear(face.topLeft, face.bottomRight, rim));
-    // 앞면
-    final body = black
-        ? const [Color(0xFF6B6B6B), Color(0xFF232323), Color(0xFF050505)]
-        : const [Color(0xFFFFF6B0), Color(0xFFFFD43B), Color(0xFFC99700)];
-    c.drawOval(
-      face,
-      Paint()..shader = ui.Gradient.radial(face.center.translate(-r * 0.35 * w, -r * 0.35), r * 1.3, body, const [0.0, 0.45, 1.0]),
-    );
-    // 안쪽 고리
-    c.drawOval(
-      face.deflate(r * 0.18),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = s * 0.03
-        ..color = black ? const Color(0xAAE0B84A) : const Color(0x99A06E00),
-    );
-    // 가운데 표시 — 정면에 가까울 때만 (금화: ★, 블랙코인: ?)
-    if (w > 0.45) {
-      final tp = TextPainter(
-        text: TextSpan(
-          text: black ? '?' : '★',
-          style: TextStyle(
-            color: black ? const Color(0xFFFFD43B) : const Color(0xFF9A6A00),
-            fontSize: s * 0.30,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      c.save();
-      c.translate(center.dx, center.dy);
-      c.scale(w, 1);
-      tp.paint(c, Offset(-tp.width / 2, -tp.height / 2));
-      c.restore();
-    }
-    // 반짝임 (위쪽 하이라이트 + 별빛)
-    c.drawOval(
-      Rect.fromCenter(center: face.center.translate(-r * 0.25 * w, -r * 0.45), width: r * 0.9 * w, height: r * 0.35),
-      Paint()..color = Colors.white.withValues(alpha: black ? 0.18 : 0.45),
-    );
-    if (turn > 0.85) {
-      final spark = Paint()..color = Colors.white.withValues(alpha: 0.9);
-      final sc = face.center.translate(r * 0.45, -r * 0.55);
-      final path = Path()
-        ..moveTo(sc.dx, sc.dy - s * 0.08)
-        ..lineTo(sc.dx + s * 0.018, sc.dy - s * 0.018)
-        ..lineTo(sc.dx + s * 0.08, sc.dy)
-        ..lineTo(sc.dx + s * 0.018, sc.dy + s * 0.018)
-        ..lineTo(sc.dx, sc.dy + s * 0.08)
-        ..lineTo(sc.dx - s * 0.018, sc.dy + s * 0.018)
-        ..lineTo(sc.dx - s * 0.08, sc.dy)
-        ..lineTo(sc.dx - s * 0.018, sc.dy - s * 0.018)
-        ..close();
-      c.drawPath(path, spark);
-    }
-    final img = await rec.endRecording().toImage(px, px);
-    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
-    return BitmapDescriptor.bytes(bytes!.buffer.asUint8List(), width: size, height: size);
   }
 
   Set<Marker> _markers() {
@@ -303,7 +247,7 @@ class _CointripTabState extends State<CointripTab> {
     final frames = d.isBlack ? _black : _gold;
     if (frames.isEmpty) return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow);
     // 코인마다 도는 시점을 조금씩 어긋나게 (한꺼번에 똑같이 돌지 않게).
-    return i < _maxSpinning ? frames[(_frame + i * 5) % frames.length] : frames[0];
+    return i < _maxSpinning ? frames[(_frame + i * 7) % frames.length] : frames[0];
   }
 
   Set<Circle> _circles() {
@@ -824,7 +768,7 @@ class _PickedDialog extends StatelessWidget {
   }
 }
 
-/// 황금 동전 (블랙코인은 검은 동전에 ?) — 카드·안내에 쓰는 작은 그림.
+/// Q 황금 동전 그림 (블랙코인은 같은 동전을 검게) — 카드·안내에 쓰는 작은 그림.
 class CoinBadge extends StatelessWidget {
   final bool black;
   final double size;
@@ -832,32 +776,16 @@ class CoinBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          center: const Alignment(-0.35, -0.4),
-          radius: 0.95,
-          colors: black
-              ? const [Color(0xFF6B6B6B), Color(0xFF232323), Color(0xFF050505)]
-              : const [Color(0xFFFFF6B0), Color(0xFFFFD43B), Color(0xFFC99700)],
-          stops: const [0.0, 0.45, 1.0],
-        ),
-        border: Border.all(color: black ? const Color(0xFF8A6D1A) : const Color(0xFFB8860B), width: size * 0.06),
-        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 2))],
-      ),
-      child: Text(
-        black ? '?' : '★',
-        style: TextStyle(
-          color: black ? const Color(0xFFFFD43B) : const Color(0xFF9A6A00),
-          fontWeight: FontWeight.w900,
-          fontSize: size * 0.42,
-          height: 1,
-        ),
-      ),
+    final img = Image.asset('assets/cointrip/coin_00.png', width: size, height: size, filterQuality: FilterQuality.medium);
+    if (!black) return img;
+    return ColorFiltered(
+      colorFilter: const ColorFilter.matrix(<double>[
+        0.12, 0.12, 0.12, 0, 0, //
+        0.12, 0.12, 0.12, 0, 0, //
+        0.12, 0.12, 0.12, 0, 0, //
+        0, 0, 0, 1, 0,
+      ]),
+      child: img,
     );
   }
 }
