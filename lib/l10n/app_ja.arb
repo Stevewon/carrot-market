@@ -490,6 +490,7 @@
   "ctUnionLeave": "連合を抜ける",
   "ctUnionLeaveConfirm": "連合を抜けますか？抜けた後はメンバーが拾ったコインを受け取れません。",
   "ctMyLocation": "現在地へ",
+  "ctUnionInvitePending": "連合招待 {code} — 登録またはログインするとすぐ連合画面へ移動します",
   "commonCancel": "キャンセル",
   "commonConfirm": "OK",
   "commonDelete": "削除",

@@ -3040,6 +3040,12 @@ abstract class AppLocalizations {
   /// **'내 위치로'**
   String get ctMyLocation;
 
+  /// No description provided for @ctUnionInvitePending.
+  ///
+  /// In ko, this message translates to:
+  /// **'연합 초대 {code} — 가입하거나 로그인하면 바로 연합 화면으로 가요'**
+  String ctUnionInvitePending(String code);
+
   /// No description provided for @commonCancel.
   ///
   /// In ko, this message translates to:

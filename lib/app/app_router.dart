@@ -34,6 +34,7 @@ import '../screens/notifications_screen.dart';
 import '../screens/recent_viewed_screen.dart';
 import '../screens/cointrip_wallet_screen.dart';
 import '../screens/cointrip_ext_wallet_screen.dart';
+import '../services/pending_invite.dart';
 import '../screens/cointrip_union_screen.dart';
 import '../screens/cointrip_union_chat_screen.dart';
 
@@ -55,7 +56,16 @@ GoRouter createRouter(AuthService auth) {
       if (path == '/splash') {
         return loggedIn ? '/' : '/onboarding';
       }
+      // 로그아웃 상태로 연합 초대 링크를 열면 코드를 맡겨 두고, 로그인 · 가입 뒤 그 화면으로 보낸다.
+      if (!loggedIn && path == '/cointrip/union') {
+        final code = state.uri.queryParameters['code']?.trim() ?? '';
+        if (code.isNotEmpty) PendingInvite.unionCode = code.toUpperCase();
+      }
       if (!loggedIn && !onAuthPages) return '/onboarding';
+      if (loggedIn && path != '/cointrip/union') {
+        final pending = PendingInvite.takeUnionLocation();
+        if (pending != null) return pending;
+      }
       if (loggedIn && onAuthPages) return '/';
       return null;
     },

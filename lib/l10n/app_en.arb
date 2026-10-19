@@ -490,6 +490,7 @@
   "ctUnionLeave": "Leave union",
   "ctUnionLeaveConfirm": "Leave this union? After leaving you won't receive shares of coins members pick up.",
   "ctMyLocation": "Go to my location",
+  "ctUnionInvitePending": "Union invite {code} — sign up or log in to go straight to the union",
   "commonCancel": "Cancel",
   "commonConfirm": "OK",
   "commonDelete": "Delete",

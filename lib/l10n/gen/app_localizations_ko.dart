@@ -1618,6 +1618,11 @@ class AppLocalizationsKo extends AppLocalizations {
   String get ctMyLocation => '내 위치로';
 
   @override
+  String ctUnionInvitePending(String code) {
+    return '연합 초대 $code — 가입하거나 로그인하면 바로 연합 화면으로 가요';
+  }
+
+  @override
   String get commonCancel => '취소';
 
   @override

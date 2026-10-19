@@ -1621,6 +1621,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get ctMyLocation => '現在地へ';
 
   @override
+  String ctUnionInvitePending(String code) {
+    return '連合招待 $code — 登録またはログインするとすぐ連合画面へ移動します';
+  }
+
+  @override
   String get commonCancel => 'キャンセル';
 
   @override

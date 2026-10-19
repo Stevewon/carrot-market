@@ -1713,6 +1713,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ctMyLocation => 'Go to my location';
 
   @override
+  String ctUnionInvitePending(String code) {
+    return 'Union invite $code — sign up or log in to go straight to the union';
+  }
+
+  @override
   String get commonCancel => 'Cancel';
 
   @override

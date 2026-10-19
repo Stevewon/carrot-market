@@ -7,7 +7,9 @@ import { loadSettings } from '../cointrip';
  * GET /c/:code — 코인트립 친구 연합 초대 링크의 웹 페이지 (친구 연합 → "연합 초대 링크 보내기").
  *  - 앱이 있으면 "가지 앱에서 연합 들어가기" → eggplant://app/cointrip/union?code=<코드> (코드가 채워진다).
  *  - 아직 가입 전이면 → eggplant://app/register?ref=<연합장 닉네임> (연합장이 친구 초대 보너스도 받는다).
- *  - 앱이 없으면 eggplant.life 에서 받기.
+ *  - 앱이 없으면 eggplant.life 에서 받기. "앱에서 들어가기"도 앱이 없으면 받기로 넘어간다 (안드로이드 intent fallback).
+ *  - 어느 버튼이든 누르면 클립보드에 `#eggplant-union=<코드>&ref=<연합장>` 을 복사해 둔다 →
+ *    새로 설치한 앱이 처음 열 때 읽어서 추천인 · 연합 코드를 채운다 (lib/services/pending_invite.dart).
  *  연합 이름 · 연합장 닉네임 · 인원 말고는 내보내지 않는다.
  */
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -59,6 +61,7 @@ app.get('/:code', async (c) => {
   const joinLink = `eggplant://app/cointrip/union?code=${encodeURIComponent(row?.code ?? '')}`;
   const regLink = `eggplant://app/register?ref=${encodeURIComponent(row?.owner ?? '')}`;
   const getUrl = 'https://eggplant.life/#download';
+  const clip = row ? `${t.code} ${row.code} #eggplant-union=${row.code}${row.owner ? '&ref=' + encodeURIComponent(row.owner) : ''}` : '';
 
   const html = `<!doctype html>
 <html lang="${t.lang}">
@@ -96,10 +99,34 @@ app.get('/:code', async (c) => {
     <div class="code"><small>${esc(t.code)}</small><b>${esc(row.code)}</b></div>
     ${full ? `<p class="warn">${esc(t.full)}</p>` : ''}` : ''}
   </div>
-  ${row && !full ? `<a class="btn primary" href="${esc(joinLink)}">${esc(t.join)}</a>` : ''}
-  ${row && !full && row.owner ? `<a class="btn ghost" href="${esc(regLink)}">${esc(t.register)}</a>` : ''}
+  ${row && !full ? `<a class="btn primary" data-app href="${esc(joinLink)}">${esc(t.join)}</a>` : ''}
+  ${row && !full && row.owner ? `<a class="btn ghost" data-app href="${esc(regLink)}">${esc(t.register)}</a>` : ''}
   <a class="btn ghost" href="${esc(getUrl)}">${esc(t.get)}</a>
 </div>
+${row ? `<script>
+(function () {
+  var clip = ${JSON.stringify(clip).replace(/</g, '\\u003c')}, get = ${JSON.stringify(getUrl)};
+  var android = /Android/i.test(navigator.userAgent);
+  function copy() {
+    try { if (navigator.clipboard) return navigator.clipboard.writeText(clip).catch(function () {}); } catch (e) {}
+    return Promise.resolve();
+  }
+  function go(url) { var once = false; return function () { if (!once) { once = true; location.href = url; } }; }
+  document.querySelectorAll('a.btn').forEach(function (a) {
+    a.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      var url = a.getAttribute('href');
+      // 앱이 없으면 아무 일도 안 일어나지 않게 — 안드로이드는 intent 주소로 열고, 없으면 받기로.
+      if (android && a.hasAttribute('data-app') && url.indexOf('eggplant://') === 0) {
+        url = 'intent://' + url.slice(11) + '#Intent;scheme=eggplant;package=com.eggplant.market;S.browser_fallback_url=' + encodeURIComponent(get) + ';end';
+      }
+      var next = go(url);
+      copy().then(next, next);
+      setTimeout(next, 600);
+    });
+  });
+})();
+</script>` : ''}
 </body>
 </html>`;
   return c.html(html, row ? 200 : 404, { 'Cache-Control': 'public, max-age=60' });

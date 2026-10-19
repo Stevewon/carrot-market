@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../app/l10n.dart';
 import '../app/responsive.dart';
 import '../app/theme.dart';
+import '../services/pending_invite.dart';
 import '../services/permission_service.dart';
 
 /// 당근마켓 스타일 온보딩.
@@ -41,6 +42,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         bgColor: const Color(0xFFFAF5FF),
       ),
     ];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // 연합 초대 페이지에서 앱을 받은 사람 — 페이지가 클립보드에 남긴 초대 코드를 읽는다.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      final found = await PendingInvite.checkClipboard();
+      final code = PendingInvite.unionCode;
+      if (!found || code == null || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.ctUnionInvitePending(code))),
+      );
+    });
   }
 
   @override

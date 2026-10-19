@@ -8,6 +8,7 @@ import '../../app/l10n.dart';
 import '../../app/responsive.dart';
 import '../../app/theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/pending_invite.dart';
 import '_auth_shared.dart';
 
 /// Sign-up screen:
@@ -26,13 +27,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nicknameCtl = TextEditingController();
   final _pwCtl = TextEditingController();
   final _pwConfirmCtl = TextEditingController();
-  late final _referrerCtl = TextEditingController(text: widget.referrer?.trim() ?? '');
+  late final _referrerCtl = TextEditingController(text: (widget.referrer ?? PendingInvite.referrer)?.trim() ?? '');
   final _formKey = GlobalKey<FormState>();
 
   bool _loading = false;
   bool _obscure1 = true;
   bool _obscure2 = true;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // 온보딩을 거치지 않고 가입으로 바로 온 경우에도 연합 초대 페이지가 남긴 연합장 닉네임을 채운다.
+    if (_referrerCtl.text.isEmpty) {
+      PendingInvite.checkClipboard().then((_) {
+        final ref = PendingInvite.referrer;
+        if (mounted && ref != null && _referrerCtl.text.isEmpty) _referrerCtl.text = ref;
+      });
+    }
+  }
 
   @override
   void dispose() {

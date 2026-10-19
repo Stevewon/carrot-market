@@ -303,5 +303,13 @@
   },
   "ctUnionLeave": "연합 나가기",
   "ctUnionLeaveConfirm": "연합에서 나갈까요? 나간 뒤에는 연합원이 주운 코인을 나눠 받지 못해요.",
-  "ctMyLocation": "내 위치로"
+  "ctMyLocation": "내 위치로",
+  "ctUnionInvitePending": "연합 초대 {code} — 가입하거나 로그인하면 바로 연합 화면으로 가요",
+  "@ctUnionInvitePending": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  }
 }
