@@ -23,6 +23,20 @@ if (flutterVersionCode == null) { flutterVersionCode = '1' }
 def flutterVersionName = localProperties.getProperty('flutter.versionName')
 if (flutterVersionName == null) { flutterVersionName = '1.0' }
 
+// 출시 서명 키 — 매번 같은 키로 서명해야 폰에서 "업데이트"로 설치돼 권한·로그인이 그대로 남는다.
+// (CI 는 빌드마다 새 디버그 키를 만들어서, 키가 달라 지우고 다시 깔아야 했다.)
+// android/key.properties (로컬) 또는 CI 환경변수 EGGPLANT_KEYSTORE_* 에서 읽는다.
+def keyProperties = new Properties()
+def keyPropertiesFile = rootProject.file('key.properties')
+if (keyPropertiesFile.exists()) {
+    keyPropertiesFile.withReader('UTF-8') { reader -> keyProperties.load(reader) }
+}
+def releaseStoreFile = keyProperties.getProperty('storeFile') ?: System.getenv('EGGPLANT_KEYSTORE_FILE')
+def releaseStorePassword = keyProperties.getProperty('storePassword') ?: System.getenv('EGGPLANT_KEYSTORE_PASSWORD')
+def releaseKeyAlias = keyProperties.getProperty('keyAlias') ?: System.getenv('EGGPLANT_KEY_ALIAS')
+def releaseKeyPassword = keyProperties.getProperty('keyPassword') ?: System.getenv('EGGPLANT_KEY_PASSWORD')
+def hasReleaseKey = releaseStoreFile && file(releaseStoreFile).exists()
+
 android {
     namespace "com.eggplant.market"
     compileSdk 36
@@ -55,14 +69,18 @@ android {
 
     signingConfigs {
         release {
-            // Optional: configure your own keystore for production release
-            // Falls back to debug key if not configured
+            if (hasReleaseKey) {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig hasReleaseKey ? signingConfigs.release : signingConfigs.debug
             minifyEnabled false
             shrinkResources false
         }

@@ -70,7 +70,22 @@ jobs:
           echo "version_label=${VERSION_LABEL}" >> $GITHUB_OUTPUT
           echo "tag=${VERSION_LABEL}" >> $GITHUB_OUTPUT
 
+      - name: 🔑 Release signing key (매번 같은 키 → 폰에서 업데이트로 설치, 권한·로그인 유지)
+        env:
+          KEYSTORE_B64: ${{ secrets.EGGPLANT_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "❌ EGGPLANT_KEYSTORE_B64 secret 없음 — 키 없이 빌드하면 매번 서명이 달라 폰에서 지우고 다시 깔아야 한다. 빌드 중단."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/eggplant-release.jks"
+          echo "EGGPLANT_KEYSTORE_FILE=$RUNNER_TEMP/eggplant-release.jks" >> $GITHUB_ENV
+
       - name: 🏗️ Build SINGLE universal APK
+        env:
+          EGGPLANT_KEYSTORE_PASSWORD: ${{ secrets.EGGPLANT_KEYSTORE_PASSWORD }}
+          EGGPLANT_KEY_PASSWORD: ${{ secrets.EGGPLANT_KEYSTORE_PASSWORD }}
+          EGGPLANT_KEY_ALIAS: eggplant
         run: |
           # `flutter build apk` (no split flags) produces exactly ONE
           # universal APK at build/app/outputs/flutter-apk/app-release.apk.
