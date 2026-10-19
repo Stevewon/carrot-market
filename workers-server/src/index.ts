@@ -25,6 +25,7 @@ import callsRoutes from './routes/calls';
 import shareRoutes from './routes/share';
 import userLinkRoutes from './routes/userLink';
 import inviteRoutes from './routes/invite';
+import unionInviteRoutes from './routes/unionInvite';
 import usersRoutes from './routes/users';
 import productsRoutes from './routes/products';
 import chatRoutes, { purgeExpiredChatMedia } from './routes/chat';
@@ -101,6 +102,8 @@ app.route('/p', shareRoutes);
 app.route('/u', userLinkRoutes);
 // 친구 초대 링크 웹 페이지 (https://api.eggplant.life/i/<닉네임>)
 app.route('/i', inviteRoutes);
+// 코인트립 친구 연합 초대 링크 웹 페이지 (https://api.eggplant.life/c/<초대 코드>)
+app.route('/c', unionInviteRoutes);
 
 // ---------- R2 uploads passthrough ----------
 // Serves /uploads/<key> from the R2 bucket with basic caching.

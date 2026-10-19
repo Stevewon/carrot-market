@@ -1562,11 +1562,35 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String ctUnionShareText(String code) {
-    return 'ナスのコイントリップのフレンド連合に参加しよう！アプリのコイントリップ > フレンド連合で招待コード $code を入力してください。';
+    return 'ナスのコイントリップのフレンド連合に参加しよう！下のリンクを押すとすぐ参加できます。（招待コード $code）';
   }
 
   @override
   String get ctUnionCopied => '招待メッセージをコピーしました。友だちに送ってください。';
+
+  @override
+  String get ctUnionShareLink => '連合の招待リンクを送る';
+
+  @override
+  String get ctUnionChat => '連合グループチャット';
+
+  @override
+  String get ctUnionChatNote => '🔐 会話はサーバーに保存されません。アプリを開いている間のやり取りだけ表示されます。';
+
+  @override
+  String get ctUnionChatOffline => '接続が切れています。しばらくしてからもう一度送ってください。';
+
+  @override
+  String get ctUnionChatEmpty => 'まだ会話がありません。\nどこにコインがあるか連合のメンバーに教えよう！';
+
+  @override
+  String get ctUnionChatHint => '連合メンバーにメッセージ';
+
+  @override
+  String get ctUnionChatSend => '送信';
+
+  @override
+  String get ctUnionChatNoUnion => '連合に参加していません。フレンド連合で連合を作るか参加してください。';
 
   @override
   String ctUnionMembers(int count, int max) {

@@ -552,6 +552,10 @@ class PushService extends ChangeNotifier {
         _messageOpenedCtrl.add({'product_id': productId});
       }
     }
+    // 코인트립 연합 단톡방 알림 → 단톡방.
+    if (type == 'union_message') {
+      _messageOpenedCtrl.add({'route': '/cointrip/union/chat'});
+    }
     // 받은 거래 후기 → 내 프로필 (받은 매너 칭찬 · 거래 후기).
     if (type == 'review_received') {
       final userId = data['user_id']?.toString() ?? '';

@@ -53,7 +53,33 @@ class ChatService extends ChangeNotifier {
   final Map<String, List<ChatMessage>> _roomMessages = {};
   String? _activeRoomId;
 
+  /// 코인트립 연합 단톡방 — 서버에 저장하지 않는다. 앱이 켜져 있는 동안 받은 대화만 메모리에 (최근 300개).
+  final List<UnionChatMessage> _unionMessages = [];
+  int _unionUnread = 0;
+  bool _unionChatOpen = false;
+
   ChatService(this.auth);
+
+  List<UnionChatMessage> unionMessagesFor(String unionId) =>
+      _unionMessages.where((m) => m.unionId == unionId).toList(growable: false);
+  int get unionUnread => _unionUnread;
+
+  /// 단톡방 화면에 들어가 있는 동안은 안 읽음 숫자를 세지 않는다.
+  set unionChatOpen(bool v) {
+    _unionChatOpen = v;
+    if (v && _unionUnread > 0) {
+      _unionUnread = 0;
+      notifyListeners();
+    }
+  }
+
+  /// 연합 단톡방에 보내기 — 연결이 끊겨 있으면 false.
+  bool sendUnionMessage(String text) {
+    final t = text.trim();
+    if (t.isEmpty || !_connected) return false;
+    emit('union_message', {'text': t});
+    return true;
+  }
 
   bool get connected => _connected;
   List<ChatRoom> get rooms => _rooms;
@@ -678,6 +704,10 @@ class ChatService extends ChangeNotifier {
     });
   }
 
+  /// 시험용 — 서버에서 온 것처럼 소켓 프레임 하나를 처리한다.
+  @visibleForTesting
+  void debugReceive(Map<String, dynamic> frame) => _onData(jsonEncode(frame));
+
   void _onData(dynamic raw) {
     Map<String, dynamic>? msg;
     try {
@@ -697,6 +727,16 @@ class ChatService extends ChangeNotifier {
       case 'connected':
       case 'pong':
         break;
+
+      case 'union_message': {
+        final m = UnionChatMessage.fromJson(msg);
+        if (m.id.isEmpty || _unionMessages.any((x) => x.id == m.id)) break;
+        _unionMessages.add(m);
+        if (_unionMessages.length > 300) _unionMessages.removeRange(0, _unionMessages.length - 300);
+        if (!_unionChatOpen && m.senderId != auth.user?.id) _unionUnread++;
+        notifyListeners();
+        break;
+      }
 
       case 'message': {
         final chatMsg = ChatMessage.fromJson(msg, currentUserId: auth.user?.id);
@@ -1174,6 +1214,8 @@ class ChatService extends ChangeNotifier {
     _roomMessages.clear();
     _imageCache.clear();
     _activeRoomId = null;
+    _unionMessages.clear();
+    _unionUnread = 0;
     notifyListeners();
   }
 
@@ -1183,4 +1225,31 @@ class ChatService extends ChangeNotifier {
     _eventBus.close();
     super.dispose();
   }
+}
+
+/// 코인트립 연합 단톡방 메시지 (서버 저장 없음).
+class UnionChatMessage {
+  final String id;
+  final String unionId;
+  final String senderId;
+  final String senderNickname;
+  final String text;
+  final DateTime sentAt;
+  const UnionChatMessage({
+    required this.id,
+    required this.unionId,
+    required this.senderId,
+    required this.senderNickname,
+    required this.text,
+    required this.sentAt,
+  });
+
+  factory UnionChatMessage.fromJson(Map<String, dynamic> j) => UnionChatMessage(
+        id: (j['id'] ?? '').toString(),
+        unionId: (j['union_id'] ?? '').toString(),
+        senderId: (j['sender_id'] ?? '').toString(),
+        senderNickname: (j['sender_nickname'] ?? '').toString(),
+        text: (j['text'] ?? '').toString(),
+        sentAt: DateTime.tryParse((j['sent_at'] ?? '').toString())?.toLocal() ?? DateTime.now(),
+      );
 }

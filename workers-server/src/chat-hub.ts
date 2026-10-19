@@ -72,6 +72,9 @@ interface CallRecord {
 export class ChatHub {
   private state: DurableObjectState;
   private env: Binding;
+  /** 연합 단톡방 — 보낸 사람별 마지막 전송 시각(도배 막기) · 연합원별 마지막 알림 시각. 메모리만. */
+  private unionLastSent = new Map<string, number>();
+  private unionLastPush = new Map<string, number>();
 
   // socketId (generated on attach) -> metadata
   // Durable Object hibernation: we also persist meta on ws via serializeAttachment
@@ -444,6 +447,52 @@ export class ChatHub {
               isCall: false,
             });
           }
+        }
+        return;
+      }
+
+      // ---------- 코인트립 연합 단톡방 (휘발성) ----------
+      // { type:'union_message', text } → 보낸 사람이 속한 연합의 모든 연합원(본인 포함)에게.
+      // 연합원 여부는 매번 D1(ct_union_members)로 확인한다 — 나가거나 내보내지면 바로 못 받는다.
+      // 대화는 저장하지 않는다: 접속해 있는 연합원에게만 전달, 아닌 연합원에게는 알림만 (5분에 한 번).
+      case 'union_message': {
+        const text = maskChatText(String(msg.text || '').slice(0, 1000));
+        if (!text.trim()) return;
+        const now = Date.now();
+        if (now - (this.unionLastSent.get(meta.userId) ?? 0) < 700) return; // 도배 막기
+        this.unionLastSent.set(meta.userId, now);
+
+        const rs = await this.env.DB.prepare(
+          `SELECT m2.user_id, m1.union_id FROM ct_union_members m1
+             JOIN ct_union_members m2 ON m2.union_id = m1.union_id
+            WHERE m1.user_id = ?`,
+        ).bind(meta.userId).all<{ user_id: string; union_id: string }>();
+        const members = rs.results || [];
+        if (!members.length) {
+          this.sendSafe(ws, { type: 'union_error', code: 'no_union', message: trl(meta.lang ?? 'ko', '연합에 들어가 있지 않아요', '連合に参加していません', "You're not in a union") });
+          return;
+        }
+        const unionId = members[0].union_id;
+        const payload = {
+          type: 'union_message',
+          id: crypto.randomUUID(),
+          union_id: unionId,
+          sender_id: meta.userId,
+          sender_nickname: meta.nickname || '익명',
+          text,
+          sent_at: new Date(now).toISOString(),
+        };
+        for (const m of members) {
+          if (this.sendToUser(m.user_id, payload) || m.user_id === meta.userId) continue;
+          const k = `${unionId}:${m.user_id}`;
+          if (now - (this.unionLastPush.get(k) ?? 0) < 5 * 60_000) continue;
+          this.unionLastPush.set(k, now);
+          this.sendOfflinePush(m.user_id, {
+            title: (l) => trl(l, '연합 단톡방', '連合グループチャット', 'Union group chat'),
+            body: (l) => trl(l, '연합원이 메시지를 보냈어요', '連合メンバーがメッセージを送りました', 'A union member sent a message'),
+            data: { type: 'union_message', union_id: unionId },
+            isCall: false,
+          });
         }
         return;
       }

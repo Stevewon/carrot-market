@@ -2935,7 +2935,7 @@ abstract class AppLocalizations {
   /// No description provided for @ctUnionShareText.
   ///
   /// In ko, this message translates to:
-  /// **'가지 코인트립 친구 연합에 들어와요! 앱의 코인트립 > 친구 연합에서 초대 코드 {code} 를 넣어 주세요.'**
+  /// **'가지 코인트립 친구 연합에 들어와요! 아래 링크를 누르면 바로 들어올 수 있어요. (초대 코드 {code})'**
   String ctUnionShareText(String code);
 
   /// No description provided for @ctUnionCopied.
@@ -2943,6 +2943,54 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'초대 문구를 복사했어요. 친구에게 보내 주세요.'**
   String get ctUnionCopied;
+
+  /// No description provided for @ctUnionShareLink.
+  ///
+  /// In ko, this message translates to:
+  /// **'연합 초대 링크 보내기'**
+  String get ctUnionShareLink;
+
+  /// No description provided for @ctUnionChat.
+  ///
+  /// In ko, this message translates to:
+  /// **'연합 단톡방'**
+  String get ctUnionChat;
+
+  /// No description provided for @ctUnionChatNote.
+  ///
+  /// In ko, this message translates to:
+  /// **'🔐 대화는 서버에 저장되지 않아요. 앱이 켜져 있을 때 오간 대화만 보여요.'**
+  String get ctUnionChatNote;
+
+  /// No description provided for @ctUnionChatOffline.
+  ///
+  /// In ko, this message translates to:
+  /// **'연결이 끊겨 있어요. 잠시 후 다시 보내 주세요.'**
+  String get ctUnionChatOffline;
+
+  /// No description provided for @ctUnionChatEmpty.
+  ///
+  /// In ko, this message translates to:
+  /// **'아직 대화가 없어요.\n어디에 코인이 있는지 연합원에게 알려 주세요!'**
+  String get ctUnionChatEmpty;
+
+  /// No description provided for @ctUnionChatHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'연합원에게 메시지 보내기'**
+  String get ctUnionChatHint;
+
+  /// No description provided for @ctUnionChatSend.
+  ///
+  /// In ko, this message translates to:
+  /// **'보내기'**
+  String get ctUnionChatSend;
+
+  /// No description provided for @ctUnionChatNoUnion.
+  ///
+  /// In ko, this message translates to:
+  /// **'연합에 들어가 있지 않아요. 친구 연합에서 연합을 만들거나 들어가 주세요.'**
+  String get ctUnionChatNoUnion;
 
   /// No description provided for @ctUnionMembers.
   ///

@@ -471,6 +471,16 @@ class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
     if (_msgOpenedSub != null) return;
     final push = ctx.read<PushService>();
     _msgOpenedSub = push.onMessageOpened.listen((data) {
+      // 정해진 화면으로 가는 알림 (예: 연합 단톡방).
+      final route = data['route']?.toString() ?? '';
+      if (route.isNotEmpty) {
+        try {
+          widget.router.push(route);
+        } catch (e) {
+          debugPrint('[push-msg] route failed: $e');
+        }
+        return;
+      }
       // 거래 확인 요청 알림 → 상품 상세 (구매자용 "거래 확인하기" 카드).
       final productId = data['product_id']?.toString() ?? '';
       if (productId.isNotEmpty) {

@@ -35,6 +35,7 @@ import '../screens/recent_viewed_screen.dart';
 import '../screens/cointrip_wallet_screen.dart';
 import '../screens/cointrip_ext_wallet_screen.dart';
 import '../screens/cointrip_union_screen.dart';
+import '../screens/cointrip_union_chat_screen.dart';
 
 GoRouter createRouter(AuthService auth) {
   return GoRouter(
@@ -174,7 +175,12 @@ GoRouter createRouter(AuthService auth) {
       ),
       GoRoute(
         path: '/cointrip/union',
-        builder: (_, __) => const CointripUnionScreen(),
+        // 연합 초대 링크 (eggplant://app/cointrip/union?code=<코드>) → 코드가 채워진다.
+        builder: (_, state) => CointripUnionScreen(code: state.uri.queryParameters['code']),
+      ),
+      GoRoute(
+        path: '/cointrip/union/chat',
+        builder: (_, __) => const CointripUnionChatScreen(),
       ),
       GoRoute(
         path: '/hidden',

@@ -1649,11 +1649,39 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String ctUnionShareText(String code) {
-    return 'Join my Eggplant CoinTrip union! In the app, go to CoinTrip > Friend union and enter invite code $code.';
+    return 'Join my Eggplant CoinTrip union! Tap the link below to join right away. (Invite code $code)';
   }
 
   @override
   String get ctUnionCopied => 'Invite message copied. Send it to your friends.';
+
+  @override
+  String get ctUnionShareLink => 'Send a union invite link';
+
+  @override
+  String get ctUnionChat => 'Union group chat';
+
+  @override
+  String get ctUnionChatNote =>
+      '🔐 Chats are never stored on the server. You only see messages sent while the app is open.';
+
+  @override
+  String get ctUnionChatOffline =>
+      'You\'re disconnected. Please try again in a moment.';
+
+  @override
+  String get ctUnionChatEmpty =>
+      'No messages yet.\nTell your union where the coins are!';
+
+  @override
+  String get ctUnionChatHint => 'Message your union';
+
+  @override
+  String get ctUnionChatSend => 'Send';
+
+  @override
+  String get ctUnionChatNoUnion =>
+      'You\'re not in a union. Create or join one in Friend union.';
 
   @override
   String ctUnionMembers(int count, int max) {
