@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../../app/l10n.dart';
 import '../../app/theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/coin_sound.dart';
 import '../../services/cointrip_service.dart';
 import '../../services/qta_service.dart';
 import '../../services/rewarded_ad.dart';
@@ -401,6 +402,8 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
       } else if (r.empty) {
         await showDialog<void>(context: context, builder: (_) => const _EmptyDialog());
       } else {
+        // ignore: discarded_futures
+        CoinSound.play();
         await showDialog<void>(context: context, builder: (_) => _PickedDialog(result: r));
       }
       _fetch(force: true);
@@ -455,7 +458,11 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
     );
     _dudOpen = false;
     if (!mounted) return;
-    if (got != null) await showDialog<void>(context: context, builder: (_) => _PickedDialog(result: got));
+    if (got != null) {
+      // ignore: discarded_futures
+      CoinSound.play();
+      await showDialog<void>(context: context, builder: (_) => _PickedDialog(result: got));
+    }
     _fetch(force: true);
   }
 
