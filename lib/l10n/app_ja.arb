@@ -489,6 +489,7 @@
   "ctUnionKickConfirm": "{nickname}さんを連合から退出させますか？",
   "ctUnionLeave": "連合を抜ける",
   "ctUnionLeaveConfirm": "連合を抜けますか？抜けた後はメンバーが拾ったコインを受け取れません。",
+  "ctMyLocation": "現在地へ",
   "commonCancel": "キャンセル",
   "commonConfirm": "OK",
   "commonDelete": "削除",

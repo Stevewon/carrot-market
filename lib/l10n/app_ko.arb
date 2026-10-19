@@ -880,6 +880,7 @@
   },
   "ctUnionLeave": "연합 나가기",
   "ctUnionLeaveConfirm": "연합에서 나갈까요? 나간 뒤에는 연합원이 주운 코인을 나눠 받지 못해요.",
+  "ctMyLocation": "내 위치로",
   "commonCancel": "취소",
   "commonConfirm": "확인",
   "commonDelete": "삭제",

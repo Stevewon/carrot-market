@@ -1615,6 +1615,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get ctUnionLeaveConfirm => '연합에서 나갈까요? 나간 뒤에는 연합원이 주운 코인을 나눠 받지 못해요.';
 
   @override
+  String get ctMyLocation => '내 위치로';
+
+  @override
   String get commonCancel => '취소';
 
   @override

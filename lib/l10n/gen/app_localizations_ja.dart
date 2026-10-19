@@ -1618,6 +1618,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get ctUnionLeaveConfirm => '連合を抜けますか？抜けた後はメンバーが拾ったコインを受け取れません。';
 
   @override
+  String get ctMyLocation => '現在地へ';
+
+  @override
   String get commonCancel => 'キャンセル';
 
   @override

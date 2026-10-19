@@ -1710,6 +1710,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Leave this union? After leaving you won\'t receive shares of coins members pick up.';
 
   @override
+  String get ctMyLocation => 'Go to my location';
+
+  @override
   String get commonCancel => 'Cancel';
 
   @override

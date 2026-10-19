@@ -136,6 +136,7 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
         _loc = _Loc.ok;
         _me = pos;
       });
+      await _prepareMeIcon();
       await _fetch(force: true);
       _sub?.cancel();
       _sub = Geolocator.getPositionStream(
@@ -195,10 +196,20 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
   /// 한 번에 도는 코인 수 상한 (지도 마커를 자주 바꾸면 무거워진다). 나머지는 서 있는 그림.
   static const int _maxSpinning = 60;
   static const double _coinSize = 46;
+  /// 내 위치 — 파란 점 대신 큐돌이 (사장님 지시).
+  static const double _meSize = 58;
+  BitmapDescriptor? _meIcon;
   List<BitmapDescriptor> _gold = const [];
   List<BitmapDescriptor> _black = const [];
   int _frame = 0;
   Timer? _spin;
+
+  Future<void> _prepareMeIcon() async {
+    if (CointripTab.mapOverride != null || _meIcon != null) return;
+    final data = await rootBundle.load('assets/cointrip/me_qdol.png');
+    if (!mounted) return;
+    setState(() => _meIcon = BitmapDescriptor.bytes(data.buffer.asUint8List(), width: _meSize, height: _meSize));
+  }
 
   Future<void> _prepareIcons() async {
     if (CointripTab.mapOverride != null || _gold.isNotEmpty) return;
@@ -256,7 +267,18 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
       far.putIfAbsent('${d.lat.toStringAsFixed(5)},${d.lng.toStringAsFixed(5)},${d.isBlack}', () => d);
     }
     final farList = far.entries.toList();
+    final me = _me;
     return {
+      if (me != null && _meIcon != null)
+        Marker(
+          markerId: const MarkerId('me'),
+          position: LatLng(me.latitude, me.longitude),
+          icon: _meIcon!,
+          // 발끝이 내 자리에 오게.
+          anchor: const Offset(0.5, 0.92),
+          zIndexInt: 3,
+          consumeTapEvents: true,
+        ),
       for (var i = 0; i < precise.length; i++)
         Marker(
           markerId: MarkerId(precise[i].id),
@@ -580,8 +602,9 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
     final map = CointripTab.mapOverride?.call(context, markers, circles, meLatLng) ??
         GoogleMap(
           initialCameraPosition: CameraPosition(target: meLatLng, zoom: 16),
-          myLocationEnabled: true,
-          myLocationButtonEnabled: true,
+          // 파란 점 대신 큐돌이 마커 (_markers 의 'me') — 내 위치 버튼도 직접 둔다.
+          myLocationEnabled: false,
+          myLocationButtonEnabled: false,
           mapToolbarEnabled: false,
           zoomControlsEnabled: false,
           compassEnabled: true,
@@ -603,6 +626,20 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
           child: _Pill(
             text: _drops.isEmpty ? l10n.ctNoCoinsShort : l10n.ctNearby(_drops.length),
             loading: _loading,
+          ),
+        ),
+        Positioned(
+          right: 12,
+          top: 12,
+          child: Material(
+            color: Colors.white,
+            shape: const CircleBorder(),
+            elevation: 2,
+            child: IconButton(
+              tooltip: l10n.ctMyLocation,
+              icon: const Icon(Icons.my_location_rounded, color: EggplantColors.primary),
+              onPressed: () => _map?.animateCamera(CameraUpdate.newLatLng(meLatLng)),
+            ),
           ),
         ),
         Positioned(

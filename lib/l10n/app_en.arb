@@ -489,6 +489,7 @@
   "ctUnionKickConfirm": "Remove {nickname} from the union?",
   "ctUnionLeave": "Leave union",
   "ctUnionLeaveConfirm": "Leave this union? After leaving you won't receive shares of coins members pick up.",
+  "ctMyLocation": "Go to my location",
   "commonCancel": "Cancel",
   "commonConfirm": "OK",
   "commonDelete": "Delete",
