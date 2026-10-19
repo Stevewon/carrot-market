@@ -50,6 +50,8 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
   bool _needWallet = false;
   bool _loading = false;
   String? _error;
+  /// 어드민이 코인트립을 정지한 회원 — 서버가 알려 준 안내를 지도 대신 보여 준다.
+  String? _blocked;
   CtDrop? _selected;
   bool _picking = false;
   bool _introAck = false;
@@ -180,7 +182,7 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
       });
       _syncSpin();
     } on CtError catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) setState(() => e.code == 'blocked' ? _blocked = e.message : _error = e.message);
     } finally {
       _loading = false;
     }
@@ -349,10 +351,7 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, timeLimit: Duration(seconds: 10)),
       );
-      if (pos.isMocked) {
-        messenger.showSnackBar(SnackBar(content: Text(l10n.ctMockedLocation)));
-        return;
-      }
+      // 위치 조작 앱이 켜져 있어도 서버에 보낸다 — 서버가 거절하면서 의심 기록을 남긴다 (어드민 의심 회원 목록).
       final r = await svc.pick(d, lat: pos.latitude, lng: pos.longitude, accuracy: pos.accuracy, mocked: pos.isMocked);
       if (!mounted) return;
       setState(() {
@@ -573,6 +572,7 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
       case _Loc.ok:
         break;
     }
+    if (_blocked != null) return _message(Icons.block_rounded, _blocked!, '');
     final me = _me!;
     final meLatLng = LatLng(me.latitude, me.longitude);
     final markers = _markers();

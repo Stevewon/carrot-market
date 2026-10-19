@@ -8,6 +8,9 @@
  *   GET  /stats
  *   GET  /withdrawals?status          POST /withdrawals/:id/processing | /complete { tx_hash } | /reject { reason }
  *   GET  /acks?user_id                - 책임 공지 확인 기록
+ *   GET  /suspects?days               - 의심 회원 (위치 조작 기록 모음)
+ *   GET  /flags?user_id               - 한 회원의 의심 기록
+ *   POST /block { user_id, blocked }  - 코인트립 정지 / 해제
  */
 import { Hono } from 'hono';
 import type { Context } from 'hono';
@@ -60,7 +63,9 @@ app.put('/settings', async (c) => {
       if (!/^ca-app-pub-\d{16}\/\d{10}$/.test(v)) return c.json({ error: '광고 단위 ID 형식: ca-app-pub-0000000000000000/0000000000' }, 400);
     } else if (k === 'dud_penalty_qta') {
       if (!/^\d{1,6}$/.test(v)) return c.json({ error: '꽝 QTA: 0 이상 정수' }, 400);
-    } else if (k === 'tester_ids') v = v.split(/[\s,]+/).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).join(',');
+    } else if (k === 'daily_pick_max') {
+      if (!/^\d{1,6}$/.test(v)) return c.json({ error: '하루 줍기 한도: 0 이상 정수 (0 = 한도 없음)' }, 400);
+    } else if (k === 'tester_ids' || k === 'blocked_ids') v = v.split(/[\s,]+/).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).join(',');
     else if (!Number.isFinite(Number(v)) || Number(v) <= 0) return c.json({ error: `${k}: 숫자를 넣어 주세요` }, 400);
     stmts.push(c.env.DB.prepare('INSERT INTO ct_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind(k, v));
   }
@@ -338,7 +343,9 @@ app.get('/withdrawals', async (c) => {
   const status = c.req.query('status') || 'open';
   const rs = await c.env.DB
     .prepare(
-      `SELECT w.*, k.symbol, k.network, u.nickname
+      `SELECT w.*, k.symbol, k.network, u.nickname,
+              (SELECT COUNT(*) FROM ct_flags f WHERE f.user_id = w.user_id AND f.kind != 'limit'
+                 AND f.created_at >= datetime('now', '-30 days')) AS flag_count
          FROM ct_withdrawals w JOIN ct_coins k ON k.id = w.coin_id LEFT JOIN users u ON u.id = w.user_id
         WHERE (?1 = 'open' AND w.status IN ('requested','processing')) OR w.status = ?1
         ORDER BY w.requested_at ${status === 'open' ? 'ASC' : 'DESC'} LIMIT 300`,
@@ -409,6 +416,53 @@ app.get('/acks', async (c) => {
     .bind(uid, uid)
     .all();
   return c.json({ rows: rs.results || [] });
+});
+
+// ── 의심 회원 (위치 조작) ─────────────────────────────────────────────
+// limit (하루 한도 닿음) 은 열심히 하는 회원도 닿으니 참고용 — 의심 점수에는 넣지 않는다.
+app.get('/suspects', async (c) => {
+  const days = Math.min(90, Math.max(1, Number(c.req.query('days')) || 7));
+  const rs = await c.env.DB
+    .prepare(
+      `SELECT f.user_id, u.nickname,
+              SUM(f.kind = 'mocked') AS mocked, SUM(f.kind = 'jump') AS jump, SUM(f.kind = 'too_fast') AS too_fast,
+              SUM(f.kind = 'too_far') AS too_far, SUM(f.kind = 'limit') AS limit_days,
+              SUM(f.kind != 'limit') AS score, MAX(f.created_at) AS last_at,
+              (SELECT COUNT(*) FROM ct_drops d WHERE d.picked_by = f.user_id AND d.status = 'picked'
+                 AND d.picked_at >= datetime('now', '-' || ?1 || ' days')) AS picks
+         FROM ct_flags f LEFT JOIN users u ON u.id = f.user_id
+        WHERE f.created_at >= datetime('now', '-' || ?1 || ' days')
+        GROUP BY f.user_id
+        ORDER BY score DESC, last_at DESC LIMIT 300`,
+    )
+    .bind(days)
+    .all<Record<string, unknown>>();
+  const blocked = new Set((await loadSettings(c.env)).blockedIds);
+  return c.json({ days, rows: (rs.results || []).map((r) => ({ ...r, blocked: blocked.has(String(r.user_id)) })) });
+});
+
+app.get('/flags', async (c) => {
+  const uid = c.req.query('user_id') || '';
+  const rs = await c.env.DB
+    .prepare('SELECT id, kind, detail, lat, lng, created_at FROM ct_flags WHERE user_id = ? ORDER BY created_at DESC LIMIT 200')
+    .bind(uid)
+    .all();
+  return c.json({ rows: rs.results || [] });
+});
+
+app.post('/block', async (c) => {
+  const b = await body(c);
+  const uid = String(b.user_id ?? '').trim();
+  if (!/^[0-9a-f-]{36}$/i.test(uid)) return c.json({ error: '회원 id 를 확인해 주세요' }, 400);
+  const ids = new Set((await loadSettings(c.env)).blockedIds);
+  if (b.blocked === true) ids.add(uid);
+  else ids.delete(uid);
+  await c.env.DB
+    .prepare("INSERT INTO ct_settings (key, value) VALUES ('blocked_ids', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    .bind([...ids].join(','))
+    .run();
+  await audit(c, b.blocked === true ? 'cointrip_block' : 'cointrip_unblock', uid, null);
+  return c.json({ ok: true, blocked: ids.has(uid) });
 });
 
 export default app;

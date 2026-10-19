@@ -30,6 +30,9 @@ import { tr, trl, marketLang } from '../market';
 import { addNotifications } from '../utils/inbox';
 import { deductCointripDud } from '../qta';
 import {
+  addFlag,
+  JUMP_KMH,
+  JUMP_MIN_M,
   distanceM,
   fromMicro,
   isEvmAddress,
@@ -107,7 +110,39 @@ async function guard(c: C): Promise<{ s: CtSettings; me: Me } | Response> {
   if (!openFor(s, me.id)) {
     return c.json({ error: tr(c, '코인트립은 아직 준비 중이에요', 'コイントリップは準備中です', 'CoinTrip is coming soon'), code: 'closed' }, 403);
   }
+  if (s.blockedIds.includes(me.id)) {
+    return c.json({ error: tr(c, '코인트립 이용이 정지됐어요. 운영팀에 문의해 주세요', 'コイントリップの利用が停止されました。運営チームにお問い合わせください', 'Your CoinTrip access has been suspended. Please contact the operations team'), code: 'blocked' }, 403);
+  }
   return { s, me };
+}
+
+/** 한국 시간 오늘 0시 (UTC, D1 datetime 형식과 비교). */
+const KST_TODAY_SQL = "datetime('now', '+9 hours', 'start of day', '-9 hours')";
+
+/**
+ * 내 위치를 남기고, 바로 전에 남긴 위치에서 얼마나 빨리 왔는지 돌려준다 (처음이면 null).
+ * 지도를 보는 동안 앱이 10초마다 내 위치로 코인을 받으니, 이걸 이어 보면 순간이동이 보인다.
+ */
+async function trackPosition(env: Env, userId: string, lat: number, lng: number) {
+  const prev = await env.DB
+    .prepare('SELECT lat, lng, at FROM ct_positions WHERE user_id = ?')
+    .bind(userId)
+    .first<{ lat: number; lng: number; at: string }>();
+  await env.DB
+    .prepare(
+      `INSERT INTO ct_positions (user_id, lat, lng, at) VALUES (?, ?, ?, datetime('now'))
+       ON CONFLICT(user_id) DO UPDATE SET lat = excluded.lat, lng = excluded.lng, at = excluded.at`,
+    )
+    .bind(userId, lat, lng)
+    .run();
+  if (!prev) return null;
+  const sec = Math.max(1, (Date.now() - new Date(prev.at.replace(' ', 'T') + 'Z').getTime()) / 1000);
+  const m = distanceM(prev.lat, prev.lng, lat, lng);
+  return { m, sec, kmh: (m / sec) * 3.6 };
+}
+
+function moveText(mv: { m: number; sec: number; kmh: number }): string {
+  return `${(mv.m / 1000).toFixed(1)}km / ${Math.round(mv.sec)}초 (시속 ${Math.round(mv.kmh)}km)`;
 }
 
 async function logAck(env: Env, userId: string, context: string, detail: string | null): Promise<void> {
@@ -249,6 +284,15 @@ app.get('/drops', async (c) => {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     return c.json({ error: 'lat/lng required' }, 400);
   }
+  // 순간이동 찾기 — 지도는 그대로 보여 주고 기록만 남긴다 (어드민 의심 회원 목록).
+  try {
+    const mv = await trackPosition(c.env, me.id, lat, lng);
+    if (mv && mv.m > JUMP_MIN_M && mv.kmh > JUMP_KMH) {
+      c.executionCtx.waitUntil(addFlag(c.env, me.id, 'jump', `지도 보는 중 ${moveText(mv)}`, lat, lng));
+    }
+  } catch (e) {
+    console.error('[cointrip] track failed', e);
+  }
   const kinds = walletKinds(me);
   if (!kinds.length) return c.json({ need_wallet: true, drops: [] });
 
@@ -306,11 +350,31 @@ app.post('/drops/:id/pick', async (c) => {
   const accuracy = Number(b.accuracy ?? 0);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return c.json({ error: 'lat/lng required' }, 400);
   if (b.mocked === true) {
+    await addFlag(c.env, me.id, 'mocked', `위치 조작 앱 켜고 줍기 (코인 ${c.req.param('id').slice(0, 8)})`, lat, lng);
     return c.json({ error: tr(c, '위치 조작 앱이 켜져 있으면 주울 수 없어요', '位置偽装アプリがオンのときは拾えません', 'You cannot pick up coins while a fake-location app is on'), code: 'mocked' }, 403);
   }
   if (!phoneVerified(me)) {
     return c.json({ error: tr(c, '휴대폰 인증을 마쳐야 주울 수 있어요', '携帯電話認証を完了すると拾えます', 'Verify your phone number to pick up coins'), code: 'phone_required' }, 403);
   }
+  // 하루 줍기 한도 — 조작해도 많이 못 챙기게.
+  if (s.dailyPickMax > 0) {
+    const today = await c.env.DB
+      .prepare(`SELECT COUNT(*) AS n FROM ct_drops WHERE picked_by = ? AND status = 'picked' AND picked_at >= ${KST_TODAY_SQL}`)
+      .bind(me.id)
+      .first<{ n: number }>();
+    if ((today?.n ?? 0) >= s.dailyPickMax) {
+      const flagged = await c.env.DB
+        .prepare(`SELECT 1 FROM ct_flags WHERE user_id = ? AND kind = 'limit' AND created_at >= ${KST_TODAY_SQL} LIMIT 1`)
+        .bind(me.id)
+        .first();
+      if (!flagged) await addFlag(c.env, me.id, 'limit', `하루 한도 ${s.dailyPickMax}개 닿음`, lat, lng);
+      return c.json({
+        error: tr(c, `오늘은 ${s.dailyPickMax}개까지 주울 수 있어요. 내일 다시 해 주세요`, `今日は${s.dailyPickMax}個まで拾えます。明日またお試しください`, `You can pick up ${s.dailyPickMax} coins per day. Please try again tomorrow`),
+        code: 'daily_limit',
+      }, 429);
+    }
+  }
+
   await settleExpired(c.env, me.id);
   const pendingRev = await pendingReveal(c.env, me.id, s);
   if (pendingRev) {
@@ -346,6 +410,10 @@ app.post('/drops/:id/pick', async (c) => {
   }
   const dist = distanceM(lat, lng, d.lat, d.lng);
   if (dist > s.pickRadiusM) {
+    // 앱은 가까운 코인만 줍기를 누를 수 있다 — 5km 넘게 떨어져서 줍기를 보냈으면 앱 밖에서 보낸 요청으로 본다.
+    if (dist > 5000) {
+      await addFlag(c.env, me.id, 'too_far', `${(dist / 1000).toFixed(1)}km 떨어진 곳에서 줍기 (코인 ${d.id.slice(0, 8)})`, lat, lng);
+    }
     return c.json({
       error: tr(c, `${s.pickRadiusM}m 안으로 가까이 가야 주울 수 있어요`, `${s.pickRadiusM}m以内に近づくと拾えます`, `Get within ${s.pickRadiusM}m to pick it up`),
       code: 'too_far',
@@ -363,8 +431,16 @@ app.post('/drops/:id/pick', async (c) => {
     if (sec < 5) return c.json({ error: tr(c, '잠시 뒤에 다시 해 주세요', '少し待ってから再度お試しください', 'Please try again in a moment'), code: 'slow_down' }, 429);
     const kmh = (distanceM(last.pick_lat, last.pick_lng, lat, lng) / sec) * 3.6;
     if (kmh > 150) {
+      await addFlag(c.env, me.id, 'too_fast', `전에 주운 곳에서 시속 ${Math.round(kmh)}km`, lat, lng);
       return c.json({ error: tr(c, '이동 속도가 너무 빨라요. 잠시 뒤에 다시 해 주세요', '移動速度が速すぎます。少し待ってから再度お試しください', 'You are moving too fast. Please try again later'), code: 'too_fast' }, 429);
     }
+  }
+
+  // 지도를 보던 위치에서 순간이동해 줍기 — 500m 넘게, 시속 150km 보다 빠르면 거절.
+  const mv = await trackPosition(c.env, me.id, lat, lng);
+  if (mv && mv.m > 500 && mv.kmh > 150) {
+    await addFlag(c.env, me.id, 'jump', `지도 보던 곳에서 줍기 ${moveText(mv)}`, lat, lng);
+    return c.json({ error: tr(c, '이동 속도가 너무 빨라요. 잠시 뒤에 다시 해 주세요', '移動速度が速すぎます。少し待ってから再度お試しください', 'You are moving too fast. Please try again later'), code: 'too_fast' }, 429);
   }
 
   // 먼저 터치한 사람이 가져간다 — status 조건으로 한 사람만 성공.

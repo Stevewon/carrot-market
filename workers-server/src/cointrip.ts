@@ -18,6 +18,10 @@ export interface CtSettings {
   /** client = 앱이 알려 주면 인정, ssv = AdMob 서버 확인 콜백이 와야 인정. */
   adVerify: 'client' | 'ssv';
   rewardedAdUnit: string;
+  /** 한 사람이 하루(한국 시간 0시 기준)에 주울 수 있는 개수. 0 = 한도 없음. */
+  dailyPickMax: number;
+  /** 코인트립 정지 회원 (의심 회원 목록에서 어드민이 정지). */
+  blockedIds: string[];
 }
 
 export const SETTING_KEYS = [
@@ -30,6 +34,8 @@ export const SETTING_KEYS = [
   'dud_penalty_qta',
   'ad_verify',
   'rewarded_ad_unit',
+  'daily_pick_max',
+  'blocked_ids',
 ] as const;
 
 function num(v: string | undefined, def: number, min: number, max: number): number {
@@ -52,6 +58,8 @@ export async function loadSettings(env: Env): Promise<CtSettings> {
     dudPenaltyQta: Math.round(num(m.dud_penalty_qta, 10, 0, 100000)),
     adVerify: m.ad_verify === 'ssv' ? 'ssv' : 'client',
     rewardedAdUnit: m.rewarded_ad_unit || 'ca-app-pub-3940256099942544/5224354917',
+    dailyPickMax: Math.round(num(m.daily_pick_max, 50, 0, 100000)),
+    blockedIds: (m.blocked_ids || '').split(',').map((s) => s.trim()).filter(Boolean),
   };
 }
 
@@ -59,6 +67,27 @@ export async function loadSettings(env: Env): Promise<CtSettings> {
 export function openFor(s: CtSettings, userId: string): boolean {
   return s.enabled || s.testerIds.includes(userId);
 }
+
+/**
+ * 위치 조작 의심 기록 (ct_flags). 실패해도 본 요청은 그대로 — 기록일 뿐.
+ * kind: mocked | jump | too_fast | too_far | limit
+ */
+export async function addFlag(
+  env: Env, userId: string, kind: string, detail: string, lat: number | null = null, lng: number | null = null,
+): Promise<void> {
+  try {
+    await env.DB
+      .prepare('INSERT INTO ct_flags (id, user_id, kind, detail, lat, lng) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(crypto.randomUUID(), userId, kind, detail.slice(0, 300), lat, lng)
+      .run();
+  } catch (e) {
+    console.error('[cointrip] flag failed', e);
+  }
+}
+
+/** 순간이동으로 보는 속도 (km/h) — KTX(300km/h)보다 빠르고 3km 넘게 움직였으면. */
+export const JUMP_KMH = 350;
+export const JUMP_MIN_M = 3000;
 
 /** '1.5' → 1500000. 소수점 6자리까지. 잘못된 값은 null. */
 export function toMicro(v: unknown): number | null {

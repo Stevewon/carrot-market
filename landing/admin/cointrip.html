@@ -57,6 +57,7 @@
         <button data-s="drop">코인 뿌리기</button>
         <button data-s="coins">코인 종류</button>
         <button data-s="wd">출금 신청</button>
+        <button data-s="sus">의심 회원</button>
         <button data-s="settings">설정</button>
         <button data-s="acks">책임 공지 확인 기록</button>
       </div>
@@ -174,6 +175,25 @@
         </div>
       </section>
 
+      <!-- 의심 회원 -->
+      <section class="section" id="s-sus">
+        <div class="card">
+          <div class="toolbar">
+            <select id="sus-days">
+              <option value="1">오늘·어제</option>
+              <option value="7" selected>최근 7일</option>
+              <option value="30">최근 30일</option>
+            </select>
+            <button class="btn-secondary" id="sus-refresh" style="margin-left:auto">↻ 새로고침</button>
+          </div>
+          <p class="hint">위치 조작이 의심되는 기록입니다. <b>조작 앱</b> = 위치 조작 앱을 켜고 줍기 · <b>순간이동</b> = 몇 초 만에 수 km 이동 ·
+            <b>너무 빠름</b> = 주운 곳 사이를 시속 150km 넘게 · <b>먼 곳</b> = 5km 넘게 떨어져서 줍기 요청 (앱 밖에서 보낸 요청).
+            <b>하루 한도</b>는 열심히 하는 회원도 닿으니 참고만 하세요. 정지하면 그 회원은 코인트립 지도·줍기가 막힙니다 (앱 지갑 잔액은 그대로).</p>
+          <div class="table-wrap" id="sus-table"><div class="loading">불러오는 중</div></div>
+          <div id="sus-detail" style="margin-top:14px"></div>
+        </div>
+      </section>
+
       <!-- 설정 -->
       <section class="section" id="s-settings">
         <div class="card">
@@ -185,6 +205,7 @@
             <div class="form-row"><label>정확한 위치 보이는 거리 (m)</label><input id="s-precise" type="number" min="30" max="5000" /></div>
             <div class="form-row"><label>주운 사람 몫 배수</label><input id="s-mult" type="number" min="1" max="100" step="0.5" /></div>
             <div class="form-row"><label>연합 최대 인원</label><input id="s-union" type="number" min="2" max="500" /></div>
+            <div class="form-row"><label>하루 줍기 한도 (개, 0 = 한도 없음)</label><input id="s-daily" type="number" min="0" step="1" /></div>
           </div>
           <h2 style="margin-top:18px">블랙코인 벌칙 · 광고</h2>
           <p class="hint">블랙코인에서 벌칙이 나오면 구글 보상형 광고가 뜹니다. 끝까지 보면 그냥 넘어가고, 안 보면(10분 안에 안 정하면) 아래 QTA 를 갖고 있는 QTA 에서 내놓습니다.</p>
@@ -240,7 +261,7 @@
       let coins = [];
 
       // ── 탭 ──
-      const loaders = { stats: loadStats, drop: () => { initMap(); loadDrops(); }, coins: loadCoins, wd: loadWd, settings: loadSettings, acks: loadAcks };
+      const loaders = { stats: loadStats, drop: () => { initMap(); loadDrops(); }, coins: loadCoins, wd: loadWd, sus: loadSus, settings: loadSettings, acks: loadAcks };
       $('tabs').addEventListener('click', (e) => {
         const b = e.target.closest('button[data-s]');
         if (!b) return;
@@ -470,7 +491,7 @@
           area.innerHTML = `<table><thead><tr><th>신청 시각</th><th>회원</th><th>코인</th><th>수량</th><th>보낼 주소</th><th>상태</th><th>관리</th></tr></thead><tbody>
             ${rows.map((w) => `<tr>
               <td>${AdminApp.fmtDate(w.requested_at)}</td>
-              <td><b>${esc(w.nickname || '')}</b><br/><code>${AdminApp.shortId(w.user_id)}</code></td>
+              <td><b>${esc(w.nickname || '')}</b><br/><code>${AdminApp.shortId(w.user_id)}</code>${w.flag_count > 0 ? `<br/><span class="pill pill-rejected" title="최근 30일 위치 조작 의심 기록 — 의심 회원 탭에서 확인">⚠ 의심 ${Number(w.flag_count)}건</span>` : ''}</td>
               <td>${esc(w.symbol)}<br/><small>${esc(w.network || '')}</small></td>
               <td><b>${esc(w.amount)}</b></td>
               <td><code>${esc(w.wallet_address)}</code><br/><small>${addrName(w.wallet_kind)}</small></td>
@@ -511,6 +532,56 @@
         } catch (e) { alert('실패: ' + e.message); }
       });
 
+      // ── 의심 회원 ──
+      const flagName = { mocked: '조작 앱', jump: '순간이동', too_fast: '너무 빠름', too_far: '먼 곳', limit: '하루 한도' };
+      async function loadSus() {
+        const area = $('sus-table');
+        AdminApp.showLoading(area);
+        $('sus-detail').innerHTML = '';
+        try {
+          const r = await api(P + '/suspects?days=' + $('sus-days').value);
+          const rows = r.rows || [];
+          if (!rows.length) { AdminApp.showEmpty(area, '의심 기록이 없어요'); return; }
+          const n = (v) => Number(v || 0) ? `<b style="color:#dc2626">${Number(v)}</b>` : '<span style="color:#9ca3af">0</span>';
+          area.innerHTML = `<table><thead><tr><th>회원</th><th>조작 앱</th><th>순간이동</th><th>너무 빠름</th><th>먼 곳</th><th>하루 한도</th><th>주운 개수</th><th>마지막</th><th>관리</th></tr></thead><tbody>
+            ${rows.map((u) => `<tr>
+              <td><b>${esc(u.nickname || '(탈퇴)')}</b><br/><code>${esc(u.user_id)}</code>${u.blocked ? '<br/><span class="pill pill-rejected">정지됨</span>' : ''}</td>
+              <td>${n(u.mocked)}</td><td>${n(u.jump)}</td><td>${n(u.too_fast)}</td><td>${n(u.too_far)}</td>
+              <td>${Number(u.limit_days || 0)}일</td><td>${Number(u.picks || 0)}</td>
+              <td>${AdminApp.fmtDate(u.last_at)}</td>
+              <td><button class="btn-sm" data-sf="${esc(u.user_id)}" data-nick="${esc(u.nickname || '')}">기록 보기</button>
+                ${u.blocked
+                  ? `<button class="btn-sm btn-success" data-sb="0" data-id="${esc(u.user_id)}" data-nick="${esc(u.nickname || '')}">정지 풀기</button>`
+                  : `<button class="btn-sm btn-danger" data-sb="1" data-id="${esc(u.user_id)}" data-nick="${esc(u.nickname || '')}">코인트립 정지</button>`}</td></tr>`).join('')}</tbody></table>`;
+        } catch (e) { AdminApp.showError(area, e.message); }
+      }
+      $('sus-days').addEventListener('change', loadSus);
+      $('sus-refresh').addEventListener('click', loadSus);
+      $('sus-table').addEventListener('click', async (e) => {
+        const f = e.target.closest('button[data-sf]');
+        if (f) {
+          const area = $('sus-detail');
+          AdminApp.showLoading(area);
+          try {
+            const r = await api(P + '/flags?user_id=' + encodeURIComponent(f.dataset.sf));
+            const rows = r.rows || [];
+            area.innerHTML = `<h2>${esc(f.dataset.nick)} 님 기록</h2><div class="table-wrap"><table><thead><tr><th>시각</th><th>종류</th><th>내용</th><th>위치</th></tr></thead><tbody>
+              ${rows.map((x) => `<tr><td>${AdminApp.fmtDate(x.created_at)}</td><td>${esc(flagName[x.kind] || x.kind)}</td><td>${esc(x.detail || '')}</td>
+                <td>${x.lat != null ? `<a href="https://www.openstreetmap.org/?mlat=${Number(x.lat)}&mlon=${Number(x.lng)}#map=16/${Number(x.lat)}/${Number(x.lng)}" target="_blank" rel="noopener">${Number(x.lat).toFixed(5)}, ${Number(x.lng).toFixed(5)}</a>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
+            area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          } catch (er) { AdminApp.showError(area, er.message); }
+          return;
+        }
+        const b = e.target.closest('button[data-sb]');
+        if (!b) return;
+        const blocking = b.dataset.sb === '1';
+        if (blocking && !AdminApp.confirmDanger(b.dataset.nick + ' 님의 코인트립을 정지할까요? 지도와 줍기가 막힙니다.')) return;
+        try {
+          await api(P + '/block', { method: 'POST', body: { user_id: b.dataset.id, blocked: blocking } });
+          loadSus();
+        } catch (er) { alert('실패: ' + er.message); }
+      });
+
       // ── 설정 ──
       async function loadSettings() {
         try {
@@ -521,6 +592,7 @@
           $('s-precise').value = e.preciseRadiusM;
           $('s-mult').value = e.finderMultiplier;
           $('s-union').value = e.unionMax;
+          $('s-daily').value = e.dailyPickMax;
           $('s-dudqta').value = e.dudPenaltyQta;
           $('s-adverify').value = e.adVerify;
           $('s-adunit').value = e.rewardedAdUnit;
@@ -533,7 +605,7 @@
         try {
           await api(P + '/settings', { method: 'PUT', body: {
             enabled: $('s-enabled').value, pick_radius_m: $('s-pick').value, precise_radius_m: $('s-precise').value,
-            finder_multiplier: $('s-mult').value, union_max: $('s-union').value, tester_ids: $('s-testers').value,
+            finder_multiplier: $('s-mult').value, union_max: $('s-union').value, daily_pick_max: $('s-daily').value, tester_ids: $('s-testers').value,
             dud_penalty_qta: $('s-dudqta').value, ad_verify: $('s-adverify').value, rewarded_ad_unit: $('s-adunit').value.trim(),
           } });
           alert('저장했습니다');
