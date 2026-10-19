@@ -60,6 +60,8 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
   GoogleMapController? _map;
   /// 처음부터 넓게 (서버 최대 20km) — 몇 km 떨어진 동네 코인도 지도에 보이게.
   int _radiusM = 20000;
+  /// 지도를 내 자리에서 멀리 옮겨 보고 있으면 그 가운데 — 그 둘레 코인을 받는다 (서울에서 부산 코인 보기).
+  LatLng? _view;
 
   @override
   void initState() {
@@ -167,7 +169,9 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
     if (!force && DateTime.now().difference(_lastFetchTime) < const Duration(seconds: 10)) return;
     _loading = true;
     try {
-      final r = await context.read<CointripService>().drops(me.latitude, me.longitude, radiusM: _radiusM);
+      final v = _view;
+      final r = await context.read<CointripService>()
+          .drops(me.latitude, me.longitude, radiusM: _radiusM, viewLat: v?.latitude, viewLng: v?.longitude);
       if (!mounted) return;
       _lastFetchAt = me;
       _lastFetchTime = DateTime.now();
@@ -342,13 +346,23 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
     if (m == null || me == null) return;
     try {
       final b = await m.getVisibleRegion();
-      // 보이는 지도의 끝까지 (최대 20km) — 내 위치 기준으로 받는다.
+      final center = LatLng((b.northeast.latitude + b.southwest.latitude) / 2, (b.northeast.longitude + b.southwest.longitude) / 2);
       final corners = [b.northeast, b.southwest, LatLng(b.northeast.latitude, b.southwest.longitude), LatLng(b.southwest.latitude, b.northeast.longitude)];
-      final far = corners
-          .map((p) => Geolocator.distanceBetween(me.latitude, me.longitude, p.latitude, p.longitude))
+      final half = corners
+          .map((p) => Geolocator.distanceBetween(center.latitude, center.longitude, p.latitude, p.longitude))
           .reduce(math.max);
-      final want = far.clamp(1000, 20000).round();
-      if (want > _radiusM * 1.3 || want < _radiusM / 2) {
+      final away = Geolocator.distanceBetween(me.latitude, me.longitude, center.latitude, center.longitude);
+      // 내 자리가 화면 안이면 내 위치 기준으로 보이는 끝까지, 다른 동네를 보고 있으면 그 화면 둘레 (둘 다 최대 20km).
+      final LatLng? view = away > half ? center : null;
+      final want = (view == null
+              ? corners.map((p) => Geolocator.distanceBetween(me.latitude, me.longitude, p.latitude, p.longitude)).reduce(math.max)
+              : half)
+          .clamp(1000, 20000)
+          .round();
+      final moved = view != _view &&
+          (view == null || _view == null || Geolocator.distanceBetween(view.latitude, view.longitude, _view!.latitude, _view!.longitude) > half / 3);
+      if (moved || want > _radiusM * 1.3 || want < _radiusM / 2) {
+        _view = view;
         _radiusM = want;
         _fetch(force: true);
       }

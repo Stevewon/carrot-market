@@ -7,7 +7,8 @@
  *   DELETE /api/cointrip/ext-wallet       - 지우기
  *   PUT    /api/cointrip/sol-wallet       - 솔라나 코인 받을 지갑 주소 { address, ack: true }
  *   DELETE /api/cointrip/sol-wallet       - 지우기
- *   GET    /api/cointrip/drops?lat&lng&radius_m - 내 주변 코인 (받을 지갑이 있는 코인만)
+ *   GET    /api/cointrip/drops?lat&lng&radius_m[&view_lat&view_lng] - 코인 (받을 지갑이 있는 코인만)
+ *            lat/lng = 내 위치 (정확한 위치·거리 기준), view_* = 지도를 옮겨 보고 있는 곳 (그 둘레 radius_m 를 찾는다)
  *   POST   /api/cointrip/drops/:id/pick   - 줍기 { lat, lng, accuracy, mocked }
  *   GET    /api/cointrip/wallet           - 코인별 잔액 + 출금 신청
  *   GET    /api/cointrip/ledger           - 내역
@@ -297,8 +298,15 @@ app.get('/drops', async (c) => {
   if (!kinds.length) return c.json({ need_wallet: true, drops: [] });
 
   const radius = Math.min(20_000, Math.max(100, Number(c.req.query('radius_m')) || 5_000));
+  // 지도를 다른 동네로 옮겨 보면 그곳 둘레를 찾는다 (서울에서 부산 코인 보기). 정확한 위치는 여전히 내 자리 근처만.
+  const vLat = Number(c.req.query('view_lat'));
+  const vLng = Number(c.req.query('view_lng'));
+  const hasView = Number.isFinite(vLat) && Number.isFinite(vLng) && Math.abs(vLat) <= 90 && Math.abs(vLng) <= 180
+    && c.req.query('view_lat') !== undefined;
+  const cLat = hasView ? vLat : lat;
+  const cLng = hasView ? vLng : lng;
   const dLat = radius / 111_320;
-  const dLng = radius / (111_320 * Math.max(0.1, Math.cos((lat * Math.PI) / 180)));
+  const dLng = radius / (111_320 * Math.max(0.1, Math.cos((cLat * Math.PI) / 180)));
   const rs = await c.env.DB
     .prepare(
       `SELECT d.id, d.lat, d.lng, d.amount_micro, d.is_black,
@@ -310,7 +318,7 @@ app.get('/drops', async (c) => {
           AND d.lat BETWEEN ? AND ? AND d.lng BETWEEN ? AND ?
         LIMIT 2000`,
     )
-    .bind(...kinds, lat - dLat, lat + dLat, lng - dLng, lng + dLng)
+    .bind(...kinds, cLat - dLat, cLat + dLat, cLng - dLng, cLng + dLng)
     .all<{
       id: string; lat: number; lng: number; amount_micro: number; is_black: number;
       coin_id: string; symbol: string; name: string; color: string;
@@ -318,8 +326,8 @@ app.get('/drops', async (c) => {
 
   const drops = [];
   for (const d of rs.results || []) {
+    if (distanceM(cLat, cLng, d.lat, d.lng) > radius) continue;
     const dist = distanceM(lat, lng, d.lat, d.lng);
-    if (dist > radius) continue;
     const precise = dist <= s.preciseRadiusM;
     const black = d.is_black === 1;
     drops.push({

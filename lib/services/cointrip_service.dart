@@ -305,9 +305,16 @@ class CointripService extends ChangeNotifier {
     }
   }
 
-  Future<({bool needWallet, List<CtDrop> drops})> drops(double lat, double lng, {int radiusM = 5000}) async {
+  /// [lat]/[lng] = 내 위치. [viewLat]/[viewLng] = 지도를 옮겨 보고 있는 곳 (그 둘레 [radiusM] 안 코인).
+  Future<({bool needWallet, List<CtDrop> drops})> drops(double lat, double lng,
+      {int radiusM = 5000, double? viewLat, double? viewLng}) async {
     try {
-      final res = await auth.api.get('/api/cointrip/drops', query: {'lat': lat, 'lng': lng, 'radius_m': radiusM});
+      final res = await auth.api.get('/api/cointrip/drops', query: {
+        'lat': lat,
+        'lng': lng,
+        'radius_m': radiusM,
+        if (viewLat != null && viewLng != null) ...{'view_lat': viewLat, 'view_lng': viewLng},
+      });
       final j = Map<String, dynamic>.from(res.data as Map);
       return (
         needWallet: j['need_wallet'] == true,
