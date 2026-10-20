@@ -1226,7 +1226,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get ctIntroWallet =>
-      '받을 지갑을 등록해야 그 코인이 지도에 보여요. 퀀타리움 코인은 퀀타리움 월렛, 이더리움·BNB·폴리곤 코인은 0x 지갑 주소, 솔라나 코인은 솔라나 지갑 주소예요.';
+      '주운 코인은 앱 지갑에 바로 쌓여요. 지갑 등록·인증은 출금할 때만 하면 돼요 — 퀀타리움 코인은 퀀타리움 월렛(소액 송금 인증), 이더리움·BNB·폴리곤 코인은 0x 지갑 주소, 솔라나 코인은 솔라나 지갑 주소로 받아요.';
 
   @override
   String get ctIntroSafety =>

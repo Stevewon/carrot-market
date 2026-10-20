@@ -40,7 +40,6 @@ import {
   isSolanaAddress,
   walletColumn,
   walletKeyOf,
-  WALLET_KEY_SQL,
   type WalletKey,
   loadSettings,
   openFor,
@@ -61,6 +60,7 @@ interface Me {
   wallet_address: string | null;
   ext_wallet_address: string | null;
   sol_wallet_address: string | null;
+  wallet_verified_at: string | null;
   verified_at: string | null;
   verified_ci_hash: string | null;
 }
@@ -68,7 +68,7 @@ interface Me {
 async function loadMe(c: C): Promise<Me> {
   const u = await c.env.DB
     .prepare(
-      `SELECT id, nickname, market, wallet_address, ext_wallet_address, sol_wallet_address, verified_at, verified_ci_hash
+      `SELECT id, nickname, market, wallet_address, ext_wallet_address, sol_wallet_address, wallet_verified_at, verified_at, verified_ci_hash
          FROM users WHERE id = ?`,
     )
     .bind(c.get('user')!.id)
@@ -294,9 +294,7 @@ app.get('/drops', async (c) => {
   } catch (e) {
     console.error('[cointrip] track failed', e);
   }
-  const kinds = walletKinds(me);
-  if (!kinds.length) return c.json({ need_wallet: true, drops: [] });
-
+  // 지갑이 없어도 모든 코인을 보여 주고 주울 수 있다 — 지갑 등록 · 인증은 출금할 때 받는다 (사장님 결정 2026-10-20).
   const radius = Math.min(20_000, Math.max(100, Number(c.req.query('radius_m')) || 5_000));
   // 지도를 다른 동네로 옮겨 보면 그곳 둘레를 찾는다 (서울에서 부산 코인 보기). 정확한 위치는 여전히 내 자리 근처만.
   const vLat = Number(c.req.query('view_lat'));
@@ -314,11 +312,10 @@ app.get('/drops', async (c) => {
          FROM ct_drops d JOIN ct_coins k ON k.id = d.coin_id
         WHERE d.status = 'active' AND k.active = 1
           AND (d.expires_at IS NULL OR d.expires_at > datetime('now'))
-          AND ${WALLET_KEY_SQL} IN (${kinds.map(() => '?').join(',')})
           AND d.lat BETWEEN ? AND ? AND d.lng BETWEEN ? AND ?
         LIMIT 2000`,
     )
-    .bind(...kinds, cLat - dLat, cLat + dLat, cLng - dLng, cLng + dLng)
+    .bind(cLat - dLat, cLat + dLat, cLng - dLng, cLng + dLng)
     .all<{
       id: string; lat: number; lng: number; amount_micro: number; is_black: number;
       coin_id: string; symbol: string; name: string; color: string;
@@ -411,11 +408,6 @@ app.post('/drops/:id/pick', async (c) => {
   const gone = () => c.json({ error: tr(c, '이미 누군가 주웠거나 사라진 코인이에요', 'すでに誰かが拾ったか、消えたコインです', 'Someone already picked up this coin, or it is gone'), code: 'gone' }, 409);
   if (!d || d.status !== 'active' || !d.active) return gone();
   if (d.expires_at && new Date(d.expires_at.replace(' ', 'T') + 'Z').getTime() < Date.now()) return gone();
-  const key = walletKeyOf(d);
-  if (!addressFor(me, key)) {
-    // 받을 지갑이 없는 회원에게는 지도에도 안 보내지만, 직접 요청해도 막는다.
-    return gone();
-  }
   const dist = distanceM(lat, lng, d.lat, d.lng);
   if (dist > s.pickRadiusM) {
     // 앱은 가까운 코인만 줍기를 누를 수 있다 — 5km 넘게 떨어져서 줍기를 보냈으면 앱 밖에서 보낸 요청으로 본다.
@@ -474,7 +466,7 @@ app.post('/drops/:id/pick', async (c) => {
     return c.json({ ok: true, ad_reveal: true, reveal: await openReveal(c.env, me.id, d.id, s) });
   }
 
-  const result = await creditDrop(c.env, (p) => c.executionCtx.waitUntil(p), me, d, key, s);
+  const result = await creditDrop(c.env, (p) => c.executionCtx.waitUntil(p), me, d, s);
   if (!result) return c.json({ error: tr(c, '잠시 뒤에 다시 해 주세요', '少し待ってから再度お試しください', 'Please try again in a moment') }, 500);
   return c.json(result);
 });
@@ -492,18 +484,16 @@ async function creditDrop(
   waitUntil: (p: Promise<unknown>) => void,
   me: Me,
   d: PickedDrop,
-  key: WalletKey,
   s: CtSettings,
 ) {
-  // 연합 나눔 — 이 코인을 받을 지갑이 있는 연합원에게만.
+  // 연합 나눔 — 연합원 모두 (지갑은 출금할 때 등록).
   const union = await unionOf(env, me.id);
   let others: { id: string; nickname: string; market: string | null }[] = [];
   if (union && union.members.length > 1) {
-    const col = walletColumn(key);
     const rs = await env.DB
       .prepare(
         `SELECT u.id, u.nickname, u.market FROM ct_union_members m JOIN users u ON u.id = m.user_id
-          WHERE m.union_id = ? AND u.id != ? AND u.${col} IS NOT NULL AND u.${col} != ''`,
+          WHERE m.union_id = ? AND u.id != ?`,
       )
       .bind(union.id, me.id)
       .all<{ id: string; nickname: string; market: string | null }>();
@@ -769,7 +759,7 @@ app.post('/reveals/:id/ad-watched', async (c) => {
     .bind(rv.drop_id)
     .first<PickedDrop & { wallet_kind: string; network: string }>();
   if (!d) return c.json({ error: 'gone', code: 'gone' }, 409);
-  const result = await creditDrop(c.env, (x) => c.executionCtx.waitUntil(x), me, d, walletKeyOf(d), s);
+  const result = await creditDrop(c.env, (x) => c.executionCtx.waitUntil(x), me, d, s);
   if (!result) return c.json({ error: tr(c, '잠시 뒤에 다시 해 주세요', '少し待ってから再度お試しください', 'Please try again in a moment') }, 500);
   return c.json(result);
 });
@@ -876,6 +866,13 @@ app.post('/withdrawals', async (c) => {
         : tr(c, '받을 지갑 주소를 먼저 등록해 주세요', '先に受け取りウォレットアドレスを登録してください', 'Please register a receiving wallet address first'),
       code: 'wallet_required',
     }, 400);
+  }
+  // 퀀타리움 코인은 지갑 인증(소액 송금)까지 마쳐야 출금 — QTA 출금과 같은 조건.
+  if (wkey === 'quantarium' && !me.wallet_verified_at) {
+    return c.json({
+      error: tr(c, '출금하려면 지갑 인증(소액 송금)이 필요해요', '出金するにはウォレット認証(少額送金)が必要です', 'Wallet verification (small transfer) is required to withdraw'),
+      code: 'wallet_verify_required',
+    }, 403);
   }
   const pending = await c.env.DB
     .prepare("SELECT 1 FROM ct_withdrawals WHERE user_id = ? AND coin_id = ? AND status IN ('requested','processing') LIMIT 1")

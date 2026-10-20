@@ -374,7 +374,7 @@
   "ctIntroPick": "Get within {meters}m of a coin and the [Pick up] button turns on. Coins far away show only a rough area.",
   "ctIntroBlack": "Black coins are an adventure. Most hold good coins, but some are empty (a dud) or a penalty. On a penalty you must watch an ad to the end or give up {qta} of your QTA. Think before you grab!",
   "ctIntroUnion": "Form a friend union and everyone shares whatever any member picks up. The finder gets {times}x.",
-  "ctIntroWallet": "A coin shows on the map once you register a wallet for it: a Quantarium wallet for Quantarium coins, a 0x address for Ethereum, BNB and Polygon coins, and a Solana address for Solana coins.",
+  "ctIntroWallet": "Coins you pick go straight into your in-app wallet. You only need to register and verify a wallet when you withdraw: a Quantarium wallet (small-transfer verification) for Quantarium coins, a 0x address for Ethereum, BNB and Polygon coins, and a Solana address for Solana coins.",
   "ctIntroSafety": "Watch your surroundings, not the screen, while walking. Never enter roads, construction sites, private property, or other places you shouldn't go.",
   "ctRedNotice": "Coins sent to a wrong address because you entered it incorrectly are entirely your own responsibility. They cannot be returned, so always double-check the address.",
   "ctAckCheck": "I have read and understood the above",

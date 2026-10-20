@@ -304,6 +304,7 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
   late final TextEditingController _amount = TextEditingController(text: widget.balance.amount);
   bool _ack = false;
   bool _sending = false;
+  bool _needWallet = false;
   String? _error;
 
   @override
@@ -321,10 +322,27 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
       await context.read<CointripService>().withdraw(widget.balance.coin.id, _amount.text.trim());
       if (mounted) Navigator.pop(context, true);
     } on CtError catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) {
+        setState(() {
+          _error = e.message;
+          _needWallet = e.code == 'wallet_required' || e.code == 'wallet_verify_required';
+        });
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  /// 출금할 때 받을 지갑 등록 · 인증으로 — 퀀타리움은 인증 관리(소액 송금), 나머지는 주소 등록.
+  void _goRegisterWallet() {
+    final route = switch (widget.balance.walletKind) {
+      'quantarium' => '/profile/verify',
+      'solana' => '/cointrip/sol-wallet',
+      _ => '/cointrip/ext-wallet',
+    };
+    final router = GoRouter.of(context);
+    Navigator.pop(context, false);
+    router.push(route);
   }
 
   @override
@@ -392,6 +410,14 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : Text(l10n.ctWithdrawSubmit, style: const TextStyle(fontWeight: FontWeight.w700)),
               ),
+              if (address == null || _needWallet) ...[
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: _goRegisterWallet,
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                  child: Text(l10n.ctRegisterWallet, style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ],
             ],
           ),
         ),

@@ -570,7 +570,8 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
 
   Widget _body(CointripService svc) {
     final l10n = context.l10n;
-    if (!svc.hasAnyWallet || _needWallet) {
+    // 지갑이 없어도 코인을 줍는다 — 지갑 등록 · 인증은 출금할 때 (예전 서버가 need_wallet 을 줄 때만 이 화면).
+    if (_needWallet) {
       return _message(
         Icons.account_balance_wallet_outlined,
         l10n.ctNeedWalletTitle,

@@ -1228,7 +1228,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get ctIntroWallet =>
-      '受け取るウォレットを登録すると、そのコインが地図に表示されます。QuantariumコインはQuantariumウォレット、Ethereum・BNB・Polygonのコインは0xウォレットアドレス、SolanaのコインはSolanaウォレットアドレスです。';
+      '拾ったコインはすぐアプリのウォレットに貯まります。ウォレットの登録・認証は出金するときだけでOK — QuantariumコインはQuantariumウォレット(少額送金認証)、Ethereum・BNB・Polygonのコインは0xウォレットアドレス、SolanaのコインはSolanaウォレットアドレスで受け取ります。';
 
   @override
   String get ctIntroSafety =>

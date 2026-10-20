@@ -1297,7 +1297,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ctIntroWallet =>
-      'A coin shows on the map once you register a wallet for it: a Quantarium wallet for Quantarium coins, a 0x address for Ethereum, BNB and Polygon coins, and a Solana address for Solana coins.';
+      'Coins you pick go straight into your in-app wallet. You only need to register and verify a wallet when you withdraw: a Quantarium wallet (small-transfer verification) for Quantarium coins, a 0x address for Ethereum, BNB and Polygon coins, and a Solana address for Solana coins.';
 
   @override
   String get ctIntroSafety =>
