@@ -11,8 +11,11 @@
     <!-- Image & Video picker -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
                      android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- Google Play 사진·동영상 권한 정책: 갤러리는 시스템 사진 선택기(image_picker)로만 — 권한 없이 동작.
+         플러그인이 끼워 넣어도 빠지게 remove. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" tools:node="remove" />
 
     <!-- Voice call (WebRTC) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />

@@ -25,8 +25,8 @@ class PermissionService {
     final perms = <Permission>[
       Permission.camera,       // QR scan, product photos, record video
       Permission.microphone,   // Voice call (WebRTC)
-      Permission.photos,       // iOS photos / Android READ_MEDIA_IMAGES
-      Permission.videos,       // Android READ_MEDIA_VIDEO (no-op on older APIs)
+      // iOS 만 사진 권한 — Android 는 시스템 사진 선택기라 권한이 필요 없다 (Google Play 사진·동영상 권한 정책).
+      if (Platform.isIOS) Permission.photos,
       Permission.notification, // Chat/call alerts
     ];
     return perms;
@@ -92,14 +92,7 @@ class PermissionService {
     // On older Android (<33) READ_EXTERNAL_STORAGE is handled by the picker itself,
     // so we treat it as granted.
     if (Platform.isAndroid) {
-      // image_picker handles legacy storage internally, so skip here unless 13+.
-      final photos = await Permission.photos.status;
-      if (photos.isGranted || photos.isLimited) return true;
-      // isDenied on older Android means "not applicable" — image_picker still works.
-      if (photos.isPermanentlyDenied) {
-        _showDenied(context, L10n.current.chatPermGalleryTitle, L10n.current.chatPermGalleryBodyAndroid);
-        return false;
-      }
+      // Android 13+ 는 시스템 사진 선택기, 그 아래는 image_picker 가 알아서 — 사진 권한을 묻지 않는다.
       return true;
     }
     final status = await Permission.photos.request();
