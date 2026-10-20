@@ -79,15 +79,6 @@ async function loadMe(c: C): Promise<Me> {
 /** 이 회원이 받을 수 있는 지갑 종류. */
 type Wallets = Pick<Me, 'wallet_address' | 'ext_wallet_address' | 'sol_wallet_address'>;
 
-/** 이 회원이 받을 수 있는 주소 종류 (quantarium · evm · solana). */
-function walletKinds(u: Wallets): WalletKey[] {
-  const k: WalletKey[] = [];
-  if (u.wallet_address) k.push('quantarium');
-  if (u.ext_wallet_address) k.push('evm');
-  if (u.sol_wallet_address) k.push('solana');
-  return k;
-}
-
 function phoneVerified(u: Pick<Me, 'verified_at' | 'verified_ci_hash'>): boolean {
   return !!(u.verified_at && u.verified_ci_hash);
 }
@@ -197,7 +188,9 @@ app.get('/status', async (c) => {
     precise_radius_m: s.preciseRadiusM,
     finder_multiplier: s.finderMultiplier,
     union_max: s.unionMax,
-    wallet_kinds: walletKinds(me),
+    // v1.0.204 이하 앱은 이 값이 비면 "지갑을 등록해야 코인이 보여요" 화면을 띄운다 —
+    // 지갑 없이도 줍게 (출금할 때 등록 · 인증) 모든 종류를 보낸다. 실제 등록 여부는 아래 주소들.
+    wallet_kinds: ['quantarium', 'evm', 'solana'],
     quantarium_wallet: me.wallet_address,
     ext_wallet_address: me.ext_wallet_address,
     sol_wallet_address: me.sol_wallet_address,
