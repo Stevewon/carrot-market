@@ -18,7 +18,7 @@ jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
 
     steps:
       - name: 📥 Checkout code
@@ -119,6 +119,21 @@ jobs:
             exit 1
           fi
 
+      - name: 📦 Build AAB (Google Play 업로드용, 같은 고정 키)
+        env:
+          EGGPLANT_KEYSTORE_PASSWORD: ${{ secrets.EGGPLANT_KEYSTORE_PASSWORD }}
+          EGGPLANT_KEY_PASSWORD: ${{ secrets.EGGPLANT_KEYSTORE_PASSWORD }}
+          EGGPLANT_KEY_ALIAS: eggplant
+        run: |
+          flutter build appbundle --release \
+            --build-number=${{ steps.build_info.outputs.build_number }} \
+            --dart-define=API_BASE=${{ vars.API_BASE || 'https://api.eggplant.life' }} \
+            --dart-define=SOCKET_URL=${{ vars.SOCKET_URL || 'wss://api.eggplant.life/socket' }} \
+            --dart-define=IDENTITY_ENABLED=${{ vars.IDENTITY_ENABLED || 'true' }}
+          mv build/app/outputs/bundle/release/app-release.aab \
+            "build/app/outputs/bundle/release/eggplant-${{ steps.build_info.outputs.version_label }}.aab"
+          ls -la build/app/outputs/bundle/release
+
       - name: 📤 Upload APK artifact (single universal APK)
         uses: actions/upload-artifact@v4
         with:
@@ -137,6 +152,7 @@ jobs:
 
             ### 📥 APK 다운로드
             **`eggplant-${{ steps.build_info.outputs.version_label }}.apk`** 하나만 받으세요. 모든 Android 기기에서 작동합니다.
+            (`eggplant-${{ steps.build_info.outputs.version_label }}.aab` 는 Google Play Console 업로드용 — 폰에 설치하는 파일 아님)
 
             ### 📱 설치 방법
             1. 모바일 브라우저에서 APK 파일 탭
@@ -152,6 +168,7 @@ jobs:
             Cloudflare Workers 기반 공개 서버라서 **Wi-Fi 제약 없이 3G/5G 어디서든 동작**합니다 🌍
           files: |
             build/app/outputs/flutter-apk/eggplant-*.apk
+            build/app/outputs/bundle/release/eggplant-*.aab
           draft: false
           prerelease: false
         env:
