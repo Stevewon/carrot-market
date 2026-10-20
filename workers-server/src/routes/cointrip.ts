@@ -29,7 +29,6 @@ import type { Env, Variables } from '../types';
 import { authMiddleware } from '../jwt';
 import { tr, trl, marketLang } from '../market';
 import { addNotifications } from '../utils/inbox';
-import { deductCointripDud } from '../qta';
 import {
   addFlag,
   JUMP_KMH,
@@ -196,7 +195,7 @@ app.get('/status', async (c) => {
     sol_wallet_address: me.sol_wallet_address,
     phone_verified: phoneVerified(me),
     intro_acked: !!intro,
-    dud_penalty_qta: s.dudPenaltyQta,
+    dud_penalty_qta: 0, // QTA 벌칙 없앰 — 예전 앱 안내 문구용
     penalty: await pendingPenalty(c.env, me.id, s),
     reveal: await pendingReveal(c.env, me.id, s),
     union: await unionOf(c.env, me.id),
@@ -566,7 +565,7 @@ interface PenaltyRow { id: string; qta: number; status: string; expires_at: stri
 function penaltyOut(p: PenaltyRow, s: CtSettings) {
   return {
     id: p.id,
-    qta: p.qta,
+    qta: 0, // QTA 벌칙 없앰 (예전 기록 qta 도 0 으로)
     status: p.status,
     expires_at: p.expires_at,
     ad_unit: s.rewardedAdUnit,
@@ -581,7 +580,7 @@ async function openPenalty(env: Env, userId: string, dropId: string, s: CtSettin
       `INSERT INTO ct_dud_penalties (id, user_id, drop_id, qta, expires_at)
        VALUES (?, ?, ?, ?, datetime('now', '+${PENALTY_MINUTES} minutes'))`,
     )
-    .bind(id, userId, dropId, s.dudPenaltyQta)
+    .bind(id, userId, dropId, 0) // QTA 벌칙 없앰
     .run();
   const p = await env.DB.prepare('SELECT id, qta, status, expires_at FROM ct_dud_penalties WHERE id = ?').bind(id).first<PenaltyRow>();
   return penaltyOut(p!, s);
@@ -595,24 +594,22 @@ async function pendingPenalty(env: Env, userId: string, s: CtSettings) {
   return p ? penaltyOut(p, s) : null;
 }
 
-/** QTA 내기로 확정 (한 번만). 실제로 뺀 수량을 돌려준다. */
+/**
+ * 광고 없이 꽝 정리 (한 번만). QTA 는 빼지 않는다 — 사용자 QTA 를 가져가는 벌칙은 없앴다
+ * (사장님 결정 2026-10-20, Google Play 베팅 정책). 예전 앱의 "QTA 내기"도 여기로 와서 0개로 끝난다.
+ */
 async function payPenalty(env: Env, userId: string, penaltyId: string): Promise<number | null> {
-  const p = await env.DB
-    .prepare("SELECT id, qta FROM ct_dud_penalties WHERE id = ? AND user_id = ? AND status = 'pending'")
-    .bind(penaltyId, userId)
-    .first<{ id: string; qta: number }>();
-  if (!p) return null;
   const done = await env.DB
-    .prepare("UPDATE ct_dud_penalties SET status = 'paid', resolved_at = datetime('now') WHERE id = ? AND status = 'pending'")
-    .bind(p.id)
+    .prepare(
+      `UPDATE ct_dud_penalties SET status = 'paid', deducted = 0, resolved_at = datetime('now')
+        WHERE id = ? AND user_id = ? AND status = 'pending'`,
+    )
+    .bind(penaltyId, userId)
     .run();
-  if (!done.meta.changes) return null;
-  const taken = await deductCointripDud(env, userId, p.id, p.qta);
-  await env.DB.prepare('UPDATE ct_dud_penalties SET deducted = ? WHERE id = ?').bind(taken, p.id).run();
-  return taken;
+  return done.meta.changes ? 0 : null;
 }
 
-/** 10분 안에 광고를 안 본 꽝은 QTA 내기로 처리. */
+/** 10분 안에 광고를 안 본 꽝은 그냥 끝낸다 (QTA 안 뺌). */
 async function settleExpired(env: Env, userId: string): Promise<void> {
   const rs = await env.DB
     .prepare("SELECT id FROM ct_dud_penalties WHERE user_id = ? AND status = 'pending' AND expires_at <= datetime('now')")

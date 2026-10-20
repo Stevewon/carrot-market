@@ -1217,9 +1217,8 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String ctIntroBlack(int qta) {
-    return '黒いブラックコインは冒険です。ほとんどは良いコインですが、ハズレ（空のコイン）や罰ゲームが出ることもあります。罰ゲームなら広告を最後まで見るか、持っているQTAから$qta枚を出す必要があります。むやみに拾わないで！';
-  }
+  String get ctIntroBlack =>
+      '黒いブラックコインは冒険です。ほとんどは良いコインですが、ハズレ（空のコイン）や罰ゲームが出ることもあります。罰ゲームなら広告を1本見て終わりです。あなたのQTAやコインが取られることはありません。';
 
   @override
   String ctIntroUnion(String times) {
@@ -1350,20 +1349,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get ctDudTitle => '罰ゲーム！';
 
   @override
-  String ctDudBody(int qta) {
-    return 'ブラックコインから罰ゲームが出ました。広告を最後まで見ればそのまま終わりますが、見ない場合は持っているQTAから$qta枚を出す必要があります。';
-  }
+  String get ctDudBody => 'ブラックコインから罰ゲームが出ました。広告を1本見て終わりです。あなたのQTAやコインはそのままです。';
 
   @override
-  String get ctDudDeadline => '10分以内に選ばないとQTAを出したものとして処理されます';
+  String get ctDudDeadline => '広告が出ない場合はそのまま進んでも大丈夫です';
 
   @override
   String get ctDudWatchAd => '広告を見る';
 
   @override
-  String ctDudPay(int qta) {
-    return 'QTA $qta枚を出す';
-  }
+  String get ctDudPay => '広告なしで進む';
 
   @override
   String get ctDudAdNotFinished => '広告を最後まで見る必要があります';
@@ -1378,9 +1373,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get ctDudAdOk => '広告を見たのでそのまま終わります';
 
   @override
-  String ctDudPaid(int qta) {
-    return 'QTA $qta枚を出しました';
-  }
+  String get ctDudPaid => '終わりました';
 
   @override
   String get ctPick => '拾う';

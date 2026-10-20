@@ -208,9 +208,9 @@
             <div class="form-row"><label>하루 줍기 한도 (개, 0 = 한도 없음)</label><input id="s-daily" type="number" min="0" step="1" /></div>
           </div>
           <h2 style="margin-top:18px">블랙코인 벌칙 · 광고</h2>
-          <p class="hint">블랙코인에서 벌칙이 나오면 구글 보상형 광고가 뜹니다. 끝까지 보면 그냥 넘어가고, 안 보면(10분 안에 안 정하면) 아래 QTA 를 갖고 있는 QTA 에서 내놓습니다.</p>
+          <p class="hint">블랙코인에서 벌칙이 나오면 구글 보상형 광고가 뜹니다. 회원의 QTA·코인은 빼지 않습니다 (QTA 벌칙 없앰 — Google Play 정책).</p>
           <div class="row">
-            <div class="form-row"><label>광고 안 보면 내는 QTA</label><input id="s-dudqta" type="number" min="0" /></div>
+            <input id="s-dudqta" type="hidden" />
             <div class="form-row"><label>광고 확인 방식</label><select id="s-adverify"><option value="client">앱이 알려 주면 인정</option><option value="ssv">구글 서버 확인 (AdMob 서버 측 확인 설정 후)</option></select></div>
             <div class="form-row" style="flex-basis:320px"><label>보상형 광고 단위 ID</label><input id="s-adunit" type="text" placeholder="ca-app-pub-…/…" /></div>
           </div>

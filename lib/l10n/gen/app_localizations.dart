@@ -2335,8 +2335,8 @@ abstract class AppLocalizations {
   /// No description provided for @ctIntroBlack.
   ///
   /// In ko, this message translates to:
-  /// **'검은 블랙코인은 모험이에요. 대부분 좋은 코인이 들어 있지만 꽝(빈 코인)이나 벌칙이 나올 수도 있어요. 벌칙이면 광고를 끝까지 보거나 갖고 있는 QTA 중 {qta}개를 내놓아야 해요. 무조건 덥석 줍지 마세요!'**
-  String ctIntroBlack(int qta);
+  /// **'검은 블랙코인은 모험이에요. 대부분 좋은 코인이 들어 있지만 꽝(빈 코인)이나 벌칙이 나올 수도 있어요. 벌칙이면 광고를 하나 보고 넘어가요. 내 QTA나 코인을 가져가는 일은 없어요.'**
+  String get ctIntroBlack;
 
   /// No description provided for @ctIntroUnion.
   ///
@@ -2563,13 +2563,13 @@ abstract class AppLocalizations {
   /// No description provided for @ctDudBody.
   ///
   /// In ko, this message translates to:
-  /// **'블랙코인에서 벌칙이 나왔어요. 광고를 끝까지 보면 그냥 넘어가고, 안 보면 갖고 있는 QTA 중 {qta}개를 내놓아야 해요.'**
-  String ctDudBody(int qta);
+  /// **'블랙코인에서 벌칙이 나왔어요. 광고를 하나 보고 넘어가요. 내 QTA나 코인은 그대로예요.'**
+  String get ctDudBody;
 
   /// No description provided for @ctDudDeadline.
   ///
   /// In ko, this message translates to:
-  /// **'10분 안에 정하지 않으면 QTA를 내는 것으로 처리돼요'**
+  /// **'광고가 안 나오면 그냥 넘어가도 돼요'**
   String get ctDudDeadline;
 
   /// No description provided for @ctDudWatchAd.
@@ -2581,8 +2581,8 @@ abstract class AppLocalizations {
   /// No description provided for @ctDudPay.
   ///
   /// In ko, this message translates to:
-  /// **'QTA {qta}개 내기'**
-  String ctDudPay(int qta);
+  /// **'광고 없이 넘어가기'**
+  String get ctDudPay;
 
   /// No description provided for @ctDudAdNotFinished.
   ///
@@ -2611,8 +2611,8 @@ abstract class AppLocalizations {
   /// No description provided for @ctDudPaid.
   ///
   /// In ko, this message translates to:
-  /// **'QTA {qta}개를 냈어요'**
-  String ctDudPaid(int qta);
+  /// **'넘어갔어요'**
+  String get ctDudPaid;
 
   /// No description provided for @ctPick.
   ///

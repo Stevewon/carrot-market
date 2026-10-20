@@ -1286,9 +1286,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String ctIntroBlack(int qta) {
-    return 'Black coins are an adventure. Most hold good coins, but some are empty (a dud) or a penalty. On a penalty you must watch an ad to the end or give up $qta of your QTA. Think before you grab!';
-  }
+  String get ctIntroBlack =>
+      'Black coins are an adventure. Most hold good coins, but some are empty (a dud) or a penalty. A penalty just means watching one ad — your QTA and coins are never taken.';
 
   @override
   String ctIntroUnion(String times) {
@@ -1431,21 +1430,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ctDudTitle => 'Penalty!';
 
   @override
-  String ctDudBody(int qta) {
-    return 'The black coin held a penalty. Watch an ad to the end and you\'re off the hook; otherwise you give up $qta of your QTA.';
-  }
+  String get ctDudBody =>
+      'The black coin held a penalty. Watch one ad and move on. Your QTA and coins stay as they are.';
 
   @override
-  String get ctDudDeadline =>
-      'If you don\'t choose within 10 minutes, the QTA is taken';
+  String get ctDudDeadline => 'If no ad loads, you can simply move on';
 
   @override
   String get ctDudWatchAd => 'Watch an ad';
 
   @override
-  String ctDudPay(int qta) {
-    return 'Pay $qta QTA';
-  }
+  String get ctDudPay => 'Continue without an ad';
 
   @override
   String get ctDudAdNotFinished => 'You need to watch the ad to the end';
@@ -1461,9 +1456,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ctDudAdOk => 'You watched the ad — you\'re off the hook';
 
   @override
-  String ctDudPaid(int qta) {
-    return 'You paid $qta QTA';
-  }
+  String get ctDudPaid => 'You\'re all set';
 
   @override
   String get ctPick => 'Pick up';

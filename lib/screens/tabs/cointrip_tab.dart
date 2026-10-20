@@ -537,7 +537,7 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
         const SizedBox(height: 18),
         line(Icons.map_outlined, l10n.ctIntroFind),
         line(Icons.near_me_outlined, l10n.ctIntroPick(svc.pickRadiusM)),
-        line(Icons.help_outline_rounded, l10n.ctIntroBlack(svc.dudPenaltyQta)),
+        line(Icons.help_outline_rounded, l10n.ctIntroBlack),
         line(Icons.groups_outlined, l10n.ctIntroUnion(mult)),
         line(Icons.account_balance_wallet_outlined, l10n.ctIntroWallet),
         line(Icons.directions_walk_rounded, l10n.ctIntroSafety),
@@ -959,8 +959,8 @@ class _DudDialogState extends State<_DudDialog> {
       _error = null;
     });
     try {
-      final n = await context.read<CointripService>().penaltyPay(widget.penalty);
-      if (mounted) Navigator.pop(context, l10n.ctDudPaid(n));
+      await context.read<CointripService>().penaltyPay(widget.penalty);
+      if (mounted) Navigator.pop(context, l10n.ctDudPaid);
     } on CtError catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
@@ -971,7 +971,6 @@ class _DudDialogState extends State<_DudDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final qta = widget.penalty.qta;
     return AlertDialog(
       title: Text(l10n.ctDudTitle, textAlign: TextAlign.center),
       content: Column(
@@ -979,7 +978,7 @@ class _DudDialogState extends State<_DudDialog> {
         children: [
           const CoinBadge(black: true, size: 64),
           const SizedBox(height: 14),
-          Text(l10n.ctDudBody(qta), textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, height: 1.45)),
+          Text(l10n.ctDudBody, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, height: 1.45)),
           const SizedBox(height: 6),
           Text(l10n.ctDudDeadline, textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 12.5, color: EggplantColors.textSecondary)),
@@ -1000,8 +999,8 @@ class _DudDialogState extends State<_DudDialog> {
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: _busy ? null : _pay,
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46), foregroundColor: EggplantColors.error),
-            child: Text(l10n.ctDudPay(qta), textAlign: TextAlign.center),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+            child: Text(l10n.ctDudPay, textAlign: TextAlign.center),
           ),
         ],
       ),

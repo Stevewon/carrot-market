@@ -1215,9 +1215,8 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String ctIntroBlack(int qta) {
-    return '검은 블랙코인은 모험이에요. 대부분 좋은 코인이 들어 있지만 꽝(빈 코인)이나 벌칙이 나올 수도 있어요. 벌칙이면 광고를 끝까지 보거나 갖고 있는 QTA 중 $qta개를 내놓아야 해요. 무조건 덥석 줍지 마세요!';
-  }
+  String get ctIntroBlack =>
+      '검은 블랙코인은 모험이에요. 대부분 좋은 코인이 들어 있지만 꽝(빈 코인)이나 벌칙이 나올 수도 있어요. 벌칙이면 광고를 하나 보고 넘어가요. 내 QTA나 코인을 가져가는 일은 없어요.';
 
   @override
   String ctIntroUnion(String times) {
@@ -1348,20 +1347,16 @@ class AppLocalizationsKo extends AppLocalizations {
   String get ctDudTitle => '벌칙!';
 
   @override
-  String ctDudBody(int qta) {
-    return '블랙코인에서 벌칙이 나왔어요. 광고를 끝까지 보면 그냥 넘어가고, 안 보면 갖고 있는 QTA 중 $qta개를 내놓아야 해요.';
-  }
+  String get ctDudBody => '블랙코인에서 벌칙이 나왔어요. 광고를 하나 보고 넘어가요. 내 QTA나 코인은 그대로예요.';
 
   @override
-  String get ctDudDeadline => '10분 안에 정하지 않으면 QTA를 내는 것으로 처리돼요';
+  String get ctDudDeadline => '광고가 안 나오면 그냥 넘어가도 돼요';
 
   @override
   String get ctDudWatchAd => '광고 보기';
 
   @override
-  String ctDudPay(int qta) {
-    return 'QTA $qta개 내기';
-  }
+  String get ctDudPay => '광고 없이 넘어가기';
 
   @override
   String get ctDudAdNotFinished => '광고를 끝까지 봐야 넘어갈 수 있어요';
@@ -1376,9 +1371,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get ctDudAdOk => '광고를 봐서 그냥 넘어가요';
 
   @override
-  String ctDudPaid(int qta) {
-    return 'QTA $qta개를 냈어요';
-  }
+  String get ctDudPaid => '넘어갔어요';
 
   @override
   String get ctPick => '줍기';
