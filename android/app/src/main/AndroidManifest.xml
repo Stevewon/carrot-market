@@ -16,6 +16,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" tools:node="remove" />
+    <!-- v1.0.209: Agora 화면 공유(mediaProjection)는 쓰지 않는다 — Play 포그라운드 서비스 선언 대상에서 뺀다. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" tools:node="remove" />
 
     <!-- Voice call (WebRTC) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -57,6 +59,14 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
+
+        <!-- v1.0.209: Agora 화면 공유 구성요소 제거 (안 쓰는 기능, mediaProjection 포그라운드 서비스). -->
+        <service
+            android:name="io.agora.rtc2.extensions.MediaProjectionMgr$LocalScreenSharingService"
+            tools:node="remove" />
+        <activity
+            android:name="io.agora.rtc2.extensions.MediaProjectionMgr$LocalScreenCaptureAssistantActivity"
+            tools:node="remove" />
 
         <activity
             android:name=".MainActivity"
@@ -110,6 +120,11 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-3940256099942544~3347511713" />
+
+        <!-- QR 스캔 바코드 모델 (v1.0.209 useUnbundled): 설치할 때 Play 서비스가 미리 받아 둔다. -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="barcode" />
 
         <meta-data
             android:name="flutterEmbedding"
