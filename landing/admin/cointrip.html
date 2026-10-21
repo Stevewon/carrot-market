@@ -425,7 +425,7 @@
               <td>${esc(chainName(c.network))}</td>
               <td>${addrName(c.network === 'Solana' ? 'solana' : c.wallet_kind === 'quantarium' ? 'quantarium' : 'evm')}</td><td>${esc(c.withdraw_min)}</td><td>${c.budget == null ? '한도 없음' : esc(c.budget)}</td>
               <td>${c.active ? '<span class="pill pill-active">사용</span>' : '<span class="pill pill-dismissed">멈춤</span>'}</td>
-              <td><button class="btn-sm" data-edit="${esc(c.id)}">수정</button></td></tr>`).join('')}</tbody></table>`;
+              <td><button class="btn-sm" data-edit="${esc(c.id)}">수정</button> <button class="btn-sm btn-danger" data-del="${esc(c.id)}">삭제</button></td></tr>`).join('')}</tbody></table>`;
         } catch (e) { AdminApp.showError(area, e.message); }
       }
       // 체인 = 회원이 받는 주소: 퀀타리움 → 퀀타리움 월렛, 이더리움·BNB·폴리곤 → 0x 주소, 솔라나 → 솔라나 주소.
@@ -461,9 +461,18 @@
         $('c-budget').value = c && c.budget != null ? c.budget : '';
         $('c-active').value = c && !c.active ? '0' : '1';
       }
-      $('coin-table').addEventListener('click', (e) => {
+      $('coin-table').addEventListener('click', async (e) => {
         const b = e.target.closest('button[data-edit]');
         if (b) { fillCoin(coins.find((c) => c.id === b.dataset.edit)); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        const d = e.target.closest('button[data-del]');
+        if (!d) return;
+        const coin = coins.find((c) => c.id === d.dataset.del);
+        if (!AdminApp.confirmDanger(`${coin ? coin.symbol + ' ' + coin.name : '이 코인'} 을(를) 지울까요? 지도에 남은 이 코인도 같이 지워집니다.`)) return;
+        try {
+          await api(P + '/coins/' + encodeURIComponent(d.dataset.del), { method: 'DELETE' });
+          if ($('c-id').value === d.dataset.del) fillCoin(null);
+          loadCoins();
+        } catch (err) { alert(err.message); }
       });
       $('c-new').addEventListener('click', () => fillCoin(null));
       $('c-save').addEventListener('click', async () => {

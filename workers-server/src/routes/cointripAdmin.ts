@@ -2,7 +2,7 @@
  * 코인트립 어드민 — /api/admin/cointrip/* (admin.ts 의 어드민 세션 확인을 거친 뒤).
  *
  *   GET  /settings                    PUT /settings { key: value, ... }
- *   GET  /coins                       POST /coins      PUT /coins/:id
+ *   GET  /coins                       POST /coins      PUT /coins/:id   DELETE /coins/:id
  *   GET  /drops?status&coin_id        POST /drops      (한 곳 / 반경 안 여러 개 뿌리기)
  *   POST /drops/:id/cancel            POST /batches/:id/cancel
  *   GET  /stats
@@ -172,6 +172,31 @@ app.put('/coins/:id', async (c) => {
     .bind(...cols.map((k) => r.values[k]), c.req.param('id'))
     .run();
   await audit(c, 'cointrip_coin_update', c.req.param('id'), JSON.stringify(r.values));
+  return c.json({ ok: true });
+});
+
+// 코인 종류 삭제: 회원이 한 번도 받지 않은 코인만 (주운 내역·잔액·출금이 있으면 "멈춤"으로 숨긴다).
+// 지도에 남은 그 코인의 뿌린 코인도 같이 지운다.
+app.delete('/coins/:id', async (c) => {
+  const id = c.req.param('id');
+  const used = await c.env.DB
+    .prepare(
+      `SELECT 1 FROM ct_ledger WHERE coin_id = ?1
+       UNION SELECT 1 FROM ct_balances WHERE coin_id = ?1 AND amount_micro > 0
+       UNION SELECT 1 FROM ct_withdrawals WHERE coin_id = ?1 LIMIT 1`,
+    )
+    .bind(id)
+    .first();
+  if (used) return c.json({ error: '회원이 이미 받은 코인이라 지울 수 없어요. "멈춤"으로 바꾸면 지도에서 숨겨집니다' }, 409);
+  const sub = 'SELECT id FROM ct_drops WHERE coin_id = ?1';
+  await c.env.DB.batch([
+    c.env.DB.prepare(`DELETE FROM ct_dud_penalties WHERE drop_id IN (${sub})`).bind(id),
+    c.env.DB.prepare(`DELETE FROM ct_reveals WHERE drop_id IN (${sub})`).bind(id),
+    c.env.DB.prepare('DELETE FROM ct_drops WHERE coin_id = ?1').bind(id),
+    c.env.DB.prepare('DELETE FROM ct_balances WHERE coin_id = ?1').bind(id),
+    c.env.DB.prepare('DELETE FROM ct_coins WHERE id = ?1').bind(id),
+  ]);
+  await audit(c, 'cointrip_coin_delete', id, null);
   return c.json({ ok: true });
 });
 
