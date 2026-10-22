@@ -34,10 +34,15 @@
     .form-row input[type=number] { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; background: #fff; min-height: 44px; }
     .form-row input[type=color] { width: 100%; min-height: 44px; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
     /* 지도 코인: 사장님이 준 Q 황금 동전 (coin_spin.png = 30장면 가로 띠, 2.4초에 한 바퀴). 블랙코인은 같은 동전을 검게. */
-    .spin-coin { width: 30px; height: 30px; background: url(coin_spin.png?v=1) 0 0 / 900px 30px no-repeat;
-      animation: coin-spin 2.4s steps(30) infinite; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
-    .spin-coin.black { filter: grayscale(1) brightness(.3) drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
-    @keyframes coin-spin { from { background-position: 0 0; } to { background-position: -900px 0; } }
+    /* 버벅임 줄이기: 배경 위치를 바꾸면 코인마다 매 장면 다시 그린다 → 30장면 띠를 transform 으로 밀어
+       GPU 가 옮기기만 하게 (다시 그리지 않음). 그림자 필터도 빼고 고정 그림자로. 지도를 움직이는 동안은 멈춘다. */
+    .spin-coin { width: 30px; height: 30px; overflow: hidden;
+      background: radial-gradient(ellipse 38% 10% at 50% 94%, rgba(0,0,0,.35), transparent); }
+    .spin-coin > i { display: block; width: 900px; height: 30px; background: url(coin_spin.png?v=1) 0 0 / 900px 30px no-repeat;
+      animation: coin-spin 2.4s steps(30) infinite; will-change: transform; }
+    .spin-coin.black > i { filter: grayscale(1) brightness(.3); }
+    .moving .spin-coin > i { animation-play-state: paused; }
+    @keyframes coin-spin { from { transform: translateX(0); } to { transform: translateX(-900px); } }
     .section { display: none; }
     .section.on { display: block; }
     td code { font-size: 12px; }
@@ -331,6 +336,8 @@
           maxZoom: 19, referrerPolicy: 'strict-origin-when-cross-origin', attribution: '© OpenStreetMap contributors',
         }).addTo(map);
         layer = L.layerGroup().addTo(map);
+        map.on('movestart', () => map.getContainer().classList.add('moving'));
+        map.on('moveend', () => map.getContainer().classList.remove('moving'));
         map.on('click', (e) => {
           $('d-lat').value = e.latlng.lat.toFixed(6);
           $('d-lng').value = e.latlng.lng.toFixed(6);
@@ -377,7 +384,7 @@
             rows.forEach((d, i) => L.marker([d.lat, d.lng], {
               icon: L.divIcon({
                 className: '',
-                html: `<div class="spin-coin${d.is_black ? ' black' : ''}" style="animation-delay:-${((i * 7) % 30) * 0.08}s"></div>`,
+                html: `<div class="spin-coin${d.is_black ? ' black' : ''}"><i style="animation-delay:-${((i * 7) % 30) * 0.08}s"></i></div>`,
                 iconSize: [30, 30], iconAnchor: [15, 15],
               }),
             }).bindTooltip(`${d.is_black ? (d.is_dud === 1 ? '블랙·꽝 ' : d.is_dud === 2 ? '블랙·벌칙 ' : d.is_dud === 3 ? '블랙·광고열기 ' : '블랙 ') : ''}${d.symbol} ${d.amount}`).addTo(layer));
