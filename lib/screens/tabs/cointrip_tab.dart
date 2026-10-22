@@ -198,8 +198,11 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
   // 종류·수량은 주워야 안다 — 비싼 코인만 골라 줍지 않게 (사장님 지시). 서버도 지도에는 안 보낸다.
   static const int _spinFrames = 30; // assets/cointrip/coin_00..29.png (96px)
   static const Duration _spinStep = Duration(milliseconds: 80); // 30장 × 80ms = 2.4초에 한 바퀴 (원본 GIF 와 같게)
-  /// 한 번에 도는 코인 수 상한 (지도 마커를 자주 바꾸면 무거워진다). 나머지는 서 있는 그림.
-  static const int _maxSpinning = 60;
+  /// 한 번에 도는 코인 수 상한 — 마커 그림을 바꿀 때마다 지도가 그림을 새로 풀어서 무겁다 (v1.0.210: 60 → 12,
+  /// 많으면 버벅인다). 내게 가까운 코인부터 돌고 나머지와 멀리 있는 코인은 서 있는 그림.
+  static const int _maxSpinning = 12;
+  /// 지도를 끌거나 확대하는 동안은 돌리지 않는다 (움직임과 마커 갱신이 겹치면 버벅인다).
+  bool _cameraMoving = false;
   static const double _coinSize = 46;
   /// 내 위치 — 파란 점 대신 큐돌이 (사장님 지시).
   static const double _meSize = 58;
@@ -256,7 +259,7 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
     final want = widget.active && _drops.isNotEmpty && CointripTab.mapOverride == null;
     if (want && _spin == null) {
       _spin = Timer.periodic(_spinStep, (_) {
-        if (mounted) setState(() => _frame = (_frame + 1) % _spinFrames);
+        if (mounted && !_cameraMoving) setState(() => _frame = (_frame + 1) % _spinFrames);
       });
     } else if (!want) {
       _spin?.cancel();
@@ -265,7 +268,8 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
   }
 
   Set<Marker> _markers() {
-    final precise = _drops.where((d) => d.precise).toList();
+    final precise = _drops.where((d) => d.precise).toList()
+      ..sort((a, b) => _myDistance(a).compareTo(_myDistance(b)));
     // 멀리 있는 코인도 도는 동전으로 보인다 — 다만 대략적인 칸 가운데에 칸마다 하나, 조금 흐리게.
     final far = <String, CtDrop>{};
     for (final d in _drops.where((d) => !d.precise)) {
@@ -297,7 +301,7 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
         Marker(
           markerId: MarkerId('far:${farList[j].key}'),
           position: LatLng(farList[j].value.lat, farList[j].value.lng),
-          icon: _iconFor(farList[j].value, precise.length + j),
+          icon: _iconFor(farList[j].value, _maxSpinning),
           anchor: const Offset(0.5, 0.5),
           alpha: 0.7,
           zIndexInt: 1,
@@ -633,7 +637,11 @@ class _CointripTabState extends State<CointripTab> with WidgetsBindingObserver {
           markers: markers,
           circles: circles,
           onMapCreated: (c) => _map = c,
-          onCameraIdle: _onCameraIdle,
+          onCameraMoveStarted: () => _cameraMoving = true,
+          onCameraIdle: () {
+            _cameraMoving = false;
+            _onCameraIdle();
+          },
           onTap: (_) => setState(() => _selected = null),
         );
     final nearest = _drops.where((d) => d.precise).fold<CtDrop?>(
